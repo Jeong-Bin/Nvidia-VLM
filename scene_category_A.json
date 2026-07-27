@@ -1,0 +1,439 @@
+{
+  "normal": {
+    "description": "Normal driving scenario",
+    "categories": [],
+    "prompt_templates": [""]
+  },
+  "special": {
+    "Driving Situations and Special Agents": {
+      "Road Construction": {
+        "synonyms": ["road construction",
+                    "roadwork",
+                    "road maintenance",
+                    "road repair",
+                    "construction zone",
+                    "work zon",
+                    "construction vehicle",
+                    "construction equipment",
+                    "excavator",
+                    "traffic cone",
+                    "road barrier",
+                    "barricade",
+                    "warning sig",
+                    "construction worker"
+                   ],
+        "prompt_templates": ["A road under construction ",
+                            "Traffic passing through a construction zone",
+                            "Road maintenance in progress",
+                            "Construction equipment beside the road",
+                            "An excavator working near the roadway",
+                            "A construction vehicle blocking a lane",
+                            "Traffic cones blocking the lane",
+                            "Construction barriers redirecting traffic",
+                            "A construction worker directing traffic",
+                            "A lane closed due to road construction",
+                            "Vehicles following a temporary lane"
+                            ]
+      },
+      "Manual Traffic Control": {
+        "synonyms": ["manual traffic control",
+                    "traffic control",
+                    "traffic controller",
+                    "traffic control personnel",
+                    "person directing traffic",
+                    "traffic officer",
+                    "police directing traffic",
+                    "construction flagger",
+                    "crossing guard",
+                    "flagger"
+                    ],
+        "prompt_templates": ["A police officer directing traffic",
+                            "A traffic controller guiding vehicles",
+                            "A construction worker directing vehicles",
+                            "A flagger controlling traffic",
+                            "A person signaling vehicles to stop",
+                            "A worker holding a stop sign for traffic",
+                            "Manual traffic control at an intersection",
+                            "Traffic being directed by a police officer"
+                            ]
+      },
+      "Emergency Vehicle": {
+        "synonyms": ["emergency vehicle",
+                    "ambulance",
+                    "police car",
+                    "police vehicle",
+                    "patrol car",
+                    "fire truck",
+                    "rescue vehicle",
+                    "EMS vehicle"
+                    ],
+        "prompt_templates": ["An ambulance with flashing lights",
+                            "An emergency vehicle approaching traffic",
+                            "A police car responding to an incident",
+                            "A fire truck driving on the road",
+                            "Emergency vehicles passing through traffic",
+                            "An ambulance stopped on the roadside",
+                            "Emergency responders at the scene"
+                            ]
+      },
+      "Military Vehicle": {
+        "synonyms": ["military vehicle",
+                    "army vehicle",
+                    "armored vehicle",
+                    "military truck",
+                    "military convoy",
+                    "tank"
+                    ],
+        "prompt_templates": ["A military vehicle driving on the road",
+                            "An army truck traveling in traffic",
+                            "Military vehicles passing through the city",
+                            "An armored vehicle on a public road",
+                            "A military convoy crossing the intersection",
+                            "A tank on the road"
+                            ]
+      },
+      "Tow Truck": {
+        "synonyms": ["tow truck",
+                    "towing vehicle",
+                    "flatbed tow truck",
+                    "roadside assistance"
+                    ],
+        "prompt_templates": ["A tow truck towing a broken-down vehicle",
+                            "A vehicle being towed on the road",
+                            "A roadside assistance vehicle towing a car",
+                            "A tow truck stopped beside a disabled vehicle",
+                            "A recovery truck removing a damaged vehicle",
+                            "A broken-down car being pulled by a tow truck",
+                            "A flatbed tow truck carrying a damaged vehicle"
+                            ]
+      },
+      "Car Carrier": {
+        "synonyms": ["car carrier",
+                    "vehicle carrier",
+                    "car transporter",
+                    "auto transporter",
+                    "vehicle transport truck",
+                    "car hauling truck",
+                    "car hauler"
+                    ],
+        "prompt_templates": ["A car carrier transporting multiple vehicles",
+                            "A vehicle transport truck on the highway",
+                            "A truck carrying several cars",
+                            "An auto transporter loaded with vehicles",
+                            "A large truck hauling car"
+                            ]
+      },
+      "Wrong-way Vehicle": {
+        "synonyms": ["wrong-way vehicle",
+                    "wrong-way driver",
+                    "oncoming vehicle"
+                    ],
+        "prompt_templates": ["A vehicle driving in the wrong direction",
+                            "A vehicle driving against traffic",
+                            "A vehicle is approaching in the opposite direction",
+                            "A car traveling against traffic",
+                            "An oncoming vehicle in the same lane",
+                            "A wrong-way driver approaching",
+                            "A vehicle entering from the wrong direction"
+                            ]
+      },
+      "Broken-down Vehicle": {
+        "synonyms": ["broken-down vehicle",
+                    "disabled vehicle",
+                    "stalled vehicle",
+                    "stranded vehicle",
+                    "immobilized vehicle"
+                    ],
+        "prompt_templates": ["A broken-down vehicle on the roadside",
+                            "A stalled car blocking the lane",
+                            "A disabled vehicle stopped in traffic",
+                            "A stranded vehicle with hazard lights",
+                            "A car unable to move on the road"
+                            ]
+      },
+      "Traffic Accident": {
+        "synonyms": ["traffic accident",
+                    "traffic collision",
+                    "vehicle collision",
+                    "car crash",
+                    "road accident",
+                    "crash scene"
+                    ],
+        "prompt_templates": ["A traffic accident blocking the road",
+                            "Two vehicles involved in a collision",
+                            "A car crash at the intersection",
+                            "Emergency responders at a crash scene",
+                            "Damaged vehicles after an accident"
+                            ]
+      },
+      "Jaywalking": {
+        "synonyms": ["jaywalking",
+                    "illegal crossing",
+                    "pedestrian crossing"
+                    ],
+        "prompt_templates": ["Someone jaywalking across the road",
+                            "A person crossing between moving vehicles",
+                            "A pedestrian entering the roadway suddenly",
+                            "A pedestrian is crossing outside the crosswalk",
+                            "People are passing between the stopped vehicles"
+                            ]
+      },
+      "Bicycle or Scooter": {
+        "synonyms": ["bicycle",
+                    "cyclist",
+                    "motorcycle",
+                    "scooter",
+                    "electric scooter",
+                    "e-scooter",
+                    "personal mobility device"
+                    ],
+        "prompt_templates": ["A bicycle is passing by",
+                            "A motorcycle crosses the road",
+                            "Cyclists are approaching",
+                            "Cyclists run in a row",
+                            "An electric scooter is popping out",
+                            "The personal mobility driver is on the road"
+                            ]
+      },
+      "Animal": {
+        "synonyms": ["animal",
+                    "dog",
+                    "cat",
+                    "deer",
+                    "bird",
+                    "livestock",
+                    "wild animal",
+                    "wildlife"
+                    ],
+        "prompt_templates": ["An animal crossing the road",
+                            "A dog running into the street",
+                            "A cat running into the road",
+                            "A deer crossing in front of traffic",
+                            "Wildlife near the roadway",
+                            "Wild animals approaching",
+                            "An animal standing on the road",
+                            "A large animal blocking traffic",
+                            "Livestock walking along the road"
+                            ]
+      }
+    },
+
+    "Road Condition": {
+      "Poor Lane Markings": {
+        "synonyms": ["missing lane markings",
+                    "faded lane markings",
+                    "worn lane markings",
+                    "unclear lane markings",
+                    "invisible lane markings",
+                    "damaged lane markings",
+                    "erased lane markings",
+                    "poor lane markings",
+                    "unclear road markings",
+                    "worn road markings"
+                    ],
+        "prompt_templates": ["Lane markings are difficult to see",
+                            "Faded lane markings on the road",
+                            "Missing lane markings",
+                            "Road markings have worn away",
+                            "Lane boundaries are barely visible",
+                            "Unclear lane markings in front of the vehicle",
+                            "Worn road markings making lanes difficult to identify",
+                            "Lane markings are partially missing"
+                            ]
+      },
+      "Tunnel": {
+        "synonyms": ["entrance to the tunnel",
+                    "exit of the tunnel"
+                    ],
+        "prompt_templates": ["Entering the tunnel",
+                            "Entrance to the Tunnel",
+                            "Exit of the tunnel",
+                            "Glare at the tunnel exit",
+                            "Bright light at the tunnel exit"
+                            ]
+      },
+      "Toll Gate": {
+        "synonyms": ["toll gate",
+                    "toll booth",
+                    "toll plaza",
+                    "toll station",
+                    "highway toll",
+                    "toll checkpoint",
+                    "electronic toll collection"
+                    ],
+        "prompt_templates": ["Entering the toll gate",
+                            "Vehicles passing through a toll plaza",
+                            "Traffic entering a toll station",
+                            "Multiple toll booths on a highway",
+                            "An electronic toll collection lane",
+                            "Vehicles slowing down before a toll gate"
+                            ]
+      },
+      "Roundabout": {
+        "synonyms": ["roundabout",
+                    "roundabout intersection",
+                    "roundabout junction",
+                    "traffic circle",
+                    "circular intersection",
+                    "rotary"
+                    ],
+        "prompt_templates": ["Roundabout ahead",
+                            "There is a roundabout",
+                            "Approaching the rotary",
+                            "Vehicles entering a rotary",
+                            "Traffic circulating in a roundabout junction",
+                            "A multi-lane traffic circle",
+                            "Vehicles yielding before entering a rotary",
+                            "A roundabout with multiple exits",
+                            "Traffic navigating a circular intersection"
+                            ]
+      },
+      "Side Street": {
+        "synonyms": ["side street",
+                    "back street",
+                    "minor road",
+                    "local street",
+                    "residential street",
+                    "residential road",
+                    "neighborhood road"
+                    ],
+        "prompt_templates": ["A vehicle is approaching from the opposite side on the side street",
+                            "A vehicle approaching on narrow side road",
+                            "A side road jammed with vehicles",
+                            "Traffic on a narrow local street",
+                            "A vehicle traveling along a neighborhood road",
+                            "A car turning onto a minor road",
+                            "Vehicles driving through a back street",
+                            "A narrow side street with parked cars",
+                            "A local street in a residential road",
+                            "Pedestrians on both sides of the back road"
+                            ]
+      },
+      "Road Geometry": {
+        "synonyms": ["steep slope",
+                    "steep incline",
+                    "steep grade",
+                    "uphill",
+                    "downhill",
+                    "sharp curve",
+                    "S-curve"
+                    ],
+        "prompt_templates": ["There is a steep slope ahead",
+                            "There is a sharp uphill ahead",
+                            "There is a sharp downhill ahead",
+                            "Going down a steep grade",
+                            "Climbing the steep incline",
+                            "Sharp curve ahead",
+                            "Beware of sharp curves",
+                            "There is a S-curve",
+                            "A sharp curve on the downhill road"
+                            ]
+      }
+    },
+
+    "Road Surface": {
+      "Pothole": {
+        "synonyms": ["pothole",
+                    "hole in the road",
+                    "pavement damage",
+                    "Sinkhole"
+                    ],
+        "prompt_templates": ["There are potholes in the road",
+                            "A large pothole on the roadway",
+                            "Damaged pavement with a pothole",
+                            "There is a sinkhole on the road",
+                            "Dangerous sinkhole ahead"
+                            ]
+      },
+      "Standing Water": {
+        "synonyms": ["standing water",
+                    "water puddle",
+                    "puddle",
+                    "water on the road",
+                    "flooded road",
+                    "flooded street",
+                    "waterlogged road",
+                    "road covered with water"
+                    ],
+        "prompt_templates": ["Standing water on the road",
+                            "A large puddle ahead",
+                            "Small puddles on the roadway",
+                            "Water covering the road surface",
+                            "The road is partially covered with water",
+                            "A flooded road",
+                            "The road is completely flooded",
+                            "Water accumulated on the roadway"
+                            ]
+      },
+      "Ice": {
+        "synonyms": ["ice",
+                    "icy road",
+                    "black ice",
+                    "frozen road",
+                    "icy pavement"
+                    ],
+        "prompt_templates": ["An icy road surface",
+                            "Black ice on the roadway",
+                            "A frozen section of the road",
+                            "Vehicles driving on an icy road",
+                            "Slippery road covered with ice"
+                            ]
+      },
+      "Snow": {
+        "synonyms": ["snow-covered road",
+                    "snow-covered street",
+                    "snowy road"
+                    ],
+        "prompt_templates": ["A snow-covered road",
+                            "Vehicles driving on a snowy road",
+                            "Snow covering the roadway",
+                            "The road completely covered with snow",
+                            "The road was partially covered with snow"
+                            ]
+      },
+      "Mud": {
+        "synonyms": ["mud",
+                    "muddy road",
+                    "mud on the road",
+                    "muddy surface",
+                    "dirt road"
+                    ],
+        "prompt_templates": ["Mud covering the road",
+                            "A muddy road surface",
+                            "Vehicles driving through mud",
+                            "A road covered with wet mud",
+                            "Muddy conditions on the roadway"
+                            ]
+      }
+    },
+
+    "Obstacle": {
+      "Obstacle": {
+        "synonyms": ["Obstacle",
+                    "Fallen tree",
+                    "Fallen branch",
+                    "Box",
+                    "Rock",
+                    "Garbage",
+                    "Debris"
+                    ],
+        "prompt_templates": ["An obstacle on the road",
+                            "An unknown object blocking the road",
+                            "Foreign object on the road surface",
+                            "Unexpected objects on the road",
+                            "Unidentified obstacle ahead",
+                            "Unidentified objects on the roadway",
+                            "A large obstacle in the driving lane",
+                            "Debris scattered across the roadway",
+                            "Garbage scattered on the roadway",
+                            "A fallen tree blocking the road",
+                            "A fallen branch on the roadway",
+                            "A large rock in the middle of the road",
+                            "A cardboard box on the road",
+                            "Road debris blocking the lane",
+                            "An object partially blocking the lane"
+                            ]
+      }
+    }
+  }
+}

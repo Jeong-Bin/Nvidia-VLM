@@ -1,0 +1,18 @@
+# 대용량 데이터셋 / 산출물 (git에 올리지 않음)
+pav_sample/
+visionary_anns/
+results/
+
+# 모델/허깅페이스 캐시
+.cache/
+
+# python
+__pycache__/
+*.pyc
+
+# 문서 (필요시 별도 공유)
+VLM 기반 반자동 edge-case mining을 위한 시나리오 분류.docx
+
+# 로그
+run_all.log
+*.log
