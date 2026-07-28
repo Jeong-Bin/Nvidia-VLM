@@ -4,20 +4,24 @@ VLM 기반 반자동 edge-case (long-tail) mining.
 
 판정 단위는 클립(uuid) 전체가 아니라 "클립 내 특정 순간"(uuid, frame_idx)
 이다. 각 20초 클립에서 균등하게 timestamps_per_clip 개의 순간을 뽑고, 매
-순간마다 전방 3뷰(front_wide, cross_left, cross_right)의 같은 프레임을
-함께 Qwen2.5-VL 에 보여줘 2단계로 분류한다:
+순간마다 전방 3뷰(front_wide, cross_left, cross_right)의 직전/현재 프레임
+6장을 Qwen2.5-VL 에 한 번에 보여줘 JSON 으로 답을 받는다:
 
-  1단계 (caption): 그 순간을 한 문장으로 서술
-  2단계 (match)  : 그 문장이 scene_category.json 의 어느 (scenario, category)와
-                    가장 잘 맞는지 top-3 후보를 뽑는다 (normal 포함, 없으면 OOD)
+  {"verdict": "Normal" | "Special",
+   "categories": [scene_category_B.json 의 special 카테고리명, ...],
+   "evidence": "실제로 본 것을 요약한 짧은 구절"}
 
-500 클립 x 10 timestamps/clip (기본값) = 5,000 개 판정 단위.
+멀티라벨이므로 한 장면에 여러 카테고리가 동시에 붙을 수 있다
+(예: 공사장에서 수신호 -> Road Construction + Manual Traffic Control).
 
 Usage:
   # 스모크 테스트 (클립 2개 x 10 timestamp = 20 단위)
   python edge_case_mining.py --limit-clips 2
 
-  # 전체 (500 클립 x 10 timestamp = 5,000 단위)
+  # 센서 라벨을 사실로 함께 넣기 (기본은 둘 다 off)
+  python edge_case_mining.py --use-egomotion --use-obstacle
+
+  # 전체
   python edge_case_mining.py
 """
 import argparse
@@ -32,7 +36,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parent
 CAMERA_DIR = ROOT / "pav_sample" / "camera"
-SCENE_JSON = ROOT / "scene_category.json"
+SCENE_JSON = ROOT / "scene_category_B.json"
 
 FRONT_VIEWS = [
     "camera_front_wide_120fov",
@@ -93,45 +97,32 @@ def _examples_for(lab, example_source: str, num_examples: int | None = None):
     return items[:num_examples] if num_examples else items
 
 
-def build_label_menu(labels, example_source: str = "synonyms", num_examples: int | None = None):
-    """모델에게 보여줄 (scenario, category) 목록 텍스트를 만든다 (2단계 매칭용).
+def build_category_menu(labels, example_source: str = "synonyms",
+                        num_examples: int = 2):
+    """프롬프트에 넣을 special 카테고리 목록.
 
-    example_source="synonyms"(기본값, 20260723 방식): 각 카테고리를 synonym 키워드로
-    제시. prompt_templates 를 쓰면 normal 카테고리의 풍부한 "정지/횡단" 예시가
-    special 카테고리를 눌러버려(예: "turkey crossing" 을 Animal 대신 Normal Stop 으로)
-    다양성이 붕괴되는 것을 확인했으므로 기본은 synonyms.
-    synonyms 가 없는 카테고리(normal)는 자동으로 prompt_templates 로 대체된다.
-    num_examples=None 이면 전체 사용.
+    형식: `- Road Construction(roadwork, traffic cone)`
+    카테고리명과 예시를 한 덩어리로 묶어 제시하므로, 모델이 별도의 매칭 단계
+    없이 정확한 카테고리명으로 바로 답할 수 있다.
+
+    예시 개수는 2개가 기본. 카테고리당 예시를 전부 나열하면 판별이 경직되어
+    다양성이 떨어진다는 관찰(20260724)에 따라 소수만 노출한다.
+    normal 은 제외 - Q1(Normal/Special)이 그 역할을 하고, Q2 는 special
+    카테고리만 나열하는 자리이기 때문.
     """
     lines = []
-    for i, lab in enumerate(labels, 1):
-        examples = ", ".join(f'"{e}"' for e in _examples_for(lab, example_source, num_examples))
-        lines.append(
-            f'{i}. scenario="{lab["scenario"]}", category="{lab["category"]}" '
-            f'(e.g. {examples})'
-        )
+    for lab in labels:
+        if lab["is_normal"]:
+            continue
+        ex = _examples_for(lab, example_source, num_examples)
+        lines.append(f"- {lab['category']}({', '.join(ex)})" if ex
+                     else f"- {lab['category']}")
     return "\n".join(lines)
 
 
-def build_caption_hint(labels, example_source: str = "synonyms", num_examples: int = 1):
-    """1단계 캡션 프롬프트에 넣을 special 카테고리 체크리스트.
-
-    카테고리당 example_source 에서 앞 num_examples 개만 예시로 넣는다.
-    기본값(synonyms, 1개)은 초기 20260723 실행 방식으로, 예시를 최소화해 모델의
-    관찰 자유도를 높인다 - 예시를 전부 나열하면 오히려 판별이 경직되어 다양성이
-    떨어진다는 관찰에 따른 것.
-    example_source="prompt_templates": 유의미한 상황을 서술하는 문장으로 힌트를 줌
-    (예: "An electric scooter is popping out"), "존재 vs 상황" 을 구분시키고 싶을 때.
-    캡션이 이 예시를 그대로 베끼지 않도록 프롬프트 본문에서 별도로 지시한다.
-    normal 은 제외 (특이사항이 없을 때의 기본값이라 체크리스트에 부적절).
-    """
-    lines = []
-    for i, lab in enumerate((l for l in labels if not l["is_normal"]), 1):
-        examples = ", ".join(
-            f'"{e}"' for e in _examples_for(lab, example_source, num_examples)
-        )
-        lines.append(f'{i}. {lab["category"]} (e.g. {examples})')
-    return "\n".join(lines)
+def special_categories(labels):
+    """special 카테고리명 리스트 (출력 검증용)."""
+    return [l["category"] for l in labels if not l["is_normal"]]
 
 
 # ---------------------------------------------------------------------------
@@ -239,77 +230,63 @@ def sample_unit_frames(uuid: str, frame_idx: int, max_long_side: int = 896,
 
 
 # ---------------------------------------------------------------------------
-# 프롬프트 - 1단계: 캡션
+# 프롬프트 - 단일 호출로 Q1(Normal/Special) + Q2(해당 카테고리 전부) 동시 응답
 #
-# caption_hint 는 special 24개 카테고리의 참고 키워드/예시 목록이다 (기본값:
-# 카테고리당 synonym 1개 - 초기 20260723 방식). 예시는 "이런 종류의 것들을
-# 놓치지 말고 관찰하라"는 최소 힌트일 뿐이며, 캡션이 예시를 그대로 베끼지 않고
-# 실제 관찰을 자유롭게 서술하도록 지시한다 (예시를 과하게 나열하면 오히려
-# 판별이 경직되어 다양성이 떨어지는 것을 확인).
+# 2단계로 나누던 예전 구조(캡션 -> 캡션 텍스트만으로 매칭)는 캡션->카테고리
+# 번역 손실이 있었다(동일 캡션이 다른 카테고리로 뒤집히는 문제). 여기서는
+# 모델이 이미지를 직접 보고 카테고리명을 바로 답하므로 그 손실이 없다.
+# 2단계를 분리했던 원래 이유("2단계에 이미지를 주면 캡션을 무시하고 픽셀에서
+# 재판단한다")는 보호할 캡션이 없어졌으므로 더 이상 해당하지 않는다.
+#
+# Q1 이 Normal 이어도 Q2 를 건너뛰지 않는다 - 건너뛰면 Q1 오판이 복구 불가능한
+# 누락이 되기 때문. Normal 인데 categories 가 비지 않은 경우는 오히려 검수
+# 우선순위 신호로 쓴다(Normal_but).
+#
+# 프롬프트 문구 실험 (20260728, 공사장 클립 3프레임 + 평범한 6프레임으로 검증):
+#   - "Mere presence is not enough ..." 같은 억제 규칙을 넣으면 탐지가 0 이 된다.
+#     명백한 공사장에서도 categories 가 비어버림.
+#   - verdict 와 categories 를 묶으면("카테고리를 하나라도 적으면 Special")
+#     역시 탐지가 0 이 된다. 모델이 Special 선언에 보수적이라, 나열이 Special 을
+#     강제하는 구조에서는 아예 나열을 포기한다.
+#   - 카테고리를 먼저 묻고 verdict 를 나중에 물어도 탐지가 0. evidence 에는
+#     "Construction site ..." 라고 쓰면서 categories 는 비우는 모순이 나타난다.
+#   => 채택: Q1(verdict) 먼저, Q2(categories) 나중, 둘을 서로 독립으로 두고
+#      "Normal 이어도 Q2 는 반드시 답하라"고 명시. 이 조합만 탐지가 살아난다.
+#      다만 모델은 거의 항상 verdict="Normal" 을 주므로 실질 검수 대상은
+#      Normal_but 버킷이 된다.
 # ---------------------------------------------------------------------------
-def build_caption_prompt(caption_hint: str, ego_fact: str = "") -> str:
-    """ego_fact 가 주어지면 자차 운동 상태를 '사실'로 알려준다.
+def build_vlm_prompt(category_menu: str, sensor_facts: str = "") -> str:
+    """6장 이미지 + 카테고리 메뉴 -> JSON 한 덩어리를 요구하는 프롬프트.
 
-    egomotion 라벨(속도/가속도/곡률)에서 뽑은 한 줄이며, 모델이 6장 이미지로
-    정지/주행을 추측하는 대신 그 여력을 특이사항 관찰에 쓰게 만든다.
-    문구를 그대로 베끼지 말고 자기 문장으로 녹여 쓰도록 지시한다.
+    sensor_facts: egomotion/obstacle 라벨에서 뽑은 사실 문구(옵션). 비어 있으면
+    해당 블록 자체가 빠진다.
     """
-    ego_block = f"""
-KNOWN FACT about the ego-vehicle at the CURRENT moment (from vehicle sensors,
-this is ground truth - trust it over your own guess from the images):
-{ego_fact}
-State this motion only in plain words (e.g. "is stopped", "is driving",
-"is slowing down"). Do NOT repeat the numeric speed. Spend the rest of your
-sentence on WHAT IS AROUND the vehicle.
-""" if ego_fact else ""
+    fact_block = f"""
+KNOWN FACTS at the CURRENT moment (from vehicle sensors - ground truth, trust
+these over your own guess from the images):
+{sensor_facts}
+""" if sensor_facts else ""
 
     return f"""You are an autonomous-driving scene analyst. You are shown SIX images
 in order: the FIRST three are from about 1 second EARLIER, the LAST three are
 the CURRENT moment. Each group of three is synchronized camera views
 (front-wide, cross-left, cross-right) of the same vehicle.
-{ego_block}
-By comparing the earlier frames to the current ones, judge the MOTION of the
-ego-vehicle and of nearby agents (e.g. moving vs stopped, and in which
-direction). Then describe the CURRENT moment in exactly ONE concise sentence,
-stating the motion (moving / stopped) and anything unusual, hazardous, or
-noteworthy for autonomous driving.
+{fact_block}
+Compare the earlier frames to the current ones to judge motion, then answer TWO
+questions about the CURRENT moment.
 
-When checking for anything noteworthy, keep in mind (non-exhaustive) types of
-special situations like these - do not just copy a category name, describe
-what you actually see:
-{caption_hint}
+Q1. Ordinary driving, or a SPECIAL / edge-case situation? "Normal" or "Special".
+Q2. Which categories below are present in the CURRENT scene? List EVERY one that
+    applies. Copy the category names EXACTLY as written:
 
-If it is ordinary driving with nothing noteworthy, describe it plainly as
-such, in your own words.
+{category_menu}
 
-Respond with ONLY the single sentence, no extra text, no quotes."""
+Always answer Q2 even when the verdict is "Normal".
 
-
-# ---------------------------------------------------------------------------
-# 프롬프트 - 2단계: caption -> top-3 (scenario, category) 매칭
-# ---------------------------------------------------------------------------
-def build_match_prompt(caption: str, label_menu: str) -> str:
-    return f"""You are matching a one-sentence driving-scene description to a
-predefined taxonomy of driving scene categories, including both ordinary
-("normal") categories and special "edge-case / long-tail" categories.
-
-Scene description:
-"{caption}"
-
-Candidate (scenario, category) pairs:
-{label_menu}
-
-Task: pick up to 3 candidates that plausibly match the scene description,
-ranked best match first. Only include a candidate if it is genuinely
-plausible - do not pad the list to reach 3. If nothing plausibly matches
-(neither a special category nor a normal one), return an empty list (OOD).
-
-Respond with ONLY a compact JSON object, no extra text:
-{{"matches": [
-   {{"scenario": "<scenario name>", "category": "<category name>", "confidence": <float 0-1>}},
-   ...
- ]}}
-Return between 0 and 3 items in "matches", ordered best first."""
+Respond with ONLY a JSON object, no other text:
+{{"verdict": "Normal" or "Special",
+ "categories": ["<exact category name>", ...],
+ "evidence": "<one short phrase describing what you actually see>"}}"""
 
 
 # ---------------------------------------------------------------------------
@@ -325,64 +302,59 @@ def _closest_valid(name: str, valid_names: set) -> str | None:
     return None
 
 
-def parse_match_output(text: str, labels: list):
-    """2단계 모델 출력에서 top-3 매치를 파싱.
+def parse_vlm_output(text: str, labels: list) -> dict:
+    """모델 출력 -> {"verdict","categories","evidence","parse_ok"}.
 
-    반환: [{"scenario":..., "category":..., "confidence":..., "is_normal":...}, ...]
-    (최대 3개, 없으면 [] = OOD)
+    categories 는 scene_category_B.json 에 실제로 있는 special 카테고리명만
+    남긴다(대소문자 차이는 흡수). 모델이 만들어낸 이름은 버린다.
+    JSON 파싱에 실패하면 parse_ok=False 로 표시하고 verdict 는 Normal 로 둔다
+    (없는 special 을 만들어내는 것보다 놓치는 쪽이 사후 검수에 안전).
     """
-    valid_cats = {l["category"] for l in labels}
-    cat_to_label = {l["category"]: l for l in labels}
+    valid = {l["category"] for l in labels if not l["is_normal"]}
+    out = {"verdict": "Normal", "categories": [], "evidence": "", "parse_ok": False}
 
     m = re.search(r"\{.*\}", text, re.DOTALL)
-    matches = []
-    if m:
-        try:
-            obj = json.loads(m.group(0))
-            for item in obj.get("matches", [])[:3]:
-                cat = _closest_valid(str(item.get("category", "")).strip(), valid_cats)
-                if cat is None:
-                    continue
-                conf = float(item.get("confidence", 0.0))
-                lab = cat_to_label[cat]
-                matches.append(
-                    {"scenario": lab["scenario"], "category": cat,
-                     "confidence": conf, "is_normal": lab["is_normal"]}
-                )
-        except Exception:
-            pass
-    return matches
+    if not m:
+        return out
+    try:
+        obj = json.loads(m.group(0))
+    except Exception:
+        return out
+
+    out["parse_ok"] = True
+    v = str(obj.get("verdict", "")).strip().lower()
+    out["verdict"] = "Special" if v.startswith("s") else "Normal"
+    out["evidence"] = str(obj.get("evidence", "")).strip()
+
+    raw_cats = obj.get("categories", [])
+    if isinstance(raw_cats, str):
+        raw_cats = [raw_cats]
+    seen = set()
+    for c in raw_cats:
+        cat = _closest_valid(str(c).strip(), valid)
+        if cat and cat not in seen:
+            seen.add(cat)
+            out["categories"].append(cat)
+    return out
 
 
-def apply_ego_correction(matches: list, ego: dict | None):
-    """egomotion 사실과 어긋나는 normal 판정을 교정한다.
+def unit_name(uuid: str, frame_idx: int) -> str:
+    """판정 단위의 고유 폴더명: <uuid>_f<frame_idx:04d>"""
+    return f"{uuid}_f{frame_idx:04d}"
 
-    Normal Driving <-> Normal Stop 은 순전히 "움직이는가"로 갈리는데, 이건
-    센서 라벨에 정답이 있다. special 카테고리는 건드리지 않는다 (정지 중에도
-    Road Construction 일 수 있으므로 - 움직임은 그 카테고리의 판별 근거가 아니다).
 
-    반환: (교정된 matches, 교정여부)
+def result_bucket(result: dict) -> str | None:
+    """시각화를 어느 상위 폴더에 저장할지 결정.
+
+    "Special"    : verdict 가 Special
+    "Normal_but" : verdict 는 Normal 인데 카테고리가 붙은 것 (검수 대상)
+    None         : 순수 Normal - 시각화하지 않는다
     """
-    if not matches or ego is None:
-        return matches, False
-    top = matches[0]
-    if not top["is_normal"]:
-        return matches, False
-
-    want = "Normal Stop" if ego["is_stopped"] else "Normal Driving"
-    if top["category"] == want:
-        return matches, False
-
-    # top-3 안에 올바른 normal 이 있으면 그걸 1위로 끌어올린다
-    for i, m in enumerate(matches):
-        if m["category"] == want:
-            matches = [matches[i]] + matches[:i] + matches[i + 1:]
-            return matches, True
-
-    # 없으면 top1 의 카테고리만 바꿔 끼운다 (scenario 는 normal 하나뿐)
-    fixed = dict(top)
-    fixed["category"] = want
-    return [fixed] + matches[1:], True
+    if result["verdict"] == "Special":
+        return "Special"
+    if result["categories"]:
+        return "Normal_but"
+    return None
 
 
 def clip_uuid(mp4_path: str) -> str:
@@ -408,18 +380,17 @@ if __name__ == "__main__":
                     help="전체 판정 단위를 몇 등분할지 (GPU 병렬용)")
     ap.add_argument("--shard-id", type=int, default=0,
                     help="이 프로세스가 처리할 shard 인덱스 (0-based)")
-    ap.add_argument("--no-egomotion", dest="use_egomotion", action="store_false",
-                    help="egomotion 라벨(속도/가속도/곡률) 활용을 끈다. 기본은 켜짐: "
-                         "1단계 프롬프트에 자차 운동 상태를 사실로 주입하고, "
-                         "2단계의 Normal Driving/Stop 오분류를 교정한다.")
-    ap.add_argument("--caption-example-source", choices=["synonyms", "prompt_templates"],
+    ap.add_argument("--use-egomotion", action="store_true",
+                    help="egomotion 라벨(속도/가속도/곡률)을 사실로 프롬프트에 넣는다 (기본 off).")
+    ap.add_argument("--use-obstacle", action="store_true",
+                    help="obstacle.offline 3D 라벨의 주변 객체 요약을 프롬프트에 넣는다 (기본 off).")
+    ap.add_argument("--example-source", choices=["synonyms", "prompt_templates"],
                     default="synonyms",
-                    help="1단계 캡션 힌트에 쓸 예시 소스. synonyms(기본값, 초기 20260723 방식)는 "
-                         "단순 객체 키워드; prompt_templates 는 유의미한 상황 서술 문장. "
-                         "2단계(매칭) 는 항상 prompt_templates 로 고정됨.")
-    ap.add_argument("--caption-num-examples", type=int, default=1,
-                    help="1단계 캡션 힌트에서 카테고리당 넣을 예시 개수 (기본값 1). "
-                         "예시를 많이 넣을수록 프롬프트가 길어지고 오히려 판별이 경직될 수 있음.")
+                    help="카테고리 예시 소스. synonyms(기본)는 짧은 키워드, "
+                         "prompt_templates 는 상황 서술 문장.")
+    ap.add_argument("--num-examples", type=int, default=2,
+                    help="카테고리당 프롬프트에 넣을 예시 개수 (기본 2). "
+                         "많이 넣을수록 프롬프트가 길어지고 판별이 경직될 수 있음.")
     args = ap.parse_args()
 
     if args.out is None:
@@ -432,17 +403,14 @@ if __name__ == "__main__":
         args.viz_dir = str(Path(args.out).parent)
 
     labels = load_labels(SCENE_JSON)
-    n_normal = sum(1 for l in labels if l["is_normal"])
-    n_special = len(labels) - n_normal
-    label_menu = build_label_menu(labels)
-    caption_hint = build_caption_hint(
-        labels, example_source=args.caption_example_source,
-        num_examples=args.caption_num_examples)
-    print(f"[info] loaded {n_special} special categories, {n_normal} normal categories")
-    print(f"[info] caption hint: {args.caption_num_examples} example(s) per category "
-          f"from {args.caption_example_source}")
-    print(f"[info] egomotion: {'ON' if args.use_egomotion else 'OFF'}"
-          f" (fact injection + normal-category correction)")
+    n_special = sum(1 for l in labels if not l["is_normal"])
+    category_menu = build_category_menu(
+        labels, example_source=args.example_source, num_examples=args.num_examples)
+    print(f"[info] labels: {SCENE_JSON.name} - {n_special} special categories")
+    print(f"[info] category menu: {args.num_examples} example(s) per category "
+          f"from {args.example_source}")
+    print(f"[info] sensor facts: egomotion={'ON' if args.use_egomotion else 'OFF'}, "
+          f"obstacle={'ON' if args.use_obstacle else 'OFF'}")
 
     uuids = list_scene_uuids(args.limit_clips)
     print(f"[info] clips: {len(uuids)}  x  {args.timestamps_per_clip} timestamps/clip")
@@ -466,6 +434,6 @@ if __name__ == "__main__":
         raise SystemExit(0)
 
     from qwen_runner import run_inference
-    run_inference(units, labels, label_menu, caption_hint,
+    run_inference(units, labels, category_menu,
                   model_id=args.model, out_csv=args.out, viz_dir=args.viz_dir,
-                  use_egomotion=args.use_egomotion)
+                  use_egomotion=args.use_egomotion, use_obstacle=args.use_obstacle)

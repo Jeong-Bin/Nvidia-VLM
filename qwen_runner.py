@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
-"""Qwen2.5-VL 2단계 추론 러너.
+"""Qwen2.5-VL 단일 호출 추론 러너.
 
 판정 단위: (uuid, frame_idx) - 클립 내 특정 순간의 3뷰 프레임 세트.
 
-1단계: 그 순간(3뷰 프레임) -> 한 문장 캡션
-2단계: 캡션 -> top-3 (scenario, category) 매칭 (없으면 OOD)
+한 번의 호출로 직전 3뷰 + 현재 3뷰(6장)를 보여주고 JSON 을 받는다:
+  {"verdict": "Normal"|"Special", "categories": [...], "evidence": "..."}
 
-결과를 CSV로 저장하고, special 로 분류된 순간은 시각화 이미지도 만든다.
+멀티라벨이라 카테고리별 폴더로 나눌 수 없으므로, 판정 단위마다 고유 폴더를
+만들고 그 안에 시각화 PNG 와 결과 JSON 을 함께 저장한다:
+
+  <viz_dir>/Special/<uuid>_f<idx>/{card.png, result.json}
+  <viz_dir>/Normal_but/<uuid>_f<idx>/{card.png, result.json}   # Normal 인데 카테고리가 붙음
+  (순수 Normal 은 저장하지 않는다)
 """
 import csv
+import json
 import time
 from collections import Counter
 from pathlib import Path
@@ -18,11 +24,11 @@ from tqdm import tqdm
 from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
 
 from edge_case_mining import (
-    sample_unit_frames, FRONT_VIEWS, category_slug,
-    build_match_prompt, parse_match_output,
-    build_caption_prompt, apply_ego_correction,
+    sample_unit_frames, FRONT_VIEWS,
+    build_vlm_prompt, parse_vlm_output, unit_name, result_bucket,
 )
 from egomotion import ego_state, describe_ego
+from obstacle import obstacle_summary, describe_obstacles
 from visualize import render_scene_card
 
 
@@ -41,8 +47,7 @@ def load_model(model_id: str):
 
 
 @torch.inference_mode()
-def _generate(model, processor, images, text_prompt, max_new_tokens=128):
-    """images 가 비어있으면 순수 텍스트 프롬프트로 생성 (2단계 매칭용)."""
+def _generate(model, processor, images, text_prompt, max_new_tokens=256):
     content = [{"type": "image", "image": img} for img in images]
     content.append({"type": "text", "text": text_prompt})
     messages = [{"role": "user", "content": content}]
@@ -65,127 +70,125 @@ def _generate(model, processor, images, text_prompt, max_new_tokens=128):
     return out.strip()
 
 
-def classify_unit(model, processor, unit_frames, caption_prompt, label_menu):
-    """판정 단위 하나(직전 3뷰 + 현재 3뷰 = 6장)에 대해 (caption, match_raw) 반환.
+def build_sensor_facts(uuid, frame_idx, use_egomotion, use_obstacle):
+    """프롬프트에 넣을 센서 사실 문구와, 시각화/CSV 용 원본 상태를 함께 반환."""
+    lines, ego = [], None
+    if use_egomotion:
+        ego = ego_state(uuid, frame_idx)
+        if ego is not None:
+            lines.append(describe_ego(ego))
+    if use_obstacle:
+        s = describe_obstacles(obstacle_summary(uuid, frame_idx))
+        if s:
+            lines.append(s)
+    return "\n".join(lines), ego
 
-    1단계: prev(3장) + cur(3장) 순서로 넣어 움직임 포함 캡션 생성.
-    2단계: 그 캡션 텍스트만으로 매칭 (이미지를 다시 넣으면 모델이 캡션을
-           무시하고 이미지에서 재판단해 버림).
-    """
+
+def classify_unit(model, processor, unit_frames, prompt):
+    """직전 3뷰 + 현재 3뷰(6장)를 한 번에 넣어 모델 원문 출력을 받는다."""
     prev, cur = unit_frames["prev"], unit_frames["cur"]
     images = ([prev[v] for v in FRONT_VIEWS if prev.get(v) is not None]
               + [cur[v] for v in FRONT_VIEWS if cur.get(v) is not None])
-
-    caption = _generate(model, processor, images, caption_prompt, max_new_tokens=90)
-
-    match_prompt = build_match_prompt(caption, label_menu)
-    match_raw = _generate(model, processor, [], match_prompt, max_new_tokens=256)
-
-    return caption, match_raw
+    return _generate(model, processor, images, prompt)
 
 
-def run_inference(units, labels, label_menu, caption_hint,
+def run_inference(units, labels, category_menu,
                   model_id="Qwen/Qwen2.5-VL-7B-Instruct",
                   out_csv="edge_case_results.csv", viz_dir="viz",
-                  use_egomotion=True):
-    """units: [(uuid, frame_idx), ...]
-
-    시각화는 viz_dir/<category_slug>/ 하위에 카테고리별로 분리 저장한다.
-    top1 이 special 카테고리 또는 OOD 인 경우에만 저장하고, normal 은 저장하지 않는다.
-
-    use_egomotion=True 면 판정 단위마다 egomotion 라벨에서 자차 운동 상태를 읽어
-    (a) 1단계 캡션 프롬프트에 사실로 주입하고 (b) 2단계 normal 오분류를 교정한다.
-    라벨이 없는 클립은 자동으로 기존 동작(이미지만으로 추론)으로 넘어간다.
-    """
+                  use_egomotion=False, use_obstacle=False):
+    """units: [(uuid, frame_idx), ...]"""
     model, processor = load_model(model_id)
     viz_path = Path(viz_dir)
     viz_path.mkdir(parents=True, exist_ok=True)
 
-    # egomotion 을 안 쓰면 프롬프트가 매번 같으므로 한 번만 만든다
-    base_prompt = build_caption_prompt(caption_hint)
+    # 센서 사실을 안 쓰면 프롬프트가 매번 같으므로 한 번만 만든다
+    base_prompt = build_vlm_prompt(category_menu)
+    use_sensors = use_egomotion or use_obstacle
 
-    counts = Counter()  # top-1 category 기준 집계
-    n_special_hits = 0
-    n_ego = 0          # egomotion 사실을 주입한 단위 수
-    n_corrected = 0    # normal 카테고리가 교정된 단위 수
+    cat_counts = Counter()      # 카테고리별 출현 수 (멀티라벨이라 합이 총합을 넘을 수 있음)
+    verdict_counts = Counter()  # Special / Normal_but / Normal
+    n_parse_fail = 0
     t_start = time.time()
-    n = len(units)
 
     with open(out_csv, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([
-            "uuid", "frame_idx", "caption",
-            "top1_scenario", "top1_category", "top1_confidence",
-            "top2_scenario", "top2_category", "top2_confidence",
-            "top3_scenario", "top3_category", "top3_confidence",
-            "ego_speed_kmh", "ego_motion", "ego_corrected",
+            "uuid", "frame_idx", "verdict", "n_categories", "categories",
+            "evidence", "bucket", "parse_ok", "ego_speed_kmh", "ego_motion",
         ])
 
-        pbar = tqdm(units, total=n, unit="unit", dynamic_ncols=True,
-                   mininterval=1.0, smoothing=0.1)
+        pbar = tqdm(units, total=len(units), unit="unit", dynamic_ncols=True,
+                    mininterval=1.0, smoothing=0.1)
         for uuid, frame_idx in pbar:
             unit_frames = sample_unit_frames(uuid, frame_idx)
 
-            ego = ego_state(uuid, frame_idx) if use_egomotion else None
-            if ego is not None:
-                n_ego += 1
-                prompt = build_caption_prompt(caption_hint, describe_ego(ego))
-            else:
-                prompt = base_prompt
-
-            corrected = False
+            ego = None
             if not any(unit_frames["cur"].values()):
-                caption, matches = "(no frame)", []
+                result = {"verdict": "Normal", "categories": [],
+                          "evidence": "(no frame)", "parse_ok": False}
             else:
-                caption, match_raw = classify_unit(
-                    model, processor, unit_frames, prompt, label_menu
-                )
-                matches = parse_match_output(match_raw, labels)
-                matches, corrected = apply_ego_correction(matches, ego)
-                n_corrected += corrected
-
-            top1 = matches[0]["category"] if matches else "OOD"
-            top1_is_special = bool(matches) and not matches[0]["is_normal"]
-            top1_is_ood = not matches
-            counts[top1] += 1
-            if top1_is_special or top1_is_ood:
-                n_special_hits += 1
-
-            row = [uuid, frame_idx, caption]
-            for j in range(3):
-                if j < len(matches):
-                    m = matches[j]
-                    row += [m["scenario"], m["category"], f"{m['confidence']:.2f}"]
+                if use_sensors:
+                    facts, ego = build_sensor_facts(
+                        uuid, frame_idx, use_egomotion, use_obstacle)
+                    prompt = build_vlm_prompt(category_menu, facts) if facts else base_prompt
                 else:
-                    row += ["", "", ""]
-            row += [f"{ego['speed_kmh']:.1f}" if ego else "",
-                    ego["motion"] if ego else "",
-                    "1" if corrected else ""]
-            writer.writerow(row)
+                    prompt = base_prompt
+                raw = classify_unit(model, processor, unit_frames, prompt)
+                result = parse_vlm_output(raw, labels)
+
+            bucket = result_bucket(result)
+            verdict_counts[bucket or "Normal"] += 1
+            cat_counts.update(result["categories"])
+            n_parse_fail += not result["parse_ok"]
+
+            writer.writerow([
+                uuid, frame_idx, result["verdict"], len(result["categories"]),
+                "|".join(result["categories"]), result["evidence"],
+                bucket or "", int(result["parse_ok"]),
+                f"{ego['speed_kmh']:.1f}" if ego else "",
+                ego["motion"] if ego else "",
+            ])
             f.flush()
 
-            # top1이 special 카테고리 또는 OOD 이면 시각화 카드 생성
-            # (현재 시점 cur 3뷰를 표시; 움직임 정보는 캡션에 녹아 있음)
-            # 카테고리별 하위 폴더에 분리 저장: viz_dir/<category_slug>/{uuid}_f{frame_idx}.png
-            if top1_is_special or top1_is_ood:
-                cat_dir = viz_path / category_slug(top1)
-                cat_dir.mkdir(parents=True, exist_ok=True)
-                out_name = f"{uuid}_f{frame_idx:04d}.png"
-                render_scene_card(uuid, frame_idx, unit_frames["cur"], caption, matches,
-                                  out_path=cat_dir / out_name)
+            # Special / Normal_but 만 저장. 판정 단위마다 고유 폴더를 만들고
+            # 그 안에 시각화와 JSON 을 함께 둔다 (멀티라벨이라 카테고리별 폴더 불가)
+            if bucket:
+                out_dir = viz_path / bucket / unit_name(uuid, frame_idx)
+                out_dir.mkdir(parents=True, exist_ok=True)
+                payload = {
+                    "uuid": uuid, "frame_idx": frame_idx,
+                    "verdict": result["verdict"],
+                    "categories": result["categories"],
+                    "evidence": result["evidence"],
+                }
+                if ego:
+                    payload["ego"] = {"speed_kmh": round(ego["speed_kmh"], 1),
+                                      "motion": ego["motion"]}
+                (out_dir / "result.json").write_text(
+                    json.dumps(payload, ensure_ascii=False, indent=2),
+                    encoding="utf-8")
+                render_scene_card(uuid, frame_idx, unit_frames["cur"], result,
+                                  out_path=out_dir / "card.png")
 
-            pbar.set_postfix_str(f"last={top1[:20]}  special={n_special_hits}")
+            n_hit = verdict_counts["Special"] + verdict_counts["Normal_but"]
+            pbar.set_postfix_str(
+                f"{result['verdict'][:1]}:{len(result['categories'])} hits={n_hit}")
 
-    total = sum(counts.values())
-    print("\n===== TOP-1 CATEGORY COUNTS =====")
-    for cat, c in counts.most_common():
-        pct = 100 * c / total if total else 0.0
-        print(f"  {cat:28s} : {c:5d}  ({pct:5.1f}%)")
+    total = sum(verdict_counts.values())
+    print("\n===== VERDICT =====")
+    for k in ("Special", "Normal_but", "Normal"):
+        c = verdict_counts[k]
+        print(f"  {k:28s} : {c:5d}  ({100*c/total if total else 0:5.1f}%)")
     print(f"  {'TOTAL':28s} : {total:5d}  (100.0%)")
-    if use_egomotion:
-        print(f"\n[egomotion] fact injected on {n_ego}/{total} units "
-              f"({100*n_ego/total if total else 0:.1f}%), "
-              f"normal category corrected on {n_corrected} units")
+
+    print("\n===== CATEGORY OCCURRENCES (multi-label) =====")
+    for cat, c in cat_counts.most_common():
+        print(f"  {cat:28s} : {c:5d}  ({100*c/total if total else 0:5.1f}% of units)")
+    if not cat_counts:
+        print("  (none)")
+    if n_parse_fail:
+        print(f"\n[warn] JSON parse failed on {n_parse_fail}/{total} units")
+
     print(f"\n[done] results -> {out_csv}  ({time.time()-t_start:.1f}s)")
-    print(f"[done] visualizations -> {viz_path}/")
-    return counts
+    print(f"[done] visualizations -> {viz_path}/{{Special,Normal_but}}/")
+    return cat_counts

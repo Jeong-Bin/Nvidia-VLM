@@ -13,15 +13,26 @@ cd /home/etri/Jeongbin/Nvidia-VLM
 
 NSHARDS=8
 TIMESTAMPS_PER_CLIP=10
-TOTAL_CLIPS=500
+# 처리할 클립 수. 미지정이면 현재 데이터셋 전체(front_wide 뷰의 mp4 개수).
+# A/B 비교처럼 일부만 돌릴 때는 LIMIT_CLIPS=500 bash run_all.sh 로 오버라이드.
+TOTAL_CLIPS="${LIMIT_CLIPS:-$(ls pav_sample/camera/camera_front_wide_120fov/*.mp4 2>/dev/null | wc -l)}"
 TOTAL_UNITS=$((TOTAL_CLIPS * TIMESTAMPS_PER_CLIP))
+
+LIMIT_OPTS=""
+[ -n "${LIMIT_CLIPS:-}" ] && LIMIT_OPTS="--limit-clips $LIMIT_CLIPS"
+
+# 센서 라벨을 프롬프트에 사실로 넣을지 (둘 다 기본 off).
+#   USE_EGOMOTION=1 USE_OBSTACLE=1 bash run_all.sh
+SENSOR_OPTS=""
+[ "${USE_EGOMOTION:-0}" = "1" ] && SENSOR_OPTS="$SENSOR_OPTS --use-egomotion"
+[ "${USE_OBSTACLE:-0}" = "1" ] && SENSOR_OPTS="$SENSOR_OPTS --use-obstacle"
 # 1단계 캡션 힌트 설정은 edge_case_mining.py 의 기본값
 # (synonyms, 카테고리당 1개 = 20260723 방식)을 그대로 따른다 - 단일 진실 공급원.
 # 실험적으로 바꾸고 싶을 때만 환경변수로 오버라이드:
 #   CAPTION_EXAMPLE_SOURCE=prompt_templates CAPTION_NUM_EXAMPLES=3 bash run_all.sh
 CAPTION_OPTS=""
-[ -n "${CAPTION_EXAMPLE_SOURCE:-}" ] && CAPTION_OPTS="$CAPTION_OPTS --caption-example-source $CAPTION_EXAMPLE_SOURCE"
-[ -n "${CAPTION_NUM_EXAMPLES:-}" ] && CAPTION_OPTS="$CAPTION_OPTS --caption-num-examples $CAPTION_NUM_EXAMPLES"
+[ -n "${EXAMPLE_SOURCE:-}" ] && CAPTION_OPTS="$CAPTION_OPTS --example-source $EXAMPLE_SOURCE"
+[ -n "${NUM_EXAMPLES:-}" ] && CAPTION_OPTS="$CAPTION_OPTS --num-examples $NUM_EXAMPLES"
 
 RUN_TS="$(date +%Y%m%d_%H%M%S)"
 RUN_DIR="results/${RUN_TS}"
@@ -31,6 +42,7 @@ mkdir -p "$RUN_DIR"
   echo "[info] run dir: $RUN_DIR"
   echo "[info] total units: $TOTAL_UNITS ($TOTAL_CLIPS clips x $TIMESTAMPS_PER_CLIP timestamps), $NSHARDS shards"
   echo "[info] caption opts: ${CAPTION_OPTS:-<edge_case_mining.py defaults: synonyms x1>}"
+  echo "[info] sensor facts: egomotion=${USE_EGOMOTION:-0} obstacle=${USE_OBSTACLE:-0} (1=on, 0=off)"
 
   pids=()
   for g in $(seq 0 $((NSHARDS-1))); do
@@ -38,7 +50,7 @@ mkdir -p "$RUN_DIR"
       nohup python3 -u edge_case_mining.py \
         --num-shards $NSHARDS --shard-id $g \
         --timestamps-per-clip $TIMESTAMPS_PER_CLIP \
-        $CAPTION_OPTS \
+        $LIMIT_OPTS $SENSOR_OPTS $CAPTION_OPTS \
         --out "${RUN_DIR}/results_shard_${g}.csv" \
         --viz-dir "${RUN_DIR}" \
         > "${RUN_DIR}/run_shard_${g}.log" 2>&1 &
