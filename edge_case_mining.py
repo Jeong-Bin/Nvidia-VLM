@@ -247,12 +247,27 @@ def sample_unit_frames(uuid: str, frame_idx: int, max_long_side: int = 896,
 # 실제 관찰을 자유롭게 서술하도록 지시한다 (예시를 과하게 나열하면 오히려
 # 판별이 경직되어 다양성이 떨어지는 것을 확인).
 # ---------------------------------------------------------------------------
-def build_caption_prompt(caption_hint: str) -> str:
+def build_caption_prompt(caption_hint: str, ego_fact: str = "") -> str:
+    """ego_fact 가 주어지면 자차 운동 상태를 '사실'로 알려준다.
+
+    egomotion 라벨(속도/가속도/곡률)에서 뽑은 한 줄이며, 모델이 6장 이미지로
+    정지/주행을 추측하는 대신 그 여력을 특이사항 관찰에 쓰게 만든다.
+    문구를 그대로 베끼지 말고 자기 문장으로 녹여 쓰도록 지시한다.
+    """
+    ego_block = f"""
+KNOWN FACT about the ego-vehicle at the CURRENT moment (from vehicle sensors,
+this is ground truth - trust it over your own guess from the images):
+{ego_fact}
+State this motion only in plain words (e.g. "is stopped", "is driving",
+"is slowing down"). Do NOT repeat the numeric speed. Spend the rest of your
+sentence on WHAT IS AROUND the vehicle.
+""" if ego_fact else ""
+
     return f"""You are an autonomous-driving scene analyst. You are shown SIX images
 in order: the FIRST three are from about 1 second EARLIER, the LAST three are
 the CURRENT moment. Each group of three is synchronized camera views
 (front-wide, cross-left, cross-right) of the same vehicle.
-
+{ego_block}
 By comparing the earlier frames to the current ones, judge the MOTION of the
 ego-vehicle and of nearby agents (e.g. moving vs stopped, and in which
 direction). Then describe the CURRENT moment in exactly ONE concise sentence,
@@ -339,6 +354,37 @@ def parse_match_output(text: str, labels: list):
     return matches
 
 
+def apply_ego_correction(matches: list, ego: dict | None):
+    """egomotion 사실과 어긋나는 normal 판정을 교정한다.
+
+    Normal Driving <-> Normal Stop 은 순전히 "움직이는가"로 갈리는데, 이건
+    센서 라벨에 정답이 있다. special 카테고리는 건드리지 않는다 (정지 중에도
+    Road Construction 일 수 있으므로 - 움직임은 그 카테고리의 판별 근거가 아니다).
+
+    반환: (교정된 matches, 교정여부)
+    """
+    if not matches or ego is None:
+        return matches, False
+    top = matches[0]
+    if not top["is_normal"]:
+        return matches, False
+
+    want = "Normal Stop" if ego["is_stopped"] else "Normal Driving"
+    if top["category"] == want:
+        return matches, False
+
+    # top-3 안에 올바른 normal 이 있으면 그걸 1위로 끌어올린다
+    for i, m in enumerate(matches):
+        if m["category"] == want:
+            matches = [matches[i]] + matches[:i] + matches[i + 1:]
+            return matches, True
+
+    # 없으면 top1 의 카테고리만 바꿔 끼운다 (scenario 는 normal 하나뿐)
+    fixed = dict(top)
+    fixed["category"] = want
+    return [fixed] + matches[1:], True
+
+
 def clip_uuid(mp4_path: str) -> str:
     return Path(mp4_path).name.split(".")[0]
 
@@ -362,6 +408,10 @@ if __name__ == "__main__":
                     help="전체 판정 단위를 몇 등분할지 (GPU 병렬용)")
     ap.add_argument("--shard-id", type=int, default=0,
                     help="이 프로세스가 처리할 shard 인덱스 (0-based)")
+    ap.add_argument("--no-egomotion", dest="use_egomotion", action="store_false",
+                    help="egomotion 라벨(속도/가속도/곡률) 활용을 끈다. 기본은 켜짐: "
+                         "1단계 프롬프트에 자차 운동 상태를 사실로 주입하고, "
+                         "2단계의 Normal Driving/Stop 오분류를 교정한다.")
     ap.add_argument("--caption-example-source", choices=["synonyms", "prompt_templates"],
                     default="synonyms",
                     help="1단계 캡션 힌트에 쓸 예시 소스. synonyms(기본값, 초기 20260723 방식)는 "
@@ -385,13 +435,14 @@ if __name__ == "__main__":
     n_normal = sum(1 for l in labels if l["is_normal"])
     n_special = len(labels) - n_normal
     label_menu = build_label_menu(labels)
-    caption_prompt = build_caption_prompt(
-        build_caption_hint(labels, example_source=args.caption_example_source,
-                           num_examples=args.caption_num_examples)
-    )
+    caption_hint = build_caption_hint(
+        labels, example_source=args.caption_example_source,
+        num_examples=args.caption_num_examples)
     print(f"[info] loaded {n_special} special categories, {n_normal} normal categories")
     print(f"[info] caption hint: {args.caption_num_examples} example(s) per category "
           f"from {args.caption_example_source}")
+    print(f"[info] egomotion: {'ON' if args.use_egomotion else 'OFF'}"
+          f" (fact injection + normal-category correction)")
 
     uuids = list_scene_uuids(args.limit_clips)
     print(f"[info] clips: {len(uuids)}  x  {args.timestamps_per_clip} timestamps/clip")
@@ -415,5 +466,6 @@ if __name__ == "__main__":
         raise SystemExit(0)
 
     from qwen_runner import run_inference
-    run_inference(units, labels, label_menu, caption_prompt,
-                  model_id=args.model, out_csv=args.out, viz_dir=args.viz_dir)
+    run_inference(units, labels, label_menu, caption_hint,
+                  model_id=args.model, out_csv=args.out, viz_dir=args.viz_dir,
+                  use_egomotion=args.use_egomotion)

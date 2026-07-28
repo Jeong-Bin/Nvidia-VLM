@@ -20,7 +20,9 @@ from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
 from edge_case_mining import (
     sample_unit_frames, FRONT_VIEWS, category_slug,
     build_match_prompt, parse_match_output,
+    build_caption_prompt, apply_ego_correction,
 )
+from egomotion import ego_state, describe_ego
 from visualize import render_scene_card
 
 
@@ -82,20 +84,30 @@ def classify_unit(model, processor, unit_frames, caption_prompt, label_menu):
     return caption, match_raw
 
 
-def run_inference(units, labels, label_menu, caption_prompt,
+def run_inference(units, labels, label_menu, caption_hint,
                   model_id="Qwen/Qwen2.5-VL-7B-Instruct",
-                  out_csv="edge_case_results.csv", viz_dir="viz"):
+                  out_csv="edge_case_results.csv", viz_dir="viz",
+                  use_egomotion=True):
     """units: [(uuid, frame_idx), ...]
 
     시각화는 viz_dir/<category_slug>/ 하위에 카테고리별로 분리 저장한다.
     top1 이 special 카테고리 또는 OOD 인 경우에만 저장하고, normal 은 저장하지 않는다.
+
+    use_egomotion=True 면 판정 단위마다 egomotion 라벨에서 자차 운동 상태를 읽어
+    (a) 1단계 캡션 프롬프트에 사실로 주입하고 (b) 2단계 normal 오분류를 교정한다.
+    라벨이 없는 클립은 자동으로 기존 동작(이미지만으로 추론)으로 넘어간다.
     """
     model, processor = load_model(model_id)
     viz_path = Path(viz_dir)
     viz_path.mkdir(parents=True, exist_ok=True)
 
+    # egomotion 을 안 쓰면 프롬프트가 매번 같으므로 한 번만 만든다
+    base_prompt = build_caption_prompt(caption_hint)
+
     counts = Counter()  # top-1 category 기준 집계
     n_special_hits = 0
+    n_ego = 0          # egomotion 사실을 주입한 단위 수
+    n_corrected = 0    # normal 카테고리가 교정된 단위 수
     t_start = time.time()
     n = len(units)
 
@@ -106,19 +118,31 @@ def run_inference(units, labels, label_menu, caption_prompt,
             "top1_scenario", "top1_category", "top1_confidence",
             "top2_scenario", "top2_category", "top2_confidence",
             "top3_scenario", "top3_category", "top3_confidence",
+            "ego_speed_kmh", "ego_motion", "ego_corrected",
         ])
 
         pbar = tqdm(units, total=n, unit="unit", dynamic_ncols=True,
                    mininterval=1.0, smoothing=0.1)
         for uuid, frame_idx in pbar:
             unit_frames = sample_unit_frames(uuid, frame_idx)
+
+            ego = ego_state(uuid, frame_idx) if use_egomotion else None
+            if ego is not None:
+                n_ego += 1
+                prompt = build_caption_prompt(caption_hint, describe_ego(ego))
+            else:
+                prompt = base_prompt
+
+            corrected = False
             if not any(unit_frames["cur"].values()):
                 caption, matches = "(no frame)", []
             else:
                 caption, match_raw = classify_unit(
-                    model, processor, unit_frames, caption_prompt, label_menu
+                    model, processor, unit_frames, prompt, label_menu
                 )
                 matches = parse_match_output(match_raw, labels)
+                matches, corrected = apply_ego_correction(matches, ego)
+                n_corrected += corrected
 
             top1 = matches[0]["category"] if matches else "OOD"
             top1_is_special = bool(matches) and not matches[0]["is_normal"]
@@ -134,6 +158,9 @@ def run_inference(units, labels, label_menu, caption_prompt,
                     row += [m["scenario"], m["category"], f"{m['confidence']:.2f}"]
                 else:
                     row += ["", "", ""]
+            row += [f"{ego['speed_kmh']:.1f}" if ego else "",
+                    ego["motion"] if ego else "",
+                    "1" if corrected else ""]
             writer.writerow(row)
             f.flush()
 
@@ -155,6 +182,10 @@ def run_inference(units, labels, label_menu, caption_prompt,
         pct = 100 * c / total if total else 0.0
         print(f"  {cat:28s} : {c:5d}  ({pct:5.1f}%)")
     print(f"  {'TOTAL':28s} : {total:5d}  (100.0%)")
+    if use_egomotion:
+        print(f"\n[egomotion] fact injected on {n_ego}/{total} units "
+              f"({100*n_ego/total if total else 0:.1f}%), "
+              f"normal category corrected on {n_corrected} units")
     print(f"\n[done] results -> {out_csv}  ({time.time()-t_start:.1f}s)")
     print(f"[done] visualizations -> {viz_path}/")
     return counts
