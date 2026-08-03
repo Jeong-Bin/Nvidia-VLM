@@ -19,11 +19,10 @@ VIEW_LABELS = {
 }
 VIEW_ORDER = list(VIEW_LABELS.keys())
 
-# verdict 별 강조색
-VERDICT_COLORS = {
-    "Special": "#B3541E",     # 주황 - 검토 대상
-    "Normal_but": "#7A6A1F",  # 머스터드 - Normal 인데 카테고리가 붙은 애매한 건
-    "Normal": "#6E7781",      # 회색
+# 경로를 막는지(Q3) 여부로 강조색을 나눈다 - 검수 우선순위가 여기서 갈린다
+BLOCKING_COLORS = {
+    True: "#B3541E",    # 주황 - 주행 경로를 막음
+    False: "#6E7781",   # 회색 - 보이지만 경로는 비어 있음
 }
 CHIP_BG = "#F5EDE4"
 TEXT_DARK = "#1A1A1A"
@@ -35,16 +34,17 @@ def render_scene_card(uuid, frame_idx, frames_by_view, result, out_path):
     """판정 단위 하나를 카드 이미지로 렌더링해 out_path 에 저장.
 
     frames_by_view: {view_name: PIL.Image or None} (같은 순간의 3뷰 정지 프레임)
-    result: {"verdict","categories","evidence"} (parse_vlm_output 결과)
+    result: {"verdict","categories","blocks_path","evidence"} (parse_vlm_output 결과)
     """
     out_path = Path(out_path)
     verdict = result.get("verdict", "Normal")
     cats = result.get("categories", []) or []
     evidence = result.get("evidence", "") or ""
+    blocks = bool(result.get("blocks_path", False))
 
-    # Normal 인데 카테고리가 붙은 건 별도 색으로 구분해 눈에 띄게 한다
-    key = "Normal_but" if (verdict == "Normal" and cats) else verdict
-    accent = VERDICT_COLORS.get(key, VERDICT_COLORS["Normal"])
+    accent = BLOCKING_COLORS[blocks]
+    headline = ("BLOCKING the driving path" if blocks
+                else "not blocking the path")
 
     fig = plt.figure(figsize=(15, 7.0), dpi=130, facecolor="white")
     gs = fig.add_gridspec(
@@ -58,7 +58,7 @@ def render_scene_card(uuid, frame_idx, frames_by_view, result, out_path):
         f"{uuid}  (frame {frame_idx})",
         fontsize=14, fontweight="bold", color=TEXT_DARK, x=0.02, ha="left", y=0.975,
     )
-    fig.text(0.02, 0.915, key.replace("_", " "), fontsize=12.5,
+    fig.text(0.02, 0.915, f"{headline}   ·   verdict: {verdict}", fontsize=12.5,
              fontweight="bold", color=accent, ha="left", va="center")
 
     # --- 상단: 3개 뷰 ---

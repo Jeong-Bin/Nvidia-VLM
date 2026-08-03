@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """shard별 결과 CSV들을 합쳐 집계한다 (멀티라벨).
 
-두 가지를 집계한다:
-  1) verdict 버킷 - Special / Normal_but / Normal (서로 배타적, 합계 100%)
-  2) special 카테고리별 출현 빈도 - 멀티라벨이라 한 판정 단위가 여러 카테고리에
-     동시에 잡힐 수 있으므로 합계가 100%를 넘을 수 있다.
+집계 내용:
+  1) 판정 단위 개요 - 카테고리가 붙은 단위 수와 그 안의 blocking yes/no 분포
+  2) special 카테고리별 출현 빈도를 세 벌로 - 전체 / blocking_yes / blocking_no.
+     멀티라벨이라 한 단위가 여러 카테고리에 동시에 잡힐 수 있으므로 카테고리
+     합계는 100%를 넘을 수 있다.
 
 집계 결과는 화면과 <run_dir>/aggregate.log 에 함께 기록한다.
 
@@ -22,8 +23,6 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent
 SCENE_JSON = ROOT / "scene_category_B.json"
-
-BUCKETS = ["Special", "Normal_but", "Normal"]
 
 
 def latest_run_dir():
@@ -91,13 +90,11 @@ def main():
     log(f"[info] run dir : {run_dir}")
     log(f"[info] shards   : {len(files)} CSV")
 
-    # 구 스키마(top1_category 기반, 2단계 파이프라인) CSV 를 넣으면 새 컬럼이
-    # 없어 전부 Normal 로 보이므로, 조용히 0 을 내지 말고 분명히 알린다.
-    missing = [c for c in ("bucket", "categories") if c not in df.columns]
+    # 구 스키마 CSV 를 넣으면 새 컬럼이 없어 조용히 0 이 나오므로 분명히 알린다.
+    missing = [c for c in ("categories", "blocks_path") if c not in df.columns]
     if missing:
-        log(f"[error] this CSV is missing {missing} - it looks like output from the "
-            f"old two-stage pipeline (top1_category), which this script no longer "
-            f"aggregates. Re-run the inference to get the new schema.")
+        log(f"[error] this CSV is missing {missing} - it predates the current "
+            f"schema (categories + blocks_path). Re-run the inference.")
         log.close()
         return
 
@@ -118,63 +115,73 @@ def main():
         if n_fail:
             log(f"[warn] JSON parse failed on {n_fail} units ({pct(n_fail):.1f}%)")
 
-    # --- 1) verdict 버킷 (배타적, 합계 100%) ---
-    bucket = df.get("bucket")
-    buckets = (bucket.fillna("").replace("", "Normal") if bucket is not None
-               else pd.Series(["Normal"] * total))
-    bcounts = Counter(buckets)
+    cat_lists = df["categories"].apply(split_categories)
+    blocks = df["blocks_path"].astype(str).str.strip().str.lower().isin(
+        ("yes", "y", "true", "1"))
+    labeled = cat_lists.apply(bool)
+
+    n_labeled = int(labeled.sum())
+    n_block_yes = int((labeled & blocks).sum())
+    n_block_no = int((labeled & ~blocks).sum())
+
+    # --- 1) 판정 단위 개요 ---
+    log("")
+    log("=" * 64)
+    log("UNITS")
+    log("=" * 64)
+    log(f"{'WHAT':<40}{'COUNT':>10}{'%':>10}")
+    log("-" * 64)
+    log(f"{'total units':<40}{total:>10}{100.0:>9.1f}%")
+    log(f"{'with >=1 category':<40}{n_labeled:>10}{pct(n_labeled):>9.1f}%")
+    log(f"{'  blocking_yes':<40}{n_block_yes:>10}{pct(n_block_yes):>9.1f}%")
+    log(f"{'  blocking_no':<40}{n_block_no:>10}{pct(n_block_no):>9.1f}%")
+    log(f"{'no category (not visualised)':<40}"
+        f"{total - n_labeled:>10}{pct(total - n_labeled):>9.1f}%")
+
+    # --- 2) 카테고리 빈도: 전체 / blocking_yes / blocking_no ---
+    specials = load_special_categories(SCENE_JSON)
+    known = {c for _, c in specials}
+
+    def counts_for(mask):
+        c = Counter()
+        for lst in cat_lists[mask]:
+            c.update(lst)
+        return c
+
+    all_counts = counts_for(labeled)
+    yes_counts = counts_for(labeled & blocks)
+    no_counts = counts_for(labeled & ~blocks)
 
     log("")
-    log("=" * 62)
-    log("VERDICT BUCKETS  (mutually exclusive)")
-    log("=" * 62)
-    log(f"{'BUCKET':<24}{'COUNT':>10}{'%':>10}")
-    log("-" * 62)
-    for b in BUCKETS:
-        log(f"{b:<24}{bcounts.get(b, 0):>10}{pct(bcounts.get(b, 0)):>9.1f}%")
-    log("-" * 62)
-    log(f"{'TOTAL':<24}{total:>10}{100.0:>9.1f}%")
-
-    reviewable = bcounts.get("Special", 0) + bcounts.get("Normal_but", 0)
-    log(f"{'(review candidates)':<24}{reviewable:>10}{pct(reviewable):>9.1f}%")
-
-    # --- 2) special 카테고리 출현 빈도 (멀티라벨, 합계 100% 초과 가능) ---
-    cat_lists = df["categories"].apply(split_categories) if "categories" in df else []
-    ccounts = Counter()
-    for lst in cat_lists:
-        ccounts.update(lst)
-    n_labels = sum(ccounts.values())
-    n_labeled_units = int(sum(1 for lst in cat_lists if lst))
-
-    log("")
-    log("=" * 62)
-    log("SPECIAL CATEGORY FREQUENCY  (multi-label: % may exceed 100)")
-    log("=" * 62)
-    log(f"{'SCENARIO':<22}{'CATEGORY':<24}{'COUNT':>8}{'%':>8}")
-    log("-" * 62)
-    known = set()
-    for scenario, cat in load_special_categories(SCENE_JSON):
-        known.add(cat)
-        n = ccounts.get(cat, 0)
-        log(f"{scenario:<22}{cat:<24}{n:>8}{pct(n):>7.1f}%")
+    log("=" * 64)
+    log("SPECIAL CATEGORY FREQUENCY  (multi-label: a unit can be in several)")
+    log("=" * 64)
+    log(f"{'SCENARIO':<20}{'CATEGORY':<22}{'ALL':>7}{'BLOCK':>7}{'NO-BLK':>8}"
+        f"{'% ALL':>8}")
+    log("-" * 64)
+    for scenario, cat in specials:
+        n = all_counts.get(cat, 0)
+        log(f"{scenario:<20}{cat:<22}{n:>7}{yes_counts.get(cat, 0):>7}"
+            f"{no_counts.get(cat, 0):>8}{pct(n):>7.1f}%")
 
     # json 에 없는 이름이 섞였다면(파서가 걸렀어야 하는 것) 별도로 보여준다
-    unknown = {k: v for k, v in ccounts.items() if k not in known}
+    unknown = {k: v for k, v in all_counts.items() if k not in known}
     if unknown:
-        log("-" * 62)
+        log("-" * 64)
         for cat, n in sorted(unknown.items(), key=lambda x: -x[1]):
-            log(f"{'(unknown)':<22}{cat:<24}{n:>8}{pct(n):>7.1f}%")
+            log(f"{'(unknown)':<20}{cat:<22}{n:>7}{yes_counts.get(cat, 0):>7}"
+                f"{no_counts.get(cat, 0):>8}{pct(n):>7.1f}%")
 
-    log("-" * 62)
-    log(f"{'TOTAL label occurrences':<46}{n_labels:>8}{pct(n_labels):>7.1f}%")
-    log(f"{'units with >=1 label':<46}{n_labeled_units:>8}"
-        f"{pct(n_labeled_units):>7.1f}%")
-    if n_labeled_units:
-        log(f"{'avg labels per labeled unit':<46}"
-            f"{n_labels / n_labeled_units:>8.2f}")
+    n_labels = sum(all_counts.values())
+    log("-" * 64)
+    log(f"{'TOTAL label occurrences':<42}{n_labels:>7}"
+        f"{sum(yes_counts.values()):>7}{sum(no_counts.values()):>8}"
+        f"{pct(n_labels):>7.1f}%")
+    if n_labeled:
+        log(f"{'avg labels per labeled unit':<42}{n_labels / n_labeled:>7.2f}")
 
     # 멀티라벨이 실제로 얼마나 나오는지 - 라벨 개수 분포
-    size_dist = Counter(len(lst) for lst in cat_lists)
+    size_dist = Counter(cat_lists.apply(len))
     log("")
     log("labels per unit: " + ", ".join(
         f"{k}:{size_dist[k]}" for k in sorted(size_dist)))
@@ -182,7 +189,7 @@ def main():
     log("")
     log(f"[saved] merged CSV -> {out_csv}")
     log(f"[saved] log        -> {run_dir / args.log_name}")
-    log(f"[viz]   {run_dir}/{{Special,Normal_but}}/<uuid>_f<idx>/"
+    log(f"[viz]   {run_dir}/blocking_{{yes,no}}/<category>/<uuid>_f<idx>/"
         f"{{card.png,result.json}}")
     log.close()
 

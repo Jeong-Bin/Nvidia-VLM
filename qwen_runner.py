@@ -10,17 +10,20 @@ AutoModelForImageTextToText / AutoProcessor 로 로드해 model_id 에 따라 �
 판정 단위: (uuid, frame_idx) - 클립 내 특정 순간의 3뷰 프레임 세트.
 
 한 번의 호출로 직전 3뷰 + 현재 3뷰(6장)를 보여주고 JSON 을 받는다:
-  {"verdict": "Normal"|"Special", "categories": [...], "evidence": "..."}
+  {"verdict": "Normal"|"Special", "categories": [...],
+   "blocks_path": true|false, "evidence": "..."}
 
-멀티라벨이라 카테고리별 폴더로 나눌 수 없으므로, 판정 단위마다 고유 폴더를
-만들고 그 안에 시각화 PNG 와 결과 JSON 을 함께 저장한다:
+시각화는 "경로를 막는가"(Q3) x "어느 카테고리인가"(Q2) 로 나눠 담는다:
 
-  <viz_dir>/Special/<uuid>_f<idx>/{card.png, result.json}
-  <viz_dir>/Normal_but/<uuid>_f<idx>/{card.png, result.json}   # Normal 인데 카테고리가 붙음
-  (순수 Normal 은 저장하지 않는다)
+  <viz_dir>/blocking_yes/<Category>/<uuid>_f<idx>/{card.png, result.json}
+  <viz_dir>/blocking_no/<Category>/<uuid>_f<idx>/{card.png, result.json}
+
+멀티라벨이면 해당하는 모든 카테고리 폴더에 같은 결과를 중복 저장한다.
+카테고리가 하나도 없는 판정 단위는 저장하지 않는다.
 """
 import csv
 import json
+import shutil
 import time
 from collections import Counter
 from pathlib import Path
@@ -31,7 +34,7 @@ from transformers import AutoModelForImageTextToText, AutoProcessor
 
 from edge_case_mining import (
     sample_unit_frames, FRONT_VIEWS,
-    build_vlm_prompt, parse_vlm_output, unit_name, result_bucket,
+    build_vlm_prompt, parse_vlm_output, unit_name, viz_targets, blocking_dir,
 )
 from egomotion import ego_state, describe_ego
 from obstacle import obstacle_summary, describe_obstacles
@@ -117,16 +120,20 @@ def run_inference(units, labels, category_menu,
     base_prompt = build_vlm_prompt(category_menu)
     use_sensors = use_egomotion or use_obstacle
 
-    cat_counts = Counter()      # 카테고리별 출현 수 (멀티라벨이라 합이 총합을 넘을 수 있음)
-    verdict_counts = Counter()  # Special / Normal_but / Normal
+    # 멀티라벨이라 카테고리 합계는 판정 단위 수를 넘을 수 있다.
+    # blocking 여부로 한 번 더 쪼개서 센다.
+    cat_counts = Counter()
+    cat_counts_by_block = {"blocking_yes": Counter(), "blocking_no": Counter()}
+    block_counts = Counter()   # 카테고리가 붙은 단위의 blocking yes/no
+    n_labeled = 0
     n_parse_fail = 0
     t_start = time.time()
 
     with open(out_csv, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([
-            "uuid", "frame_idx", "verdict", "n_categories", "categories",
-            "evidence", "bucket", "parse_ok", "ego_speed_kmh", "ego_motion",
+            "uuid", "frame_idx", "verdict", "blocks_path", "n_categories",
+            "categories", "evidence", "parse_ok", "ego_speed_kmh", "ego_motion",
         ])
 
         pbar = tqdm(units, total=len(units), unit="unit", dynamic_ncols=True,
@@ -137,7 +144,8 @@ def run_inference(units, labels, category_menu,
             ego = None
             if not any(unit_frames["cur"].values()):
                 result = {"verdict": "Normal", "categories": [],
-                          "evidence": "(no frame)", "parse_ok": False}
+                          "blocks_path": False, "evidence": "(no frame)",
+                          "parse_ok": False}
             else:
                 if use_sensors:
                     facts, ego = build_sensor_facts(
@@ -148,59 +156,88 @@ def run_inference(units, labels, category_menu,
                 raw = classify_unit(model, processor, unit_frames, prompt)
                 result = parse_vlm_output(raw, labels)
 
-            bucket = result_bucket(result)
-            verdict_counts[bucket or "Normal"] += 1
-            cat_counts.update(result["categories"])
+            cats = result["categories"]
+            block_key = blocking_dir(result)
+            cat_counts.update(cats)
             n_parse_fail += not result["parse_ok"]
+            if cats:
+                n_labeled += 1
+                block_counts[block_key] += 1
+                cat_counts_by_block[block_key].update(cats)
 
             writer.writerow([
-                uuid, frame_idx, result["verdict"], len(result["categories"]),
-                "|".join(result["categories"]), result["evidence"],
-                bucket or "", int(result["parse_ok"]),
+                uuid, frame_idx, result["verdict"],
+                "Yes" if result["blocks_path"] else "No",
+                len(cats), "|".join(cats), result["evidence"],
+                int(result["parse_ok"]),
                 f"{ego['speed_kmh']:.1f}" if ego else "",
                 ego["motion"] if ego else "",
             ])
             f.flush()
 
-            # Special / Normal_but 만 저장. 판정 단위마다 고유 폴더를 만들고
-            # 그 안에 시각화와 JSON 을 함께 둔다 (멀티라벨이라 카테고리별 폴더 불가)
-            if bucket:
-                out_dir = viz_path / bucket / unit_name(uuid, frame_idx)
-                out_dir.mkdir(parents=True, exist_ok=True)
+            # blocking_{yes,no}/<category>/<uuid>_f<idx>/ 아래에 저장.
+            # 멀티라벨이면 해당하는 모든 카테고리 폴더에 같은 내용을 중복 저장한다.
+            targets = viz_targets(result)
+            if targets:
                 payload = {
                     "uuid": uuid, "frame_idx": frame_idx,
                     "verdict": result["verdict"],
-                    "categories": result["categories"],
+                    "categories": cats,
+                    "blocks_path": result["blocks_path"],
                     "evidence": result["evidence"],
                 }
                 if ego:
                     payload["ego"] = {"speed_kmh": round(ego["speed_kmh"], 1),
                                       "motion": ego["motion"]}
-                (out_dir / "result.json").write_text(
-                    json.dumps(payload, ensure_ascii=False, indent=2),
-                    encoding="utf-8")
-                render_scene_card(uuid, frame_idx, unit_frames["cur"], result,
-                                  out_path=out_dir / "card.png")
+                payload_txt = json.dumps(payload, ensure_ascii=False, indent=2)
 
-            n_hit = verdict_counts["Special"] + verdict_counts["Normal_but"]
+                card_src = None
+                for rel in targets:
+                    out_dir = viz_path / rel / unit_name(uuid, frame_idx)
+                    out_dir.mkdir(parents=True, exist_ok=True)
+                    (out_dir / "result.json").write_text(payload_txt,
+                                                         encoding="utf-8")
+                    dst = out_dir / "card.png"
+                    if card_src is None:
+                        # 카드는 한 번만 그리고, 나머지 폴더에는 복사해 넣는다
+                        render_scene_card(uuid, frame_idx, unit_frames["cur"],
+                                          result, out_path=dst)
+                        card_src = dst
+                    else:
+                        shutil.copyfile(card_src, dst)
+
             pbar.set_postfix_str(
-                f"{result['verdict'][:1]}:{len(result['categories'])} hits={n_hit}")
+                f"cats={len(cats)} block={'Y' if result['blocks_path'] else 'N'} "
+                f"labeled={n_labeled}")
 
-    total = sum(verdict_counts.values())
-    print("\n===== VERDICT =====")
-    for k in ("Special", "Normal_but", "Normal"):
-        c = verdict_counts[k]
-        print(f"  {k:28s} : {c:5d}  ({100*c/total if total else 0:5.1f}%)")
-    print(f"  {'TOTAL':28s} : {total:5d}  (100.0%)")
+    total = len(units)
 
-    print("\n===== CATEGORY OCCURRENCES (multi-label) =====")
-    for cat, c in cat_counts.most_common():
-        print(f"  {cat:28s} : {c:5d}  ({100*c/total if total else 0:5.1f}% of units)")
-    if not cat_counts:
-        print("  (none)")
+    def pct(n):
+        return 100 * n / total if total else 0.0
+
+    print("\n===== UNITS =====")
+    print(f"  {'total':28s} : {total:5d}  (100.0%)")
+    print(f"  {'with >=1 category':28s} : {n_labeled:5d}  ({pct(n_labeled):5.1f}%)")
+    for k in ("blocking_yes", "blocking_no"):
+        print(f"    {k:26s} : {block_counts[k]:5d}  ({pct(block_counts[k]):5.1f}%)")
+
+    def dump_categories(title, counter):
+        print(f"\n===== {title} (multi-label) =====")
+        if not counter:
+            print("  (none)")
+            return
+        for cat, c in counter.most_common():
+            print(f"  {cat:28s} : {c:5d}  ({pct(c):5.1f}% of units)")
+
+    dump_categories("CATEGORY OCCURRENCES - ALL", cat_counts)
+    dump_categories("CATEGORY OCCURRENCES - blocking_yes",
+                    cat_counts_by_block["blocking_yes"])
+    dump_categories("CATEGORY OCCURRENCES - blocking_no",
+                    cat_counts_by_block["blocking_no"])
+
     if n_parse_fail:
         print(f"\n[warn] JSON parse failed on {n_parse_fail}/{total} units")
 
     print(f"\n[done] results -> {out_csv}  ({time.time()-t_start:.1f}s)")
-    print(f"[done] visualizations -> {viz_path}/{{Special,Normal_but}}/")
+    print(f"[done] visualizations -> {viz_path}/blocking_{{yes,no}}/<category>/")
     return cat_counts

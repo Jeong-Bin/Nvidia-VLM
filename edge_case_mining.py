@@ -239,8 +239,13 @@ def sample_unit_frames(uuid: str, frame_idx: int, max_long_side: int = 896,
 # 재판단한다")는 보호할 캡션이 없어졌으므로 더 이상 해당하지 않는다.
 #
 # Q1 이 Normal 이어도 Q2 를 건너뛰지 않는다 - 건너뛰면 Q1 오판이 복구 불가능한
-# 누락이 되기 때문. Normal 인데 categories 가 비지 않은 경우는 오히려 검수
-# 우선순위 신호로 쓴다(Normal_but).
+# 누락이 되기 때문. 실제로 모델은 거의 항상 verdict="Normal" 을 주므로, 검수
+# 대상은 verdict 가 아니라 "categories 가 비어있지 않은가"로 정한다.
+#
+# Q3(blocks_path)은 Q2 의 필터가 아니라 장면 전체에 대한 독립 질문이다. 이게
+# 중요한 이유는 아래 실험 기록 참고 - 카테고리 나열에 조건을 걸면 나열 자체가
+# 죽는다. Q3 는 나열된 것을 걸러내는 용도가 아니라, 사후 검수 우선순위를
+# 매기는 별도 축으로만 쓴다.
 #
 # 프롬프트 문구 실험 (20260728, 공사장 클립 3프레임 + 평범한 6프레임으로 검증):
 #   - "Mere presence is not enough ..." 같은 억제 규칙을 넣으면 탐지가 0 이 된다.
@@ -250,10 +255,8 @@ def sample_unit_frames(uuid: str, frame_idx: int, max_long_side: int = 896,
 #     강제하는 구조에서는 아예 나열을 포기한다.
 #   - 카테고리를 먼저 묻고 verdict 를 나중에 물어도 탐지가 0. evidence 에는
 #     "Construction site ..." 라고 쓰면서 categories 는 비우는 모순이 나타난다.
-#   => 채택: Q1(verdict) 먼저, Q2(categories) 나중, 둘을 서로 독립으로 두고
-#      "Normal 이어도 Q2 는 반드시 답하라"고 명시. 이 조합만 탐지가 살아난다.
-#      다만 모델은 거의 항상 verdict="Normal" 을 주므로 실질 검수 대상은
-#      Normal_but 버킷이 된다.
+#   => 채택: Q1(verdict), Q2(categories), Q3(blocks_path)를 서로 독립으로 두고
+#      "앞 답과 무관하게 각각 답하라"고 명시. 조건을 거는 순간 탐지가 죽는다.
 # ---------------------------------------------------------------------------
 def build_vlm_prompt(category_menu: str, sensor_facts: str = "") -> str:
     """6장 이미지 + 카테고리 메뉴 -> JSON 한 덩어리를 요구하는 프롬프트.
@@ -272,18 +275,24 @@ in order: the FIRST three are from about 1 second EARLIER, the LAST three are
 the CURRENT moment. Each group of three is synchronized camera views
 (front-wide, cross-left, cross-right) of the same vehicle.
 {fact_block}
-Compare the earlier frames to the current ones to judge motion, then answer TWO questions about the CURRENT moment.
+Compare the earlier frames to the current ones to judge motion, then answer THREE questions about the CURRENT moment.
 
 Q1. Ordinary driving, or a SPECIAL edge-case situation that interfere with driving? "Normal" or "Special".
 Q2. Which categories below are present in the CURRENT scene? List EVERY one that applies. Copy the category names EXACTLY as written:
 
 {category_menu}
 
-Always answer Q2 even when the verdict is "Normal".
+Q3. Is anything actually blocking or intruding into the ego-vehicle's driving path right now? "Yes" or "No".
+
+The three questions are INDEPENDENT - answer each one on its own:
+- Answer Q2 in full even when the verdict is "Normal".
+- Q3 does NOT filter Q2. Still list a category in Q2 even if it sits off to the
+  side and the answer to Q3 is "No".
 
 Respond with ONLY a JSON object, no other text:
 {{"verdict": "Normal" or "Special",
  "categories": ["<exact category name>", ...],
+ "blocks_path": "Yes" or "No",
  "evidence": "<one short phrase describing what you actually see>"}}"""
 
 
@@ -301,15 +310,17 @@ def _closest_valid(name: str, valid_names: set) -> str | None:
 
 
 def parse_vlm_output(text: str, labels: list) -> dict:
-    """모델 출력 -> {"verdict","categories","evidence","parse_ok"}.
+    """모델 출력 -> {"verdict","categories","blocks_path","evidence","parse_ok"}.
 
     categories 는 scene_category_B.json 에 실제로 있는 special 카테고리명만
     남긴다(대소문자 차이는 흡수). 모델이 만들어낸 이름은 버린다.
-    JSON 파싱에 실패하면 parse_ok=False 로 표시하고 verdict 는 Normal 로 둔다
-    (없는 special 을 만들어내는 것보다 놓치는 쪽이 사후 검수에 안전).
+    JSON 파싱에 실패하면 parse_ok=False 로 표시하고 verdict 는 Normal,
+    blocks_path 는 False 로 둔다 (없는 special 을 만들어내는 것보다 놓치는 쪽이
+    사후 검수에 안전).
     """
     valid = {l["category"] for l in labels if not l["is_normal"]}
-    out = {"verdict": "Normal", "categories": [], "evidence": "", "parse_ok": False}
+    out = {"verdict": "Normal", "categories": [], "blocks_path": False,
+           "evidence": "", "parse_ok": False}
 
     m = re.search(r"\{.*\}", text, re.DOTALL)
     if not m:
@@ -323,6 +334,13 @@ def parse_vlm_output(text: str, labels: list) -> dict:
     v = str(obj.get("verdict", "")).strip().lower()
     out["verdict"] = "Special" if v.startswith("s") else "Normal"
     out["evidence"] = str(obj.get("evidence", "")).strip()
+
+    # Q3: "Yes"/"No" 를 기대하지만 true/false 로 답하는 경우도 흡수
+    b = obj.get("blocks_path", False)
+    if isinstance(b, bool):
+        out["blocks_path"] = b
+    else:
+        out["blocks_path"] = str(b).strip().lower() in ("yes", "y", "true", "1")
 
     raw_cats = obj.get("categories", [])
     if isinstance(raw_cats, str):
@@ -341,18 +359,24 @@ def unit_name(uuid: str, frame_idx: int) -> str:
     return f"{uuid}_f{frame_idx:04d}"
 
 
-def result_bucket(result: dict) -> str | None:
-    """시각화를 어느 상위 폴더에 저장할지 결정.
+def blocking_dir(result: dict) -> str:
+    """Q3 답에 따른 최상위 폴더명."""
+    return "blocking_yes" if result["blocks_path"] else "blocking_no"
 
-    "Special"    : verdict 가 Special
-    "Normal_but" : verdict 는 Normal 인데 카테고리가 붙은 것 (검수 대상)
-    None         : 순수 Normal - 시각화하지 않는다
+
+def viz_targets(result: dict) -> list[str]:
+    """이 판정 단위의 시각화를 저장할 상대 경로들.
+
+    blocking_{yes,no}/<category>/ 아래에 카테고리별로 나눠 담는다. 멀티라벨이면
+    해당하는 모든 카테고리 폴더에 같은 결과를 중복 저장한다(검수할 때 카테고리
+    단위로 훑을 수 있어야 하므로).
+    카테고리가 하나도 없으면 저장하지 않는다 - verdict 와 무관하게, 볼 것이
+    없는 장면이기 때문.
     """
-    if result["verdict"] == "Special":
-        return "Special"
-    if result["categories"]:
-        return "Normal_but"
-    return None
+    if not result["categories"]:
+        return []
+    top = blocking_dir(result)
+    return [f"{top}/{category_slug(c)}" for c in result["categories"]]
 
 
 def clip_uuid(mp4_path: str) -> str:
