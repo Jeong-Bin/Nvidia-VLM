@@ -37,7 +37,7 @@ from edge_case_mining import (
     build_vlm_prompt, parse_vlm_output, unit_name, viz_targets, blocking_dir,
 )
 from egomotion import ego_state, describe_ego
-from obstacle import obstacle_summary, describe_obstacles
+from obstacle import obstacle_summary, describe_obstacles, path_intrusion
 from visualize import render_scene_card
 
 
@@ -108,10 +108,14 @@ def classify_unit(model, processor, unit_frames, prompt):
 
 
 def run_inference(units, labels, category_menu,
-                  model_id="Qwen/Qwen2.5-VL-7B-Instruct",
+                  model_id="Qwen/Qwen3-VL-8B-Instruct",
                   out_csv="edge_case_results.csv", viz_dir="viz",
-                  use_egomotion=False, use_obstacle=False):
-    """units: [(uuid, frame_idx), ...]"""
+                  use_egomotion=False, use_obstacle=False, check_path=False):
+    """units: [(uuid, frame_idx), ...]
+
+    check_path=True 면 3D 라벨로 전방 통로 침범을 계산해 모델의 Q3 와 대조한다.
+    프롬프트에는 넣지 않으므로 모델 출력 자체는 달라지지 않는다.
+    """
     model, processor = load_model(model_id)
     viz_path = Path(viz_dir)
     viz_path.mkdir(parents=True, exist_ok=True)
@@ -127,6 +131,8 @@ def run_inference(units, labels, category_menu,
     block_counts = Counter()   # 카테고리가 붙은 단위의 blocking yes/no
     n_labeled = 0
     n_parse_fail = 0
+    # Q3 교차검증: 모델 답 x 기하 계산의 2x2 (검증을 켠 단위만 집계)
+    agree = Counter()
     t_start = time.time()
 
     with open(out_csv, "w", newline="", encoding="utf-8") as f:
@@ -134,6 +140,8 @@ def run_inference(units, labels, category_menu,
         writer.writerow([
             "uuid", "frame_idx", "verdict", "blocks_path", "n_categories",
             "categories", "evidence", "parse_ok", "ego_speed_kmh", "ego_motion",
+            "path3d_blocked", "path3d_nearest_m", "path3d_nearest_class",
+            "path3d_agree",
         ])
 
         pbar = tqdm(units, total=len(units), unit="unit", dynamic_ncols=True,
@@ -165,6 +173,11 @@ def run_inference(units, labels, category_menu,
                 block_counts[block_key] += 1
                 cat_counts_by_block[block_key].update(cats)
 
+            # Q3 교차검증 (프롬프트에는 들어가지 않았으므로 모델 답과 독립)
+            path = path_intrusion(uuid, frame_idx) if check_path else None
+            if path is not None:
+                agree[(result["blocks_path"], path["blocked"])] += 1
+
             writer.writerow([
                 uuid, frame_idx, result["verdict"],
                 "Yes" if result["blocks_path"] else "No",
@@ -172,6 +185,10 @@ def run_inference(units, labels, category_menu,
                 int(result["parse_ok"]),
                 f"{ego['speed_kmh']:.1f}" if ego else "",
                 ego["motion"] if ego else "",
+                ("Yes" if path["blocked"] else "No") if path else "",
+                path["nearest_m"] if path and path["nearest_m"] is not None else "",
+                path["nearest_class"] or "" if path else "",
+                (int(result["blocks_path"] == path["blocked"]) if path else ""),
             ])
             f.flush()
 
@@ -189,6 +206,14 @@ def run_inference(units, labels, category_menu,
                 if ego:
                     payload["ego"] = {"speed_kmh": round(ego["speed_kmh"], 1),
                                       "motion": ego["motion"]}
+                if path is not None:
+                    payload["path_3d"] = {
+                        "blocked": path["blocked"],
+                        "n_in_path": path["n_in_path"],
+                        "nearest_m": path["nearest_m"],
+                        "nearest_class": path["nearest_class"],
+                        "agrees_with_model": result["blocks_path"] == path["blocked"],
+                    }
                 payload_txt = json.dumps(payload, ensure_ascii=False, indent=2)
 
                 card_src = None
@@ -234,6 +259,16 @@ def run_inference(units, labels, category_menu,
                     cat_counts_by_block["blocking_yes"])
     dump_categories("CATEGORY OCCURRENCES - blocking_no",
                     cat_counts_by_block["blocking_no"])
+
+    if check_path and agree:
+        n_chk = sum(agree.values())
+        n_ok = agree[(True, True)] + agree[(False, False)]
+        print("\n===== Q3 vs 3D GEOMETRY =====")
+        print(f"  {'checked units':28s} : {n_chk:5d}  ({100*n_chk/total:5.1f}% have 3D labels)")
+        print(f"  {'agree':28s} : {n_ok:5d}  ({100*n_ok/n_chk:5.1f}%)")
+        print(f"  {'model Yes / geometry No':28s} : {agree[(True, False)]:5d}")
+        print(f"  {'model No / geometry Yes':28s} : {agree[(False, True)]:5d}")
+        print("  (disagreements are the review-priority units)")
 
     if n_parse_fail:
         print(f"\n[warn] JSON parse failed on {n_parse_fail}/{total} units")

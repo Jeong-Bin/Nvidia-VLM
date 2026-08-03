@@ -417,6 +417,11 @@ if __name__ == "__main__":
                     help="egomotion 라벨(속도/가속도/곡률)을 사실로 프롬프트에 넣는다 (기본 off).")
     ap.add_argument("--use-obstacle", action="store_true",
                     help="obstacle.offline 3D 라벨의 주변 객체 요약을 프롬프트에 넣는다 (기본 off).")
+    ap.add_argument("--check-path", action="store_true",
+                    help="NVIDIA 3D bbox 로 자차 전방 통로 침범 여부를 기하학적으로 "
+                         "계산해 모델의 Q3(blocks_path) 와 대조한다 (기본 off). "
+                         "프롬프트에는 넣지 않고 결과만 CSV/JSON 에 남긴다 - "
+                         "불일치 건이 검수 우선순위가 된다.")
     ap.add_argument("--example-source", choices=["synonyms", "prompt_templates"],
                     default="synonyms",
                     help="카테고리 예시 소스. synonyms(기본)는 짧은 키워드, "
@@ -444,6 +449,8 @@ if __name__ == "__main__":
           f"from {args.example_source}")
     print(f"[info] sensor facts: egomotion={'ON' if args.use_egomotion else 'OFF'}, "
           f"obstacle={'ON' if args.use_obstacle else 'OFF'}")
+    print(f"[info] 3D path check: {'ON' if args.check_path else 'OFF'}"
+          f" (geometric cross-check of Q3, not fed to the model)")
 
     uuids = list_scene_uuids(args.limit_clips)
     print(f"[info] clips: {len(uuids)}  x  {args.timestamps_per_clip} timestamps/clip")
@@ -469,4 +476,5 @@ if __name__ == "__main__":
     from qwen_runner import run_inference
     run_inference(units, labels, category_menu,
                   model_id=args.model, out_csv=args.out, viz_dir=args.viz_dir,
-                  use_egomotion=args.use_egomotion, use_obstacle=args.use_obstacle)
+                  use_egomotion=args.use_egomotion, use_obstacle=args.use_obstacle,
+                  check_path=args.check_path)

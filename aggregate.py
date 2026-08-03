@@ -186,6 +186,39 @@ def main():
     log("labels per unit: " + ", ".join(
         f"{k}:{size_dist[k]}" for k in sorted(size_dist)))
 
+    # --- 3) Q3 교차검증 (--check-path 로 돌린 실행에만 있음) ---
+    if "path3d_blocked" in df.columns:
+        chk = df["path3d_blocked"].astype(str).str.strip()
+        has = chk.isin(("Yes", "No"))
+        n_chk = int(has.sum())
+        if n_chk:
+            geo = chk.eq("Yes")
+            both = has & blocks & geo
+            neither = has & ~blocks & ~geo
+            only_model = has & blocks & ~geo
+            only_geo = has & ~blocks & geo
+            n_ok = int(both.sum() + neither.sum())
+
+            log("")
+            log("=" * 64)
+            log("Q3 (model) vs 3D GEOMETRY")
+            log("=" * 64)
+            log(f"{'WHAT':<40}{'COUNT':>10}{'%':>10}")
+            log("-" * 64)
+            log(f"{'units with 3D labels':<40}{n_chk:>10}{pct(n_chk):>9.1f}%")
+            log(f"{'agree':<40}{n_ok:>10}{100*n_ok/n_chk:>9.1f}%")
+            log(f"{'  both say blocked':<40}{int(both.sum()):>10}"
+                f"{100*both.sum()/n_chk:>9.1f}%")
+            log(f"{'  both say clear':<40}{int(neither.sum()):>10}"
+                f"{100*neither.sum()/n_chk:>9.1f}%")
+            log(f"{'disagree':<40}{n_chk - n_ok:>10}"
+                f"{100*(n_chk-n_ok)/n_chk:>9.1f}%")
+            log(f"{'  model Yes / geometry No':<40}{int(only_model.sum()):>10}"
+                f"{100*only_model.sum()/n_chk:>9.1f}%")
+            log(f"{'  model No / geometry Yes':<40}{int(only_geo.sum()):>10}"
+                f"{100*only_geo.sum()/n_chk:>9.1f}%")
+            log("(disagreements are the review-priority units)")
+
     log("")
     log(f"[saved] merged CSV -> {out_csv}")
     log(f"[saved] log        -> {run_dir / args.log_name}")

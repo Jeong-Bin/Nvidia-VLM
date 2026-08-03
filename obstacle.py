@@ -30,6 +30,21 @@ WINDOW_US = 50_000
 # 이 거리 밖의 객체는 무시 (m)
 MAX_DIST_M = 60.0
 
+# --- rig 좌표계 규약 (20260803 실측으로 확정) ---
+# center_x = 전방(+가 앞), center_y = 횡방향, center_z = 상방.
+# 검증: 20초 클립에서 30프레임 이상 지속된 82개 트랙에 대해
+#   d(center_x)/dt 를 자차 속도로 나눈 값의 중앙값이 정확히 -1.00 이었다
+#   (정지 객체는 자차가 전진한 만큼 x 가 줄어든다). 마주 오는 차량은 -1 보다
+#   큰 값이 나와 물리적으로도 일관됨.
+# size_x/size_y 는 객체 자기 좌표계의 길이/폭 (승용차 4.29 x 1.93 m,
+#   대형트럭 10.47 x 3.08 m) 이라 yaw 로 회전시켜야 rig 축에 투영된다.
+# y 의 좌/우 부호는 확정하지 못했으나, 경로 침범 판정은 |y| 만 쓰므로 무관.
+
+# 자차 주행 통로의 반폭 (m). 차폭 약 2m 에 여유를 더한 값.
+EGO_HALF_WIDTH_M = 1.5
+# 전방 몇 m 까지를 "주행 경로"로 볼지
+LOOKAHEAD_M = 30.0
+
 # automobile 은 너무 흔해서 정보량이 낮다 - 개수만 세고, 나머지는 거리까지 알린다
 COMMON_CLASSES = {"automobile"}
 # 사람이 봐도 자연스러운 표기로 변환
@@ -114,6 +129,84 @@ def has_obstacle(uuid: str) -> bool:
     return uuid in _zip_index("obstacle.offline")
 
 
+# ---------------------------------------------------------------------------
+# 주행 경로 침범 판정 (Q3 교차검증용)
+#
+# VLM 의 Q3("경로를 막는가")는 이미지만 보고 눈대중으로 내리는 판단인데, 이건
+# 본질적으로 기하 문제다 - 객체가 자차 진행 방향의 좁은 통로 안에 있는가.
+# 3D 라벨이 있으면 계산으로 풀 수 있으므로, 모델 답과 대조해 불일치 건을
+# 검수 우선순위로 올린다. 프롬프트에는 넣지 않는다 (모델 동작을 건드리면
+# 카테고리 나열이 죽는 것을 확인했으므로 - build_vlm_prompt 위 주석 참고).
+#
+# 한계: 통로를 직선으로 본다. 자차가 선회 중이면 실제 경로는 휘지만,
+# egomotion 의 curvature 부호와 rig y 축 부호의 대응을 확정하지 못해
+# 반대로 휘게 만들 위험이 있어 넣지 않았다. 선회 구간에서는 판정이
+# 보수적으로(덜 잡히게) 틀릴 수 있다.
+# ---------------------------------------------------------------------------
+def _yaw_from_quat(qx, qy, qz, qw):
+    """쿼터니언 -> rig 평면상의 yaw (rad)."""
+    return np.arctan2(2 * (qw * qz + qx * qy),
+                      1 - 2 * (qy ** 2 + qz ** 2))
+
+
+@lru_cache(maxsize=1024)
+def _obstacle_boxes(uuid: str):
+    """(t, x, y, half_extent_y, cls) - 경로 판정에 필요한 최소 배열."""
+    df = _read_label("obstacle.offline", uuid)
+    if df is None or len(df) == 0:
+        return None
+    t = df["timestamp_us"].to_numpy(dtype=np.float64)
+    x = df["center_x"].to_numpy(dtype=np.float64)
+    y = df["center_y"].to_numpy(dtype=np.float64)
+    yaw = _yaw_from_quat(df["orientation_x"].to_numpy(),
+                         df["orientation_y"].to_numpy(),
+                         df["orientation_z"].to_numpy(),
+                         df["orientation_w"].to_numpy())
+    # 회전한 직사각형을 rig 축에 투영했을 때의 y 방향 반폭
+    half_y = 0.5 * (np.abs(df["size_x"].to_numpy() * np.sin(yaw))
+                    + np.abs(df["size_y"].to_numpy() * np.cos(yaw)))
+    cls = df["label_class"].to_numpy(dtype=object)
+    return t, x, y, half_y, cls
+
+
+def path_intrusion(uuid: str, frame_idx: int,
+                   half_width: float = EGO_HALF_WIDTH_M,
+                   lookahead: float = LOOKAHEAD_M,
+                   window_us: int = WINDOW_US) -> dict | None:
+    """자차 전방 통로를 침범하는 객체가 있는지 3D 라벨로 판정.
+
+    통로 = 0 < x < lookahead 이고 |y| - (객체 반폭) < half_width 인 영역.
+    객체의 실제 크기를 고려하므로, 중심은 통로 밖이어도 차체가 걸치면 잡는다.
+
+    반환: {"blocked", "n_in_path", "nearest_m", "nearest_class", "objects"}
+          라벨이 없으면 None.
+    """
+    ts = frame_timestamps(uuid)
+    boxes = _obstacle_boxes(uuid)
+    if ts is None or boxes is None:
+        return None
+    if not (0 <= frame_idx < len(ts)):
+        return None
+
+    t_us = float(ts[frame_idx])
+    t, x, y, half_y, cls = boxes
+    sel = ((np.abs(t - t_us) <= window_us)
+           & (x > 0) & (x <= lookahead)
+           & (np.abs(y) - half_y < half_width))
+    if not sel.any():
+        return {"blocked": False, "n_in_path": 0,
+                "nearest_m": None, "nearest_class": None, "objects": []}
+
+    xs, ys, cs = x[sel], y[sel], cls[sel]
+    order = np.argsort(xs)
+    objs = [{"class": str(cs[i]), "x_m": round(float(xs[i]), 1),
+             "y_m": round(float(ys[i]), 1)} for i in order]
+    return {"blocked": True, "n_in_path": int(sel.sum()),
+            "nearest_m": round(float(xs[order[0]]), 1),
+            "nearest_class": str(cs[order[0]]),
+            "objects": objs}
+
+
 if __name__ == "__main__":
     import argparse
     from pathlib import Path
@@ -140,4 +233,11 @@ if __name__ == "__main__":
             if s is None:
                 print(f"  f{fi:4d}  (no obstacle label)")
                 continue
-            print(f"  f{fi:4d}  n={s['total']:3d}  {describe_obstacles(s)}")
+            p = path_intrusion(u, int(fi))
+            if p and p["blocked"]:
+                tag = (f"PATH BLOCKED by {p['nearest_class']} @{p['nearest_m']}m "
+                       f"({p['n_in_path']} in path)")
+            else:
+                tag = "path clear"
+            print(f"  f{fi:4d}  n={s['total']:3d}  {tag}")
+            print(f"          {describe_obstacles(s)}")

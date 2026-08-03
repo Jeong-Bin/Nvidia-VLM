@@ -180,7 +180,7 @@
           {
             "name": "Animal",
             "synonyms": [
-                      "wildlife on the road",
+                      "birds on the road",
                       "cat ahead",
                       "dog",
                       "deer",
@@ -285,7 +285,8 @@
           {
             "name": "Side Street",
             "synonyms": [
-                      "narrow road",
+                      "a vehicle is approaching head-on on a narrow road",
+                      "parked vehicles are blocking the narrow street",
                       "back street",
                       "minor road",
                       "local street",
