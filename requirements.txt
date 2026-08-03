@@ -1,0 +1,34 @@
+# VLM 기반 edge-case mining 파이프라인 의존성
+#
+# Python 3.12 필요 (코드가 `int | None` union 문법을 쓰므로 3.10 미만은 불가).
+#
+# 설치:
+#   conda create -n nvidia-vlm python=3.12 -y
+#   conda activate nvidia-vlm
+#   pip install -r requirements.txt
+#
+# torch 는 CUDA 12.4 빌드를 쓴다. 아래 --extra-index-url 이 있어야
+# +cu124 휠을 받는다 (없으면 CPU 빌드가 설치될 수 있음).
+--extra-index-url https://download.pytorch.org/whl/cu124
+
+# --- 모델 추론 ---
+torch==2.6.0+cu124
+torchvision==0.21.0+cu124
+transformers==5.14.1        # Qwen3-VL 지원에 필요 (AutoModelForImageTextToText)
+accelerate==1.14.0
+safetensors==0.8.0
+tokenizers==0.22.2
+
+# --- 데이터셋 다운로드 / 라벨 조회 ---
+huggingface_hub==1.26.0     # 데이터셋 청크 다운로드(download_more_clips.py)에도 사용
+pandas==3.0.5
+pyarrow==25.0.0             # egomotion / obstacle parquet 라벨 읽기
+
+# --- 프레임 추출 및 시각화 ---
+opencv-python-headless==5.0.0.93   # 서버용(GUI 없음). 화면 표시가 필요하면 opencv-python
+pillow==12.2.0
+matplotlib==3.11.1
+
+# --- 기타 ---
+numpy==2.4.4
+tqdm==4.70.0

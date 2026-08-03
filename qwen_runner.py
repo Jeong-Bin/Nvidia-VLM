@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Qwen2.5-VL 단일 호출 추론 러너.
+"""Qwen VLM 단일 호출 추론 러너.
+
+--model 로 Qwen2.5-VL-7B, Qwen3-VL-8B/32B 중 선택 가능 (edge_case_mining.py 의
+choices 참고). Qwen3-VL 은 Qwen2.5-VL 과 다른 모델 클래스
+(Qwen3VLForConditionalGeneration vs Qwen2_5_VLForConditionalGeneration) 를 쓰므로
+AutoModelForImageTextToText / AutoProcessor 로 로드해 model_id 에 따라 알맞은
+구현이 자동으로 선택되게 한다 - 모델을 바꿔도 이 파일을 고칠 필요가 없다.
 
 판정 단위: (uuid, frame_idx) - 클립 내 특정 순간의 3뷰 프레임 세트.
 
@@ -21,7 +27,7 @@ from pathlib import Path
 
 import torch
 from tqdm import tqdm
-from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
+from transformers import AutoModelForImageTextToText, AutoProcessor
 
 from edge_case_mining import (
     sample_unit_frames, FRONT_VIEWS,
@@ -33,9 +39,15 @@ from visualize import render_scene_card
 
 
 def load_model(model_id: str):
+    """model_id 에 맞는 모델/프로세서 클래스를 Auto* 로 자동 선택해 로드한다.
+
+    Qwen2.5-VL 은 Qwen2_5_VLForConditionalGeneration, Qwen3-VL(dense 8B/32B)은
+    Qwen3VLForConditionalGeneration 으로 클래스가 다르지만, 둘 다
+    AutoModelForImageTextToText 로 커버되므로 여기서 분기할 필요가 없다.
+    """
     print(f"[model] loading {model_id} ...")
     t0 = time.time()
-    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+    model = AutoModelForImageTextToText.from_pretrained(
         model_id,
         torch_dtype=torch.bfloat16,
         attn_implementation="sdpa",

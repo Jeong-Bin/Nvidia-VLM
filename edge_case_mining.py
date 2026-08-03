@@ -272,12 +272,10 @@ in order: the FIRST three are from about 1 second EARLIER, the LAST three are
 the CURRENT moment. Each group of three is synchronized camera views
 (front-wide, cross-left, cross-right) of the same vehicle.
 {fact_block}
-Compare the earlier frames to the current ones to judge motion, then answer TWO
-questions about the CURRENT moment.
+Compare the earlier frames to the current ones to judge motion, then answer TWO questions about the CURRENT moment.
 
-Q1. Ordinary driving, or a SPECIAL / edge-case situation? "Normal" or "Special".
-Q2. Which categories below are present in the CURRENT scene? List EVERY one that
-    applies. Copy the category names EXACTLY as written:
+Q1. Ordinary driving, or a SPECIAL edge-case situation that interfere with driving? "Normal" or "Special".
+Q2. Which categories below are present in the CURRENT scene? List EVERY one that applies. Copy the category names EXACTLY as written:
 
 {category_menu}
 
@@ -369,7 +367,18 @@ if __name__ == "__main__":
                     help="처리할 클립(uuid) 수 제한 (스모크 테스트용)")
     ap.add_argument("--timestamps-per-clip", type=int, default=10,
                     help="클립당 샘플링할 timestamp(프레임) 수")
-    ap.add_argument("--model", default="Qwen/Qwen2.5-VL-7B-Instruct")
+    ap.add_argument("--model", default="Qwen/Qwen3-VL-8B-Instruct",
+                    choices=["Qwen/Qwen2.5-VL-7B-Instruct",
+                             "Qwen/Qwen3-VL-8B-Instruct",
+                             "Qwen/Qwen3-VL-32B-Instruct"],
+                    help="사용할 VLM. Qwen3-VL 은 Qwen2.5-VL 과 동일한 "
+                         "Qwen2_5_VLForConditionalGeneration 아키텍처가 아니므로 "
+                         "qwen_runner.py 가 model_id 를 보고 알맞은 모델/프로세서 "
+                         "클래스를 자동으로 고른다.")
+    # 후보로 검토했던 타 계열: InternVL3-38B/78B(OCR/세밀한 장면 이해가 강해
+    # 표지판·차선 마킹에 유리할 수 있음), LLaVA-OneVision-72B(비디오 벤치마크
+    # 강점). 다만 지금 프롬프트는 Qwen 특성에 맞춰 튜닝한 것이라 계열을 바꾸면
+    # 재검증이 필요하다 - build_vlm_prompt() 위 주석 참고.
     ap.add_argument("--out", default=None,
                     help="결과 CSV 경로. 생략 시 results/<timestamp>/results.csv 자동 생성")
     ap.add_argument("--viz-dir", default=None,
