@@ -110,18 +110,20 @@ def classify_unit(model, processor, unit_frames, prompt):
 def run_inference(units, labels, category_menu,
                   model_id="Qwen/Qwen3-VL-8B-Instruct",
                   out_csv="edge_case_results.csv", viz_dir="viz",
-                  use_egomotion=False, use_obstacle=False, check_path=False):
+                  use_egomotion=False, use_obstacle=False, check_path=False,
+                  ask_blocking=True):
     """units: [(uuid, frame_idx), ...]
 
     check_path=True 면 3D 라벨로 전방 통로 침범을 계산해 모델의 Q3 와 대조한다.
     프롬프트에는 넣지 않으므로 모델 출력 자체는 달라지지 않는다.
+    ask_blocking=False 면 Q3 를 묻지 않고, 시각화도 blocking 으로 나누지 않는다.
     """
     model, processor = load_model(model_id)
     viz_path = Path(viz_dir)
     viz_path.mkdir(parents=True, exist_ok=True)
 
     # 센서 사실을 안 쓰면 프롬프트가 매번 같으므로 한 번만 만든다
-    base_prompt = build_vlm_prompt(category_menu)
+    base_prompt = build_vlm_prompt(category_menu, ask_blocking=ask_blocking)
     use_sensors = use_egomotion or use_obstacle
 
     # 멀티라벨이라 카테고리 합계는 판정 단위 수를 넘을 수 있다.
@@ -152,35 +154,39 @@ def run_inference(units, labels, category_menu,
             ego = None
             if not any(unit_frames["cur"].values()):
                 result = {"verdict": "Normal", "categories": [],
-                          "blocks_path": False, "evidence": "(no frame)",
-                          "parse_ok": False}
+                          "blocks_path": False if ask_blocking else None,
+                          "evidence": "(no frame)", "parse_ok": False}
             else:
                 if use_sensors:
                     facts, ego = build_sensor_facts(
                         uuid, frame_idx, use_egomotion, use_obstacle)
-                    prompt = build_vlm_prompt(category_menu, facts) if facts else base_prompt
+                    prompt = (build_vlm_prompt(category_menu, facts,
+                                               ask_blocking=ask_blocking)
+                              if facts else base_prompt)
                 else:
                     prompt = base_prompt
                 raw = classify_unit(model, processor, unit_frames, prompt)
-                result = parse_vlm_output(raw, labels)
+                result = parse_vlm_output(raw, labels, ask_blocking=ask_blocking)
 
             cats = result["categories"]
-            block_key = blocking_dir(result)
+            block_key = blocking_dir(result)          # Q3 off 면 None
             cat_counts.update(cats)
             n_parse_fail += not result["parse_ok"]
             if cats:
                 n_labeled += 1
-                block_counts[block_key] += 1
-                cat_counts_by_block[block_key].update(cats)
+                if block_key:
+                    block_counts[block_key] += 1
+                    cat_counts_by_block[block_key].update(cats)
 
-            # Q3 교차검증 (프롬프트에는 들어가지 않았으므로 모델 답과 독립)
+            # Q3 교차검증 (프롬프트에는 들어가지 않았으므로 모델 답과 독립).
+            # Q3 를 안 물었으면 대조할 모델 답이 없어 기하 결과만 남긴다.
             path = path_intrusion(uuid, frame_idx) if check_path else None
-            if path is not None:
+            if path is not None and ask_blocking:
                 agree[(result["blocks_path"], path["blocked"])] += 1
 
             writer.writerow([
                 uuid, frame_idx, result["verdict"],
-                "Yes" if result["blocks_path"] else "No",
+                "" if block_key is None else ("Yes" if result["blocks_path"] else "No"),
                 len(cats), "|".join(cats), result["evidence"],
                 int(result["parse_ok"]),
                 f"{ego['speed_kmh']:.1f}" if ego else "",
@@ -188,21 +194,23 @@ def run_inference(units, labels, category_menu,
                 ("Yes" if path["blocked"] else "No") if path else "",
                 path["nearest_m"] if path and path["nearest_m"] is not None else "",
                 path["nearest_class"] or "" if path else "",
-                (int(result["blocks_path"] == path["blocked"]) if path else ""),
+                (int(result["blocks_path"] == path["blocked"])
+                 if (path and ask_blocking) else ""),
             ])
             f.flush()
 
-            # blocking_{yes,no}/<category>/<uuid>_f<idx>/ 아래에 저장.
-            # 멀티라벨이면 해당하는 모든 카테고리 폴더에 같은 내용을 중복 저장한다.
+            # Q3 를 물었으면 blocking_{yes,no}/<category>/, 아니면 <category>/
+            # 아래에 저장. 멀티라벨이면 해당하는 모든 카테고리 폴더에 중복 저장.
             targets = viz_targets(result)
             if targets:
                 payload = {
                     "uuid": uuid, "frame_idx": frame_idx,
                     "verdict": result["verdict"],
                     "categories": cats,
-                    "blocks_path": result["blocks_path"],
                     "evidence": result["evidence"],
                 }
+                if ask_blocking:
+                    payload["blocks_path"] = result["blocks_path"]
                 if ego:
                     payload["ego"] = {"speed_kmh": round(ego["speed_kmh"], 1),
                                       "motion": ego["motion"]}
@@ -212,8 +220,10 @@ def run_inference(units, labels, category_menu,
                         "n_in_path": path["n_in_path"],
                         "nearest_m": path["nearest_m"],
                         "nearest_class": path["nearest_class"],
-                        "agrees_with_model": result["blocks_path"] == path["blocked"],
                     }
+                    if ask_blocking:
+                        payload["path_3d"]["agrees_with_model"] = (
+                            result["blocks_path"] == path["blocked"])
                 payload_txt = json.dumps(payload, ensure_ascii=False, indent=2)
 
                 card_src = None
@@ -231,9 +241,9 @@ def run_inference(units, labels, category_menu,
                     else:
                         shutil.copyfile(card_src, dst)
 
-            pbar.set_postfix_str(
-                f"cats={len(cats)} block={'Y' if result['blocks_path'] else 'N'} "
-                f"labeled={n_labeled}")
+            blk = "" if block_key is None else (
+                f" block={'Y' if result['blocks_path'] else 'N'}")
+            pbar.set_postfix_str(f"cats={len(cats)}{blk} labeled={n_labeled}")
 
     total = len(units)
 
@@ -243,8 +253,9 @@ def run_inference(units, labels, category_menu,
     print("\n===== UNITS =====")
     print(f"  {'total':28s} : {total:5d}  (100.0%)")
     print(f"  {'with >=1 category':28s} : {n_labeled:5d}  ({pct(n_labeled):5.1f}%)")
-    for k in ("blocking_yes", "blocking_no"):
-        print(f"    {k:26s} : {block_counts[k]:5d}  ({pct(block_counts[k]):5.1f}%)")
+    if ask_blocking:
+        for k in ("blocking_yes", "blocking_no"):
+            print(f"    {k:26s} : {block_counts[k]:5d}  ({pct(block_counts[k]):5.1f}%)")
 
     def dump_categories(title, counter):
         print(f"\n===== {title} (multi-label) =====")
@@ -254,11 +265,13 @@ def run_inference(units, labels, category_menu,
         for cat, c in counter.most_common():
             print(f"  {cat:28s} : {c:5d}  ({pct(c):5.1f}% of units)")
 
-    dump_categories("CATEGORY OCCURRENCES - ALL", cat_counts)
-    dump_categories("CATEGORY OCCURRENCES - blocking_yes",
-                    cat_counts_by_block["blocking_yes"])
-    dump_categories("CATEGORY OCCURRENCES - blocking_no",
-                    cat_counts_by_block["blocking_no"])
+    dump_categories("CATEGORY OCCURRENCES"
+                    + (" - ALL" if ask_blocking else ""), cat_counts)
+    if ask_blocking:
+        dump_categories("CATEGORY OCCURRENCES - blocking_yes",
+                        cat_counts_by_block["blocking_yes"])
+        dump_categories("CATEGORY OCCURRENCES - blocking_no",
+                        cat_counts_by_block["blocking_no"])
 
     if check_path and agree:
         n_chk = sum(agree.values())
@@ -269,10 +282,14 @@ def run_inference(units, labels, category_menu,
         print(f"  {'model Yes / geometry No':28s} : {agree[(True, False)]:5d}")
         print(f"  {'model No / geometry Yes':28s} : {agree[(False, True)]:5d}")
         print("  (disagreements are the review-priority units)")
+    elif check_path and not ask_blocking:
+        print("\n[info] 3D path check recorded, but Q3 is off so there is no "
+              "model answer to compare against")
 
     if n_parse_fail:
         print(f"\n[warn] JSON parse failed on {n_parse_fail}/{total} units")
 
     print(f"\n[done] results -> {out_csv}  ({time.time()-t_start:.1f}s)")
-    print(f"[done] visualizations -> {viz_path}/blocking_{{yes,no}}/<category>/")
+    layout = "blocking_{yes,no}/<category>/" if ask_blocking else "<category>/"
+    print(f"[done] visualizations -> {viz_path}/{layout}")
     return cat_counts

@@ -258,11 +258,13 @@ def sample_unit_frames(uuid: str, frame_idx: int, max_long_side: int = 896,
 #   => 채택: Q1(verdict), Q2(categories), Q3(blocks_path)를 서로 독립으로 두고
 #      "앞 답과 무관하게 각각 답하라"고 명시. 조건을 거는 순간 탐지가 죽는다.
 # ---------------------------------------------------------------------------
-def build_vlm_prompt(category_menu: str, sensor_facts: str = "") -> str:
+def build_vlm_prompt(category_menu: str, sensor_facts: str = "",
+                     ask_blocking: bool = True) -> str:
     """6장 이미지 + 카테고리 메뉴 -> JSON 한 덩어리를 요구하는 프롬프트.
 
     sensor_facts: egomotion/obstacle 라벨에서 뽑은 사실 문구(옵션). 비어 있으면
-    해당 블록 자체가 빠진다.
+                  해당 블록 자체가 빠진다.
+    ask_blocking: False 면 Q3 를 아예 묻지 않는다 (JSON 스키마에서도 빠진다).
     """
     fact_block = f"""
 KNOWN FACTS at the CURRENT moment (from vehicle sensors - ground truth, trust
@@ -270,29 +272,40 @@ these over your own guess from the images):
 {sensor_facts}
 """ if sensor_facts else ""
 
+    if ask_blocking:
+        n_q = "THREE"
+        q3_block = """
+Q3. Is anything actually blocking or intruding into the ego-vehicle's driving path right now? "Yes" or "No".
+"""
+        independence = """The three questions are INDEPENDENT - answer each one on its own:
+- Answer Q2 in full even when the verdict is "Normal".
+- Q3 does NOT filter Q2. Still list a category in Q2 even if it sits off to the
+  side and the answer to Q3 is "No"."""
+        schema_q3 = '\n "blocks_path": "Yes" or "No",'
+    else:
+        n_q = "TWO"
+        q3_block = ""
+        independence = ("The two questions are INDEPENDENT - answer Q2 in full "
+                        "even when the verdict is \"Normal\".")
+        schema_q3 = ""
+
     return f"""You are an autonomous-driving scene analyst. You are shown SIX images
 in order: the FIRST three are from about 1 second EARLIER, the LAST three are
 the CURRENT moment. Each group of three is synchronized camera views
 (front-wide, cross-left, cross-right) of the same vehicle.
 {fact_block}
-Compare the earlier frames to the current ones to judge motion, then answer THREE questions about the CURRENT moment.
+Compare the earlier frames to the current ones to judge motion, then answer {n_q} questions about the CURRENT moment.
 
 Q1. Ordinary driving, or a SPECIAL edge-case situation that interfere with driving? "Normal" or "Special".
 Q2. Which categories below are present in the CURRENT scene? List EVERY one that applies. Copy the category names EXACTLY as written:
 
 {category_menu}
-
-Q3. Is anything actually blocking or intruding into the ego-vehicle's driving path right now? "Yes" or "No".
-
-The three questions are INDEPENDENT - answer each one on its own:
-- Answer Q2 in full even when the verdict is "Normal".
-- Q3 does NOT filter Q2. Still list a category in Q2 even if it sits off to the
-  side and the answer to Q3 is "No".
+{q3_block}
+{independence}
 
 Respond with ONLY a JSON object, no other text:
 {{"verdict": "Normal" or "Special",
- "categories": ["<exact category name>", ...],
- "blocks_path": "Yes" or "No",
+ "categories": ["<exact category name>", ...],{schema_q3}
  "evidence": "<one short phrase describing what you actually see>"}}"""
 
 
@@ -309,17 +322,22 @@ def _closest_valid(name: str, valid_names: set) -> str | None:
     return None
 
 
-def parse_vlm_output(text: str, labels: list) -> dict:
+def parse_vlm_output(text: str, labels: list,
+                     ask_blocking: bool = True) -> dict:
     """모델 출력 -> {"verdict","categories","blocks_path","evidence","parse_ok"}.
 
     categories 는 scene_category_B.json 에 실제로 있는 special 카테고리명만
     남긴다(대소문자 차이는 흡수). 모델이 만들어낸 이름은 버린다.
-    JSON 파싱에 실패하면 parse_ok=False 로 표시하고 verdict 는 Normal,
-    blocks_path 는 False 로 둔다 (없는 special 을 만들어내는 것보다 놓치는 쪽이
-    사후 검수에 안전).
+    JSON 파싱에 실패하면 parse_ok=False 로 표시하고 verdict 는 Normal 로 둔다
+    (없는 special 을 만들어내는 것보다 놓치는 쪽이 사후 검수에 안전).
+
+    blocks_path 는 ask_blocking=False 면 항상 None 이다. "묻지 않았다"와
+    "No 라고 답했다"는 다른 상태이므로 False 로 뭉뚱그리지 않는다 - 시각화
+    폴더 구조와 집계가 이 구분에 의존한다.
     """
     valid = {l["category"] for l in labels if not l["is_normal"]}
-    out = {"verdict": "Normal", "categories": [], "blocks_path": False,
+    out = {"verdict": "Normal", "categories": [],
+           "blocks_path": False if ask_blocking else None,
            "evidence": "", "parse_ok": False}
 
     m = re.search(r"\{.*\}", text, re.DOTALL)
@@ -336,11 +354,12 @@ def parse_vlm_output(text: str, labels: list) -> dict:
     out["evidence"] = str(obj.get("evidence", "")).strip()
 
     # Q3: "Yes"/"No" 를 기대하지만 true/false 로 답하는 경우도 흡수
-    b = obj.get("blocks_path", False)
-    if isinstance(b, bool):
-        out["blocks_path"] = b
-    else:
-        out["blocks_path"] = str(b).strip().lower() in ("yes", "y", "true", "1")
+    if ask_blocking:
+        b = obj.get("blocks_path", False)
+        if isinstance(b, bool):
+            out["blocks_path"] = b
+        else:
+            out["blocks_path"] = str(b).strip().lower() in ("yes", "y", "true", "1")
 
     raw_cats = obj.get("categories", [])
     if isinstance(raw_cats, str):
@@ -359,24 +378,28 @@ def unit_name(uuid: str, frame_idx: int) -> str:
     return f"{uuid}_f{frame_idx:04d}"
 
 
-def blocking_dir(result: dict) -> str:
-    """Q3 답에 따른 최상위 폴더명."""
-    return "blocking_yes" if result["blocks_path"] else "blocking_no"
+def blocking_dir(result: dict) -> str | None:
+    """Q3 답에 따른 최상위 폴더명. Q3 를 묻지 않았으면 None."""
+    b = result.get("blocks_path")
+    if b is None:
+        return None
+    return "blocking_yes" if b else "blocking_no"
 
 
 def viz_targets(result: dict) -> list[str]:
     """이 판정 단위의 시각화를 저장할 상대 경로들.
 
-    blocking_{yes,no}/<category>/ 아래에 카테고리별로 나눠 담는다. 멀티라벨이면
-    해당하는 모든 카테고리 폴더에 같은 결과를 중복 저장한다(검수할 때 카테고리
-    단위로 훑을 수 있어야 하므로).
+    Q3 를 물었으면 blocking_{yes,no}/<category>/, 묻지 않았으면 <category>/ 로
+    바로 담는다. 멀티라벨이면 해당하는 모든 카테고리 폴더에 같은 결과를 중복
+    저장한다(검수할 때 카테고리 단위로 훑을 수 있어야 하므로).
     카테고리가 하나도 없으면 저장하지 않는다 - verdict 와 무관하게, 볼 것이
     없는 장면이기 때문.
     """
     if not result["categories"]:
         return []
     top = blocking_dir(result)
-    return [f"{top}/{category_slug(c)}" for c in result["categories"]]
+    prefix = f"{top}/" if top else ""
+    return [f"{prefix}{category_slug(c)}" for c in result["categories"]]
 
 
 def clip_uuid(mp4_path: str) -> str:
@@ -417,11 +440,16 @@ if __name__ == "__main__":
                     help="egomotion 라벨(속도/가속도/곡률)을 사실로 프롬프트에 넣는다 (기본 off).")
     ap.add_argument("--use-obstacle", action="store_true",
                     help="obstacle.offline 3D 라벨의 주변 객체 요약을 프롬프트에 넣는다 (기본 off).")
+    ap.add_argument("--no-blocking", dest="ask_blocking", action="store_false",
+                    help="Q3(주행 경로를 막는가)를 묻지 않는다. 이 경우 시각화는 "
+                         "blocking_{yes,no} 없이 <category>/ 로 바로 저장되고 "
+                         "집계에서도 blocking 구분이 빠진다 (기본은 물음).")
     ap.add_argument("--check-path", action="store_true",
                     help="NVIDIA 3D bbox 로 자차 전방 통로 침범 여부를 기하학적으로 "
                          "계산해 모델의 Q3(blocks_path) 와 대조한다 (기본 off). "
                          "프롬프트에는 넣지 않고 결과만 CSV/JSON 에 남긴다 - "
-                         "불일치 건이 검수 우선순위가 된다.")
+                         "불일치 건이 검수 우선순위가 된다. --no-blocking 이면 "
+                         "대조할 모델 답이 없으므로 기하 계산 결과만 기록한다.")
     ap.add_argument("--example-source", choices=["synonyms", "prompt_templates"],
                     default="synonyms",
                     help="카테고리 예시 소스. synonyms(기본)는 짧은 키워드, "
@@ -449,6 +477,8 @@ if __name__ == "__main__":
           f"from {args.example_source}")
     print(f"[info] sensor facts: egomotion={'ON' if args.use_egomotion else 'OFF'}, "
           f"obstacle={'ON' if args.use_obstacle else 'OFF'}")
+    print(f"[info] Q3 blocking question: {'ON' if args.ask_blocking else 'OFF'}"
+          + ("" if args.ask_blocking else " (viz not split by blocking)"))
     print(f"[info] 3D path check: {'ON' if args.check_path else 'OFF'}"
           f" (geometric cross-check of Q3, not fed to the model)")
 
@@ -477,4 +507,4 @@ if __name__ == "__main__":
     run_inference(units, labels, category_menu,
                   model_id=args.model, out_csv=args.out, viz_dir=args.viz_dir,
                   use_egomotion=args.use_egomotion, use_obstacle=args.use_obstacle,
-                  check_path=args.check_path)
+                  check_path=args.check_path, ask_blocking=args.ask_blocking)

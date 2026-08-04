@@ -116,13 +116,14 @@ def main():
             log(f"[warn] JSON parse failed on {n_fail} units ({pct(n_fail):.1f}%)")
 
     cat_lists = df["categories"].apply(split_categories)
-    blocks = df["blocks_path"].astype(str).str.strip().str.lower().isin(
-        ("yes", "y", "true", "1"))
     labeled = cat_lists.apply(bool)
-
     n_labeled = int(labeled.sum())
-    n_block_yes = int((labeled & blocks).sum())
-    n_block_no = int((labeled & ~blocks).sum())
+
+    # blocks_path 가 전부 비어 있으면 --no-blocking 으로 돌린 실행이다.
+    # 그런 실행에서는 blocking 구분을 아예 출력하지 않는다.
+    bp = df["blocks_path"].astype(str).str.strip()
+    has_blocking = bool(bp.isin(("Yes", "No", "yes", "no")).any())
+    blocks = bp.str.lower().isin(("yes", "y", "true", "1"))
 
     # --- 1) 판정 단위 개요 ---
     log("")
@@ -133,12 +134,15 @@ def main():
     log("-" * 64)
     log(f"{'total units':<40}{total:>10}{100.0:>9.1f}%")
     log(f"{'with >=1 category':<40}{n_labeled:>10}{pct(n_labeled):>9.1f}%")
-    log(f"{'  blocking_yes':<40}{n_block_yes:>10}{pct(n_block_yes):>9.1f}%")
-    log(f"{'  blocking_no':<40}{n_block_no:>10}{pct(n_block_no):>9.1f}%")
+    if has_blocking:
+        n_block_yes = int((labeled & blocks).sum())
+        n_block_no = int((labeled & ~blocks).sum())
+        log(f"{'  blocking_yes':<40}{n_block_yes:>10}{pct(n_block_yes):>9.1f}%")
+        log(f"{'  blocking_no':<40}{n_block_no:>10}{pct(n_block_no):>9.1f}%")
     log(f"{'no category (not visualised)':<40}"
         f"{total - n_labeled:>10}{pct(total - n_labeled):>9.1f}%")
 
-    # --- 2) 카테고리 빈도: 전체 / blocking_yes / blocking_no ---
+    # --- 2) 카테고리 빈도 (blocking 을 물었으면 yes/no 로 쪼개서도) ---
     specials = load_special_categories(SCENE_JSON)
     known = {c for _, c in specials}
 
@@ -149,34 +153,43 @@ def main():
         return c
 
     all_counts = counts_for(labeled)
-    yes_counts = counts_for(labeled & blocks)
-    no_counts = counts_for(labeled & ~blocks)
+    yes_counts = counts_for(labeled & blocks) if has_blocking else Counter()
+    no_counts = counts_for(labeled & ~blocks) if has_blocking else Counter()
+
+    def row(left, cat, n):
+        if has_blocking:
+            return (f"{left:<20}{cat:<22}{n:>7}{yes_counts.get(cat, 0):>7}"
+                    f"{no_counts.get(cat, 0):>8}{pct(n):>7.1f}%")
+        return f"{left:<20}{cat:<22}{n:>7}{pct(n):>8.1f}%"
 
     log("")
     log("=" * 64)
     log("SPECIAL CATEGORY FREQUENCY  (multi-label: a unit can be in several)")
     log("=" * 64)
-    log(f"{'SCENARIO':<20}{'CATEGORY':<22}{'ALL':>7}{'BLOCK':>7}{'NO-BLK':>8}"
-        f"{'% ALL':>8}")
+    if has_blocking:
+        log(f"{'SCENARIO':<20}{'CATEGORY':<22}{'ALL':>7}{'BLOCK':>7}{'NO-BLK':>8}"
+            f"{'% ALL':>8}")
+    else:
+        log(f"{'SCENARIO':<20}{'CATEGORY':<22}{'COUNT':>7}{'%':>8}")
     log("-" * 64)
     for scenario, cat in specials:
-        n = all_counts.get(cat, 0)
-        log(f"{scenario:<20}{cat:<22}{n:>7}{yes_counts.get(cat, 0):>7}"
-            f"{no_counts.get(cat, 0):>8}{pct(n):>7.1f}%")
+        log(row(scenario, cat, all_counts.get(cat, 0)))
 
     # json 에 없는 이름이 섞였다면(파서가 걸렀어야 하는 것) 별도로 보여준다
     unknown = {k: v for k, v in all_counts.items() if k not in known}
     if unknown:
         log("-" * 64)
         for cat, n in sorted(unknown.items(), key=lambda x: -x[1]):
-            log(f"{'(unknown)':<20}{cat:<22}{n:>7}{yes_counts.get(cat, 0):>7}"
-                f"{no_counts.get(cat, 0):>8}{pct(n):>7.1f}%")
+            log(row("(unknown)", cat, n))
 
     n_labels = sum(all_counts.values())
     log("-" * 64)
-    log(f"{'TOTAL label occurrences':<42}{n_labels:>7}"
-        f"{sum(yes_counts.values()):>7}{sum(no_counts.values()):>8}"
-        f"{pct(n_labels):>7.1f}%")
+    if has_blocking:
+        log(f"{'TOTAL label occurrences':<42}{n_labels:>7}"
+            f"{sum(yes_counts.values()):>7}{sum(no_counts.values()):>8}"
+            f"{pct(n_labels):>7.1f}%")
+    else:
+        log(f"{'TOTAL label occurrences':<42}{n_labels:>7}{pct(n_labels):>8.1f}%")
     if n_labeled:
         log(f"{'avg labels per labeled unit':<42}{n_labels / n_labeled:>7.2f}")
 
@@ -187,7 +200,8 @@ def main():
         f"{k}:{size_dist[k]}" for k in sorted(size_dist)))
 
     # --- 3) Q3 교차검증 (--check-path 로 돌린 실행에만 있음) ---
-    if "path3d_blocked" in df.columns:
+    # Q3 를 묻지 않았다면 대조할 모델 답이 없으므로 이 섹션 자체를 건너뛴다.
+    if "path3d_blocked" in df.columns and has_blocking:
         chk = df["path3d_blocked"].astype(str).str.strip()
         has = chk.isin(("Yes", "No"))
         n_chk = int(has.sum())
@@ -222,8 +236,8 @@ def main():
     log("")
     log(f"[saved] merged CSV -> {out_csv}")
     log(f"[saved] log        -> {run_dir / args.log_name}")
-    log(f"[viz]   {run_dir}/blocking_{{yes,no}}/<category>/<uuid>_f<idx>/"
-        f"{{card.png,result.json}}")
+    layout = "blocking_{yes,no}/<category>" if has_blocking else "<category>"
+    log(f"[viz]   {run_dir}/{layout}/<uuid>_f<idx>/{{card.png,result.json}}")
     log.close()
 
 

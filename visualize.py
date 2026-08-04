@@ -40,11 +40,16 @@ def render_scene_card(uuid, frame_idx, frames_by_view, result, out_path):
     verdict = result.get("verdict", "Normal")
     cats = result.get("categories", []) or []
     evidence = result.get("evidence", "") or ""
-    blocks = bool(result.get("blocks_path", False))
+    # blocks_path 가 None 이면 Q3 를 아예 묻지 않은 실행이므로 언급하지 않는다
+    blocks = result.get("blocks_path")
 
-    accent = BLOCKING_COLORS[blocks]
-    headline = ("BLOCKING the driving path" if blocks
-                else "not blocking the path")
+    if blocks is None:
+        accent = BLOCKING_COLORS[False]
+        headline = f"verdict: {verdict}"
+    else:
+        accent = BLOCKING_COLORS[bool(blocks)]
+        headline = ("BLOCKING the driving path" if blocks
+                    else "not blocking the path") + f"   ·   verdict: {verdict}"
 
     fig = plt.figure(figsize=(15, 7.0), dpi=130, facecolor="white")
     gs = fig.add_gridspec(
@@ -58,7 +63,7 @@ def render_scene_card(uuid, frame_idx, frames_by_view, result, out_path):
         f"{uuid}  (frame {frame_idx})",
         fontsize=14, fontweight="bold", color=TEXT_DARK, x=0.02, ha="left", y=0.975,
     )
-    fig.text(0.02, 0.915, f"{headline}   ·   verdict: {verdict}", fontsize=12.5,
+    fig.text(0.02, 0.915, headline, fontsize=12.5,
              fontweight="bold", color=accent, ha="left", va="center")
 
     # --- 상단: 3개 뷰 ---

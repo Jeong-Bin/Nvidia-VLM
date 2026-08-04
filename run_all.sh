@@ -28,6 +28,9 @@ SENSOR_OPTS=""
 [ "${USE_OBSTACLE:-0}" = "1" ] && SENSOR_OPTS="$SENSOR_OPTS --use-obstacle"
 # 3D bbox 로 Q3 를 기하 검증 (프롬프트에는 안 들어감): CHECK_PATH=1
 [ "${CHECK_PATH:-0}" = "1" ] && SENSOR_OPTS="$SENSOR_OPTS --check-path"
+# Q3(주행 경로 차단 여부) 질문 자체를 끄려면: ASK_BLOCKING=0
+# 끄면 시각화가 blocking_{yes,no} 없이 <category>/ 로 바로 저장된다.
+[ "${ASK_BLOCKING:-1}" = "0" ] && SENSOR_OPTS="$SENSOR_OPTS --no-blocking"
 # 1단계 캡션 힌트 설정은 edge_case_mining.py 의 기본값
 # (synonyms, 카테고리당 1개 = 20260723 방식)을 그대로 따른다 - 단일 진실 공급원.
 # 실험적으로 바꾸고 싶을 때만 환경변수로 오버라이드:
@@ -46,6 +49,7 @@ mkdir -p "$RUN_DIR"
   echo "[info] caption opts: ${CAPTION_OPTS:-<edge_case_mining.py defaults: synonyms x1>}"
   echo "[info] sensor facts: egomotion=${USE_EGOMOTION:-0} obstacle=${USE_OBSTACLE:-0} (1=on, 0=off)"
   echo "[info] 3D path check: ${CHECK_PATH:-0} (1=on, 0=off)"
+  echo "[info] Q3 blocking question: ${ASK_BLOCKING:-1} (1=on, 0=off)"
 
   pids=()
   for g in $(seq 0 $((NSHARDS-1))); do
