@@ -257,12 +257,15 @@ def run_inference(units, labels, category_menu,
     def pct(n):
         return 100 * n / total if total else 0.0
 
+    # SPECIAL / NORMAL 은 장면 단위 배타 집계 - 카테고리가 여러 개 붙어도 1건이다
     print("\n===== UNITS =====")
-    print(f"  {'total':28s} : {total:5d}  (100.0%)")
-    print(f"  {'with >=1 category':28s} : {n_labeled:5d}  ({pct(n_labeled):5.1f}%)")
+    print(f"  {'SPECIAL (>=1 category)':28s} : {n_labeled:5d}  ({pct(n_labeled):5.1f}%)")
     if ask_blocking:
         for k in ("blocking_yes", "blocking_no"):
             print(f"    {k:26s} : {block_counts[k]:5d}  ({pct(block_counts[k]):5.1f}%)")
+    print(f"  {'NORMAL (no category)':28s} : {total-n_labeled:5d}  "
+          f"({pct(total-n_labeled):5.1f}%)")
+    print(f"  {'TOTAL':28s} : {total:5d}  (100.0%)")
 
     def dump_categories(title, counter):
         print(f"\n===== {title} (multi-label) =====")

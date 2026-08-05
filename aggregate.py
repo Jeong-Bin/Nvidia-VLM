@@ -133,14 +133,21 @@ def main():
     log(f"{'WHAT':<40}{'COUNT':>10}{'%':>10}")
     log("-" * 64)
     log(f"{'total units':<40}{total:>10}{100.0:>9.1f}%")
-    log(f"{'with >=1 category':<40}{n_labeled:>10}{pct(n_labeled):>9.1f}%")
+    # SPECIAL / NORMAL 은 장면(판정 단위) 단위로 배타적으로 센다. 카테고리가
+    # 여러 개 붙은 장면도 SPECIAL 1건이다 - 아래 카테고리 표는 멀티라벨이라
+    # 합계가 이 값을 넘으므로 헷갈리지 않게 여기서 분명히 구분한다.
+    n_special = n_labeled
+    n_normal = total - n_labeled
+    log(f"{'SPECIAL (>=1 category)':<40}{n_special:>10}{pct(n_special):>9.1f}%")
     if has_blocking:
         n_block_yes = int((labeled & blocks).sum())
         n_block_no = int((labeled & ~blocks).sum())
         log(f"{'  blocking_yes':<40}{n_block_yes:>10}{pct(n_block_yes):>9.1f}%")
         log(f"{'  blocking_no':<40}{n_block_no:>10}{pct(n_block_no):>9.1f}%")
-    log(f"{'no category (not visualised)':<40}"
-        f"{total - n_labeled:>10}{pct(total - n_labeled):>9.1f}%")
+    log(f"{'NORMAL (no category)':<40}{n_normal:>10}{pct(n_normal):>9.1f}%")
+    log("-" * 64)
+    log(f"{'TOTAL':<40}{total:>10}{100.0:>9.1f}%")
+    log("(a scene with several categories counts once as SPECIAL)")
 
     # --- 2) 카테고리 빈도 (blocking 을 물었으면 yes/no 로 쪼개서도) ---
     specials = load_special_categories(SCENE_JSON)

@@ -268,6 +268,24 @@ def sample_unit_frames(uuid: str, frame_idx: int, max_long_side: int = 896,
 #   => 채택: Q1(verdict), Q2(categories), Q3(blocks_path)를 서로 독립으로 두고
 #      "앞 답과 무관하게 각각 답하라"고 명시. 조건을 거는 순간 탐지가 죽는다.
 # ---------------------------------------------------------------------------
+# describe_obstacles() 가 내는 문장의 머리말. 이걸로 egomotion 줄과 구분한다.
+OBSTACLE_FACT_PREFIX = "3D sensor labels detect nearby:"
+
+
+def _split_sensor_facts(sensor_facts: str):
+    """합쳐진 센서 문구를 (egomotion 줄들, obstacle 줄들) 로 나눈다.
+
+    build_sensor_facts() 가 줄 단위로 이어 붙인 것을 되돌리는 것이라 단순
+    접두사 매칭으로 충분하다.
+    """
+    ego, obs = [], []
+    for line in (sensor_facts or "").splitlines():
+        if not line.strip():
+            continue
+        (obs if line.startswith(OBSTACLE_FACT_PREFIX) else ego).append(line)
+    return "\n".join(ego), "\n".join(obs)
+
+
 def build_vlm_prompt(category_menu: str, sensor_facts: str = "",
                      ask_blocking: bool = True,
                      single_view: bool = False) -> str:
@@ -280,11 +298,38 @@ def build_vlm_prompt(category_menu: str, sensor_facts: str = "",
                   프롬프트가 장수/뷰 구성을 실제와 다르게 말하면 안 되므로
                   도입부 문구를 함께 바꾼다.
     """
-    fact_block = f"""
-KNOWN FACTS at the CURRENT moment (from vehicle sensors - ground truth, trust
-these over your own guess from the images):
-{sensor_facts}
-""" if sensor_facts else ""
+    # egomotion 과 obstacle 은 신뢰도의 성격이 달라 블록을 나눈다.
+    #
+    # egomotion(속도/가속도)은 모델이 이미지로 추측하던 것을 대체하는 진짜
+    # 사실이라 "이미지보다 이쪽을 믿으라"가 맞다.
+    #
+    # obstacle(주변 객체 목록)은 다르다. 무엇이 있는지만 알려줄 뿐 그것이
+    # 특이상황인지는 여전히 이미지로 판단해야 한다. 그런데 같은 "ground truth,
+    # trust these over your own guess" 문구를 쓰자 모델이 존재 자체를 근거로
+    # 카테고리를 찍어버렸다 - 20260804 실측에서 obstacle 을 켜자 3D 라벨에
+    # 대응 클래스가 있는 카테고리만 폭증했다(Animal 21->215 로 10배,
+    # Jaywalking 183->553, cyclist 123->258). 대응 클래스가 없는
+    # Road Construction 은 723->896 로 거의 그대로였다.
+    # 그래서 obstacle 은 "참고용이고 판단은 이미지로 하라"고 명시한다.
+    ego_facts, obstacle_facts = _split_sensor_facts(sensor_facts)
+
+    fact_block = ""
+    if ego_facts:
+        fact_block += f"""
+KNOWN FACTS about the ego-vehicle at the CURRENT moment (from vehicle sensors -
+ground truth, trust these over your own guess from the images):
+{ego_facts}
+"""
+    if obstacle_facts:
+        fact_block += f"""
+FOR REFERENCE, a 3D sensor lists objects it detected around the vehicle:
+{obstacle_facts}
+This only tells you that those objects exist somewhere in the scene. It does
+NOT tell you whether any of them is unusual or affects driving - ordinary
+traffic and pedestrians going about their business are detected too. Judge from
+the IMAGES whether anything is actually noteworthy, and do not report a
+category just because an object of that kind appears in this list.
+"""
 
     if ask_blocking:
         n_q = "THREE"

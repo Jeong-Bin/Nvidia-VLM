@@ -104,6 +104,8 @@ def describe_obstacles(summary: dict | None, max_classes: int = 6) -> str:
     """obstacle_summary -> 프롬프트에 넣을 한 줄 사실 문구.
 
     드문 클래스를 앞에 두고(정보량이 높다), automobile 은 개수만 밝힌다.
+    머리말은 edge_case_mining 이 egomotion 문구와 구분하는 데 쓰므로
+    OBSTACLE_FACT_PREFIX 와 일치해야 한다.
     """
     if not summary or not summary["counts"]:
         return ""
