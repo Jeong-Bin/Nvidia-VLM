@@ -33,7 +33,7 @@ from tqdm import tqdm
 from transformers import AutoModelForImageTextToText, AutoProcessor
 
 from edge_case_mining import (
-    sample_unit_frames, FRONT_VIEWS,
+    sample_unit_frames, views_for,
     build_vlm_prompt, parse_vlm_output, unit_name, viz_targets, blocking_dir,
 )
 from egomotion import ego_state, describe_ego
@@ -99,11 +99,14 @@ def build_sensor_facts(uuid, frame_idx, use_egomotion, use_obstacle):
     return "\n".join(lines), ego
 
 
-def classify_unit(model, processor, unit_frames, prompt):
-    """직전 3뷰 + 현재 3뷰(6장)를 한 번에 넣어 모델 원문 출력을 받는다."""
+def classify_unit(model, processor, unit_frames, prompt, views):
+    """직전 + 현재 프레임을 뷰 순서대로 한 번에 넣어 모델 원문 출력을 받는다.
+
+    3뷰면 6장, front-wide 단독이면 2장.
+    """
     prev, cur = unit_frames["prev"], unit_frames["cur"]
-    images = ([prev[v] for v in FRONT_VIEWS if prev.get(v) is not None]
-              + [cur[v] for v in FRONT_VIEWS if cur.get(v) is not None])
+    images = ([prev[v] for v in views if prev.get(v) is not None]
+              + [cur[v] for v in views if cur.get(v) is not None])
     return _generate(model, processor, images, prompt)
 
 
@@ -111,19 +114,22 @@ def run_inference(units, labels, category_menu,
                   model_id="Qwen/Qwen3-VL-8B-Instruct",
                   out_csv="edge_case_results.csv", viz_dir="viz",
                   use_egomotion=False, use_obstacle=False, check_path=False,
-                  ask_blocking=True):
+                  ask_blocking=True, single_view=False):
     """units: [(uuid, frame_idx), ...]
 
     check_path=True 면 3D 라벨로 전방 통로 침범을 계산해 모델의 Q3 와 대조한다.
     프롬프트에는 넣지 않으므로 모델 출력 자체는 달라지지 않는다.
     ask_blocking=False 면 Q3 를 묻지 않고, 시각화도 blocking 으로 나누지 않는다.
+    single_view=True 면 front-wide 만 써서 이미지가 6장이 아니라 2장이 된다.
     """
     model, processor = load_model(model_id)
     viz_path = Path(viz_dir)
     viz_path.mkdir(parents=True, exist_ok=True)
 
+    views = views_for(single_view)
     # 센서 사실을 안 쓰면 프롬프트가 매번 같으므로 한 번만 만든다
-    base_prompt = build_vlm_prompt(category_menu, ask_blocking=ask_blocking)
+    base_prompt = build_vlm_prompt(category_menu, ask_blocking=ask_blocking,
+                                   single_view=single_view)
     use_sensors = use_egomotion or use_obstacle
 
     # 멀티라벨이라 카테고리 합계는 판정 단위 수를 넘을 수 있다.
@@ -149,7 +155,7 @@ def run_inference(units, labels, category_menu,
         pbar = tqdm(units, total=len(units), unit="unit", dynamic_ncols=True,
                     mininterval=1.0, smoothing=0.1)
         for uuid, frame_idx in pbar:
-            unit_frames = sample_unit_frames(uuid, frame_idx)
+            unit_frames = sample_unit_frames(uuid, frame_idx, views=views)
 
             ego = None
             if not any(unit_frames["cur"].values()):
@@ -161,11 +167,12 @@ def run_inference(units, labels, category_menu,
                     facts, ego = build_sensor_facts(
                         uuid, frame_idx, use_egomotion, use_obstacle)
                     prompt = (build_vlm_prompt(category_menu, facts,
-                                               ask_blocking=ask_blocking)
+                                               ask_blocking=ask_blocking,
+                                               single_view=single_view)
                               if facts else base_prompt)
                 else:
                     prompt = base_prompt
-                raw = classify_unit(model, processor, unit_frames, prompt)
+                raw = classify_unit(model, processor, unit_frames, prompt, views)
                 result = parse_vlm_output(raw, labels, ask_blocking=ask_blocking)
 
             cats = result["categories"]

@@ -33,7 +33,8 @@ TEXT_MUTED = "#666666"
 def render_scene_card(uuid, frame_idx, frames_by_view, result, out_path):
     """판정 단위 하나를 카드 이미지로 렌더링해 out_path 에 저장.
 
-    frames_by_view: {view_name: PIL.Image or None} (같은 순간의 3뷰 정지 프레임)
+    frames_by_view: {view_name: PIL.Image or None}. 담긴 뷰가 하나뿐이면
+                    (--single-view 실행) 그 뷰만 중앙에 1.5배 크기로 그린다.
     result: {"verdict","categories","blocks_path","evidence"} (parse_vlm_output 결과)
     """
     out_path = Path(out_path)
@@ -51,9 +52,18 @@ def render_scene_card(uuid, frame_idx, frames_by_view, result, out_path):
         headline = ("BLOCKING the driving path" if blocks
                     else "not blocking the path") + f"   ·   verdict: {verdict}"
 
-    fig = plt.figure(figsize=(15, 7.0), dpi=130, facecolor="white")
+    # 실제로 넘어온 뷰만 그린다 (순서는 VIEW_ORDER 유지)
+    views = [v for v in VIEW_ORDER if v in frames_by_view]
+    single = len(views) == 1
+
+    # 단독 뷰는 3분할 한 칸의 1.5배 폭으로 그린다. 4열 격자에서 가운데 2열을
+    # 차지하면 폭이 0.5 로 3분할(0.33)의 1.5배가 되고 좌우 여백도 균등해진다.
+    # 그 크기를 온전히 쓰려면 세로도 늘려야 해서 figure 를 함께 키운다.
+    ncols = 4 if single else len(views)
+    fig = plt.figure(figsize=(15, 8.0 if single else 7.0), dpi=130,
+                     facecolor="white")
     gs = fig.add_gridspec(
-        nrows=2, ncols=len(VIEW_ORDER),
+        nrows=2, ncols=ncols,
         height_ratios=[3, 1.7],
         hspace=0.10, wspace=0.04,
         left=0.02, right=0.98, top=0.86, bottom=0.04,
@@ -66,9 +76,9 @@ def render_scene_card(uuid, frame_idx, frames_by_view, result, out_path):
     fig.text(0.02, 0.915, headline, fontsize=12.5,
              fontweight="bold", color=accent, ha="left", va="center")
 
-    # --- 상단: 3개 뷰 ---
-    for i, view in enumerate(VIEW_ORDER):
-        ax = fig.add_subplot(gs[0, i])
+    # --- 상단: 카메라 뷰 ---
+    for i, view in enumerate(views):
+        ax = fig.add_subplot(gs[0, 1:3] if single else gs[0, i])
         frame = frames_by_view.get(view)
         if frame is not None:
             ax.imshow(frame)

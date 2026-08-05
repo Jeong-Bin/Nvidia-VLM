@@ -30,6 +30,7 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --use-obstacle[=0|1]      obstacle 3D 라벨의 주변 객체 요약을 주입         [USE_OBSTACLE]
   --check-path[=0|1]        3D bbox 로 Q3 를 기하 검증 (프롬프트엔 안 들어감) [CHECK_PATH]
   --no-blocking             Q3(경로 차단) 질문 자체를 끈다                    [ASK_BLOCKING=0]
+  --single-view[=0|1]       front-wide 카메라만 사용 (이미지 6장 -> 2장)      [SINGLE_VIEW]
   --limit-clips N           처리할 클립 수 제한 (기본: 데이터셋 전체)         [LIMIT_CLIPS]
   --example-source S        synonyms | prompt_templates                       [EXAMPLE_SOURCE]
   --num-examples N          카테고리당 예시 개수                              [NUM_EXAMPLES]
@@ -57,6 +58,7 @@ while [ $# -gt 0 ]; do
     --use-obstacle|--use-obstacle=*)   USE_OBSTACLE="$(_bool_val "$1" 1)" ;;
     --check-path|--check-path=*)       CHECK_PATH="$(_bool_val "$1" 1)" ;;
     --no-blocking|--no-blocking=*)     ASK_BLOCKING=0 ;;
+    --single-view|--single-view=*)     SINGLE_VIEW="$(_bool_val "$1" 1)" ;;
     --limit-clips=*)     LIMIT_CLIPS="${1#*=}" ;;
     --limit-clips)       shift; LIMIT_CLIPS="${1:-}" ;;
     --example-source=*)  EXAMPLE_SOURCE="${1#*=}" ;;
@@ -89,6 +91,8 @@ SENSOR_OPTS=""
 [ "${CHECK_PATH:-0}" = "1" ] && SENSOR_OPTS="$SENSOR_OPTS --check-path"
 # Q3(주행 경로 차단 여부) 질문 자체를 끄면 시각화도 blocking 으로 안 나눈다
 [ "${ASK_BLOCKING:-1}" = "0" ] && SENSOR_OPTS="$SENSOR_OPTS --no-blocking"
+# front-wide 단독 모드 (이미지 6장 -> 2장, 프롬프트/시각화도 함께 바뀜)
+[ "${SINGLE_VIEW:-0}" = "1" ] && SENSOR_OPTS="$SENSOR_OPTS --single-view"
 # 캡션 힌트 설정은 지정했을 때만 넘긴다 - 기본값은 edge_case_mining.py 가 단일 진실 공급원
 CAPTION_OPTS=""
 [ -n "${EXAMPLE_SOURCE:-}" ] && CAPTION_OPTS="$CAPTION_OPTS --example-source $EXAMPLE_SOURCE"
@@ -105,6 +109,7 @@ mkdir -p "$RUN_DIR"
   echo "[info] sensor facts: egomotion=${USE_EGOMOTION:-0} obstacle=${USE_OBSTACLE:-0} (1=on, 0=off)"
   echo "[info] 3D path check: ${CHECK_PATH:-0} (1=on, 0=off)"
   echo "[info] Q3 blocking question: ${ASK_BLOCKING:-1} (1=on, 0=off)"
+  echo "[info] single view (front-wide only): ${SINGLE_VIEW:-0} (1=on, 0=off)"
 
   pids=()
   for g in $(seq 0 $((NSHARDS-1))); do

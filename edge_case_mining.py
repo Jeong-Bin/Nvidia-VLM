@@ -43,6 +43,14 @@ FRONT_VIEWS = [
     "camera_cross_left_120fov",
     "camera_cross_right_120fov",
 ]
+# front_wide 단독 모드에서 쓰는 뷰. FRONT_VIEWS[0] 과 같아야 한다
+# (clip_frame_count / list_scene_uuids 가 [0] 을 기준 뷰로 쓰므로).
+SINGLE_VIEW = [FRONT_VIEWS[0]]
+
+
+def views_for(single_view: bool = False) -> list[str]:
+    """이 실행에서 쓸 카메라 뷰 목록."""
+    return list(SINGLE_VIEW if single_view else FRONT_VIEWS)
 
 
 def category_slug(category: str) -> str:
@@ -211,17 +219,19 @@ TEMPORAL_DELTA = 30
 
 
 def sample_unit_frames(uuid: str, frame_idx: int, max_long_side: int = 896,
-                       temporal_delta: int = TEMPORAL_DELTA):
-    """판정 단위(uuid, frame_idx) 하나에 대해 3뷰의 (직전, 현재) 프레임을 읽어
+                       temporal_delta: int = TEMPORAL_DELTA,
+                       views: list[str] | None = None):
+    """판정 단위(uuid, frame_idx) 하나에 대해 각 뷰의 (직전, 현재) 프레임을 읽어
     {"prev": {view: PIL.Image}, "cur": {view: PIL.Image}} 로 반환.
 
     - cur  = frame_idx 시점
     - prev = frame_idx - temporal_delta 시점 (< 0 이면 프레임 0 으로 대체)
-    시각화는 cur 만, 모델 1단계 입력은 prev+cur 을 순서대로 사용.
+    - views = None 이면 전방 3뷰 전체 (단독 모드는 SINGLE_VIEW 를 넘긴다)
+    시각화는 cur 만, 모델 입력은 prev+cur 을 순서대로 사용.
     """
     prev_idx = max(0, frame_idx - temporal_delta)
     prev, cur = {}, {}
-    for view in FRONT_VIEWS:
+    for view in (views or FRONT_VIEWS):
         p = str(clip_path(view, uuid))
         frames = _read_frames_at(p, [prev_idx, frame_idx], max_long_side=max_long_side)
         prev[view] = frames.get(prev_idx)
@@ -259,12 +269,16 @@ def sample_unit_frames(uuid: str, frame_idx: int, max_long_side: int = 896,
 #      "앞 답과 무관하게 각각 답하라"고 명시. 조건을 거는 순간 탐지가 죽는다.
 # ---------------------------------------------------------------------------
 def build_vlm_prompt(category_menu: str, sensor_facts: str = "",
-                     ask_blocking: bool = True) -> str:
-    """6장 이미지 + 카테고리 메뉴 -> JSON 한 덩어리를 요구하는 프롬프트.
+                     ask_blocking: bool = True,
+                     single_view: bool = False) -> str:
+    """이미지 + 카테고리 메뉴 -> JSON 한 덩어리를 요구하는 프롬프트.
 
     sensor_facts: egomotion/obstacle 라벨에서 뽑은 사실 문구(옵션). 비어 있으면
                   해당 블록 자체가 빠진다.
     ask_blocking: False 면 Q3 를 아예 묻지 않는다 (JSON 스키마에서도 빠진다).
+    single_view:  True 면 front-wide 만 쓰므로 이미지가 6장이 아니라 2장이다.
+                  프롬프트가 장수/뷰 구성을 실제와 다르게 말하면 안 되므로
+                  도입부 문구를 함께 바꾼다.
     """
     fact_block = f"""
 KNOWN FACTS at the CURRENT moment (from vehicle sensors - ground truth, trust
@@ -289,10 +303,17 @@ Q3. Is anything actually blocking or intruding into the ego-vehicle's driving pa
                         "even when the verdict is \"Normal\".")
         schema_q3 = ""
 
-    return f"""You are an autonomous-driving scene analyst. You are shown SIX images
+    if single_view:
+        intro = """You are an autonomous-driving scene analyst. You are shown TWO images
+in order, both from the vehicle's front-wide camera: the FIRST is from about
+1 second EARLIER, the SECOND is the CURRENT moment."""
+    else:
+        intro = """You are an autonomous-driving scene analyst. You are shown SIX images
 in order: the FIRST three are from about 1 second EARLIER, the LAST three are
 the CURRENT moment. Each group of three is synchronized camera views
-(front-wide, cross-left, cross-right) of the same vehicle.
+(front-wide, cross-left, cross-right) of the same vehicle."""
+
+    return f"""{intro}
 {fact_block}
 Compare the earlier frames to the current ones to judge motion, then answer {n_q} questions about the CURRENT moment.
 
@@ -440,6 +461,11 @@ if __name__ == "__main__":
                     help="egomotion 라벨(속도/가속도/곡률)을 사실로 프롬프트에 넣는다 (기본 off).")
     ap.add_argument("--use-obstacle", action="store_true",
                     help="obstacle.offline 3D 라벨의 주변 객체 요약을 프롬프트에 넣는다 (기본 off).")
+    ap.add_argument("--single-view", action="store_true",
+                    help="front-wide 카메라만 사용한다 (기본은 전방 3뷰). 이미지가 "
+                         "6장에서 2장으로 줄어 추론이 빨라지지만, 측면에서만 보이는 "
+                         "상황(Jaywalking, Side Street 등)은 놓칠 수 있다. "
+                         "프롬프트 문구와 시각화 레이아웃도 함께 바뀐다.")
     ap.add_argument("--no-blocking", dest="ask_blocking", action="store_false",
                     help="Q3(주행 경로를 막는가)를 묻지 않는다. 이 경우 시각화는 "
                          "blocking_{yes,no} 없이 <category>/ 로 바로 저장되고 "
@@ -481,6 +507,10 @@ if __name__ == "__main__":
           + ("" if args.ask_blocking else " (viz not split by blocking)"))
     print(f"[info] 3D path check: {'ON' if args.check_path else 'OFF'}"
           f" (geometric cross-check of Q3, not fed to the model)")
+    _views = views_for(args.single_view)
+    print(f"[info] camera views: {len(_views)} "
+          f"({'front-wide only' if args.single_view else 'front 3-view'})"
+          f" -> {2 * len(_views)} images per unit")
 
     uuids = list_scene_uuids(args.limit_clips)
     print(f"[info] clips: {len(uuids)}  x  {args.timestamps_per_clip} timestamps/clip")
@@ -494,7 +524,7 @@ if __name__ == "__main__":
 
     if args.dry_run:
         for uuid, idx in units[:3]:
-            uf = sample_unit_frames(uuid, idx)
+            uf = sample_unit_frames(uuid, idx, views=_views)
             prev_ok = {v: (im.size if im else None) for v, im in uf["prev"].items()}
             cur_ok = {v: (im.size if im else None) for v, im in uf["cur"].items()}
             print(f"  {uuid} cur@{uf['cur_idx']} prev@{uf['prev_idx']}")
@@ -507,4 +537,5 @@ if __name__ == "__main__":
     run_inference(units, labels, category_menu,
                   model_id=args.model, out_csv=args.out, viz_dir=args.viz_dir,
                   use_egomotion=args.use_egomotion, use_obstacle=args.use_obstacle,
-                  check_path=args.check_path, ask_blocking=args.ask_blocking)
+                  check_path=args.check_path, ask_blocking=args.ask_blocking,
+                  single_view=args.single_view)
