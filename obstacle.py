@@ -45,6 +45,21 @@ EGO_HALF_WIDTH_M = 1.5
 # 전방 몇 m 까지를 "주행 경로"로 볼지
 LOOKAHEAD_M = 30.0
 
+# --- 카메라 화각 (20260805 sensor_extrinsics 실측) ---
+# 광축을 rig 로 회전시켜 얻은 yaw:
+#   front_wide  -0.9도, cross_left +67.0도, cross_right -65.9도  (모두 120도 FOV)
+# obstacle 라벨은 360도 전방위라 그대로 쓰면 카메라에 안 보이는 뒤쪽 객체까지
+# 프롬프트에 들어간다 - 40클립 표본에서 검출의 47.9% 가 자차 뒤(x<0)였고,
+# 이는 모델이 이미지로 확인할 수 없는 것을 "있다"고 알려주는 셈이라
+# 과탐(특히 person/rider 계열)의 직접적 원인이 된다. 그래서 시야 밖은 버린다.
+FOV_HALF_DEG = 60.0                      # 120도 FOV 의 절반
+CROSS_CAM_YAW_DEG = 67.0                 # cross 카메라 광축 yaw (좌우 대칭 가정)
+# 전방 3뷰 합산 시야: 67 + 60 = 127도. front-wide 단독이면 60도.
+VIEW_FOV_HALF_DEG = {
+    1: FOV_HALF_DEG,                              # front-wide 단독
+    3: CROSS_CAM_YAW_DEG + FOV_HALF_DEG,          # 전방 3뷰
+}
+
 # automobile 은 너무 흔해서 정보량이 낮다 - 개수만 세고, 나머지는 거리까지 알린다
 COMMON_CLASSES = {"automobile"}
 # 사람이 봐도 자연스러운 표기로 변환
@@ -60,20 +75,32 @@ CLASS_LABEL = {
 
 @lru_cache(maxsize=1024)
 def _obstacle_arrays(uuid: str):
-    """(timestamp_us, dist, label_class) 배열. 없으면 None."""
+    """(timestamp_us, dist, bearing_deg, label_class) 배열. 없으면 None.
+
+    bearing_deg 는 자차 정면(+x)에서 잰 방위각의 절댓값 (0=정면, 90=바로 옆,
+    180=바로 뒤). 좌우 대칭이라 부호는 필요 없다.
+    """
     df = _read_label("obstacle.offline", uuid)
     if df is None or len(df) == 0:
         return None
     t = df["timestamp_us"].to_numpy(dtype=np.float64)
-    dist = np.hypot(df["center_x"].to_numpy(), df["center_y"].to_numpy())
+    x = df["center_x"].to_numpy(dtype=np.float64)
+    y = df["center_y"].to_numpy(dtype=np.float64)
+    dist = np.hypot(x, y)
+    bearing = np.degrees(np.arctan2(np.abs(y), x))
     cls = df["label_class"].to_numpy(dtype=object)
-    return t, dist, cls
+    return t, dist, bearing, cls
 
 
 def obstacle_summary(uuid: str, frame_idx: int,
                      window_us: int = WINDOW_US,
-                     max_dist: float = MAX_DIST_M) -> dict | None:
+                     max_dist: float = MAX_DIST_M,
+                     n_views: int = 3) -> dict | None:
     """판정 단위 주변 객체 요약.
+
+    n_views 로 카메라 시야를 정해 그 밖의 객체는 버린다 (3=전방 3뷰 127도,
+    1=front-wide 단독 60도). 안 보이는 것을 프롬프트에 넣으면 모델이 확인할
+    방법이 없어 과탐으로 이어지므로, 화각은 실제 사용한 뷰와 맞춰야 한다.
 
     반환: {"counts": {class: n}, "nearest": {class: dist_m}, "total": n}
           라벨이 없으면 None.
@@ -86,8 +113,10 @@ def obstacle_summary(uuid: str, frame_idx: int,
         return None
 
     t_us = float(ts[frame_idx])
-    t, dist, cls = ob
-    sel = (np.abs(t - t_us) <= window_us) & (dist <= max_dist)
+    t, dist, bearing, cls = ob
+    fov_half = VIEW_FOV_HALF_DEG.get(n_views, VIEW_FOV_HALF_DEG[3])
+    sel = ((np.abs(t - t_us) <= window_us) & (dist <= max_dist)
+           & (bearing <= fov_half))
     if not sel.any():
         return {"counts": {}, "nearest": {}, "total": 0}
 
@@ -219,6 +248,8 @@ if __name__ == "__main__":
     ap.add_argument("--uuid")
     ap.add_argument("--limit-clips", type=int, default=3)
     ap.add_argument("--timestamps-per-clip", type=int, default=5)
+    ap.add_argument("--n-views", type=int, default=3, choices=[1, 3],
+                    help="카메라 화각 필터: 3=전방 3뷰(127도), 1=front-wide(60도)")
     args = ap.parse_args()
 
     uuids = ([args.uuid] if args.uuid else
@@ -231,7 +262,7 @@ if __name__ == "__main__":
             continue
         print(f"\n=== {u} ===")
         for fi in np.linspace(0, len(ts) - 1, args.timestamps_per_clip, dtype=int):
-            s = obstacle_summary(u, int(fi))
+            s = obstacle_summary(u, int(fi), n_views=args.n_views)
             if s is None:
                 print(f"  f{fi:4d}  (no obstacle label)")
                 continue

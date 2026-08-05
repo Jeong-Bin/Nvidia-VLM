@@ -85,15 +85,19 @@ def _generate(model, processor, images, text_prompt, max_new_tokens=256):
     return out.strip()
 
 
-def build_sensor_facts(uuid, frame_idx, use_egomotion, use_obstacle):
-    """프롬프트에 넣을 센서 사실 문구와, 시각화/CSV 용 원본 상태를 함께 반환."""
+def build_sensor_facts(uuid, frame_idx, use_egomotion, use_obstacle, n_views=3):
+    """프롬프트에 넣을 센서 사실 문구와, 시각화/CSV 용 원본 상태를 함께 반환.
+
+    n_views 는 obstacle 목록을 실제 카메라 화각으로 자르는 데 쓴다 - 뷰 구성과
+    어긋나면 화면에 없는 객체를 모델에게 알려주게 된다.
+    """
     lines, ego = [], None
     if use_egomotion:
         ego = ego_state(uuid, frame_idx)
         if ego is not None:
             lines.append(describe_ego(ego))
     if use_obstacle:
-        s = describe_obstacles(obstacle_summary(uuid, frame_idx))
+        s = describe_obstacles(obstacle_summary(uuid, frame_idx, n_views=n_views))
         if s:
             lines.append(s)
     return "\n".join(lines), ego
@@ -165,7 +169,8 @@ def run_inference(units, labels, category_menu,
             else:
                 if use_sensors:
                     facts, ego = build_sensor_facts(
-                        uuid, frame_idx, use_egomotion, use_obstacle)
+                        uuid, frame_idx, use_egomotion, use_obstacle,
+                        n_views=len(views))
                     prompt = (build_vlm_prompt(category_menu, facts,
                                                ask_blocking=ask_blocking,
                                                single_view=single_view)
