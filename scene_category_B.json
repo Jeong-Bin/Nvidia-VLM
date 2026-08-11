@@ -145,7 +145,8 @@
           {
             "name": "Jaywalking",
             "synonyms": [
-                      "pedestrian crossing on outside of crosswalk",
+                      "A person crossing between moving vehicles",
+                      "A pedestrian entering the roadway suddenly",
                       "illegal crossing",
                       "People are passing between"
                       ],
@@ -160,8 +161,8 @@
           },
           {
             "name": "cyclist",
-            "synonyms": ["cyclist is popping out",
-                      "motorcycle is cutting in",
+            "synonyms": ["bicycles on car-only roads",
+                      "a motorcycle that ran a red light",
                       "bicycle",
                       "scooter",
                       "electric scooter",
@@ -180,8 +181,8 @@
           {
             "name": "Animal",
             "synonyms": [
-                      "a dog without an owner on the road",
-                      "wildlife ahead",
+                      "an animal loose on the road",
+                      "wildlife crossing in front of traffic",
                       "cat ahead",
                       "dog",
                       "deer",
@@ -241,10 +242,9 @@
           {
             "name": "Unpaved road",
             "synonyms": [
-                      "unsealed road",
-                      "dirt road",
+                      "this vehicle is on the an unsealed road",
+                      "this vehicle is driving on an dirt road",
                       "gravel road"
-                      
                       ],
             "prompt_templates": ["The vehicle is driving along an unpaved road",
                                 "The vehicle continues straight along the dirt road",
@@ -267,8 +267,8 @@
           {
             "name": "Toll Gate",
             "synonyms": [
-                      "highway toll",
-                      "toll booth",
+                      "entering the highway toll",
+                      "approaching the toll booth",
                       "toll plaza",
                       "toll station",
                       "toll checkpoint",
@@ -323,8 +323,8 @@
           {
             "name": "Obstacle",
             "synonyms": [
-                      "garbage on the",
-                      "debris scattered",
+                      "Trash is blocking the vehicle",
+                      "debris scattered on the road",
                       "fallen tree",
                       "fallen branch",
                       "box",
