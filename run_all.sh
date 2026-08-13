@@ -34,12 +34,17 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --limit-clips N           처리할 클립 수 제한 (기본: 데이터셋 전체)         [LIMIT_CLIPS]
   --example-source S        synonyms | prompt_templates                       [EXAMPLE_SOURCE]
   --num-examples N          카테고리당 예시 개수                              [NUM_EXAMPLES]
+  --scene-json PATH         카테고리 정의 JSON (기본 scene_category_B.json)   [SCENE_JSON]
+  --prompt-style S          qa(기본) | nureasoning (6단계 CoT + 1~10 점수)    [PROMPT_STYLE]
   -h, --help                이 도움말
 
 Examples:
   bash run_all.sh --use-egomotion --use-obstacle --check-path
   USE_EGOMOTION=1 USE_OBSTACLE=1 bash run_all.sh
   bash run_all.sh --limit-clips 500 --no-blocking
+  # nuReasoning 방식 + 보강된 카테고리 (egomotion 을 켜야 행동변화가 들어간다)
+  bash run_all.sh --prompt-style nureasoning --scene-json scene_category_C.json \
+                  --use-egomotion --limit-clips 50
 USAGE
 }
 
@@ -65,6 +70,10 @@ while [ $# -gt 0 ]; do
     --example-source)    shift; EXAMPLE_SOURCE="${1:-}" ;;
     --num-examples=*)    NUM_EXAMPLES="${1#*=}" ;;
     --num-examples)      shift; NUM_EXAMPLES="${1:-}" ;;
+    --scene-json=*)      SCENE_JSON="${1#*=}" ;;
+    --scene-json)        shift; SCENE_JSON="${1:-}" ;;
+    --prompt-style=*)    PROMPT_STYLE="${1#*=}" ;;
+    --prompt-style)      shift; PROMPT_STYLE="${1:-}" ;;
     -h|--help)           usage; exit 0 ;;
     *)
       echo "[error] unknown argument: $1" >&2
@@ -97,6 +106,10 @@ SENSOR_OPTS=""
 CAPTION_OPTS=""
 [ -n "${EXAMPLE_SOURCE:-}" ] && CAPTION_OPTS="$CAPTION_OPTS --example-source $EXAMPLE_SOURCE"
 [ -n "${NUM_EXAMPLES:-}" ] && CAPTION_OPTS="$CAPTION_OPTS --num-examples $NUM_EXAMPLES"
+# 카테고리 정의와 프롬프트 방식. 둘 다 지정했을 때만 넘겨서 기본값은
+# edge_case_mining.py 한 곳에만 두고 여기서 중복 정의하지 않는다.
+[ -n "${SCENE_JSON:-}" ] && CAPTION_OPTS="$CAPTION_OPTS --scene-json $SCENE_JSON"
+[ -n "${PROMPT_STYLE:-}" ] && CAPTION_OPTS="$CAPTION_OPTS --prompt-style $PROMPT_STYLE"
 
 RUN_TS="$(date +%Y%m%d_%H%M%S)"
 RUN_DIR="results/${RUN_TS}"

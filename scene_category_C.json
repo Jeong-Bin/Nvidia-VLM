@@ -1,0 +1,445 @@
+{
+  "_meta": {
+    "base": "scene_category_B.json",
+    "note": "B + 4 categories adapted from the nuReasoning long-tail taxonomy (Fig. S1). Emergency Vehicle was already present in B and is unchanged. The added categories are behaviour-triggering types (how other road users / traffic controls act) rather than the environment types that B already covers.",
+    "added": [
+      "Abnormal Vehicle Behavior",
+      "Stationary Vehicle Obstruction",
+      "Traffic Control Anomaly",
+      "Unusual Traffic Pattern"
+    ],
+    "nureasoning_map": {
+      "abnormal_vehicle_behavior": "Abnormal Vehicle Behavior",
+      "stationary_vehicle_obstruction": "Stationary Vehicle Obstruction",
+      "traffic_control_or_signage_anomaly": "Traffic Control Anomaly",
+      "unusual_traffic_pattern": "Unusual Traffic Pattern",
+      "emergency_vehicle": "Emergency Vehicle (already in B)",
+      "work_zone_or_roadwork": "Road Construction (already in B)",
+      "animal_on_road": "Animal (already in B)",
+      "vulnerable_road_user": "Jaywalking / cyclist (already in B)",
+      "road_obstacle_or_debris": "Obstacle (already in B)",
+      "road_surface_hazard": "Pothole (already in B)",
+      "limited_visibility_or_perception_degradation": "partially Tunnel (glare at exit)",
+      "static_infrastructure_constraint": "partially Tunnel / Toll Gate / Side Street"
+    }
+  },
+
+  "normal": {
+    "scenarios": [
+      {
+        "name": "Normal driving scenario",
+        "categories": [
+          {
+            "name": "Normal Driving",
+            "synonyms": [
+                      "driving normally",
+                      "just moving forward",
+                      "driving straight",
+                      "ordinary driving",
+                      "normal traffic flow",
+                      "changing lanes",
+                      "turning normally"
+                      ],
+            "prompt_templates": [
+                              "A car driving straight on a clear road",
+                              "Vehicles moving normally in traffic",
+                              "Ordinary traffic flow on a multi-lane road",
+                              "A vehicle changing lanes smoothly",
+                              "Light traffic on a city street",
+                              "A car driving on an empty highway",
+                              "The ego-vehicle is driving normally",
+                              "The car starts moving at the green light",
+                              "The vehicle is changing lanes",
+                              "The car makes a gentle right turn",
+                              "The vehicle makes a smooth left turn",
+                              "The car continues straight, driving alongside other vehicles"
+                            ]
+          },
+          {
+            "name": "Normal Stop",
+            "synonyms": [
+                      "stopped normally",
+                      "waiting at a red light",
+                      "stopped in traffic",
+                      "waiting at the signal",
+                      "queued in traffic",
+                      "stopped at an intersection"
+                      ],
+            "prompt_templates": [
+                              "The car is waiting at a red light",
+                              "The vehicle is stopped alongside other vehicles",
+                              "Vehicles queued at a green light intersection",
+                              "Vehicles are waiting for pedestrians to finish crossing the crosswalk",
+                              "A cyclist is crossing the crosswalk",
+                              "There are many vehicles nearby, and the ego-vehicle is currently stopped",
+                              "The car is waiting at the crosswalk"
+                            ]
+          }
+        ]
+
+      }
+    ]
+
+  },
+
+  "special": {
+    "scenarios": [
+      {
+        "name": "Dynamic object",
+        "categories": [
+          {
+            "name": "Manual Traffic Control",
+            "synonyms": [
+                      "flagger",
+                      "police directing traffic",
+                      "traffic controller",
+                      "traffic control personnel",
+                      "traffic officer",
+                      "construction flagger",
+                      "crossing guard"
+                      ],
+            "prompt_templates": ["A police officer directing traffic",
+                              "A traffic controller guiding vehicles",
+                              "A construction worker directing vehicles",
+                              "A flagger controlling traffic",
+                              "A person signaling vehicles to stop",
+                              "A worker holding a stop sign for traffic",
+                              "Manual traffic control at an intersection",
+                              "Traffic being directed by a police officer",
+                              "The vehicle stops as a flagger signals it to wait",
+                              "The car is waiting for directions from the flagger",
+                              "A traffic police officer is giving hand signals to the car"
+                              ]
+          },
+          {
+            "name": "Emergency Vehicle",
+            "synonyms": [
+                      "an ambulance speeds by",
+                      "a fire truck is blocking the lane",
+                      "police car",
+                      "patrol car",
+                      "rescue vehicle",
+                      "EMS vehicle"
+                      ],
+            "prompt_templates": ["An ambulance with flashing lights",
+                              "An emergency vehicle approaching traffic",
+                              "A police car responding to an incident",
+                              "A fire truck driving on the road",
+                              "Emergency vehicles passing through traffic",
+                              "An ambulance stopped on the roadside",
+                              "Emergency responders at the scene",
+                              "The ego-vehicle pulls over as an ambulance approaches from behind"
+                              ]
+          },
+          {
+            "name": "Military Vehicle",
+            "synonyms": ["military vehicle ahead",
+                      "army vehicle",
+                      "armored vehicle",
+                      "military truck",
+                      "military convoy",
+                      "tank"
+                      ],
+            "prompt_templates": ["A military vehicle driving on the road",
+                              "An army truck traveling in traffic",
+                              "Military vehicles passing through the city",
+                              "An armored vehicle on a public road",
+                              "A military convoy crossing the intersection",
+                              "A tank on the road",
+                              "The car waits as a military convoy crosses the intersection"
+                              ]
+          },
+          {
+            "name": "Abnormal Vehicle Behavior",
+            "synonyms": [
+                      "a car cutting in front of the ego-vehicle",
+                      "a vehicle swerving across lane lines",
+                      "sudden cut-in",
+                      "swerving vehicle",
+                      "a vehicle braking hard ahead",
+                      "a car making a U-turn in traffic",
+                      "a vehicle driving against the traffic direction",
+                      "a vehicle reversing on the road",
+                      "a car running a red light"
+                      ],
+            "prompt_templates": ["A vehicle cuts in front of the ego-vehicle",
+                              "A car swerves across the lane line",
+                              "A vehicle ahead brakes hard without warning",
+                              "A car makes a sudden U-turn in the middle of traffic",
+                              "A vehicle is driving the wrong way on the road",
+                              "A car is reversing on the roadway",
+                              "A vehicle runs the red light through the intersection",
+                              "A car weaves between lanes",
+                              "The ego-vehicle brakes as a car cuts into its lane",
+                              "The ego-vehicle slows down after a vehicle ahead swerves"
+                              ]
+          },
+          {
+            "name": "Stationary Vehicle Obstruction",
+            "synonyms": [
+                      "a stopped car blocking the lane",
+                      "a parked vehicle narrowing the lane",
+                      "a delivery truck unloading in the lane",
+                      "a stalled vehicle in the roadway",
+                      "a bus stopped in the lane",
+                      "a car with its door opening into traffic"
+                      ],
+            "prompt_templates": ["A stopped vehicle blocking the driving lane",
+                              "A double-parked car narrowing the road",
+                              "A delivery truck unloading while stopped in the lane",
+                              "A stalled vehicle in the middle of the roadway",
+                              "A bus stopped in the lane picking up passengers",
+                              "A parked car opening its door into traffic",
+                              "Illegally parked cars narrowing the drivable space",
+                              "The ego-vehicle steers around a car stopped in its lane",
+                              "The vehicle changes lanes to pass a double-parked truck"
+                              ]
+          },
+          {
+            "name": "Animal",
+            "synonyms": [
+                      "an animal loose on the road",
+                      "wildlife crossing in front of traffic",
+                      "cat ahead",
+                      "dog",
+                      "deer",
+                      "bird",
+                      "livestock",
+                      "wild animal"
+                      ],
+            "prompt_templates": ["An animal crossing the road",
+                              "A dog running into the street",
+                              "A cat running into the road",
+                              "A deer crossing in front of traffic",
+                              "Wildlife near the roadway",
+                              "Wild animals approaching",
+                              "An animal standing on the road",
+                              "A large animal blocking traffic",
+                              "Livestock walking along the road",
+                              "The car stops as a deer crosses the road ahead",
+                              "The car stopped because ducks were crossing the road",
+                              "The vehicle stopped because an animal suddenly darted onto the road"
+                              ]
+          },
+          {
+            "name": "Jaywalking",
+            "synonyms": [
+                      "a person crossing between moving vehicles",
+                      "a person suddenly steps onto a road where there is no crosswalk",
+                      "illegal crossing",
+                      "People are passing between"
+                      ],
+            "prompt_templates": ["Someone jaywalking across the road",
+                              "A person crossing between moving vehicles",
+                              "A pedestrian entering the roadway suddenly",
+                              "A pedestrian is crossing outside the crosswalk",
+                              "People are passing between the stopped vehicles",
+                              "The car brakes suddenly as a pedestrian jaywalks ahead",
+                              "The vehicle stopped because a pedestrian was crossing the road outside of a crosswalk"
+                              ]
+          },
+          {
+            "name": "Too Close Person",
+            "synonyms": [
+                      "a person standing too close to the lane of the moving ego vehicle.",
+                      "a cyclist who is too close to the ego vehicle"
+                      ],
+            "prompt_templates": [
+                              ]
+          },
+          {
+            "name": "Cyclist",
+            "synonyms": ["bicycles on car-only roads",
+                      "a motorcycle that ran a red light",
+                      "bicycle",
+                      "scooter",
+                      "electric scooter",
+                      "e-scooter",
+                      "personal mobility device"
+                      ],
+            "prompt_templates": ["A bicycle is passing by",
+                              "A motorcycle crosses the road",
+                              "Cyclists are approaching",
+                              "Cyclists run in a row",
+                              "An electric scooter is popping out",
+                              "The personal mobility rider is on the road",
+                              "The ego-vehicle slows down as a cyclist merges into the lane"
+                              ]
+          }
+          ]
+      },
+      {
+        "name": "Driving environment",
+        "categories": [
+          {
+            "name": "Road Construction",
+            "synonyms": [
+                      "traffic cones guide the way",
+                      "some roads were closed to traffic",
+                      "roadwork",
+                      "road maintenance",
+                      "road repair",
+                      "construction vehicle",
+                      "construction equipment",
+                      "excavator",
+                      "road barrier",
+                      "barricade",
+                      "warning sign",
+                      "construction worker"
+                    ],
+            "prompt_templates": ["A road under construction",
+                    "Traffic passing through a construction zone",
+                    "Road maintenance in progress",
+                    "Construction equipment beside the road",
+                    "An excavator working near the roadway",
+                    "A construction vehicle blocking a lane",
+                    "Traffic cones blocking the lane",
+                    "Construction barriers redirecting traffic",
+                    "A construction worker directing traffic",
+                    "A lane closed due to road construction",
+                    "Vehicles following a temporary lane",
+                    "The car slows down near a construction zone"
+                    ]
+          },
+          {
+            "name": "Traffic Control Anomaly",
+            "synonyms": [
+                      "a dark traffic light",
+                      "a flashing yellow signal",
+                      "a knocked-down traffic sign",
+                      "a traffic light that is out of service",
+                      "signs that contradict each other",
+                      "a temporary sign taped over the permanent one",
+                      "a malfunctioning crossing gate",
+                      "a signal covered or bagged"
+                      ],
+            "prompt_templates": ["A traffic light that is completely dark",
+                              "A traffic signal flashing yellow instead of cycling",
+                              "A traffic sign knocked over beside the road",
+                              "A signal head covered with a bag and out of service",
+                              "Two signs at the same spot giving contradictory instructions",
+                              "A temporary sign posted over the permanent signage",
+                              "A railway crossing gate stuck halfway",
+                              "The ego-vehicle stops at an intersection where the lights are out",
+                              "The car slows down at a signal flashing red"
+                              ]
+          },
+          {
+            "name": "Unusual Traffic Pattern",
+            "synonyms": [
+                      "traffic backed up and gridlocked",
+                      "vehicles driving into oncoming lanes",
+                      "contraflow traffic",
+                      "vehicles queued in an irregular line",
+                      "traffic merging chaotically",
+                      "cars moving without lane discipline in an open area",
+                      "traffic flowing the wrong way around an obstruction"
+                      ],
+            "prompt_templates": ["Traffic completely gridlocked across the intersection",
+                              "Vehicles crossing into the oncoming lane to get around a blockage",
+                              "A contraflow lane where traffic runs opposite to normal",
+                              "Vehicles queued in a disorganized, irregular line",
+                              "Cars merging chaotically with no clear order",
+                              "Vehicles moving without lane discipline in an open unmarked area",
+                              "A blocked intersection with cars stuck in all directions",
+                              "The ego-vehicle waits as traffic backs up through the intersection"
+                              ]
+          },
+          {
+            "name": "Unpaved road",
+            "synonyms": [
+                      "this vehicle is on the an unsealed road",
+                      "this vehicle is driving on an dirt road",
+                      "gravel road"
+                      ],
+            "prompt_templates": ["The vehicle is driving along an unpaved road",
+                                "The vehicle continues straight along the dirt road",
+                                "The vehicle is moving forward on the gravel road"
+                                ]
+          },
+          {
+            "name": "Tunnel",
+            "synonyms": ["entrance to the tunnel",
+                      "exit of the tunnel"
+                      ],
+            "prompt_templates": ["Entering the tunnel",
+                              "Entrance to the Tunnel",
+                              "Exit of the tunnel",
+                              "Glare at the tunnel exit",
+                              "Bright light at the tunnel exit",
+                              "The car continues straight into the tunnel entrance"
+                              ]
+          },
+          {
+            "name": "Toll Gate",
+            "synonyms": [
+                      "entering the highway toll",
+                      "approaching the toll booth",
+                      "toll plaza",
+                      "toll station",
+                      "toll checkpoint",
+                      "electronic toll collection"
+                      ],
+            "prompt_templates": ["Entering the toll gate",
+                              "Vehicles passing through a toll plaza",
+                              "Traffic entering a toll station",
+                              "Multiple toll booths on a highway",
+                              "An electronic toll collection lane",
+                              "Vehicles slowing down before a toll gate",
+                              "The ego-vehicle slows down while approaching the toll plaza"
+                              ]
+          },
+          {
+            "name": "Narrow Road",
+            "synonyms": [
+                      "the road is too narrow for two vehicles to pass each other, so one has to make way",
+                      "the ego vehicle carefully navigates a very narrow road",
+                      "a vehicle is approaching head-on on a narrow road",
+                      "parked vehicles are blocking the narrow street",
+                      "back street",
+                      "minor road",
+                      "local street",
+                      "residential street",
+                      "residential road",
+                      "neighborhood road"
+                      ],
+            "prompt_templates": ["A vehicle is approaching from the opposite side on the side street",
+                              "A vehicle approaching on narrow road",
+                              "A side road jammed with vehicles",
+                              "Traffic on a narrow local street",
+                              "A car turning onto a crowded minor road",
+                              "A narrow side street with parked cars",
+                              "Pedestrians on both sides of the back road",
+                              "The vehicle turns onto a narrow residential street"
+                              ]
+          },
+          {
+            "name": "Obstacle",
+            "synonyms": [
+                      "unknown object is blocking the vehicle",
+                      "debris scattered on the road",
+                      "fallen tree",
+                      "fallen branch",
+                      "box",
+                      "rock"
+                      ],
+            "prompt_templates": ["An unknown object blocking the road",
+                              "Foreign object on the road surface",
+                              "Unexpected objects on the road",
+                              "Unidentified obstacle ahead",
+                              "Debris scattered across the roadway",
+                              "Garbage scattered on the roadway",
+                              "A fallen tree blocking the road",
+                              "A fallen branch on the roadway",
+                              "A large rock in the middle of the road",
+                              "A cardboard box on the road",
+                              "Road debris blocking the lane",
+                              "An object partially blocking the lane",
+                              "The car stops abruptly to avoid an obstacle in the lane"
+                              ]
+          }
+          ]
+      }
+      ]
+  }
+}

@@ -184,6 +184,187 @@ def has_egomotion(uuid: str) -> bool:
     return uuid in _zip_index("egomotion")
 
 
+# ---------------------------------------------------------------------------
+# 행동 변화 (nuReasoning 2단계: Ego Behavior Summary)
+# ---------------------------------------------------------------------------
+# nuReasoning 의 마이닝 원칙은 "특이 요소가 자차 행동을 실제로 바꿨는가" 이다
+# (Fig. S1: "The mere presence of unusual or critical objects is not
+# sufficient"). ego_state() 는 한 시점의 스냅샷이라 이 질문에 답할 수 없다.
+# 여기서는 프레임 주변 구간을 통째로 보고 "무엇이 어떻게 변했는지"를 뽑는다.
+#
+# 영상 20초를 VLM 에 넣어 추측하게 하는 대신 100Hz 라벨에서 계산한다.
+# 토큰은 한 줄이고 값은 센서 그대라 더 정확하다. 단, 이건 자차 행동만
+# 답한다 - "왜" 그랬는지(공사장/보행자/터널)는 여전히 이미지 몫이다.
+
+# 되돌아볼 구간 (초). 감속-정지 같은 반응은 대개 3~5초 안에 끝난다.
+BEHAVIOR_WINDOW_S = 5.0
+# 유의미한 속도 변화 (m/s). 2 m/s = 7.2 km/h.
+# 구간 순변화가 이 값을 넘으면 그것만으로 감속/가속으로 본다.
+SPEED_CHANGE_MS = 2.0
+# 유의미한 감속/가속 (m/s^2) - 구간 중 최저/최고 순간가속도 기준.
+# 순간값은 노이즈로 한 번씩 튀므로 단독 근거로 쓰지 않는다: 순변화가 같은
+# 부호로 최소 SPEED_MIN_MS 이상 있을 때만 보조 근거로 인정한다.
+DECEL_MS2 = -1.5
+ACCEL_MS2 = 1.5
+# 순간가속도를 근거로 쓸 때 요구하는 최소 순변화 (m/s). 0.5 m/s = 1.8 km/h
+SPEED_MIN_MS = 0.5
+# 구간 내 누적 heading 변화가 이보다 크면 조향한 것으로 본다 (deg)
+HEADING_CHANGE_DEG = 15.0
+
+# --- notable 판정 임계값 -----------------------------------------------------
+# 실측(1,080 units, 120 클립): 5초 구간의 |속도변화| 중앙값이 6.3 km/h 라
+# "조금이라도 변했는가"(changed)는 65% 에서 참이 되어 선별력이 없다.
+# nuReasoning 이 요구하는 것은 "clear, non-trivial change" 이므로, 흔한
+# 주행 중 속도 흔들림과 실제 반응을 가르는 별도의 (더 엄격한) 선을 둔다.
+# 아래 값들은 각각 상위 ~5-13% 에서만 참이 된다.
+NOTABLE_DECEL_MS2 = -3.0        # 급제동    (실측 12.7%)
+NOTABLE_DROP_KMH = -15.0        # 큰 속도 하락 (실측 12.0%)
+NOTABLE_HEADING_DEG = 30.0      # 뚜렷한 조향 (실측 9.8%)
+
+
+def _yaw_deg(qx, qy, qz, qw) -> np.ndarray:
+    """쿼터니언 -> yaw(deg). 차량 heading."""
+    siny = 2.0 * (qw * qz + qx * qy)
+    cosy = 1.0 - 2.0 * (qy * qy + qz * qz)
+    return np.degrees(np.arctan2(siny, cosy))
+
+
+@lru_cache(maxsize=2048)
+def _ego_arrays_full(uuid: str):
+    """(t, speed, ax, curvature, yaw_deg). _ego_arrays 에 heading 을 더한 것."""
+    df = _read_label("egomotion", uuid)
+    if df is None or len(df) == 0:
+        return None
+    df = df.sort_values("timestamp")
+    t = df["timestamp"].to_numpy(dtype=np.float64)
+    speed = np.hypot(df["vx"].to_numpy(), df["vy"].to_numpy())
+    ax = df["ax"].to_numpy(dtype=np.float64)
+    curv = df["curvature"].to_numpy(dtype=np.float64)
+    yaw = _yaw_deg(df["qx"].to_numpy(), df["qy"].to_numpy(),
+                   df["qz"].to_numpy(), df["qw"].to_numpy())
+    return t, speed, ax, curv, yaw
+
+
+def ego_behavior_change(uuid: str, frame_idx: int,
+                        window_s: float = BEHAVIOR_WINDOW_S) -> dict | None:
+    """프레임 시점까지 window_s 초 동안 자차 행동이 어떻게 변했는지.
+
+    egomotion 은 카메라 클립보다 뒤로는 길게(중앙값 ~108초) 이어지지만
+    앞쪽 여유는 거의 없다(중앙값 0.1초). 따라서 클립 앞부분 프레임에서는
+    되돌아볼 구간이 모자란다 - 그 경우 실제 확보된 길이를 span_s 로 알리고,
+    너무 짧으면(<1초) None 을 반환해 호출부가 조용히 건너뛰게 한다.
+
+    반환:
+      span_s          실제로 관찰한 구간 길이 (요청한 window_s 보다 짧을 수 있음)
+      speed_start/end 구간 시작/끝 속도 (km/h)
+      speed_delta     end - start (km/h). 음수면 감속
+      min_ax, max_ax  구간 내 최저/최고 순간 종가속도 (m/s^2)
+      heading_delta   구간 누적 heading 변화 (deg). +면 좌회전
+      came_to_stop    움직이다가 멈췄는가
+      started_moving  멈춰있다가 출발했는가
+      decelerating / accelerating / steering  유의미한 변화 여부
+      changed         위 중 하나라도 참 - "행동이 바뀌었다"
+    """
+    ts = frame_timestamps(uuid)
+    ego = _ego_arrays_full(uuid)
+    if ts is None or ego is None:
+        return None
+    if not (0 <= frame_idx < len(ts)):
+        return None
+
+    t, speed, ax, curv, yaw = ego
+    t_end = float(ts[frame_idx])
+    if t_end < t[0] or t_end > t[-1]:
+        return None
+    t_start = max(t_end - window_s * 1e6, float(t[0]))
+
+    span_s = (t_end - t_start) / 1e6
+    if span_s < 1.0:            # 구간이 1초도 안 되면 변화를 논할 수 없다
+        return None
+
+    sel = (t >= t_start) & (t <= t_end)
+    if sel.sum() < 2:
+        return None
+
+    sp_w, ax_w, yaw_w = speed[sel], ax[sel], yaw[sel]
+    v0, v1 = float(sp_w[0]), float(sp_w[-1])
+
+    # heading 은 ±180 에서 튀므로 unwrap 후 누적 변화를 본다
+    yaw_u = np.unwrap(np.radians(yaw_w))
+    heading_delta = float(np.degrees(yaw_u[-1] - yaw_u[0]))
+
+    min_ax, max_ax = float(ax_w.min()), float(ax_w.max())
+    dv = v1 - v0
+    came_to_stop = v0 >= CREEP_SPEED and v1 < STOP_SPEED
+    started_moving = v0 < STOP_SPEED and v1 >= CREEP_SPEED
+    # 순변화가 1차 근거. 순간가속도는 순변화가 같은 방향일 때만 보조로 쓴다 -
+    # 그렇지 않으면 감속 구간에서 튄 +ax 하나로 "가속"이 되어버린다.
+    decelerating = dv <= -SPEED_CHANGE_MS or (min_ax <= DECEL_MS2
+                                              and dv <= -SPEED_MIN_MS)
+    accelerating = dv >= SPEED_CHANGE_MS or (max_ax >= ACCEL_MS2
+                                             and dv >= SPEED_MIN_MS)
+    steering = abs(heading_delta) >= HEADING_CHANGE_DEG
+
+    return {
+        "span_s": span_s,
+        "speed_start": v0 * 3.6,
+        "speed_end": v1 * 3.6,
+        "speed_delta": (v1 - v0) * 3.6,
+        "min_ax": min_ax,
+        "max_ax": max_ax,
+        "heading_delta": heading_delta,
+        "came_to_stop": came_to_stop,
+        "started_moving": started_moving,
+        "decelerating": decelerating,
+        "accelerating": accelerating,
+        "steering": steering,
+        "is_hard_braking": min_ax < HARD_BRAKE_AX,
+        # 조금이라도 변했는가. 흔하다(실측 65%) - 필터로 쓰지 말 것.
+        "changed": bool(came_to_stop or started_moving or decelerating
+                        or accelerating or steering),
+        # "clear, non-trivial change" 인가. 드물다(실측 ~25%) - 이쪽이 필터용.
+        "notable": bool(came_to_stop or started_moving
+                        or min_ax <= NOTABLE_DECEL_MS2
+                        or (dv * 3.6) <= NOTABLE_DROP_KMH
+                        or abs(heading_delta) >= NOTABLE_HEADING_DEG),
+    }
+
+
+def describe_behavior(ch: dict | None) -> str:
+    """ego_behavior_change -> 프롬프트에 넣을 한 문장.
+
+    describe_ego() 와 같은 방침으로 건조하게 쓰되, 숫자는 변화량만 남긴다.
+    현재 속도는 describe_ego() 가 이미 말하므로 여기서 반복하지 않는다.
+    """
+    if ch is None:
+        return ""
+    w = f"Over the past {ch['span_s']:.0f} seconds"
+
+    if ch["came_to_stop"]:
+        core = (f"the ego-vehicle slowed from {ch['speed_start']:.0f} km/h "
+                f"and came to a stop")
+    elif ch["started_moving"]:
+        core = (f"the ego-vehicle pulled away from a stop to "
+                f"{ch['speed_end']:.0f} km/h")
+    elif ch["decelerating"] and ch["speed_delta"] < 0:
+        core = (f"the ego-vehicle slowed from {ch['speed_start']:.0f} to "
+                f"{ch['speed_end']:.0f} km/h")
+    elif ch["accelerating"] and ch["speed_delta"] > 0:
+        core = (f"the ego-vehicle sped up from {ch['speed_start']:.0f} to "
+                f"{ch['speed_end']:.0f} km/h")
+    else:
+        # 속도 자체는 크게 안 변했는데 조향만 한 경우도 여기로 온다
+        core = "the ego-vehicle held a steady speed"
+
+    s = f"{w} {core}"
+    if ch["is_hard_braking"]:
+        s += f", braking hard ({ch['min_ax']:.1f} m/s^2)"
+    if ch["steering"]:
+        side = "left" if ch["heading_delta"] > 0 else "right"
+        s += f", and turned {side} by {abs(ch['heading_delta']):.0f} degrees"
+    return s + "."
+
+
 if __name__ == "__main__":
     import argparse
     from collections import Counter
@@ -194,6 +375,9 @@ if __name__ == "__main__":
     ap.add_argument("--timestamps-per-clip", type=int, default=10)
     ap.add_argument("--coverage", action="store_true",
                     help="전체 클립의 egomotion/obstacle 라벨 커버리지 집계")
+    ap.add_argument("--behavior", action="store_true",
+                    help="행동 변화 추출(ego_behavior_change) 점검")
+    ap.add_argument("--window", type=float, default=BEHAVIOR_WINDOW_S)
     args = ap.parse_args()
 
     cam_uuids = sorted(p.name.split(".")[0]
@@ -207,6 +391,37 @@ if __name__ == "__main__":
         print(f"camera clips        : {n}")
         print(f"with egomotion      : {ne}  ({100*ne/n:.1f}%)")
         print(f"with obstacle       : {no}  ({100*no/n:.1f}%)")
+        raise SystemExit
+
+    if args.behavior:
+        uuids = [args.uuid] if args.uuid else cam_uuids[:args.limit_clips]
+        flags, n_none, n_units = Counter(), 0, 0
+        for u in uuids:
+            ts = frame_timestamps(u)
+            if ts is None:
+                continue
+            idxs = np.linspace(0, len(ts) - 1, args.timestamps_per_clip,
+                               dtype=int)
+            print(f"\n=== {u} ({len(ts)} frames) ===")
+            for fi in idxs:
+                n_units += 1
+                ch = ego_behavior_change(u, int(fi), window_s=args.window)
+                if ch is None:
+                    n_none += 1
+                    print(f"  f{fi:4d}  (no window)")
+                    continue
+                for k in ("came_to_stop", "started_moving", "decelerating",
+                          "accelerating", "steering"):
+                    if ch[k]:
+                        flags[k] += 1
+                flags["changed" if ch["changed"] else "steady"] += 1
+                print(f"  f{fi:4d}  span={ch['span_s']:.1f}s "
+                      f"{ch['speed_start']:5.1f}->{ch['speed_end']:5.1f} km/h "
+                      f"ax[{ch['min_ax']:5.1f},{ch['max_ax']:5.1f}] "
+                      f"hdg={ch['heading_delta']:6.1f} "
+                      f"| {describe_behavior(ch)}")
+        print(f"\nunits={n_units}  no-window={n_none}")
+        print("flags:", dict(flags))
         raise SystemExit
 
     uuids = [args.uuid] if args.uuid else cam_uuids[:args.limit_clips]

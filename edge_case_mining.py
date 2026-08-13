@@ -34,6 +34,11 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from constrained_tier import (TIER_LABELS, TIER_VALUES, tier_label,
+                              tier_menu, tier_score,
+                              safety_rubric_text, rarity_rubric_text,
+                              contrast_text)
+
 ROOT = Path(__file__).resolve().parent
 CAMERA_DIR = ROOT / "pav_sample" / "camera"
 SCENE_JSON = ROOT / "scene_category_B.json"
@@ -240,6 +245,76 @@ def sample_unit_frames(uuid: str, frame_idx: int, max_long_side: int = 896,
 
 
 # ---------------------------------------------------------------------------
+# 클립 모드 - 판정 단위가 (uuid, frame_idx) 가 아니라 클립(uuid) 전체
+#
+# 위의 2프레임 방식은 "1초 전 -> 현재" 변화만 본다. cut-in, 갑작스러운 보행자
+# 진입처럼 몇 초에 걸쳐 전개되는 것은 두 장으로 잡히지 않는다(scene_category_C
+# 의 Abnormal Vehicle Behavior 가 정확히 여기 걸린다). 클립 모드는 20초를
+# 1fps 로 훑어 그 시간축을 모델에게 직접 보여준다.
+#
+# 비용 때문에 기본값이 다르다 (실측 30fps, 1920x1080 원본):
+#   - 뷰: front_wide 1개. 3뷰면 토큰이 3배가 되고, 논문(nuReasoning)도 마이닝
+#     단계는 front 카메라 하나만 쓴다.
+#   - 해상도: 640x360. 프레임당 294 토큰. 2프레임 모드의 896x504(576 토큰)보다
+#     낮지만, 클립 모드가 답하려는 것은 "무엇이 시간에 걸쳐 변했나"라 프레임
+#     한 장의 선명도는 덜 중요하다.
+#   - 20장 x 294 = 5,878 토큰. KV 캐시 약 1.0GB 로 24GB 안에 여유 있게 들어간다.
+# ---------------------------------------------------------------------------
+CLIP_FPS = 2.0              # 초당 몇 장 뽑을지
+CLIP_MAX_FRAMES = 40        # 클립당 최대 장수 (20초 x 1fps)
+CLIP_MAX_LONG_SIDE = 896    # 클립 모드 프레임의 긴 변 (896 x 504, 640 x 320, 448 x 252)
+SOURCE_FPS = 30.0           # 실측: 200 클립 중앙값 30.000 fps (33.30 ms)
+
+
+def sample_clip_indices(uuid: str, fps: float = CLIP_FPS,
+                        max_frames: int = CLIP_MAX_FRAMES,
+                        source_fps: float = SOURCE_FPS):
+    """클립 전체에서 fps 간격으로 frame_idx 를 뽑는다 (최대 max_frames 장).
+
+    30fps 소스에서 1fps 면 30 프레임마다 한 장. 클립이 max_frames 초보다 길면
+    앞에서부터 자르지 않고 균등 간격으로 다시 뽑아 20초 전체를 덮는다 -
+    뒷부분을 버리면 클립 후반의 상황을 통째로 놓치기 때문.
+    """
+    total = clip_frame_count(uuid)
+    if total <= 0:
+        return []
+    step = max(1, int(round(source_fps / fps)))
+    idxs = list(range(0, total, step))
+    if len(idxs) > max_frames:
+        idxs = [int(i) for i in np.linspace(0, total - 1, num=max_frames)]
+    return [int(i) for i in idxs]
+
+
+def sample_clip_frames(uuid: str, fps: float = CLIP_FPS,
+                       max_frames: int = CLIP_MAX_FRAMES,
+                       max_long_side: int = CLIP_MAX_LONG_SIDE,
+                       views: list[str] | None = None):
+    """클립 하나를 1fps 로 훑어 시간순 프레임 목록을 만든다.
+
+    반환: {"frames": [(frame_idx, view, PIL.Image), ...] 시간순,
+           "indices": [frame_idx, ...], "views": [...]}
+    뷰가 여러 개면 같은 시점의 뷰들이 연달아 오도록 정렬한다(t0의 3뷰,
+    t1의 3뷰, ...) - 시간 순서가 뷰 순서보다 중요하기 때문.
+    """
+    views = views or SINGLE_VIEW
+    idxs = sample_clip_indices(uuid, fps, max_frames)
+    if not idxs:
+        return {"frames": [], "indices": [], "views": views}
+
+    per_view = {}
+    for view in views:
+        per_view[view] = _read_frames_at(str(clip_path(view, uuid)), idxs,
+                                         max_long_side=max_long_side)
+    frames = []
+    for i in idxs:
+        for view in views:
+            im = per_view[view].get(i)
+            if im is not None:
+                frames.append((i, view, im))
+    return {"frames": frames, "indices": idxs, "views": views}
+
+
+# ---------------------------------------------------------------------------
 # 프롬프트 - 단일 호출로 Q1(Normal/Special) + Q2(해당 카테고리 전부) 동시 응답
 #
 # 2단계로 나누던 예전 구조(캡션 -> 캡션 텍스트만으로 매칭)는 캡션->카테고리
@@ -373,6 +448,371 @@ Respond with ONLY a JSON object, no other text:
 {{"verdict": "Normal" or "Special",
  "categories": ["<exact category name>", ...],{schema_q3}
  "evidence": "<one short phrase describing what you actually see>"}}"""
+
+
+# ---------------------------------------------------------------------------
+# 프롬프트 (nuReasoning 방식) - 위 build_vlm_prompt 과 병행하는 별도 경로
+#
+# nuReasoning(arXiv 2605.31572) Fig. S1/S2 의 마이닝 프롬프트에서 추론 절차만
+# 가져온 것. 위의 Q1/Q2/Q3 방식과 무엇이 다른가:
+#
+#   - 단계별 chain-of-thought 를 거친다. 각 단계가 JSON 필드로 남으므로
+#     "왜 그렇게 봤는지"를 사후 검수할 수 있다. Q1/Q2/Q3 는 evidence 한 줄이
+#     전부라 근거가 남지 않는다.
+#   - 3단계에서 이상 요소마다 "자차 행동을 바꿨는가"를 함께 적게 한다.
+#     검수자가 읽을 정보이지 탐지를 거르는 조건이 아니다.
+#
+# 논문과 다른 점: 난이도 점수(Final Assessment, 1~10)를 쓰지 않는다.
+# 우리 과제는 "이 클립에 edge-case 요소가 있는가"를 가리는 것이지 롱테일
+# 가치를 서열화하는 것이 아니다. 그래서 6단계와 채점 rubric, 그리고 점수를
+# 낮추라는 취지의 behavior-centric 억제 문구를 모두 뺐다.
+#
+# 그 억제 문구를 빼는 것은 실측 근거도 있다: 위 Q1/Q2/Q3 주석의 20260728
+# 실험에서 "Mere presence is not enough" 류의 규칙을 넣자 명백한 공사장에서도
+# 탐지가 0 이 됐다. 판정은 "이상 요소를 나열했는가"로만 정한다 -
+# scenario_types 가 비어 있지 않으면 Special.
+#
+# 자차 행동 변화는 egomotion.ego_behavior_change() 가 100Hz 라벨에서 계산해
+# 사실로 넣어준다. 논문은 30초 영상을 보여주고 모델이 추측하게 했지만, 우리는
+# 라벨이 있으므로 추측시킬 이유가 없다.
+# ---------------------------------------------------------------------------
+
+
+def clip_intro(n_frames: int, n_views: int, fps: float = CLIP_FPS,
+               as_video: bool = False) -> str:
+    """클립 모드 도입부. 실제로 넣은 것과 어긋나면 안 되므로 계산해서 쓴다.
+
+    as_video=True 면 프레임을 낱장이 아니라 비디오 한 편으로 넘긴 경우다.
+    이때는 프로세서가 프레임마다 타임스탬프를 직접 박아주므로 "몇 장을 몇 초
+    간격으로 보여준다"는 설명이 오히려 실제와 어긋난다(시간축 병합 때문에
+    모델이 보는 시점 수는 프레임 수의 절반이다). 그래서 장수를 말하지 않고
+    영상이라는 사실과 길이만 알려준다.
+    """
+    span = n_frames / max(fps, 1e-6) / max(n_views, 1)
+    if as_video:
+        return (f"""You are an autonomous-driving scene analyst. You are shown a
+{span:.0f}-second video from the vehicle's front-wide camera, sampled at about
+{fps:g} frame per second. Each frame is tagged with its timestamp, and the LAST
+frame is the most recent moment. Read it as a sequence: what changes over time
+tells you how the scene and the ego-vehicle evolved.""")
+
+    if n_views == 1:
+        what = (f"{n_frames} images from the vehicle's front-wide camera, "
+                f"in time order, about {1/fps:.0f} second apart, covering "
+                f"roughly {span:.0f} seconds of driving")
+    else:
+        what = (f"{n_frames} images in time order from {n_views} synchronized "
+                f"camera views, about {1/fps:.0f} second apart per view, "
+                f"covering roughly {span:.0f} seconds of driving")
+    return (f"""You are an autonomous-driving scene analyst. You are shown {what}.
+The LAST image is the most recent moment. Read them as a sequence: what changes
+from one image to the next tells you how the scene and the ego-vehicle evolved.""")
+
+
+def build_nureasoning_prompt(category_menu: str, sensor_facts: str = "",
+                             single_view: bool = False,
+                             behavior_facts: str = "",
+                             intro: str | None = None) -> str:
+    """nuReasoning 6단계 CoT + 1~10 점수를 요구하는 프롬프트.
+
+    build_vlm_prompt() 과 인자 구성을 최대한 맞춰 호출부에서 갈아끼우기 쉽게
+    했다. 다른 점은 behavior_facts 하나 - egomotion 에서 뽑은 "지난 5초간
+    자차가 어떻게 변했는가" 문장이며, 논문 2단계(Ego Behavior Summary)의
+    근거로 쓰인다. 비어 있으면 그 블록이 통째로 빠지고, 모델은 이미지만으로
+    행동 변화를 추정하게 된다(정확도는 떨어지지만 동작은 한다).
+
+    Q3(blocks_path)에 해당하는 별도 질문은 없다 - 논문에서는 "행동에 영향을
+    줬는가"는 3단계 안에서 요소별로 서술된다.
+    """
+    ego_facts, obstacle_facts = _split_sensor_facts(sensor_facts)
+
+    fact_block = ""
+    if ego_facts:
+        fact_block += f"""
+KNOWN FACTS about the ego-vehicle at the CURRENT moment (from vehicle sensors -
+ground truth, trust these over your own guess from the images):
+{ego_facts}
+"""
+    if behavior_facts:
+        fact_block += f"""
+HOW THE EGO-VEHICLE'S BEHAVIOUR CHANGED (measured from vehicle sensors, not a
+guess - use this for step 2 and for judging ego influence in step 3):
+{behavior_facts}
+"""
+    if obstacle_facts:
+        fact_block += f"""
+FOR REFERENCE, a 3D sensor lists objects it detected around the vehicle:
+{obstacle_facts}
+This only tells you that those objects exist somewhere in the scene. It does
+NOT tell you whether any of them is unusual or affects driving - ordinary
+traffic and pedestrians going about their business are detected too. Judge from
+the IMAGES whether anything is actually noteworthy, and do not report a
+scenario type just because an object of that kind appears in this list.
+"""
+
+    # intro 를 넘기면(클립 모드) 그걸 쓰고, 아니면 2프레임 모드 문구를 쓴다.
+    if intro is None:
+        if single_view:
+            intro = """You are an autonomous-driving scene analyst. You are shown TWO images
+in order, both from the vehicle's front-wide camera: the FIRST is from about
+1 second EARLIER, the SECOND is the CURRENT moment."""
+        else:
+            intro = """You are an autonomous-driving scene analyst. You are shown SIX images
+in order: the FIRST three are from about 1 second EARLIER, the LAST three are
+the CURRENT moment. Each group of three is synchronized camera views
+(front-wide, cross-left, cross-right) of the same vehicle."""
+
+    tier_scale = tier_menu()
+    tier_min, tier_max = min(TIER_VALUES), max(TIER_VALUES)
+    safety_rubric = safety_rubric_text()
+    rarity_rubric = rarity_rubric_text()
+    contrasts = contrast_text()
+    # egomotion 을 켠 실행에서는 급제동/급조향이 100Hz 라벨로 이미 계산돼
+    # 있다. 그걸 3등급의 객관적 근거로 지정한다 - 모델의 인상보다 센서
+    # 측정이 일관적이다. egomotion 을 안 쓰면 이 문장 자체가 빠진다.
+    behavior_hint = (
+        "\n   The measured ego behaviour above is the strongest evidence here:"
+        "\n   hard braking or a sharp swerve supports 3, while a steady speed"
+        "\n   with no steering change rarely justifies 3."
+        if behavior_facts else "")
+
+    return f"""{intro}
+{fact_block}
+Your job is to decide whether this clip contains any edge-case element - a rare
+or unusual road situation - and to name which of the types below it matches.
+You are NOT rating how difficult or how valuable the clip is.
+
+SCENARIO TYPES:
+{category_menu}
+
+List EVERY type you can actually see. An element still counts even if the
+ego-vehicle drove past it without reacting - whether it changed the driving is
+recorded separately in step 3, and never a reason to leave a type out. If you
+see no unusual element at all, return an empty list.
+
+Work through these steps in order:
+1. Scene Description: the road environment and the visible agents or objects.
+   Do not describe lighting or weather.
+2. Ego Behaviour Summary: the ego-vehicle's speed profile, lateral behaviour,
+   and right-of-way behaviour. State explicitly whether its behaviour is
+   unchanged/typical.
+3. Unusual Elements and Ego Influence: list every unusual element, and for each
+   one state whether it changed the ego-vehicle's behaviour. Also name the
+   matching scenario types from the list above, copying the names EXACTLY.
+   For steps 4 and 5, rate the SITUATION, never the object by itself. The same
+   object is routine or serious depending on what it is doing and where it is:
+{contrasts}
+   So "there is an animal" or "there is a pedestrian" tells you nothing on its
+   own - look at what it is doing relative to the ego-vehicle's path.
+4. Safety Criticality: how close this came to needing emergency action.
+   Pick the integer whose description fits best:
+{safety_rubric}
+   Judge by what the ego-vehicle actually had to DO, not by how much attention
+   the scene deserves - almost every scene deserves attention, so "requires
+   vigilance" is never a reason to pick 2 or 3.{behavior_hint}
+5. Rarity: how unusual this situation is, judged the same way.
+   Pick the integer whose description fits best:
+{rarity_rubric}
+
+Respond with ONLY a JSON object, no other text:
+{{"observation": "<scene description, one or two sentences>",
+ "ego_behavior": "<how the ego-vehicle is behaving and whether it changed>",
+ "unusual_elements": "<each unusual element and whether it influenced the ego>",
+ "safety_tier": <integer {tier_min}-{tier_max}>,
+ "safety_reason": "<why that safety rating>",
+ "rarity_tier": <integer {tier_min}-{tier_max}>,
+ "rarity_reason": "<why that rarity rating>",
+ "scenario_types": ["<exact scenario type name>", ...]}}"""
+
+
+def _flatten_field(v) -> str:
+    """서술 필드를 사람이 읽을 한 줄로 편다.
+
+    "unusual_elements" 는 문장을 요구했는데도 모델이 자주 구조체 배열로 답한다
+    (실측: [{"element": "...", "influenced_ego": true, "scenario_type": "..."}]).
+    str() 로 그냥 감싸면 파이썬 repr 이 CSV 에 들어가 읽기 어려우므로,
+    dict/list 는 값만 뽑아 이어 붙인다.
+    """
+    if v is None:
+        return ""
+    if isinstance(v, str):
+        return v.strip()
+    if isinstance(v, dict):
+        parts = []
+        for k, x in v.items():
+            if isinstance(x, bool):
+                parts.append(f"{k}={'yes' if x else 'no'}")
+            elif x not in (None, ""):
+                parts.append(str(x).strip())
+        return "; ".join(parts)
+    if isinstance(v, (list, tuple)):
+        return " | ".join(p for p in (_flatten_field(x) for x in v) if p)
+    return str(v).strip()
+
+
+def _coerce_tier(v) -> int | None:
+    """모델이 낸 등급 값을 1/2/3 정수로 만든다. 못 읽으면 None.
+
+    constrained decoding 을 켜면 여기 오는 값은 이미 1/2/3 이다. 다만
+    제약을 끈 실행이나 예전 형식("Low"/"Moderate"/"High" 문자열)도 있어서
+    문자열 폴백을 남긴다.
+    """
+    if isinstance(v, bool):          # True/False 가 int 로 새는 것 방지
+        return None
+    if isinstance(v, (int, float)):
+        n = int(round(v))
+        return n if n in TIER_LABELS else None
+    if isinstance(v, str):
+        t = v.strip()
+        if not t:
+            return None
+        # "2", "2 (Moderate)", "Moderate" 모두 흡수
+        m = re.match(r"\s*([1-3])\b", t)
+        if m:
+            return int(m.group(1))
+        label = _extract_tier(t)
+        for k, name in TIER_LABELS.items():
+            if name == label:
+                return k
+    return None
+
+
+def _extract_tier(text: str) -> str:
+    """자유 서술에서 Low/Moderate/High 등급만 뽑는다 (구 형식 폴백).
+
+    프롬프트가 정수를 요구하도록 바뀐 뒤로는 주 경로가 아니다. 제약을 끄고
+    돌린 실행이나 예전 CSV 를 다시 읽을 때를 위해 남겨둔다.
+
+    프롬프트가 "Low, Moderate, or High 로 시작하고 이유를 덧붙여라"라고
+    시키므로 먼저 맨 앞 단어로 판정한다. 그런데 "Low to moderate",
+    "Highly critical" 처럼 경계를 흐리는 답도 실측(20260811, 50클립)에서
+    나와서, 시작 단어가 애매하면(두 등급이 함께 언급되는 등) 텍스트 전체를
+    보고 더 강한 쪽으로 반올림한다 - 필터링(--not-save-low)이 걸러야 할
+    것을 놓치는 게, 있는 것을 더 얹는 것보다 나쁘기 때문이다.
+    "common, low rarity" 처럼 다른 낱말 뒤에 우연히 "low" 가 붙은 문장을
+    "moderate" 로 잘못 올리지 않도록, 상향 판정은 실제로 완화 어구(to/or)가
+    있을 때만 적용한다. 등급이 전혀 안 보이면 "Unknown" - 필터는 이를
+    Moderate/High 와 동일하게(저장) 취급한다.
+    """
+    t = (text or "").strip().lower()
+    if not t:
+        return "Unknown"
+    head = t[:40]
+
+    # 시작 단어로 우선 판정 - 프롬프트가 요구한 형식이라 대개 여기서 끝난다.
+    if head.startswith("high"):
+        return "High"
+    if head.startswith("moderate") or head.startswith("medium"):
+        return "Moderate"
+    if head.startswith("low"):
+        # "low to moderate"/"low or high" 처럼 다른 등급 낱말이 바로 뒤에
+        # 함께 나오면 더 강한 쪽으로 - 단어 자체("moderate"/"high")로 검사해야
+        # "low-risk"의 하이픈 같은 걸 오탐하지 않는다.
+        rest = head[3:20]
+        if "moderate" in rest or "medium" in rest or "high" in rest:
+            return "Moderate" if "high" not in rest else "High"
+        return "Low"
+
+    # 시작 단어가 세 등급 중 하나가 아니면("Highly critical" 등) 전체에서
+    # 등급 낱말을 찾되, high > moderate > low 순으로 강한 것을 우선한다.
+    if "high" in head:
+        return "High"
+    if "moderate" in head or "medium" in head:
+        return "Moderate"
+    if "low" in head:
+        return "Low"
+    return "Unknown"
+
+
+def parse_nureasoning_output(text: str, labels: list) -> dict:
+    """nuReasoning 출력 -> 기존 결과 dict 와 호환되는 형태.
+
+    다운스트림(시각화/집계/CSV)이 categories/verdict/evidence 를 기대하므로
+    새 필드를 거기에 매핑해 둔다:
+      scenario_types -> categories   (기존 검증 로직 그대로 재사용)
+      verdict        -> categories 가 비어 있지 않으면 "Special"
+      observation 등 -> evidence 에 요약, 원본 단계별 답도 모두 보존
+
+    safety_tier/rarity_tier 는 1/2/3 정수, safety_label/rarity_label 은 그것을
+    사람이 읽는 "Low"/"Moderate"/"High" 로 옮긴 것. 등급을 못 읽으면 정수는
+    None, 라벨은 "Unknown" 이고, 필터는 이를 "거르지 않음"으로 취급한다
+    (놓치는 것보다 더 보는 쪽이 안전).
+
+    blocks_path 는 항상 None - 이 방식에는 Q3 가 없다. 파싱에 실패하면
+    카테고리 없이 Normal 이 되어, 없는 special 을 만들어내는 대신 놓치는
+    쪽으로 떨어진다.
+    """
+    valid = {l["category"] for l in labels if not l["is_normal"]}
+    out = {"verdict": "Normal", "categories": [], "blocks_path": None,
+           "evidence": "", "parse_ok": False,
+           "observation": "", "ego_behavior": "", "unusual_elements": "",
+           "safety_assessment": "", "rarity_assessment": "",
+           "safety_tier": None, "rarity_tier": None,
+           "safety_label": "Unknown", "rarity_label": "Unknown",
+           "tier_score": None}
+
+    m = re.search(r"\{.*\}", text, re.DOTALL)
+    if not m:
+        return out
+    try:
+        obj = json.loads(m.group(0))
+    except Exception:
+        return out
+
+    out["parse_ok"] = True
+    for k in ("observation", "ego_behavior", "unusual_elements"):
+        out[k] = _flatten_field(obj.get(k, ""))
+
+    # 등급: 새 스키마는 safety_tier(정수) + safety_reason(서술)로 나뉘어 있다.
+    # 구 스키마(safety_assessment 한 필드에 등급+이유)도 계속 읽는다.
+    for kind in ("safety", "rarity"):
+        tier = _coerce_tier(obj.get(f"{kind}_tier"))
+        reason = _flatten_field(obj.get(f"{kind}_reason", ""))
+        legacy = _flatten_field(obj.get(f"{kind}_assessment", ""))
+        if tier is None and legacy:
+            tier = _coerce_tier(legacy)
+        out[f"{kind}_tier"] = tier
+        out[f"{kind}_label"] = tier_label(tier)
+        # 사람이 읽는 서술은 reason 우선, 없으면 구 형식 문장을 쓴다.
+        out[f"{kind}_assessment"] = reason or legacy
+    out["tier_score"] = tier_score(out["safety_tier"], out["rarity_tier"])
+
+    raw_cats = obj.get("scenario_types", [])
+    if isinstance(raw_cats, str):
+        raw_cats = [raw_cats]
+    raw_cats = list(raw_cats)
+
+    # 모델이 scenario_types 를 비워두고 unusual_elements 안에 scenario_type 을
+    # 넣어버리는 경우가 있다(실측 20260811). 그대로 두면 카테고리가 통째로
+    # 사라지므로 거기서도 걷어온다 - 어차피 아래에서 유효성 검사를 거친다.
+    nested = obj.get("unusual_elements", [])
+    if isinstance(nested, (list, tuple)):
+        for el in nested:
+            if not isinstance(el, dict):
+                continue
+            for key in ("scenario_type", "scenario_types", "category"):
+                v = el.get(key)
+                if isinstance(v, str):
+                    raw_cats.append(v)
+                elif isinstance(v, (list, tuple)):
+                    raw_cats.extend(v)
+
+    seen = set()
+    for c in raw_cats:
+        cat = _closest_valid(str(c).strip(), valid)
+        if cat and cat not in seen:
+            seen.add(cat)
+            out["categories"].append(cat)
+
+    # 판정은 오직 "edge-case 요소를 하나라도 나열했는가". 별도 질문을 두지
+    # 않는 이유는 20260728 실험 - verdict 를 따로 물어 categories 와 묶으면
+    # 모델이 Special 선언에 보수적이라 나열 자체를 포기했다.
+    out["verdict"] = "Special" if out["categories"] else "Normal"
+
+    # 카드/CSV 가 한 줄 요약을 기대하므로 관찰 + 이상요소를 합쳐 채운다
+    out["evidence"] = " ".join(
+        p for p in (out["observation"], out["unusual_elements"]) if p).strip()
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -528,7 +968,79 @@ if __name__ == "__main__":
     ap.add_argument("--num-examples", type=int, default=2,
                     help="카테고리당 프롬프트에 넣을 예시 개수 (기본 2). "
                          "많이 넣을수록 프롬프트가 길어지고 판별이 경직될 수 있음.")
+    # --scene-json 과 --prompt-style 은 서로 직교한다. C 카테고리를 기존
+    # Q1/Q2/Q3 로 돌려보는 것도, B 카테고리를 nuReasoning 으로 돌려보는 것도
+    # 각각 유효한 비교라 하나로 묶지 않는다.
+    ap.add_argument("--scene-json", default=str(SCENE_JSON),
+                    help=f"카테고리 정의 JSON (기본 {SCENE_JSON.name}). "
+                         "scene_category_C.json 은 nuReasoning taxonomy 를 "
+                         "반영해 카테고리를 보강한 것.")
+    ap.add_argument("--prompt-style", choices=["qa", "nureasoning"], default="qa",
+                    help="qa(기본): 기존 Q1(verdict)/Q2(categories)/Q3(blocking). "
+                         "nureasoning: 단계별 CoT 로 근거를 남기며 edge-case "
+                         "요소를 나열한다(난이도 점수는 매기지 않는다). Q3 를 "
+                         "쓰지 않으므로 --no-blocking 과 같은 폴더 구조가 되고, "
+                         "--use-egomotion 을 켜면 자차 행동 변화 문장이 함께 "
+                         "들어간다.")
+    ap.add_argument("--only-uuids", default=None,
+                    help="이 파일에 적힌 uuid(한 줄에 하나)만 처리한다. "
+                         "정답 라벨이 있는 클립만 골라 검증할 때 쓴다.")
+    ap.add_argument("--clip-mode", action="store_true",
+                    help="판정 단위를 (uuid, frame_idx) 가 아니라 클립 전체로 "
+                         "바꾼다. 20초를 --clip-fps 로 훑어 시간순 이미지를 "
+                         "한 번에 넣는다. nureasoning 프롬프트 전용이며 "
+                         "시각화는 하지 않는다.")
+    ap.add_argument("--clip-fps", type=float, default=CLIP_FPS,
+                    help=f"클립 모드 샘플링 fps (기본 {CLIP_FPS}). "
+                         f"소스는 30fps.")
+    ap.add_argument("--clip-max-frames", type=int, default=CLIP_MAX_FRAMES,
+                    help=f"클립당 최대 프레임 수 (기본 {CLIP_MAX_FRAMES})")
+    ap.add_argument("--clip-long-side", type=int, default=CLIP_MAX_LONG_SIDE,
+                    help=f"클립 모드 프레임 긴 변 픽셀 (기본 "
+                         f"{CLIP_MAX_LONG_SIDE}; 2프레임 모드는 896)")
+    ap.add_argument("--clip-viz", action="store_true",
+                    help="클립 모드 시각화: 원본 mp4 아래에 1~5단계 추론을 붙인 "
+                         "영상과 result.json 을 클립마다 저장한다.")
+    ap.add_argument("--clip-viz-all", action="store_true",
+                    help="edge-case 요소가 없는 클립까지 전부 영상으로 만든다. "
+                         "기본은 카테고리가 하나 이상 붙은 클립만 - 전량은 "
+                         "클립당 약 39MB 라 금방 수십 GB 가 된다.")
+    ap.add_argument("--clip-viz-width", type=int, default=None,
+                    help="시각화 영상 폭 (기본 1280). 0 을 주면 원본 해상도.")
+    ap.add_argument("--not-save-low", type=lambda s: s not in ("0", "false", "False"),
+                    default=True,
+                    help="Safety Criticality 와 Rarity 가 둘 다 Low 인 클립은 "
+                         "시각화에서 제외한다 (기본 True). 카테고리가 나열됐지만 "
+                         "모델 스스로 '영향도 낮고 흔함'으로 판단한 경우다. "
+                         "CSV/scenario_types 에는 영향 없음 - 시각화 대상만 "
+                         "줄인다. --not-save-low=0 으로 끌 수 있다.")
+    ap.add_argument("--no-constrain-tiers", dest="constrain_tiers",
+                    action="store_false",
+                    help="등급(safety/rarity) 필드를 디코딩 단계에서 1/2/3 으로 "
+                         "강제하는 것을 끈다. 기본은 강제 - 프롬프트 지시만으로는 "
+                         "'Low to moderate' 같은 모호한 답이 새어나왔다.")
+    ap.add_argument("--clip-no-video-input", dest="clip_video_input",
+                    action="store_false",
+                    help="클립 모드에서 프레임을 비디오가 아니라 낱장 이미지 "
+                         "목록으로 넘긴다. 기본은 비디오 - Qwen3-VL 이 인접 "
+                         "프레임을 병합하고 타임스탬프를 붙여줘서 토큰이 약 "
+                         "절반이 된다(실측 4,449 -> 2,296).")
     args = ap.parse_args()
+
+    SCENE_JSON = Path(args.scene_json)
+    if not SCENE_JSON.exists():
+        raise SystemExit(f"[error] scene json not found: {SCENE_JSON}")
+    # nuReasoning 은 Q3(blocking)를 묻지 않는다 - 행동 영향이 3단계와 score
+    # 안으로 흡수되기 때문. 사용자가 --no-blocking 을 안 줬어도 강제로 끈다.
+    if args.prompt_style == "nureasoning" and args.ask_blocking:
+        args.ask_blocking = False
+        print("[info] --prompt-style nureasoning: Q3(blocking) is not part of "
+              "this prompt, forcing --no-blocking")
+    # 클립 모드는 시간순 시퀀스를 전제로 한 nureasoning 프롬프트에만 맞는다.
+    if args.clip_mode and args.prompt_style != "nureasoning":
+        args.prompt_style = "nureasoning"
+        args.ask_blocking = False
+        print("[info] --clip-mode implies --prompt-style nureasoning")
 
     if args.out is None:
         run_dir = ROOT / "results" / datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -544,6 +1056,9 @@ if __name__ == "__main__":
     category_menu = build_category_menu(
         labels, example_source=args.example_source, num_examples=args.num_examples)
     print(f"[info] labels: {SCENE_JSON.name} - {n_special} special categories")
+    print(f"[info] prompt style: {args.prompt_style}"
+          + (" (edge-case presence only, no difficulty score)"
+             if args.prompt_style == "nureasoning" else ""))
     print(f"[info] category menu: {args.num_examples} example(s) per category "
           f"from {args.example_source}")
     print(f"[info] sensor facts: egomotion={'ON' if args.use_egomotion else 'OFF'}, "
@@ -558,6 +1073,61 @@ if __name__ == "__main__":
           f" -> {2 * len(_views)} images per unit")
 
     uuids = list_scene_uuids(args.limit_clips)
+
+    # 특정 클립만 처리 (검증용). 라벨된 uuid 는 데이터셋 전체에 흩어져 있어서
+    # --limit-clips 로는 못 뽑는다. 목록에 있지만 데이터셋에 없는 uuid 는
+    # 조용히 빠지면 원인을 못 찾으므로 개수를 알린다.
+    if args.only_uuids:
+        wanted = [l.strip() for l in
+                  Path(args.only_uuids).read_text(encoding="utf-8").splitlines()
+                  if l.strip()]
+        have = set(uuids)
+        uuids = [u for u in wanted if u in have]
+        n_missing = len(wanted) - len(uuids)
+        print(f"[info] --only-uuids: {len(uuids)}/{len(wanted)} found"
+              + (f"  ({n_missing} not in dataset)" if n_missing else ""))
+        if not uuids:
+            raise SystemExit("[error] none of the requested uuids exist")
+
+    # 클립 모드는 판정 단위가 uuid 하나라 아래의 frame-unit 경로를 타지 않는다.
+    if args.clip_mode:
+        if args.num_shards > 1:
+            uuids = uuids[args.shard_id::args.num_shards]
+            print(f"[info] shard {args.shard_id}/{args.num_shards}: "
+                  f"{len(uuids)} clips")
+        n_img = args.clip_max_frames * len(_views)
+        print(f"[info] clip mode: {len(uuids)} clips, {args.clip_fps} fps, "
+              f"max {args.clip_max_frames} frames/view -> {n_img} images/clip "
+              f"@ long side {args.clip_long_side}px")
+        if args.dry_run:
+            for u in uuids[:3]:
+                c = sample_clip_frames(u, fps=args.clip_fps,
+                                       max_frames=args.clip_max_frames,
+                                       max_long_side=args.clip_long_side,
+                                       views=_views)
+                sizes = {im.size for _, _, im in c["frames"]}
+                print(f"  {u}: {len(c['frames'])} images, idx "
+                      f"{c['indices'][:3]}..{c['indices'][-1]}, sizes {sizes}")
+            print("[dry-run] done")
+            raise SystemExit(0)
+        from qwen_runner import run_clip_inference
+        run_clip_inference(uuids, labels, category_menu,
+                           model_id=args.model, out_csv=args.out,
+                           use_egomotion=args.use_egomotion,
+                           use_obstacle=args.use_obstacle,
+                           single_view=args.single_view,
+                           fps=args.clip_fps,
+                           max_frames=args.clip_max_frames,
+                           max_long_side=args.clip_long_side,
+                           viz_dir=(args.viz_dir if args.clip_viz else None),
+                           viz_only_edge=not args.clip_viz_all,
+                           not_save_low=args.not_save_low,
+                           video_input=args.clip_video_input,
+                           constrain_tiers=args.constrain_tiers,
+                           **({"viz_width": (args.clip_viz_width or None)}
+                              if args.clip_viz_width is not None else {}))
+        raise SystemExit(0)
+
     print(f"[info] clips: {len(uuids)}  x  {args.timestamps_per_clip} timestamps/clip")
 
     units = list_frame_units(uuids, args.timestamps_per_clip)
@@ -583,4 +1153,5 @@ if __name__ == "__main__":
                   model_id=args.model, out_csv=args.out, viz_dir=args.viz_dir,
                   use_egomotion=args.use_egomotion, use_obstacle=args.use_obstacle,
                   check_path=args.check_path, ask_blocking=args.ask_blocking,
-                  single_view=args.single_view)
+                  single_view=args.single_view,
+                  prompt_style=args.prompt_style)
