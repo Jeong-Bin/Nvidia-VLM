@@ -95,7 +95,7 @@ LIMIT_OPTS=""
 # 센서 라벨을 프롬프트에 사실로 넣을지 (둘 다 기본 off)
 SENSOR_OPTS=""
 [ "${USE_EGOMOTION:-0}" = "1" ] && SENSOR_OPTS="$SENSOR_OPTS --use-egomotion"
-[ "${USE_OBSTACLE:-0}" = "1" ] && SENSOR_OPTS="$SENSOR_OPTS --use-obstacle"
+[ "${USE_OBSTACLE:-0}" = "1" ] && SENSOR_OPTS="$SENSOR_OPTS --use-3dbbox"
 # 3D bbox 로 Q3 를 기하 검증 (프롬프트에는 안 들어감)
 [ "${CHECK_PATH:-0}" = "1" ] && SENSOR_OPTS="$SENSOR_OPTS --check-path"
 # Q3(주행 경로 차단 여부) 질문 자체를 끄면 시각화도 blocking 으로 안 나눈다

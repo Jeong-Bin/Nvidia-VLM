@@ -20,7 +20,8 @@ set -u
 cd /home/etri/Jeongbin/Nvidia-VLM
 
 NSHARDS=8
-SCENE_JSON="scene_category_C.json"
+# 기본값은 config.py 가 단일 진실 공급원 - 미지정이면 플래그를 생략한다
+SCENE_JSON="${SCENE_JSON:-}"
 
 usage() {
   cat <<'USAGE'
@@ -29,12 +30,13 @@ Usage: bash run_video_C.sh [options]
 Options (환경변수로도 지정 가능 - 명령행이 우선):
   --limit-clips N        처리할 클립 수 제한 (기본: 데이터셋 전체)     [LIMIT_CLIPS]
   --num-shards N         GPU/shard 개수 (기본 8)                       [NSHARDS]
-  --scene-json PATH      카테고리 정의 (기본 scene_category_C.json)    [SCENE_JSON]
+  --scene-json PATH      카테고리 정의 (기본: config.py 의 SCENE_JSON)  [SCENE_JSON]
   --no-viz               시각화 mp4 를 만들지 않는다                    [CLIP_VIZ=0]
   --viz-all              edge-case 가 아닌 클립까지 전부 시각화         [VIZ_ALL=1]
   --viz-width N          시각화 영상 폭 (기본 1280, 0=원본)            [VIZ_WIDTH]
   --save-low             Safety/Rarity 가 둘 다 Low 인 클립도 시각화     [NOT_SAVE_LOW=0]
-  --no-egomotion         egomotion 사실 주입을 끈다                     [USE_EGOMOTION=0]
+  --memo "TEXT"          이 실행이 무엇을 시험하는지 한 줄 메모           [MEMO]
+  --use-egomotion        egomotion 사실(자차 행동 요약)을 주입 (기본 off)  [USE_EGOMOTION=1]
   --no-video-input       프레임을 비디오가 아니라 낱장으로 넘긴다       [VIDEO_INPUT=0]
   --clip-fps F           초당 몇 장 뽑을지 (기본 1.0)                   [CLIP_FPS]
   --clip-max-frames N    클립당 최대 프레임 (기본 20)                   [CLIP_MAX_FRAMES]
@@ -60,7 +62,10 @@ while [ $# -gt 0 ]; do
     --viz-width=*)       VIZ_WIDTH="${1#*=}" ;;
     --viz-width)         shift; VIZ_WIDTH="${1:-}" ;;
     --save-low)          NOT_SAVE_LOW=0 ;;
-    --no-egomotion)      USE_EGOMOTION=0 ;;
+    --memo=*)            MEMO="${1#*=}" ;;
+    --memo)              shift; MEMO="${1:-}" ;;
+    --use-egomotion)     USE_EGOMOTION=1 ;;
+    --no-egomotion)      USE_EGOMOTION=0 ;;   # 옛 이름 - 이제 기본이 off 라 무의미하지만 받아준다
     --no-video-input)    VIDEO_INPUT=0 ;;
     --clip-fps=*)        CLIP_FPS="${1#*=}" ;;
     --clip-fps)          shift; CLIP_FPS="${1:-}" ;;
@@ -78,7 +83,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-if [ ! -f "$SCENE_JSON" ]; then
+if [ -n "$SCENE_JSON" ] && [ ! -f "$SCENE_JSON" ]; then
   echo "[error] scene json not found: $SCENE_JSON" >&2
   exit 2
 fi
@@ -91,8 +96,9 @@ fi
 
 # 기본값은 edge_case_mining.py 를 단일 진실 공급원으로 두고, 여기서는
 # 지정했을 때만 넘긴다 (양쪽에 기본값을 두면 언젠가 어긋난다).
-OPTS="--clip-mode --single-view --scene-json $SCENE_JSON"
-[ "${USE_EGOMOTION:-1}" = "1" ] && OPTS="$OPTS --use-egomotion"
+OPTS="--clip-mode --single-view"
+[ -n "$SCENE_JSON" ] && OPTS="$OPTS --scene-json $SCENE_JSON"
+[ "${USE_EGOMOTION:-0}" = "1" ] && OPTS="$OPTS --use-egomotion"
 [ "${VIDEO_INPUT:-1}" = "0" ]   && OPTS="$OPTS --clip-no-video-input"
 [ "${CLIP_VIZ:-1}" = "1" ]      && OPTS="$OPTS --clip-viz"
 [ "${VIZ_ALL:-0}" = "1" ]       && OPTS="$OPTS --clip-viz-all"
@@ -109,11 +115,12 @@ mkdir -p "$RUN_DIR"
 {
   echo "[info] run dir     : $RUN_DIR"
   echo "[info] clips       : $TOTAL_CLIPS  ($NSHARDS shards, GPU 0-$((NSHARDS-1)))"
-  echo "[info] categories  : $SCENE_JSON"
+  echo "[info] categories  : ${SCENE_JSON:-$(python3 -c 'import config; print(config.SCENE_JSON.name)') (config.py)}"
   echo "[info] input       : clip mode, front-wide only, video input=${VIDEO_INPUT:-1}"
-  echo "[info] egomotion   : ${USE_EGOMOTION:-1} (1=on, 0=off)"
+  echo "[info] egomotion   : ${USE_EGOMOTION:-0} (1=on, 0=off)"
   echo "[info] viz         : ${CLIP_VIZ:-1} (all=${VIZ_ALL:-0})"
   echo "[info] opts        : $OPTS"
+  [ -n "${MEMO:-}" ] && echo "[info] memo        : $MEMO"
   echo
 
   pids=()
@@ -122,6 +129,7 @@ mkdir -p "$RUN_DIR"
       nohup python3 -u edge_case_mining.py \
         --num-shards "$NSHARDS" --shard-id "$g" \
         $OPTS \
+        --memo "${MEMO:-}" \
         --out "${RUN_DIR}/clip_results_shard_${g}.csv" \
         --viz-dir "${RUN_DIR}/viz" \
         > "${RUN_DIR}/run_shard_${g}.log" 2>&1 &
@@ -150,7 +158,10 @@ mkdir -p "$RUN_DIR"
   wait
   echo "[info] all shards done."
 
-  # 8개 샤드 CSV 를 합쳐 카테고리별 집계 (멀티라벨은 각 카테고리에 반영)
+  # 샤드 CSV 를 clip_results_all.csv 로 합치고 원본은 지운다
+  python3 -u merge_shards.py --run-dir "$RUN_DIR"
+
+  # 카테고리별 집계 (멀티라벨은 각 카테고리에 반영)
   python3 -u aggregate_clip.py --run-dir "$RUN_DIR"
 
   echo "[info] results saved in: ${RUN_DIR}/"

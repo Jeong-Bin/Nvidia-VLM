@@ -37,11 +37,13 @@ from pathlib import Path
 
 import pandas as pd
 
+from config import SCENE_JSON as CONFIG_SCENE_JSON, LABELS_JSON
 from constrained_tier import TIER_VALUES
 
 ROOT = Path(__file__).resolve().parent
-DEFAULT_LABELS = ROOT / "test_label.json"
-SCENE_JSON = ROOT / "scene_category_C.json"
+# 기본값은 config.py 한 곳에서만 정한다 - 여기서 따로 들고 있다가 예전에
+# aggregate_clip.py 는 D, 이쪽은 C 로 같은 실행을 다르게 해석한 적이 있다.
+DEFAULT_LABELS = LABELS_JSON
 
 # 실제 데이터셋의 special 비율. 유병률 보정에 쓴다.
 # 실측: 1,998 클립 중 375 건이 edge-case (20260812 전량 실행).
@@ -159,6 +161,121 @@ def tier_block(name, pairs, log):
     log(confusion(pairs))
 
 
+def log_run_config(run_dir, log):
+    """<run-dir>/run_config.json 의 주요 설정을 로그 머리에 찍는다.
+
+    edge_case_mining.py 의 샤드 0 이 남긴 파일이다. 없으면(이 기능 이전에
+    돈 실행이거나 클립 모드가 아니면) 조용히 넘어간다 - 옛 결과를
+    --eval-only 로 다시 채점하는 길을 막지 않기 위해서다.
+    """
+    path = Path(run_dir) / "run_config.json"
+    if not path.exists():
+        log("[info] config  : (run_config.json 없음 - 이 기능 이전 실행)")
+        return None
+    try:
+        cfg = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        log(f"[warn] run_config.json 읽기 실패: {e}")
+        return None
+
+    key = dict(cfg.get("key", {}))
+    # gt_labels 를 key 에 넣기 전에 돈 실행은 argv 에만 있다. 거기서 주워
+    # 온다 - 옛 실행 폴더를 --eval-only 로 다시 채점할 때도 보이게.
+    if "gt_labels" not in key:
+        key["gt_labels"] = cfg.get("argv", {}).get("gt_labels")
+    # 메모가 있으면 가장 먼저 - 설정 나열보다 "무엇을 시험한 실행인가" 가
+    # 먼저 눈에 들어와야 한다.
+    if key.get("memo"):
+        log(f"[info] MEMO    : {key['memo']}")
+    if cfg.get("timestamp"):
+        log(f"[info] run at  : {cfg['timestamp']}")
+    log(f"[info] model   : {key.get('model','?')}")
+    # 카테고리 정의와 GT 라벨은 성능 숫자를 좌우하는데도 파일명이 비슷해
+    # (scene_category_C/D, test_label/_D) 헷갈리기 쉽다 - 한 줄에 모아 둔다.
+    log(f"[info] scene   : {key.get('scene_json','?')}"
+        + (f"   gt-labels(viz): {key['gt_labels']}"
+           if key.get("gt_labels") else "")
+        # 라벨 경로가 같아도 내용이 바뀌었으면 이 지문이 달라진다
+        + (f"  [sha {key['gt_labels_sha']}]"
+           if key.get("gt_labels_sha") else ""))
+    log(f"[info] frames  : {key.get('clip_fps','?')} fps  "
+        f"max {key.get('clip_max_frames','?')}  "
+        f"long side {key.get('clip_long_side','?')}px  "
+        f"views {key.get('n_views','?')}"
+        + ("  (video)" if key.get("video_input") else "  (image list)"))
+    log(f"[info] facts   : egomotion={_onoff(key.get('use_egomotion'))}  "
+        f"3dbbox={_onoff(key.get('use_3dbbox'))}  "
+        f"tier-constraint={_onoff(key.get('constrain_tiers'))}")
+    return cfg
+
+
+def _onoff(v):
+    return "on" if v else "off" if v is not None else "?"
+
+
+# 샤드 로그에서 실패를 알아보는 표식. 파이썬 traceback 과, 죽지는 않았지만
+# 결과를 버린 경우(CUDA OOM 등)를 함께 잡는다.
+ERROR_MARKERS = ("Traceback (most recent call last)",
+                 "CUDA out of memory",
+                 "torch.OutOfMemoryError")
+
+
+def scan_shard_errors(run_dir, log, max_show=3):
+    """샤드 로그의 에러를 evaluation.log 에 옮겨 적는다.
+
+    왜 필요한가: 샤드가 중간에 죽으면 그 샤드가 맡은 클립이 통째로 빠진
+    채로 채점이 돌아간다. 숫자만 보면 "성능이 나쁘다" 로 읽히지만 실제로는
+    데이터가 없는 것이라, 이 둘을 구분하지 못하면 A/B 비교가 무의미해진다.
+    실제로 20260814_160229 실행이 8개 샤드 전부 KeyError 로 죽어 100클립
+    중 8개만 채점됐는데, evaluation.log 에는 그 사실이 남지 않았다.
+
+    traceback 의 마지막 줄(예외 종류와 메시지)이 원인을 가장 잘 요약하므로
+    그것을 우선 보여주고, 전문은 로그 파일 경로로 안내한다.
+    """
+    run_dir = Path(run_dir)
+    logs = sorted(glob.glob(str(run_dir / "run_shard_*.log")))
+    if not logs:
+        return []
+
+    failed = []
+    for p in logs:
+        try:
+            # \r 로 덮어쓰는 tqdm 진행바가 섞여 있어 줄바꿈으로 펴 준다
+            text = Path(p).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        text = text.replace("\r", "\n")
+        if not any(m in text for m in ERROR_MARKERS):
+            continue
+        lines = [ln.rstrip() for ln in text.splitlines() if ln.strip()]
+        # traceback 마지막 줄 = "KeyError: 'speed_kmh'" 같은 요약
+        detail = ""
+        for i, ln in enumerate(lines):
+            if ln.startswith("Traceback (most recent call last)"):
+                tail = [x for x in lines[i:] if not x.startswith(("  ", "\t"))]
+                detail = tail[-1] if tail else ""
+        if not detail:
+            for m in ERROR_MARKERS:
+                hit = [ln for ln in lines if m in ln]
+                if hit:
+                    detail = hit[-1]
+                    break
+        failed.append((Path(p).name, detail or "(unknown error)"))
+
+    if not failed:
+        return []
+
+    log("")
+    log(f"[ERROR] {len(failed)}/{len(logs)} shard(s) FAILED - "
+        f"결과가 일부만 채점됐을 수 있다:")
+    for name, detail in failed[:max_show]:
+        log(f"  {name}: {detail}")
+    if len(failed) > max_show:
+        log(f"  ... 외 {len(failed)-max_show}개 (같은 폴더의 run_shard_*.log 참고)")
+    log("")
+    return failed
+
+
 class Tee:
     def __init__(self, path):
         self.f = open(path, "w", encoding="utf-8") if path else None
@@ -190,13 +307,25 @@ def main():
     run_dir = Path(args.run_dir)
     labels, meta, skipped = load_labels(Path(args.labels))
     results = load_results(run_dir)
-    if not results:
-        print(f"[error] no clip_results*.csv in {run_dir}")
-        return
-
     log = Tee(Path(args.out) if args.out else run_dir / "evaluation.log")
+
+    # 결과가 통째로 없는 경우 - 채점할 게 없어도 로그는 남긴다. 여기서 그냥
+    # 돌아가 버리면 폴더에 evaluation.log 조차 없어서, 나중에 "왜 아무것도
+    # 없지" 를 run_shard_*.log 를 뒤져야만 알 수 있다.
+    if not results:
+        log(f"[ERROR] no clip_results*.csv in {run_dir}")
+        log(f"[info] labels  : {args.labels}  ({len(labels)} clips)")
+        log_run_config(run_dir, log)
+        if not scan_shard_errors(run_dir, log):
+            log("[ERROR] 샤드 로그에도 에러 표식이 없다 - 추론이 시작조차 "
+                "못했거나(설정/경로 문제) 외부에서 종료된 것으로 보인다 "
+                "(OOM kill 등은 로그를 남기지 않는다).")
+        log.close()
+        raise SystemExit(1)
+
     log(f"[info] labels  : {args.labels}  ({len(labels)} clips)")
     log(f"[info] results : {run_dir}  ({len(results)} clips)")
+    run_cfg = log_run_config(run_dir, log)
     if meta:
         log(f"[info] labeled_by={meta.get('labeled_by','?')} "
             f"date={meta.get('date','?')}")
@@ -210,10 +339,24 @@ def main():
         log(f"[warn] {len(missing)} labelled clip(s) not in results, e.g. "
             f"{missing[:3]}")
 
+    # 빠진 클립이 있으면 대개 샤드가 죽은 것이다. 원인을 여기 남긴다.
+    failed = scan_shard_errors(run_dir, log)
+    if failed and missing:
+        log(f"[ERROR] 아래 점수는 {len(common)}개 클립만 반영한 것이라 "
+            f"성능 비교에 쓰면 안 된다.")
+        log("")
+
     # 카테고리 이름이 taxonomy 와 어긋나면 그 카테고리의 F1 이 0 으로 나온다.
     # 실제 성능이 아니라 버전 불일치인데 숫자만 보면 구분이 안 되므로, 채점
     # 전에 짚어준다. 실측 사례: 예전 실행이 소문자 'cyclist' 를 쓰던 시절의
     # 결과를 대문자 'Cyclist' 라벨로 채점하자 F1=0.00 이 나왔다.
+    # 검증 기준은 "이 실행이 실제로 쓴" 카테고리 정의여야 한다. 채점기가
+    # 자기 기본값으로 검사하면, D 로 돌린 결과를 C 기준으로 훑으면서
+    # 멀쩡한 이름을 "taxonomy 에 없다" 고 경고하게 된다.
+    SCENE_JSON = Path((run_cfg or {}).get("key", {}).get("scene_json")
+                      or CONFIG_SCENE_JSON)
+    if not SCENE_JSON.is_absolute():
+        SCENE_JSON = ROOT / SCENE_JSON
     if SCENE_JSON.exists():
         scene = json.loads(SCENE_JSON.read_text(encoding="utf-8"))
         taxonomy = {c["name"] for s in scene["special"]["scenarios"]

@@ -28,12 +28,38 @@ from pathlib import Path
 
 import pandas as pd
 
+from config import SCENE_JSON as CONFIG_SCENE_JSON
+
 ROOT = Path(__file__).resolve().parent
-SCENE_JSON = ROOT / "scene_category_C.json"
+# 기본값은 config.py 한 곳에서만 정한다. 다만 집계는 "이 실행이 실제로 쓴"
+# 정의를 우선하므로, run_config.json 이 있으면 아래 scene_json_for_run() 이
+# 그쪽을 쓴다 - 기본값으로 집계하면 다른 체계로 돌린 결과의 카테고리가
+# 통째로 0 으로 나온다.
+SCENE_JSON = CONFIG_SCENE_JSON
 
 # 클립 모드 CSV 를 알아보는 표지. aggregate.py 용 CSV 를 잘못 넣으면
 # 조용히 0 이 나오는 대신 분명히 알린다.
 REQUIRED_COLS = ("uuid", "categories", "n_categories")
+
+
+def scene_json_for_run(run_dir):
+    """이 실행이 실제로 쓴 카테고리 정의. 없으면 config.py 기본값.
+
+    edge_case_mining.py 샤드 0 이 남긴 run_config.json 을 본다. 집계 기준이
+    실행 기준과 어긋나면 멀쩡한 카테고리가 전부 0 으로 찍혀서, 모델이 못
+    맞춘 것인지 이름이 안 맞은 것인지 구분할 수 없게 된다.
+    """
+    cfg_path = Path(run_dir) / "run_config.json"
+    if cfg_path.exists():
+        try:
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            name = cfg.get("key", {}).get("scene_json")
+            if name:
+                p = Path(name)
+                return p if p.is_absolute() else ROOT / p
+        except (json.JSONDecodeError, OSError):
+            pass
+    return SCENE_JSON
 
 
 def latest_run_dir():
@@ -166,7 +192,8 @@ def main():
     counts = Counter()
     for lst in cat_lists:
         counts.update(lst)          # 한 클립의 카테고리 각각에 1
-    known = load_categories(SCENE_JSON)
+    scene_json = scene_json_for_run(run_dir)
+    known = load_categories(scene_json)
     known_names = {c for _, c in known}
 
     log("")

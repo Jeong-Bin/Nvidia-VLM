@@ -1,26 +1,24 @@
 {
   "_meta": {
     "base": "scene_category_B.json",
-    "note": "B + 4 categories adapted from the nuReasoning long-tail taxonomy (Fig. S1). Emergency Vehicle was already present in B and is unchanged. The added categories are behaviour-triggering types (how other road users / traffic controls act) rather than the environment types that B already covers.",
+    "note": ["B + 4 categories adapted from the nuReasoning long-tail taxonomy (Fig. S1). Emergency Vehicle was already present in B and is unchanged. The added categories are behaviour-triggering types (how other road users / traffic controls act) rather than the environment types that B already covers.",
+              "제거 클래스: Cyclist, Traffic Control Anomaly, Toll Gate, Tunnel, Narrow Road",
+              "추가 클래스: Tram, Railroad"
+            ],
     "added": [
       "Abnormal Vehicle Behavior",
       "Stationary Vehicle Obstruction",
-      "Traffic Control Anomaly",
       "Unusual Traffic Pattern"
     ],
     "nureasoning_map": {
       "abnormal_vehicle_behavior": "Abnormal Vehicle Behavior",
       "stationary_vehicle_obstruction": "Stationary Vehicle Obstruction",
-      "traffic_control_or_signage_anomaly": "Traffic Control Anomaly",
       "unusual_traffic_pattern": "Unusual Traffic Pattern",
       "emergency_vehicle": "Emergency Vehicle (already in B)",
       "work_zone_or_roadwork": "Road Construction (already in B)",
       "animal_on_road": "Animal (already in B)",
-      "vulnerable_road_user": "Jaywalking / cyclist (already in B)",
-      "road_obstacle_or_debris": "Obstacle (already in B)",
-      "road_surface_hazard": "Pothole (already in B)",
-      "limited_visibility_or_perception_degradation": "partially Tunnel (glare at exit)",
-      "static_infrastructure_constraint": "partially Tunnel / Toll Gate / Side Street"
+      "vulnerable_road_user": "Jaywalking (already in B)",
+      "road_obstacle_or_debris": "Obstacle (already in B)"
     }
   },
 
@@ -32,13 +30,8 @@
           {
             "name": "Normal Driving",
             "synonyms": [
-                      "driving normally",
-                      "just moving forward",
-                      "driving straight",
-                      "ordinary driving",
-                      "normal traffic flow",
-                      "changing lanes",
-                      "turning normally"
+                      "Driving normally",
+                      "Just moving forward"
                       ],
             "prompt_templates_candidates": [
                               "A car driving straight on a clear road",
@@ -52,18 +45,19 @@
                               "The vehicle is changing lanes",
                               "The car makes a gentle right turn",
                               "The vehicle makes a smooth left turn",
-                              "The car continues straight, driving alongside other vehicles"
+                              "The car continues straight, driving alongside other vehicles",
+                              "driving straight",
+                              "ordinary driving",
+                              "normal traffic flow",
+                              "changing lanes",
+                              "turning normally"
                             ]
           },
           {
             "name": "Normal Stop",
             "synonyms": [
-                      "stopped normally",
-                      "waiting at a red light",
-                      "stopped in traffic",
-                      "waiting at the signal",
-                      "queued in traffic",
-                      "stopped at an intersection"
+                      "Stopped normally",
+                      "Waiting at a red light"
                       ],
             "prompt_templates_candidates": [
                               "The car is waiting at a red light",
@@ -72,7 +66,11 @@
                               "Vehicles are waiting for pedestrians to finish crossing the crosswalk",
                               "A cyclist is crossing the crosswalk",
                               "There are many vehicles nearby, and the ego-vehicle is currently stopped",
-                              "The car is waiting at the crosswalk"
+                              "The car is waiting at the crosswalk",
+                              "stopped in traffic",
+                              "waiting at the signal",
+                              "queued in traffic",
+                              "stopped at an intersection"
                             ]
           }
         ]
@@ -243,34 +241,15 @@
                               ]
           },
           {
-            "name": "Too Close Person",
+            "name": "Tram",
             "synonyms": [
-                      "A person was close enough to the ego vehicle to pose a risk of collision, so a slight evasive maneuver was performed",
-                      "A pedestrian or cyclist passes too close to the ego vehicle"
+                      "A tram passes by the side of the vehicle",
+                      "A tram is stopped"
                       ],
             "prompt_templates_candidates": [
-                            "a person is close enough to collide with the ego vehicle",
-                            "a person standing too close to the lane of the moving ego vehicle.",
-                            "a cyclist who is too close to the ego vehicle"
-                              ]
-          },
-          {
-            "name": "Cyclist",
-            "synonyms": ["bicycles on car-only roads",
-                      "a motorcycle that ran a red light",
-                      "bicycle",
-                      "scooter",
-                      "electric scooter",
-                      "e-scooter",
-                      "personal mobility device"
-                      ],
-            "prompt_templates_candidates": ["A bicycle is passing by",
-                              "A motorcycle crosses the road",
-                              "Cyclists are approaching",
-                              "Cyclists run in a row",
-                              "An electric scooter is popping out",
-                              "The personal mobility rider is on the road",
-                              "The ego-vehicle slows down as a cyclist merges into the lane"
+                            "",
+                            "",
+                            ""
                               ]
           }
           ]
@@ -281,8 +260,8 @@
           {
             "name": "Road Construction",
             "synonyms": [
-              "The traffic lane has been shifted due to construction work and traffic cones ahead",
-              "Construction work is underway outside of the current traffic lane"
+                  "The traffic lane has been shifted due to construction work and traffic cones ahead",
+                  "Construction work is underway outside of the current traffic lane"
                     ],
             "prompt_templates_candidates": [
                     "A road under construction",
@@ -310,29 +289,6 @@
                     "warning sign",
                     "construction worker"
                     ]
-          },
-          {
-            "name": "Traffic Control Anomaly",
-            "synonyms": [
-                      "A dark traffic light",
-                      "A flashing yellow signal"
-                      ],
-            "prompt_templates_candidates": ["A traffic light that is completely dark",
-                              "A traffic signal flashing yellow instead of cycling",
-                              "A traffic sign knocked over beside the road",
-                              "A signal head covered with a bag and out of service",
-                              "Two signs at the same spot giving contradictory instructions",
-                              "A temporary sign posted over the permanent signage",
-                              "A railway crossing gate stuck halfway",
-                              "The ego-vehicle stops at an intersection where the lights are out",
-                              "The car slows down at a signal flashing red",
-                              "a knocked-down traffic sign",
-                              "a traffic light that is out of service",
-                              "signs that contradict each other",
-                              "a temporary sign taped over the permanent one",
-                              "a malfunctioning crossing gate",
-                              "a signal covered or bagged"
-                              ]
           },
           {
             "name": "Unusual Traffic Pattern",
@@ -369,59 +325,15 @@
                                 ]
           },
           {
-            "name": "Tunnel",
-            "synonyms": ["entrance to the tunnel",
-                      "exit of the tunnel"
-                      ],
-            "prompt_templates_candidates": ["Entering the tunnel",
-                              "Entrance to the Tunnel",
-                              "Exit of the tunnel",
-                              "Glare at the tunnel exit",
-                              "Bright light at the tunnel exit",
-                              "The car continues straight into the tunnel entrance"
-                              ]
-          },
-          {
-            "name": "Toll Gate",
+            "name": "Railroad",
             "synonyms": [
-                      "entering the highway toll",
-                      "approaching the toll booth",
-                      "toll plaza",
-                      "toll station",
-                      "toll checkpoint",
-                      "electronic toll collection"
+                      "There is a railroad crossing ahead",
+                      "A railway gate is blocking entry, and a train is passing by"
                       ],
-            "prompt_templates_candidates": ["Entering the toll gate",
-                              "Vehicles passing through a toll plaza",
-                              "Traffic entering a toll station",
-                              "Multiple toll booths on a highway",
-                              "An electronic toll collection lane",
-                              "Vehicles slowing down before a toll gate",
-                              "The ego-vehicle slows down while approaching the toll plaza"
-                              ]
-          },
-          {
-            "name": "Narrow Road",
-            "synonyms": [
-                      "The road is too narrow for two vehicles to pass each other, so one has to make way",
-                      "The ego vehicle carefully navigates a very narrow road"
-                      ],
-            "prompt_templates_candidates": ["A vehicle is approaching from the opposite side on the side street",
-                              "A vehicle approaching on narrow road",
-                              "A side road jammed with vehicles",
-                              "Traffic on a narrow local street",
-                              "A car turning onto a crowded minor road",
-                              "A narrow side street with parked cars",
-                              "Pedestrians on both sides of the back road",
-                              "The vehicle turns onto a narrow residential street",
-                              "a vehicle is approaching head-on on a narrow road",
-                              "parked vehicles are blocking the narrow street",
-                              "back street",
-                              "minor road",
-                              "local street",
-                              "residential street",
-                              "residential road",
-                              "neighborhood road"
+            "prompt_templates_candidates": [
+                            "",
+                            "",
+                            ""
                               ]
           },
           {

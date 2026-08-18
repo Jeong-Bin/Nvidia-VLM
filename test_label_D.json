@@ -34,13 +34,6 @@
         "rarity": 1,
         "note": ""
     },
-    "2d2807d4-6527-446b-8419-2714bd437b84": {
-        "categories": [],
-        "influenced_ego": false,
-        "safety_criticality": 1,
-        "rarity": 1,
-        "note": ""
-    },
     "48f47f26-d14c-4be2-838e-03ebff3f4806": {
         "categories": [],
         "influenced_ego": false,
@@ -209,7 +202,13 @@
         "rarity": 1,
         "note": ""
     },
-    
+    "f09f6944-8dba-4f79-a7ed-2d06f7fa52a6":{
+        "categories": [],
+        "influenced_ego": false,
+        "safety_criticality": 1,
+        "rarity": 1,
+        "note": "Tunnel"
+    },
 
 
     "596ab2a6-c52a-4b10-b4df-cebcb56642d3": {
@@ -217,14 +216,14 @@
         "influenced_ego": false,
         "safety_criticality": 1,
         "rarity": 2,
-        "note": "Elevated road, not Tunne"
+        "note": "Elevated road, not Tunnel"
     },
     "7a089606-1680-4db1-9ffa-1ec8f6c8193d": {
         "categories": [],
         "influenced_ego": false,
         "safety_criticality": 1,
         "rarity": 2,
-        "note": "Elevated road, not Tunne"
+        "note": "Elevated road, not Tunnel"
     },
     "a84a5e42-89e9-4a2c-b0f7-8173b0176970": {
         "categories": [],
@@ -240,101 +239,80 @@
         "rarity": 2,
         "note": "Elevated road, not Tunnel"
     },
-    "0d66f9c7-b691-4328-8616-a22c38e6c7db":{
-        "categories": [],
-        "influenced_ego": false,
-        "safety_criticality": 1,
-        "rarity": 2,
-        "note": "tram"
-    },
-    "6edfc385-4702-4099-a053-29a3b46f1525":{
-        "categories": [],
-        "influenced_ego": false,
-        "safety_criticality": 1,
-        "rarity": 2,
-        "note": "tram"
-    },
-    "9717031a-c73c-4045-830c-09283bc1f489":{
-        "categories": [],
-        "influenced_ego": false,
-        "safety_criticality": 1,
-        "rarity": 2,
-        "note": "tram"
-    },
-    "076fce0d-41fc-41a3-b085-88c7b20f2689":{
-        "categories": [],
-        "influenced_ego": false,
-        "safety_criticality": 1,
-        "rarity": 2,
-        "note": "tram"
-    },
-    "2cc8ab5d-2eda-4193-aef2-535a54176759":{
-        "categories": [],
-        "influenced_ego": false,
-        "safety_criticality": 1,
-        "rarity": 2,
-        "note": "tram"
-    },
     "064967a7-08a1-4cf0-b55b-5fcde3d91f67":{
         "categories": [],
         "influenced_ego": false,
         "safety_criticality": 1,
-        "rarity": 2,
-        "note": "tram"
+        "rarity": 1,
+        "note": ""
     },
     "07514f46-9e4f-4a18-80d0-5a937d6314ed":{
         "categories": [],
         "influenced_ego": false,
         "safety_criticality": 1,
-        "rarity": 2,
-        "note": "tram"
+        "rarity": 1,
+        "note": ""
     },
     "09214f36-6825-464a-a4f3-22c5f71d46ec":{
         "categories": [],
         "influenced_ego": false,
         "safety_criticality": 1,
-        "rarity": 2,
-        "note": "tram"
+        "rarity": 1,
+        "note": ""
     },
     "09c889da-2e2e-47f5-99bd-893a59be5c66":{
         "categories": [],
         "influenced_ego": false,
         "safety_criticality": 1,
-        "rarity": 2,
-        "note": "tram"
+        "rarity": 1,
+        "note": ""
     },
     "0a68b99a-efdd-4433-aa58-ec1fa8d50908":{
         "categories": [],
         "influenced_ego": false,
         "safety_criticality": 1,
-        "rarity": 2,
-        "note": "tram"
+        "rarity": 1,
+        "note": ""
     },
-
-
-    
-
     "007bacc8-fb2a-4dbd-a324-e4e3b9075a14":{
-        "categories": ["Cyclist"],
+        "categories": [],
         "influenced_ego": false,
         "safety_criticality": 1,
         "rarity": 1,
         "note": ""
     },
-    "0de06134-e900-43ba-bc44-624789e0be83": {
-        "categories": ["Too Close Person"],
+    "48d5f0e5-5686-4c57-a709-24c0ac634c67":{
+        "categories": [],
         "influenced_ego": false,
-        "safety_criticality": 2,
-        "rarity": 2,
+        "safety_criticality": 1,
+        "rarity": 1,
         "note": ""
     },
     "0a948f59-0a06-41a2-8e20-ac3a39ff4d61":{
-        "categories": ["Cyclist"],
+        "categories": [],
         "influenced_ego": false,
         "safety_criticality": 2,
         "rarity": 1,
         "note": ""
     },
+    "3abcba98-f17d-4f46-ae72-7cdfb49824af": {
+        "categories": [],
+        "influenced_ego": false,
+        "safety_criticality": 2,
+        "rarity": 2,
+        "note": "Too Close Person"
+    },
+    
+
+
+    "0de06134-e900-43ba-bc44-624789e0be83": {
+        "categories": ["Jaywalking"],
+        "influenced_ego": false,
+        "safety_criticality": 2,
+        "rarity": 2,
+        "note": "Too Close Person"
+    },
+    
     "d819fc90-1634-49c3-a231-36d808bd9377":{
         "categories": ["Road Construction"],
         "influenced_ego": false,
@@ -343,7 +321,14 @@
         "note": ""
     },
     "c16d503b-596f-44af-b15b-3f13538dfe1c":{
-        "categories": ["Road Construction"],
+        "categories": ["Railroad"],
+        "influenced_ego": false,
+        "safety_criticality": 1,
+        "rarity": 2,
+        "note": ""
+    },
+    "2d2807d4-6527-446b-8419-2714bd437b84": {
+        "categories": ["Railroad"],
         "influenced_ego": false,
         "safety_criticality": 1,
         "rarity": 2,
@@ -405,13 +390,7 @@
         "rarity": 1,
         "note": ""
     },
-    "f09f6944-8dba-4f79-a7ed-2d06f7fa52a6":{
-        "categories": ["Tunnel"],
-        "influenced_ego": false,
-        "safety_criticality": 1,
-        "rarity": 2,
-        "note": ""
-    },
+    
     "56c703f3-2274-4740-8000-85ff1cad21b7":{
         "categories": ["Stationary Vehicle Obstruction"],
         "influenced_ego": false,
@@ -419,12 +398,42 @@
         "rarity": 2,
         "note": ""
     },
+    "0d66f9c7-b691-4328-8616-a22c38e6c7db":{
+        "categories": ["Tram"],
+        "influenced_ego": false,
+        "safety_criticality": 1,
+        "rarity": 2,
+        "note": ""
+    },
+    "9717031a-c73c-4045-830c-09283bc1f489":{
+        "categories": ["Tram"],
+        "influenced_ego": false,
+        "safety_criticality": 1,
+        "rarity": 2,
+        "note": ""
+    },
+    "2cc8ab5d-2eda-4193-aef2-535a54176759":{
+        "categories": ["Tram"],
+        "influenced_ego": false,
+        "safety_criticality": 1,
+        "rarity": 2,
+        "note": ""
+    },
+    "6edfc385-4702-4099-a053-29a3b46f1525":{
+        "categories": ["Tram"],
+        "influenced_ego": true,
+        "safety_criticality": 2,
+        "rarity": 2,
+        "note": ""
+    },
+    "076fce0d-41fc-41a3-b085-88c7b20f2689":{
+        "categories": ["Tram"],
+        "influenced_ego": false,
+        "safety_criticality": 2,
+        "rarity": 2,
+        "note": ""
+    },
     
-    
-
-
-
-
 
 
 
@@ -475,13 +484,21 @@
         "rarity": 1,
         "note": "normal pedestrian crossing"
     },
-    "1503c87e-5429-4311-b9b3-acfa438bd382": {
+    "034c2086-8a8e-42fa-9f28-4cb2e38ef676": {
         "categories": [],
         "influenced_ego": true,
         "safety_criticality": 2,
         "rarity": 2,
-        "note": "tram, normal pedestrian crossing"
+        "note": "킥보드 2대가 직진 신호에 갔기 때문에 무단횡단은 아님"
     },
+    "fcc8b351-0e29-41fa-8129-682006aab6ae": {
+        "categories": [],
+        "influenced_ego": true,
+        "safety_criticality": 2,
+        "rarity": 2,
+        "note": "Too Close Person"
+    },
+    
 
 
 
@@ -500,13 +517,6 @@
         "rarity": 3,
         "note": "말"
     },
-    "034c2086-8a8e-42fa-9f28-4cb2e38ef676": {
-        "categories": ["Cyclist"],
-        "influenced_ego": true,
-        "safety_criticality": 2,
-        "rarity": 2,
-        "note": ""
-    },
     "00d4efa8-62a5-47ce-b8c7-e2a6b67b8f5c": {
         "categories": ["Jaywalking"],
         "influenced_ego": true,
@@ -515,25 +525,18 @@
         "note": ""
     },
     "0d35d80b-5b67-406a-9018-e94b3f3d7372": {
-        "categories": ["Too Close Person"],
+        "categories": ["Jaywalking"],
         "influenced_ego": true,
         "safety_criticality": 2,
         "rarity": 2,
-        "note": ""
-    },
-    "3abcba98-f17d-4f46-ae72-7cdfb49824af": {
-        "categories": ["Too Close Person"],
-        "influenced_ego": false,
-        "safety_criticality": 2,
-        "rarity": 2,
-        "note": ""
+        "note": "Too Close Person"
     },
     "0064ce6d-5f40-417f-915f-87c6643e0de4": {
-        "categories": ["Too Close Person"],
+        "categories": ["Jaywalking"],
         "influenced_ego": true,
         "safety_criticality": 2,
         "rarity": 2,
-        "note": ""
+        "note": "Too Close Person"
     },
     "027c10f0-ca30-414a-8fdd-d4200b736b9f": {
         "categories": ["Jaywalking"],
@@ -543,9 +546,9 @@
         "note": ""
     },
     "0a37154c-6b70-4082-b4ad-915d1389eebf": {
-        "categories": ["Cyclist", "Jaywalking"],
+        "categories": ["Railroad", "Jaywalking"],
         "influenced_ego": true,
-        "safety_criticality": 3,
+        "safety_criticality": 2,
         "rarity": 3,
         "note": ""
     },
@@ -557,25 +560,25 @@
         "note": ""
     },
     "1caa3935-e406-48c7-a205-717b7243584b": {
-        "categories": ["Narrow Road", "Jaywalking"],
+        "categories": ["Jaywalking"],
         "influenced_ego": true,
         "safety_criticality": 2,
         "rarity": 2,
         "note": ""
     },
     "2b11f06f-da0f-4bb6-863c-e6933bd20535": {
-        "categories": ["Too Close Person", "Jaywalking"],
+        "categories": ["Jaywalking"],
         "influenced_ego": true,
         "safety_criticality": 3,
         "rarity": 3,
-        "note": ""
+        "note": "Too Close Person"
     },
     "002dec8e-3d95-4cc2-abbe-99b3a2e78618": {
-        "categories": ["Too Close Person"],
+        "categories": ["Jaywalking"],
         "influenced_ego": true,
         "safety_criticality": 3,
         "rarity": 3,
-        "note": ""
+        "note": "Too Close Person, Road Construction(?)"
     },
     "3587b066-aa84-4761-a5f5-c8fb6ccdfd0f": {
         "categories": ["Abnormal Vehicle Behavior", "Jaywalking"],
@@ -585,7 +588,7 @@
         "note": ""
     },
     "b30fbc40-aa45-4553-b121-229ecf8c3947": {
-        "categories": ["Narrow Road", "Road Construction", "Stationary Vehicle Obstruction"],
+        "categories": ["Road Construction", "Stationary Vehicle Obstruction"],
         "influenced_ego": true,
         "safety_criticality": 2,
         "rarity": 3,
@@ -634,11 +637,11 @@
         "note": ""
     },
     "79fd94b2-100a-45bd-8b6f-786e50e12a47": {
-        "categories": ["Manual Traffic Control", "Road Construction", "Too Close Person"],
+        "categories": ["Manual Traffic Control", "Road Construction"],
         "influenced_ego": true,
         "safety_criticality": 2,
         "rarity": 3,
-        "note": ""
+        "note": "Too Close Person"
     },
     "ea6acc44-6eea-4328-be2b-a2b06b82aa08": {
         "categories": ["Unpaved road"],
@@ -655,17 +658,10 @@
         "note": ""
     },
     "ecd53c87-32c2-4edd-a047-eeb4beae4c63": {
-        "categories": ["Traffic Control Anomaly"],
+        "categories": ["Railroad"],
         "influenced_ego": true,
         "safety_criticality": 2,
         "rarity": 3,
-        "note": ""
-    },
-    "8f596236-9759-4da9-ae4e-edf9e7c2225b": {
-        "categories": ["Narrow Road"],
-        "influenced_ego": true,
-        "safety_criticality": 1,
-        "rarity": 2,
         "note": ""
     },
     "5855208b-190c-4b04-964f-2b4f4ba10839": {
@@ -683,21 +679,14 @@
         "note": ""
     },
     "845eec10-71f0-473e-ae4c-155baf2c30d0": {
-        "categories": ["Cyclist", "Narrow Road", "Stationary Vehicle Obstruction", "Too Close Person"],
+        "categories": ["Stationary Vehicle Obstruction", "Jaywalking"],
         "influenced_ego": true,
         "safety_criticality": 3,
         "rarity": 3,
-        "note": ""
+        "note": "Too Close Person"
     },
     "fe11db95-3e03-4eb3-a816-e7d3f269cf7d": {
-        "categories": ["Narrow Road", "Jaywalking"],
-        "influenced_ego": true,
-        "safety_criticality": 2,
-        "rarity": 2,
-        "note": ""
-    },
-    "fcc8b351-0e29-41fa-8129-682006aab6ae": {
-        "categories": ["Cyclist", "Too Close Person"],
+        "categories": ["Jaywalking"],
         "influenced_ego": true,
         "safety_criticality": 2,
         "rarity": 2,
@@ -718,18 +707,25 @@
         "note": ""
     },
     "f9189583-e419-4e67-a075-cbc197133e4a": {
-        "categories": ["Cyclist", "Jaywalking", "Manual Traffic Control"],
+        "categories": ["Jaywalking", "Manual Traffic Control"],
         "influenced_ego": true,
         "safety_criticality": 2,
         "rarity": 2,
         "note": ""
     },
     "26210df5-f57d-499e-bec1-9d0a197619be": {
-        "categories": ["Too Close Person"],
+        "categories": ["Jaywalking"],
         "influenced_ego": true,
         "safety_criticality": 3,
         "rarity": 3,
-        "note": ""
+        "note": "Too Close Person"
+    },
+    "1503c87e-5429-4311-b9b3-acfa438bd382": {
+        "categories": ["Tram", "Stationary Vehicle Obstruction"],
+        "influenced_ego": true,
+        "safety_criticality": 2,
+        "rarity": 2,
+        "note": "normal pedestrian crossing"
     }
 
   }

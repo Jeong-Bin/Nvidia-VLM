@@ -24,6 +24,8 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
+from constrained_tier import tier_label
+
 # 하단 패널에 표시할 단계. (result 의 키, 화면에 쓸 제목) 순서가 곧 표시 순서다.
 PANEL_STEPS = [
     ("observation", "1. Scene Description"),
@@ -40,6 +42,13 @@ PANEL_STEPS = [
 STEP_TIER_KEY = {
     "safety_assessment": ("safety_label", "safety_tier"),
     "rarity_assessment": ("rarity_label", "rarity_tier"),
+}
+
+# 정답 라벨(test_label.json)에서 각 단계에 해당하는 키.
+# 라벨 파일은 safety_criticality/rarity 라는 이름을 쓰므로 여기서 맞춰준다.
+GT_TIER_KEY = {
+    "safety_assessment": "safety",
+    "rarity_assessment": "rarity",
 }
 
 FONT_REG = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
@@ -133,47 +142,97 @@ def build_text_panel(result: dict, width: int, scale: float = 1.0) -> np.ndarray
     cats = result.get("categories") or []
     cat_line = ", ".join(cats) if cats else "— none —"
 
+    # 정답 라벨(gt)이 함께 넘어오면 GT 와 Pred 를 나란히 보여준다.
+    # "GT:" / "|" / "Pred:" 는 검정, 값만 색을 준다 - 검수자가 라벨과 예측을
+    # 눈으로 짝지어 볼 때 구분자가 값과 같은 색이면 읽기 어렵다.
+    gt = result.get("_gt")
+    cat_segments = None
+    if gt is not None:
+        gt_cats = gt.get("categories") or []
+        cat_segments = [
+            ("GT: ", TEXT_DARK),
+            (", ".join(sorted(gt_cats)) if gt_cats else "None",
+             ACCENT if gt_cats else TEXT_MUTED),
+            ("  |  ", TEXT_DARK),
+            ("Pred: ", TEXT_DARK),
+            (cat_line, ACCENT if cats else TEXT_MUTED),
+        ]
+
     blocks = []
     for key, title in PANEL_STEPS:
         body = result.get(key, "")
         label_key, tier_key = STEP_TIER_KEY.get(key, (None, None))
+        gt_line = None
         if label_key:
             label = result.get(label_key, "")
             tier = result.get(tier_key)
             if label and label != "Unknown":
                 head = f"{label} ({tier})" if tier is not None else label
                 body = f"{head} - {body}" if body else head
-        blocks.append((title, _wrap(body, width_chars)))
+            # 등급 단계(4/5)에서는 GT 를 한 줄 위에 따로 얹는다.
+            if gt is not None:
+                g = gt.get(GT_TIER_KEY[key])
+                gt_line = (f"GT: {tier_label(g)} ({g})" if g is not None
+                           else "GT: —")
+                body = f"Pred: {body}" if body else "Pred: —"
+        blocks.append((title, _wrap(body, width_chars), gt_line))
 
     # --- 높이 계산 ---
     h = pad
     h += int(fs_head * 1.6) + int(6 * scale)        # uuid 헤드라인
     h += int(fs_body * 1.6) + gap                   # 카테고리 줄
-    for _, lines in blocks:
+    for _, lines, gt_line in blocks:
         h += title_h + len(lines) * line_h + gap
+        if gt_line:
+            h += line_h
     h += pad
 
     img = Image.new("RGB", (width, h), BG)
     d = ImageDraw.Draw(img)
+
+    def draw_segments(x, y, segments, font):
+        """(글자, 색) 조각들을 한 줄로 이어 그린다. 끝 x 를 돌려준다."""
+        for text, color in segments:
+            d.text((x, y), text, font=font, fill=color)
+            x += d.textlength(text, font=font)
+        return x
 
     y = pad
     head = result.get("_headline", "")
     d.text((pad, y), head, font=f_head, fill=TEXT_DARK)
     y += int(fs_head * 1.6) + int(6 * scale)
 
-    d.text((pad, y), f"Categories ({len(cats)}): ", font=f_title, fill=TEXT_DARK)
-    cw = d.textlength(f"Categories ({len(cats)}): ", font=f_title)
-    d.text((pad + cw, y), cat_line, font=f_title,
-           fill=ACCENT if cats else TEXT_MUTED)
+    label = f"Categories ({len(cats)}): "
+    if cat_segments is None:
+        d.text((pad, y), label, font=f_title, fill=TEXT_DARK)
+        d.text((pad + d.textlength(label, font=f_title), y), cat_line,
+               font=f_title, fill=ACCENT if cats else TEXT_MUTED)
+    else:
+        # "Categories (n) - GT: ... | Pred: ..." 형태
+        x = pad + d.textlength(f"Categories ({len(cats)}) - ", font=f_title)
+        d.text((pad, y), f"Categories ({len(cats)}) - ", font=f_title,
+               fill=TEXT_DARK)
+        draw_segments(x, y, cat_segments, f_title)
     y += int(fs_body * 1.6) + gap
 
-    for title, lines in blocks:
+    for title, lines, gt_line in blocks:
         d.line([(pad, y - int(4 * scale)), (width - pad, y - int(4 * scale))],
                fill=RULE, width=1)
         d.text((pad, y), title, font=f_title, fill=ACCENT)
         y += title_h
+        if gt_line:
+            # "GT:" 는 검정, 등급 값은 강조색
+            head_txt, _, val = gt_line.partition(" ")
+            draw_segments(pad, y, [(head_txt + " ", TEXT_DARK),
+                                   (val, ACCENT if val != "—" else TEXT_MUTED)],
+                          f_body)
+            y += line_h
         for ln in lines:
-            d.text((pad, y), ln, font=f_body, fill=TEXT_MID)
+            if ln.startswith("Pred: "):
+                draw_segments(pad, y, [("Pred: ", TEXT_DARK),
+                                       (ln[6:], TEXT_MID)], f_body)
+            else:
+                d.text((pad, y), ln, font=f_body, fill=TEXT_MID)
             y += line_h
         y += gap
 
@@ -312,6 +371,8 @@ def save_clip_json(result: dict, out_path, extra: dict | None = None) -> Path:
         "tier_score": result.get("tier_score"),
         "parse_ok": bool(result.get("parse_ok", False)),
     }
+    if result.get("_gt") is not None:
+        payload["ground_truth"] = result["_gt"]
     if extra:
         payload.update(extra)
     out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
@@ -322,11 +383,17 @@ def save_clip_json(result: dict, out_path, extra: dict | None = None) -> Path:
 def render_clip_result(uuid: str, src_mp4, result: dict, out_dir,
                        max_width: int | None = VIZ_WIDTH,
                        extra: dict | None = None,
-                       max_frames: int | None = None):
-    """클립 하나의 영상 + json 을 같은 폴더에 저장하고 (video, json) 을 반환."""
+                       max_frames: int | None = None,
+                       gt: dict | None = None):
+    """클립 하나의 영상 + json 을 같은 폴더에 저장하고 (video, json) 을 반환.
+
+    gt 를 주면(정답 라벨이 있는 클립) 패널에 GT 와 Pred 를 나란히 그린다.
+    """
     out_dir = Path(out_dir)
     r = dict(result)
     r["_uuid"] = uuid
+    if gt is not None:
+        r["_gt"] = gt
     r["_headline"] = uuid
     video = render_clip_video(src_mp4, r, out_dir / "clip.mp4",
                               max_width=max_width, max_frames=max_frames)

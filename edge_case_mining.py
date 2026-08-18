@@ -19,7 +19,7 @@ Usage:
   python edge_case_mining.py --limit-clips 2
 
   # 센서 라벨을 사실로 함께 넣기 (기본은 둘 다 off)
-  python edge_case_mining.py --use-egomotion --use-obstacle
+  python edge_case_mining.py --use-egomotion --use-3dbbox
 
   # 전체
   python edge_case_mining.py
@@ -34,6 +34,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from config import SCENE_JSON as CONFIG_SCENE_JSON, LABELS_JSON
 from constrained_tier import (TIER_LABELS, TIER_VALUES, tier_label,
                               tier_menu, tier_score,
                               safety_rubric_text, rarity_rubric_text,
@@ -41,7 +42,10 @@ from constrained_tier import (TIER_LABELS, TIER_VALUES, tier_label,
 
 ROOT = Path(__file__).resolve().parent
 CAMERA_DIR = ROOT / "pav_sample" / "camera"
-SCENE_JSON = ROOT / "scene_category_B.json"
+# 카테고리 정의와 정답 라벨의 기본값은 config.py 한 곳에서만 정한다.
+# (예전에는 여기/evaluate_labels/aggregate_clip/셸 스크립트가 각자
+#  다른 값을 들고 있어 같은 실행을 서로 다른 체계로 해석한 적이 있다.)
+SCENE_JSON = CONFIG_SCENE_JSON
 
 FRONT_VIEWS = [
     "camera_front_wide_120fov",
@@ -88,6 +92,9 @@ def load_labels(scene_json: Path):
                         "category": cat["name"],
                         "synonyms": cat.get("synonyms", []),
                         "prompt_templates": cat.get("prompt_templates", []),
+                        # 이 카테고리가 "아닌" 경우. 긍정 예시만으로는 경계가
+                        # 안 잡히는 카테고리에만 쓴다 (없으면 빈 리스트).
+                        "excludes": cat.get("excludes", []),
                         "is_normal": is_normal,
                     }
                 )
@@ -130,6 +137,13 @@ def build_category_menu(labels, example_source: str = "synonyms",
         ex = _examples_for(lab, example_source, num_examples)
         lines.append(f"- {lab['category']}({', '.join(ex)})" if ex
                      else f"- {lab['category']}")
+        # 부정 조건은 별도 줄로. 실측(20260818, 100클립): Jaywalking 은 긍정
+        # 예시에 "where there is no crosswalk" 가 있는데도 횡단보도를 정상
+        # 통행하는 보행자를 20건 오탐했다 (FP 20 = 전체 FP 38 의 53%).
+        # 모델이 "crossing the street" 자체를 카테고리로 읽고 있어서,
+        # 긍정 예시를 늘리는 대신 무엇이 아닌지를 못박는다.
+        for ex_line in lab["excludes"]:
+            lines.append(f"    NOT this category: {ex_line}")
     return "\n".join(lines)
 
 
@@ -567,13 +581,22 @@ the CURRENT moment. Each group of three is synchronized camera views
     safety_rubric = safety_rubric_text()
     rarity_rubric = rarity_rubric_text()
     contrasts = contrast_text()
-    # egomotion 을 켠 실행에서는 급제동/급조향이 100Hz 라벨로 이미 계산돼
-    # 있다. 그걸 3등급의 객관적 근거로 지정한다 - 모델의 인상보다 센서
-    # 측정이 일관적이다. egomotion 을 안 쓰면 이 문장 자체가 빠진다.
+    # egomotion 을 켠 실행에서는 감속/조향이 100Hz 라벨로 이미 계산돼 있다.
+    # 예전에는 이 값을 "급제동은 3등급을 뒷받침한다" 는 식으로 3등급의
+    # 객관적 근거라고 지정했는데, 실측에서 그게 틀렸다.
+    #
+    # 100클립 A/B(20260818): 정답 라벨 기준으로 급제동 클립 35건의 GT safety
+    # 평균은 1.49 로 급제동이 없는 65건(1.45)과 사실상 같다. 이 데이터셋의
+    # 급제동은 대개 신호/정체/교차로 때문이지 위험 반응이 아니다. 그런데도
+    # 위 문장 때문에 모델이 감속만 보고 등급을 올려, 급제동 클립의 safety
+    # 정확도가 66% -> 37% 로 무너졌다 (급제동 없는 클립은 72% -> 69%).
+    #
+    # 그래서 감속을 근거로 "지정" 하지 않고, 원인을 영상에서 확인하라고만
+    # 한다. 실제로 위험이 보이는 클립은 여전히 높게 나와야 한다.
     behavior_hint = (
-        "\n   The measured ego behaviour above is the strongest evidence here:"
-        "\n   hard braking or a sharp swerve supports 3, while a steady speed"
-        "\n   with no steering change rarely justifies 3."
+        "\n   The measured ego behaviour above says what the vehicle did, not"
+        "\n   why. Slowing or stopping is routine (signals, junctions, queues),"
+        "\n   so treat it as evidence only when the video shows what caused it."
         if behavior_facts else "")
 
     return f"""{intro}
@@ -605,13 +628,15 @@ Work through these steps in order:
    So "there is an animal" or "there is a pedestrian" tells you nothing on its
    own - look at what it is doing relative to the ego-vehicle's path.
 4. Safety Criticality: how close this came to needing emergency action.
-   Pick the integer whose description fits best:
+   A higher number means more dangerous. Pick the integer whose description
+   fits best:
 {safety_rubric}
    Judge by what the ego-vehicle actually had to DO, not by how much attention
    the scene deserves - almost every scene deserves attention, so "requires
    vigilance" is never a reason to pick 2 or 3.{behavior_hint}
 5. Rarity: how unusual this situation is, judged the same way.
-   Pick the integer whose description fits best:
+   A higher number means more unusual. Pick the integer whose description
+   fits best:
 {rarity_rubric}
 
 Respond with ONLY a JSON object, no other text:
@@ -908,6 +933,93 @@ def viz_targets(result: dict) -> list[str]:
     return [f"{prefix}{category_slug(c)}" for c in result["categories"]]
 
 
+RUN_CONFIG_NAME = "run_config.json"
+
+
+def _file_sha(path, n=10):
+    """파일 내용의 짧은 해시. 없거나 못 읽으면 None."""
+    if not path:
+        return None
+    try:
+        import hashlib
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()[:n]
+    except OSError:
+        return None
+
+
+def save_run_config(args, run_dir, n_views=1):
+    """이번 실행의 설정을 <run_dir>/run_config.json 에 남긴다.
+
+    argparse 네임스페이스를 통째로 저장하되, 나중에 사람이 먼저 보게 될
+    핵심 값(fps/frames/해상도/센서 플래그)은 따로 "key" 에 모아 둔다 -
+    evaluate_labels.py 가 그것만 골라 로그 머리에 찍는다.
+
+    왜 결과 폴더에 두는가: 실행 폴더를 나중에 열었을 때 어떤 설정으로 낸
+    숫자인지 알 방법이 run.log 를 뒤지는 것뿐이면, 로그가 지워지거나
+    --eval-only 로 재채점할 때 근거가 사라진다.
+    """
+    run_dir = Path(run_dir)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    cfg = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "key": {
+            # 사람이 붙인 실행 설명. 설정만으로는 구분이 안 되는 실험
+            # (예: 라벨 파일 내용을 고쳤을 때)을 나중에 알아보게 해준다.
+            "memo": args.memo,
+            "model": args.model,
+            "scene_json": args.scene_json,
+            # 라벨 "내용" 의 지문. 경로는 그대로인데 내용만 고치는 일이
+            # 잦아(실측: 20260818 의 130207 과 134742 는 설정이 완전히
+            # 같은데 그 사이 Too Close Person 을 Jaywalking 에 병합해
+            # 점수가 달라졌다) 경로만으로는 두 실행을 구분할 수 없다.
+            "gt_labels_sha": _file_sha(args.gt_labels),
+            # 시각화 패널에 GT 를 함께 그릴 때 쓴 정답 라벨. 채점에 쓰는
+            # --labels 와 다른 파일일 수 있어(test_label.json vs _D) 따로 남긴다.
+            "gt_labels": args.gt_labels,
+            "prompt_style": args.prompt_style,
+            "clip_fps": args.clip_fps,
+            "clip_max_frames": args.clip_max_frames,
+            "clip_long_side": args.clip_long_side,
+            "n_views": n_views,
+            "single_view": bool(args.single_view),
+            "video_input": bool(args.clip_video_input),
+            "use_egomotion": bool(args.use_egomotion),
+            "use_3dbbox": bool(args.use_obstacle),
+            "constrain_tiers": bool(args.constrain_tiers),
+            "num_shards": args.num_shards,
+        },
+        # 위에 없는 옵션까지 전부. 값이 Path 등이면 문자열로 눕힌다.
+        "argv": {k: (v if isinstance(v, (int, float, str, bool, type(None)))
+                     else str(v))
+                 for k, v in vars(args).items()},
+    }
+    path = run_dir / RUN_CONFIG_NAME
+    path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False),
+                    encoding="utf-8")
+    print(f"[info] run config -> {path}")
+    return path
+
+
+def _load_gt_labels(path):
+    """test_label.json -> {uuid: {categories, safety, rarity}}. 없으면 None.
+
+    라벨 파일은 safety_criticality(오타로 safty_criticality 가 섞이기도 함)와
+    rarity 를 쓰므로, 시각화가 쓰는 이름으로 맞춰 담는다.
+    """
+    if not path:
+        return None
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    clips = data.get("clips", data)
+    out = {}
+    for uuid, v in clips.items():
+        out[uuid] = {
+            "categories": v.get("categories") or [],
+            "safety": v.get("safety_criticality", v.get("safty_criticality")),
+            "rarity": v.get("rarity"),
+        }
+    return out
+
+
 def clip_uuid(mp4_path: str) -> str:
     return Path(mp4_path).name.split(".")[0]
 
@@ -944,8 +1056,12 @@ if __name__ == "__main__":
                     help="이 프로세스가 처리할 shard 인덱스 (0-based)")
     ap.add_argument("--use-egomotion", action="store_true",
                     help="egomotion 라벨(속도/가속도/곡률)을 사실로 프롬프트에 넣는다 (기본 off).")
-    ap.add_argument("--use-obstacle", action="store_true",
-                    help="obstacle.offline 3D 라벨의 주변 객체 요약을 프롬프트에 넣는다 (기본 off).")
+    ap.add_argument("--use-3dbbox", dest="use_obstacle", action="store_true",
+                    help="obstacle.offline 3D bbox 라벨(위치/크기/방향)의 주변 "
+                         "객체 요약을 프롬프트에 넣는다 (기본 off). 2D 이미지 "
+                         "bbox 가 아니라 3D 라벨이다 - 대응 클래스가 있는 "
+                         "카테고리(Animal/Jaywalking/cyclist)가 과탐하는 경향이 "
+                         "실측됐으니(20260804) 켤 때 결과를 함께 확인할 것.")
     ap.add_argument("--single-view", action="store_true",
                     help="front-wide 카메라만 사용한다 (기본은 전방 3뷰). 이미지가 "
                          "6장에서 2장으로 줄어 추론이 빨라지지만, 측면에서만 보이는 "
@@ -972,9 +1088,8 @@ if __name__ == "__main__":
     # Q1/Q2/Q3 로 돌려보는 것도, B 카테고리를 nuReasoning 으로 돌려보는 것도
     # 각각 유효한 비교라 하나로 묶지 않는다.
     ap.add_argument("--scene-json", default=str(SCENE_JSON),
-                    help=f"카테고리 정의 JSON (기본 {SCENE_JSON.name}). "
-                         "scene_category_C.json 은 nuReasoning taxonomy 를 "
-                         "반영해 카테고리를 보강한 것.")
+                    help=f"카테고리 정의 JSON (기본 {SCENE_JSON.name}, "
+                         "config.py 에서 정함).")
     ap.add_argument("--prompt-style", choices=["qa", "nureasoning"], default="qa",
                     help="qa(기본): 기존 Q1(verdict)/Q2(categories)/Q3(blocking). "
                          "nureasoning: 단계별 CoT 로 근거를 남기며 edge-case "
@@ -1005,6 +1120,20 @@ if __name__ == "__main__":
                     help="edge-case 요소가 없는 클립까지 전부 영상으로 만든다. "
                          "기본은 카테고리가 하나 이상 붙은 클립만 - 전량은 "
                          "클립당 약 39MB 라 금방 수십 GB 가 된다.")
+    ap.add_argument("--gt-labels", default=str(LABELS_JSON),
+                    help=f"정답 라벨 json (기본 {LABELS_JSON.name}, config.py "
+                         "에서 정함). 시각화 패널에 GT 와 Pred 를 나란히 "
+                         "그린다. 라벨에 없는 클립은 Pred 만 그린다.")
+    ap.add_argument("--memo", default="",
+                    help="이 실행이 무엇을 시험하는지 한 줄 메모. "
+                         "run_config.json 에 저장되고 evaluation.log 머리에 "
+                         "찍힌다. 예: --memo \"Too Close Person 제거\"")
+    ap.add_argument("--viz-normal", action="store_true",
+                    help="카테고리가 없는(Normal) 클립을 시각화한다. "
+                         "결과는 <viz-dir>/normal/score_<N>/ 아래.")
+    ap.add_argument("--viz-special", action="store_true",
+                    help="카테고리가 하나 이상인(Special) 클립을 시각화한다. "
+                         "결과는 <viz-dir>/special/score_<N>/ 아래.")
     ap.add_argument("--clip-viz-width", type=int, default=None,
                     help="시각화 영상 폭 (기본 1280). 0 을 주면 원본 해상도.")
     ap.add_argument("--not-save-low", type=lambda s: s not in ("0", "false", "False"),
@@ -1037,6 +1166,10 @@ if __name__ == "__main__":
         print("[info] --prompt-style nureasoning: Q3(blocking) is not part of "
               "this prompt, forcing --no-blocking")
     # 클립 모드는 시간순 시퀀스를 전제로 한 nureasoning 프롬프트에만 맞는다.
+    # --viz-normal/--viz-special 은 그 자체가 "시각화하라"는 뜻이므로
+    # --clip-viz 를 따로 요구하지 않는다 (빼먹으면 조용히 아무것도 안 나온다).
+    if args.viz_normal or args.viz_special:
+        args.clip_viz = True
     if args.clip_mode and args.prompt_style != "nureasoning":
         args.prompt_style = "nureasoning"
         args.ask_blocking = False
@@ -1099,6 +1232,11 @@ if __name__ == "__main__":
         print(f"[info] clip mode: {len(uuids)} clips, {args.clip_fps} fps, "
               f"max {args.clip_max_frames} frames/view -> {n_img} images/clip "
               f"@ long side {args.clip_long_side}px")
+        # 실행 설정을 폴더에 남긴다 - 몇 주 뒤 결과만 보고 "이건 몇 fps 였지"
+        # 를 되짚을 방법이 로그 뒤지기밖에 없으면 A/B 비교를 신뢰할 수 없다.
+        # 샤드 0 만 쓴다 (8개가 같은 파일에 동시에 쓰면 깨진다).
+        if args.shard_id == 0:
+            save_run_config(args, Path(args.out).parent, n_views=len(_views))
         if args.dry_run:
             for u in uuids[:3]:
                 c = sample_clip_frames(u, fps=args.clip_fps,
@@ -1122,6 +1260,13 @@ if __name__ == "__main__":
                            viz_dir=(args.viz_dir if args.clip_viz else None),
                            viz_only_edge=not args.clip_viz_all,
                            not_save_low=args.not_save_low,
+                           gt_labels=_load_gt_labels(args.gt_labels),
+                           viz_normal=(args.viz_normal
+                                       if (args.viz_normal or args.viz_special)
+                                       else None),
+                           viz_special=(args.viz_special
+                                        if (args.viz_normal or args.viz_special)
+                                        else None),
                            video_input=args.clip_video_input,
                            constrain_tiers=args.constrain_tiers,
                            **({"viz_width": (args.clip_viz_width or None)}

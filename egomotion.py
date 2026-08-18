@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""egomotion 라벨 조회 - 판정 단위(uuid, frame_idx)의 자차 운동 상태를 알아낸다.
+"""egomotion 라벨 조회 - 자차의 속도/가속도/조향을 라벨에서 직접 읽는다.
+
+조회 단위가 두 가지다. 어느 쪽을 쓸지는 모델에 무엇을 보여주는지로 정한다:
+  프레임 단위 (uuid, frame_idx) - ego_state / ego_behavior_change
+      한 순간의 스냅샷과 그 앞 5초. run_all.sh 의 프레임 단위 판정용.
+  클립 단위  (uuid)             - ego_clip_behavior
+      20초 클립 전 구간 요약. 클립 모드(영상 통째 입력)용.
+
 
 NVIDIA PhysicalAI-AV 는 클립마다 egomotion 파일을 제공한다(100Hz):
   timestamp(us), qx..qw, x,y,z, vx,vy,vz, ax,ay,az, curvature
@@ -328,6 +335,154 @@ def ego_behavior_change(uuid: str, frame_idx: int,
                         or (dv * 3.6) <= NOTABLE_DROP_KMH
                         or abs(heading_delta) >= NOTABLE_HEADING_DEG),
     }
+
+
+def ego_clip_behavior(uuid: str) -> dict | None:
+    """클립 전체(약 20초) 동안의 자차 행동 요약.
+
+    ego_behavior_change() 와의 차이 - 그쪽은 한 프레임에서 5초를 되돌아본다.
+    프레임 단위로 판정하던 시절에는 그게 맞았지만, 클립 모드는 20초 영상을
+    통째로 넣으므로 마지막 5초만 서술하면 시간축이 어긋난다.
+
+    실측(랜덤 250클립): 마지막 5초는 클립 속도 변동폭의 중앙값 30% 밖에
+    담지 못한다. 클립 중 급제동(<-3 m/s^2)이 있었는데 마지막 5초에는 없는
+    경우가 24%, 정차했는데 마지막 5초엔 아닌 경우가 15% 다. 즉 급제동 클립
+    4개 중 1개는 "일정 속도를 유지했다"로 잘못 서술된다.
+
+    구간 요약이라 시작/끝 값만으로는 부족하다 - 중간에 있었던 최저속도와
+    급제동 시점을 함께 돌려준다. 시각은 클립 시작(첫 프레임)부터 잰 초.
+
+    반환 (ego_behavior_change 의 키를 모두 포함하고 아래를 더한다):
+      speed_min/max       구간 최저/최고 속도 (km/h)
+      t_min_ax            최대 감속이 일어난 시각 (s, 클립 시작 기준)
+      t_speed_min         최저 속도 시각 (s)
+      stopped_s           정차해 있던 총 시간 (s)
+      ends_stopped        클립 끝에 멈춰 있는가
+    """
+    ts = frame_timestamps(uuid)
+    ego = _ego_arrays_full(uuid)
+    if ts is None or ego is None or len(ts) < 2:
+        return None
+
+    t, speed, ax, curv, yaw = ego
+    t_beg, t_end = float(ts[0]), float(ts[-1])
+    # 카메라 구간이 egomotion 밖이면 신뢰할 수 없다
+    if t_end < t[0] or t_beg > t[-1]:
+        return None
+    t_beg = max(t_beg, float(t[0]))
+    t_end = min(t_end, float(t[-1]))
+
+    span_s = (t_end - t_beg) / 1e6
+    if span_s < 1.0:
+        return None
+
+    sel = (t >= t_beg) & (t <= t_end)
+    if sel.sum() < 2:
+        return None
+
+    t_w = t[sel]
+    sp_w, ax_w, yaw_w = speed[sel], ax[sel], yaw[sel]
+    v0, v1 = float(sp_w[0]), float(sp_w[-1])
+
+    yaw_u = np.unwrap(np.radians(yaw_w))
+    heading_delta = float(np.degrees(yaw_u[-1] - yaw_u[0]))
+
+    i_min_ax = int(np.argmin(ax_w))
+    i_sp_min = int(np.argmin(sp_w))
+    min_ax, max_ax = float(ax_w[i_min_ax]), float(ax_w.max())
+    dv = v1 - v0
+
+    # 샘플 간격이 일정하다고 보고 정차 시간을 센다 (100Hz 라벨)
+    dt_s = span_s / max(len(sp_w) - 1, 1)
+    stopped_s = float((sp_w < STOP_SPEED).sum() * dt_s)
+
+    came_to_stop = v0 >= CREEP_SPEED and v1 < STOP_SPEED
+    started_moving = v0 < STOP_SPEED and v1 >= CREEP_SPEED
+    decelerating = dv <= -SPEED_CHANGE_MS or (min_ax <= DECEL_MS2
+                                              and dv <= -SPEED_MIN_MS)
+    accelerating = dv >= SPEED_CHANGE_MS or (max_ax >= ACCEL_MS2
+                                             and dv >= SPEED_MIN_MS)
+    steering = abs(heading_delta) >= HEADING_CHANGE_DEG
+
+    return {
+        "span_s": span_s,
+        "speed_start": v0 * 3.6,
+        "speed_end": v1 * 3.6,
+        "speed_delta": dv * 3.6,
+        "speed_min": float(sp_w.min()) * 3.6,
+        "speed_max": float(sp_w.max()) * 3.6,
+        "min_ax": min_ax,
+        "max_ax": max_ax,
+        "t_min_ax": float(t_w[i_min_ax] - t_beg) / 1e6,
+        "t_speed_min": float(t_w[i_sp_min] - t_beg) / 1e6,
+        "stopped_s": stopped_s,
+        "ends_stopped": v1 < STOP_SPEED,
+        "heading_delta": heading_delta,
+        "came_to_stop": came_to_stop,
+        "started_moving": started_moving,
+        "decelerating": decelerating,
+        "accelerating": accelerating,
+        "steering": steering,
+        "is_hard_braking": min_ax < HARD_BRAKE_AX,
+        "changed": bool(came_to_stop or started_moving or decelerating
+                        or accelerating or steering),
+        "notable": bool(came_to_stop or started_moving
+                        or min_ax <= NOTABLE_DECEL_MS2
+                        or (dv * 3.6) <= NOTABLE_DROP_KMH
+                        or abs(heading_delta) >= NOTABLE_HEADING_DEG),
+    }
+
+
+def describe_clip_behavior(ch: dict | None) -> str:
+    """ego_clip_behavior -> 프롬프트에 넣을 1~2 문장.
+
+    describe_behavior() 와 방침은 같되(건조하게, 숫자는 센서 그대로) 구간
+    요약이므로 "언제" 를 함께 적는다. 모델이 영상에서 본 사건과 이 수치를
+    시각으로 맞춰볼 수 있어야 시간 정렬이 의미를 갖는다.
+    """
+    if ch is None:
+        return ""
+    w = f"Over these {ch['span_s']:.0f} seconds"
+
+    lo, hi = ch["speed_min"], ch["speed_max"]
+    if ch["came_to_stop"]:
+        core = (f"the ego-vehicle slowed from {ch['speed_start']:.0f} km/h "
+                f"and came to a stop")
+    elif ch["started_moving"]:
+        core = (f"the ego-vehicle pulled away from a stop to "
+                f"{ch['speed_end']:.0f} km/h")
+    elif hi - lo < 5.0:
+        core = f"the ego-vehicle held a steady {hi:.0f} km/h"
+    else:
+        core = (f"the ego-vehicle went from {ch['speed_start']:.0f} to "
+                f"{ch['speed_end']:.0f} km/h "
+                f"(range {lo:.0f}-{hi:.0f} km/h)")
+
+    s = f"{w} {core}"
+    # "hard braking" 이라는 표현을 쓰지 않고 측정값만 적는다.
+    #
+    # 실측(100클립 A/B, 20260818): 이 문구가 들어간 실행에서 safety 정확도가
+    # 급제동 클립에 한해 66% -> 37% 로 무너졌다 (급제동이 없는 클립은 72% ->
+    # 69% 로 거의 그대로). 그런데 정답 라벨을 보면 급제동 클립 35건의 GT
+    # safety 평균은 1.49 로, 급제동이 없는 65건의 1.45 와 사실상 같다. 즉 이
+    # 데이터셋에서 급제동은 대개 신호/정체/교차로 때문이지 위험 반응이
+    # 아닌데도, 모델이 "hard braking" 이라는 표현만 보고 등급을 올렸다.
+    #
+    # 감속 사실 자체는 2단계(Ego Behavior)에 필요하므로 버리지 않는다.
+    # 판단은 영상을 보고 하라는 뜻에서, 해석이 담긴 말 대신 수치만 남긴다.
+    if ch["is_hard_braking"]:
+        s += (f", with a peak deceleration of {abs(ch['min_ax']):.1f} m/s^2 "
+              f"about {ch['t_min_ax']:.0f} s in")
+    if ch["steering"]:
+        side = "left" if ch["heading_delta"] > 0 else "right"
+        s += f", and turned {side} by {abs(ch['heading_delta']):.0f} degrees"
+    s += "."
+
+    # 중간에 멈춰 있었던 시간은 위 문장이 못 담는다 - 정차가 길면 따로 적는다.
+    # came_to_stop 은 끝에 멈춘 경우라 이미 서술됐으므로 제외한다.
+    if ch["stopped_s"] >= 2.0 and not ch["came_to_stop"]:
+        s += f" It was stationary for about {ch['stopped_s']:.0f} s of that."
+    return s
 
 
 def describe_behavior(ch: dict | None) -> str:

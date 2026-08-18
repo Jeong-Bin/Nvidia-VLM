@@ -42,7 +42,10 @@ from edge_case_mining import (
     sample_clip_frames, clip_intro,
     CLIP_FPS, CLIP_MAX_FRAMES, CLIP_MAX_LONG_SIDE,
 )
-from egomotion import ego_state, describe_ego, ego_behavior_change, describe_behavior
+from egomotion import (
+    ego_state, describe_ego, ego_behavior_change, describe_behavior,
+    ego_clip_behavior, describe_clip_behavior,
+)
 from obstacle import obstacle_summary, describe_obstacles, path_intrusion
 from visualize import render_scene_card
 from visualize_clip import render_clip_result, VIZ_WIDTH
@@ -205,6 +208,25 @@ def build_behavior_facts(uuid, frame_idx, use_egomotion):
     return (describe_behavior(ch) if ch else ""), ch
 
 
+def build_clip_ego_facts(uuid, use_egomotion):
+    """클립 모드용 egomotion 사실. (프롬프트 문구, 요약 dict) 를 돌려준다.
+
+    build_sensor_facts + build_behavior_facts 의 클립 판이다. 저 둘은
+    한 프레임 시점의 스냅샷(속도 순간값)과 그 앞 5초를 말하는데, 클립
+    모드는 20초 영상을 통째로 넣으므로 시점이 어긋난다. 여기서는 클립
+    전 구간을 한 번에 요약해 그 어긋남을 없앤다.
+
+    describe_ego() 의 "is MOVING at 42 km/h" 를 여기서 쓰지 않는 이유:
+    현재형 문장이 20초 영상 전체를 가리키는 것처럼 읽히지만 실제로는
+    마지막 프레임의 값이다. 구간 요약이 속도 범위를 이미 말하므로
+    중복이기도 하다.
+    """
+    if not use_egomotion:
+        return "", None
+    ch = ego_clip_behavior(uuid)
+    return (describe_clip_behavior(ch) if ch else ""), ch
+
+
 def classify_unit(model, processor, unit_frames, prompt, views,
                   max_new_tokens=256):
     """직전 + 현재 프레임을 뷰 순서대로 한 번에 넣어 모델 원문 출력을 받는다.
@@ -227,7 +249,9 @@ def run_clip_inference(uuids, labels, category_menu,
                        max_long_side=CLIP_MAX_LONG_SIDE,
                        viz_dir=None, viz_only_edge=True, not_save_low=True,
                        viz_width=VIZ_WIDTH, video_input=True,
-                       constrain_tiers=True):
+                       constrain_tiers=True,
+                       viz_normal=None, viz_special=None,
+                       gt_labels=None):
     """클립 전체(20초)를 1fps 로 넣어 클립 단위로 판정한다.
 
     run_inference 와 판정 단위가 다르다 - 저쪽은 (uuid, frame_idx) 이고
@@ -243,6 +267,14 @@ def run_clip_inference(uuids, labels, category_menu,
     영상은 1fps 추론 입력이 아니라 원본 mp4 를 그대로 쓰고, 그 아래에 1~5단계
     추론 내용을 붙인다. viz_only_edge=True(기본)면 edge-case 요소가 하나라도
     잡힌 클립만 만든다 - 전량은 클립당 약 39MB 라 금방 수십 GB 가 된다.
+
+    gt_labels({uuid: {categories, safety, rarity}})를 주면 시각화 패널에
+    GT 와 Pred 를 나란히 그린다 - 검수자가 라벨과 예측을 한 화면에서
+    비교할 수 있게 한다. 없는 uuid 는 그냥 Pred 만 그린다.
+
+    viz_normal / viz_special 을 주면 그 둘로만 대상을 정하고, 결과를
+    <viz_dir>/{normal,special}/score_<N>/<uuid>/ 로 나눠 담는다. 둘 다 None
+    이면 예전 방식(viz_only_edge + not_save_low)으로 동작한다.
 
     not_save_low=True(기본)면 거기서 한 번 더 거른다: Safety Criticality 와
     Rarity 가 둘 다 "Low" 인 클립은 저장하지 않는다 - 카테고리는 나열됐지만
@@ -269,10 +301,17 @@ def run_clip_inference(uuids, labels, category_menu,
     viz_path = Path(viz_dir) if viz_dir else None
     if viz_path:
         viz_path.mkdir(parents=True, exist_ok=True)
-        print(f"[clip] viz -> {viz_path}/score_<N>/<uuid>/{{clip.mp4,result.json}}"
-              + ("  (clips with >=1 category only)" if viz_only_edge
-                 else "  (all clips)")
-              + f"  width {viz_width or 'original'}")
+        if viz_normal is not None or viz_special is not None:
+            which = [n for n, on in (("normal", viz_normal),
+                                     ("special", viz_special)) if on]
+            print(f"[clip] viz -> {viz_path}/{{{','.join(which) or 'none'}}}"
+                  f"/score_<N>/<uuid>/{{clip.mp4,result.json}}"
+                  f"  width {viz_width or 'original'}")
+        else:
+            print(f"[clip] viz -> {viz_path}/score_<N>/<uuid>/{{clip.mp4,result.json}}"
+                  + ("  (clips with >=1 category only)" if viz_only_edge
+                     else "  (all clips)")
+                  + f"  width {viz_width or 'original'}")
     t_start = time.time()
 
     with open(out_csv, "w", newline="", encoding="utf-8") as f:
@@ -299,11 +338,17 @@ def run_clip_inference(uuids, labels, category_menu,
                 n_parse_fail += 1
                 continue
 
-            # 마지막 프레임 시점 = 모델이 보는 가장 최근 순간
+            # egomotion 은 클립 전 구간을 요약한다 (시간축 정렬).
+            behavior, ego = build_clip_ego_facts(uuid, use_egomotion)
+
+            # 3D bbox 는 아직 마지막 프레임 ±0.05초 스냅샷이다. 20초 영상에
+            # 붙이기엔 시간축이 어긋나 있어(실측: 과탐 감소 대신 recall -6%p)
+            # 기본 off 이고, 시간축 요약은 후속 작업으로 남겨둔다.
             last_idx = clip["indices"][-1]
-            facts, ego = build_sensor_facts(uuid, last_idx, use_egomotion,
-                                            use_obstacle, n_views=len(views))
-            behavior, _ = build_behavior_facts(uuid, last_idx, use_egomotion)
+            facts = ""
+            if use_obstacle:
+                facts = describe_obstacles(
+                    obstacle_summary(uuid, last_idx, n_views=len(views)))
 
             prompt = build_nureasoning_prompt(
                 category_menu, facts, behavior_facts=behavior,
@@ -330,32 +375,50 @@ def run_clip_inference(uuids, labels, category_menu,
                 result.get("rarity_tier", ""), result.get("rarity_label", ""),
                 result.get("rarity_assessment", ""),
                 result.get("tier_score", ""),
-                f"{ego['speed_kmh']:.1f}" if ego else "",
-                ego["motion"] if ego else "",
+                # 클립 요약이므로 한 시점의 속도가 아니라 구간 범위를 적는다
+                f"{ego['speed_min']:.0f}-{ego['speed_max']:.0f}" if ego else "",
+                ("stopped" if ego and ego["stopped_s"] >= ego["span_s"] - 0.5
+                 else "moving" if ego else ""),
                 behavior,
             ])
             f.flush()
             pbar.set_postfix_str(
                 f"{'EDGE' if cats else '----'} cats={len(cats)}")
 
-            want_viz = cats or not viz_only_edge
-            if want_viz and not_save_low and cats:
-                # 카테고리가 없는 클립(viz_only_edge=False 로 전량 저장할 때)은
-                # safety/rarity 도 의미가 없으므로 이 필터를 적용하지 않는다.
-                both_low = (result.get("safety_tier") == 1
-                           and result.get("rarity_tier") == 1)
-                want_viz = not both_low
+            # 시각화 대상 결정.
+            #
+            # viz_normal / viz_special 은 서로 독립이다. 둘 다 켜면 전부,
+            # 하나만 켜면 그쪽만, 둘 다 끄면(그리고 viz_only_edge 도 아니면)
+            # 아무것도 만들지 않는다. viz_only_edge 는 예전 인자로, 켜져 있으면
+            # special 만 만든다는 뜻이라 viz_special 과 같은 의미다.
+            is_special = bool(cats)
+            if viz_normal is None and viz_special is None:
+                # 예전 방식으로 호출된 경우 - 기존 동작을 그대로 유지한다.
+                want_viz = is_special or not viz_only_edge
+                if want_viz and not_save_low and is_special:
+                    want_viz = not (result.get("safety_tier") == 1
+                                    and result.get("rarity_tier") == 1)
+            else:
+                want_viz = (viz_special if is_special else viz_normal) or False
+
             if viz_path and want_viz:
-                # 검수 편의를 위해 safety+rarity 합계로 폴더를 나눈다
-                # (2~6, 못 읽으면 score_unknown).
+                # <viz_dir>/{normal,special}/score_<N>/<uuid>/ 로 나눈다.
+                # 점수는 safety+rarity 합계(2~8), 못 읽으면 score_unknown.
+                bucket = "special" if is_special else "normal"
                 score_dir = score_dirname(result.get("tier_score"))
+                out_dir = (viz_path / bucket / score_dir / uuid
+                           if (viz_normal is not None or viz_special is not None)
+                           else viz_path / score_dir / uuid)
                 render_clip_result(
                     uuid, clip_path(views[0], uuid), result,
-                    viz_path / score_dir / uuid, max_width=viz_width,
+                    out_dir, max_width=viz_width,
+                    gt=(gt_labels or {}).get(uuid),
                     extra={"ego_behavior_measured": behavior,
                            "n_frames_seen": len(images),
-                           "ego_speed_kmh": (round(ego["speed_kmh"], 1)
-                                             if ego else None)})
+                           # 클립 요약이라 한 시점의 속도가 없다 - 구간 범위를 준다
+                           "ego_speed_kmh": (
+                               f"{ego['speed_min']:.0f}-{ego['speed_max']:.0f}"
+                               if ego else None)})
                 n_viz += 1
 
     dt = time.time() - t_start

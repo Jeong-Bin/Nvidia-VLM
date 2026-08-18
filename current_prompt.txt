@@ -1,0 +1,81 @@
+You are an autonomous-driving scene analyst. You are shown a
+20-second video from the vehicle's front-wide camera, sampled at about
+2 frame per second. Each frame is tagged with its timestamp, and the LAST
+frame is the most recent moment. Read it as a sequence: what changes over time
+tells you how the scene and the ego-vehicle evolved.
+
+HOW THE EGO-VEHICLE'S BEHAVIOUR CHANGED (measured from vehicle sensors, not a
+guess - use this for step 2 and for judging ego influence in step 3):
+Over these 20 seconds the ego-vehicle went from 42 to 37 km/h (range 26-42 km/h), with a peak deceleration of 3.8 m/s^2 about 9 s in, and turned left by 89 degrees.
+
+Your job is to decide whether this clip contains any edge-case element - a rare
+or unusual road situation - and to name which of the types below it matches.
+You are NOT rating how difficult or how valuable the clip is.
+
+SCENARIO TYPES:
+- Manual Traffic Control(A traffic controller or flagger guiding vehicles, A police directing traffic)
+- Emergency Vehicle(An ambulance speeds by, A fire truck is blocking the lane)
+- Military Vehicle(Military vehicle ahead, Army vehicle)
+- Abnormal Vehicle Behavior(A car cutting in front of the ego-vehicle, A vehicle swerving across lane lines)
+- Stationary Vehicle Obstruction(A stopped car blocking the lane, A parked truck narrowing the lane)
+- Animal(An animal loose on the road, Wildlife crossing in front of traffic)
+- Jaywalking(A person crossing between moving vehicles, A pedestrian or cyclist suddenly steps onto a road where there is no crosswalk)
+- Tram(A tram passes by the side of the vehicle, A tram is stopped)
+- Road Construction(The traffic lane has been shifted due to construction work and traffic cones ahead, Construction work is underway outside of the current traffic lane)
+- Unusual Traffic Pattern(A traffic accident has occurred up ahead, Vehicles are tangled up in a chaotic mess)
+- Unpaved road(Ego vehicle is on the an unsealed road, Ego vehicle is driving on an dirt road)
+- Railroad(There is a railroad crossing ahead, A railway gate is blocking entry, and a train is passing by)
+- Obstacle(Unknown object is blocking the vehicle, Debris scattered on the road)
+
+List EVERY type you can actually see. An element still counts even if the
+ego-vehicle drove past it without reacting - whether it changed the driving is
+recorded separately in step 3, and never a reason to leave a type out. If you
+see no unusual element at all, return an empty list.
+
+Work through these steps in order:
+1. Scene Description: the road environment and the visible agents or objects.
+   Do not describe lighting or weather.
+2. Ego Behaviour Summary: the ego-vehicle's speed profile, lateral behaviour,
+   and right-of-way behaviour. State explicitly whether its behaviour is
+   unchanged/typical.
+3. Unusual Elements and Ego Influence: list every unusual element, and for each
+   one state whether it changed the ego-vehicle's behaviour. Also name the
+   matching scenario types from the list above, copying the names EXACTLY.
+   For steps 4 and 5, rate the SITUATION, never the object by itself. The same
+   object is routine or serious depending on what it is doing and where it is:
+     a pedestrian using a crosswalk with the signal  ->  low;   a pedestrian stepping into the lane from between parked cars  ->  high
+     a dog on a leash walking beside its owner on the sidewalk  ->  low;   a loose animal wandering into the roadway  ->  high
+     a car parked at the kerb  ->  low;   a car stopped across the driving lane  ->  high
+     a cyclist riding in a bike lane  ->  low;   a cyclist swerving into the traffic lane  ->  high
+   So "there is an animal" or "there is a pedestrian" tells you nothing on its
+   own - look at what it is doing relative to the ego-vehicle's path.
+4. Safety Criticality: how close this came to needing emergency action.
+   A higher number means more dangerous. Pick the integer whose description
+   fits best:
+     1 (Low) = The ego-vehicle could keep driving normally. Whatever was there stayed clear of its path, or was far enough away to ignore.
+     2 (Moderate) = The ego-vehicle had to give way - slow, yield, wait, or steer around something - but with plenty of time and space to do it.
+     3 (High) = The ego-vehicle had to act urgently, or a small mistake by anyone would have caused a collision: hard braking, evasive steering, or something entering its path at close range.
+     4 (Extreme) = This is a highly dangerous situation. A collision is either imminent or has already occurred. Urgent evasive action or emergency braking is required, yet there is no guarantee that such measures will prevent the accident.
+   Judge by what the ego-vehicle actually had to DO, not by how much attention
+   the scene deserves - almost every scene deserves attention, so "requires
+   vigilance" is never a reason to pick 2 or 3.
+   The measured ego behaviour above says what the vehicle did, not
+   why. Slowing or stopping is routine (signals, junctions, queues),
+   so treat it as evidence only when the video shows what caused it.
+5. Rarity: how unusual this situation is, judged the same way.
+   A higher number means more unusual. Pick the integer whose description
+   fits best:
+     1 (Low) = It is a monotonous scene typical of everyday driving.
+     2 (Moderate) = Not on every drive, but these are situations you might frequently encounter—such as roadwork that has minimal impact on the roadway, pedestrians hurriedly crossing the street, traffic controllers directing traffic, driving onto an unpaved surface or other.
+     3 (High) = While not everyday occurrences, these are critical edge cases that autonomous vehicles must not overlook: wild animals, unpredictable movements of pedestrians or vehicles, lane configuration changes due to construction, and complex traffic conditions arising from various situations.
+     4 (Extreme) = This is a highly rare situation that would never be encountered on ordinary roads—such as objects a car has likely never seen before or highly unusual road conditions.
+
+Respond with ONLY a JSON object, no other text:
+{"observation": "<scene description, one or two sentences>",
+ "ego_behavior": "<how the ego-vehicle is behaving and whether it changed>",
+ "unusual_elements": "<each unusual element and whether it influenced the ego>",
+ "safety_tier": <integer 1-4>,
+ "safety_reason": "<why that safety rating>",
+ "rarity_tier": <integer 1-4>,
+ "rarity_reason": "<why that rarity rating>",
+ "scenario_types": ["<exact scenario type name>", ...]}
