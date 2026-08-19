@@ -251,7 +251,7 @@ def run_clip_inference(uuids, labels, category_menu,
                        viz_width=VIZ_WIDTH, video_input=True,
                        constrain_tiers=True,
                        viz_normal=None, viz_special=None,
-                       gt_labels=None):
+                       gt_labels=None, timeline=False):
     """클립 전체(20초)를 1fps 로 넣어 클립 단위로 판정한다.
 
     run_inference 와 판정 단위가 다르다 - 저쪽은 (uuid, frame_idx) 이고
@@ -353,7 +353,8 @@ def run_clip_inference(uuids, labels, category_menu,
             prompt = build_nureasoning_prompt(
                 category_menu, facts, behavior_facts=behavior,
                 intro=clip_intro(len(images), len(views), fps=fps,
-                                 as_video=video_input))
+                                 as_video=video_input),
+                timeline=timeline)
             raw = _generate(model, processor, images, prompt,
                             max_new_tokens=NUR_MAX_NEW_TOKENS,
                             as_video=video_input, video_fps=fps,

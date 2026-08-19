@@ -35,6 +35,7 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --viz-all              edge-case 가 아닌 클립까지 전부 시각화         [VIZ_ALL=1]
   --viz-width N          시각화 영상 폭 (기본 1280, 0=원본)            [VIZ_WIDTH]
   --save-low             Safety/Rarity 가 둘 다 Low 인 클립도 시각화     [NOT_SAVE_LOW=0]
+  --timeline             1단계를 시간순 서술로 (기본 off)            [TIMELINE=1]
   --memo "TEXT"          이 실행이 무엇을 시험하는지 한 줄 메모           [MEMO]
   --use-egomotion        egomotion 사실(자차 행동 요약)을 주입 (기본 off)  [USE_EGOMOTION=1]
   --no-video-input       프레임을 비디오가 아니라 낱장으로 넘긴다       [VIDEO_INPUT=0]
@@ -62,6 +63,7 @@ while [ $# -gt 0 ]; do
     --viz-width=*)       VIZ_WIDTH="${1#*=}" ;;
     --viz-width)         shift; VIZ_WIDTH="${1:-}" ;;
     --save-low)          NOT_SAVE_LOW=0 ;;
+    --timeline)          TIMELINE=1 ;;
     --memo=*)            MEMO="${1#*=}" ;;
     --memo)              shift; MEMO="${1:-}" ;;
     --use-egomotion)     USE_EGOMOTION=1 ;;
@@ -98,6 +100,7 @@ fi
 # 지정했을 때만 넘긴다 (양쪽에 기본값을 두면 언젠가 어긋난다).
 OPTS="--clip-mode --single-view"
 [ -n "$SCENE_JSON" ] && OPTS="$OPTS --scene-json $SCENE_JSON"
+[ "${TIMELINE:-0}" = "1" ]      && OPTS="$OPTS --timeline"
 [ "${USE_EGOMOTION:-0}" = "1" ] && OPTS="$OPTS --use-egomotion"
 [ "${VIDEO_INPUT:-1}" = "0" ]   && OPTS="$OPTS --clip-no-video-input"
 [ "${CLIP_VIZ:-1}" = "1" ]      && OPTS="$OPTS --clip-viz"

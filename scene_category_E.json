@@ -155,7 +155,7 @@
             "name": "Abnormal Vehicle Behavior",
             "synonyms": [
                       "A car cutting in front of the ego-vehicle",
-                      "A vehicle swerving across lane lines"
+                      "Vehicles coming from the opposite direction cross the center line."
                       ],
             "prompt_templates_candidates": ["A vehicle cuts in front of the ego-vehicle",
                               "A car swerves across the lane line",
@@ -224,12 +224,14 @@
                               ]
           },
           {
-            "name": "Jaywalking",
+            "name": "Pedestrian on Road",
             "synonyms": [
                       "A person crossing between moving vehicles",
-                      "A pedestrian or cyclist suddenly steps onto a road where there is no crosswalk"
+                      "A pedestrian jaywalking across the road",
+                      "A pedestrian suddenly steps onto a road where there is no crosswalk",
+                      "A pedestrian is waiting for a vehicle to stop at the crosswalk"
                       ],
-            "prompt_templates_candidates": ["Someone jaywalking across the road",
+            "prompt_templates_candidates": [
                               "A person crossing between moving vehicles",
                               "A pedestrian entering the roadway suddenly",
                               "A pedestrian is crossing outside the crosswalk",
@@ -241,22 +243,19 @@
                               ]
           },
           {
+            "name": "Cyclist on Road",
+            "synonyms": [
+                      "Person on the scooter is crossing the street",
+                      "A cyclist is riding close to ego vehicle"
+                      ],
+            "prompt_templates_candidates": [
+                              ]
+          },
+          {
             "name": "Tram",
             "synonyms": [
                       "A tram passes by the side of the vehicle",
                       "A tram is stopped"
-                      ],
-            "prompt_templates_candidates": [
-                            "",
-                            "",
-                            ""
-                              ]
-          },
-          {
-            "name": "Other-object",
-            "synonyms": [
-                      "Although this is not specified in a special category, it can be considered a special object",
-                      "This is a special object rarely seen on public roads, but it is not currently in the category list"
                       ],
             "prompt_templates_candidates": [
                             "",
@@ -371,18 +370,6 @@
                               "fallen branch",
                               "box",
                               "rock"
-                              ]
-          },
-          {
-            "name": "Other-environment",
-            "synonyms": [
-                      "Although this is not specified in a special category, it can be considered a special environment or situation",
-                      "This is a special environment rarely seen on public roads, but it is not currently in the category list"
-                      ],
-            "prompt_templates_candidates": [
-                            "",
-                            "",
-                            ""
                               ]
           }
           ]

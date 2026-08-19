@@ -161,6 +161,37 @@ def tier_block(name, pairs, log):
     log(confusion(pairs))
 
 
+def write_category_lists(run_dir, per_cat, log):
+    """카테고리별 TP/FP/FN 클립 목록을 <run-dir>/categories/<name>/ 에 쓴다.
+
+    왜 필요한가: 표의 숫자(P/R/F1)는 어느 카테고리가 문제인지는 알려주지만
+    "어떤 클립에서" 틀렸는지는 알려주지 않는다. 오분류를 눈으로 확인하려면
+    매번 CSV 와 라벨을 대조해야 했다. uuid 목록을 파일로 떨궈두면 시각화
+    폴더(viz/)에서 바로 찾아볼 수 있다.
+
+    TP = 정답에도 있고 예측에도 있음
+    FP = 정답에는 없는데 예측함 (정답이 Normal 이거나 다른 카테고리인 경우)
+    FN = 정답에는 있는데 예측 못 함
+
+    카테고리명에 / 가 들어가면 경로가 깨지므로 _ 로 바꾼다. 폴더는 실행할
+    때마다 새로 쓰되(덮어쓰기), 예전 실행의 목록을 지우지는 않는다.
+    """
+    base = Path(run_dir) / "categories"
+    n_files = 0
+    for cat, buckets in sorted(per_cat.items()):
+        safe = cat.replace("/", "_").strip() or "_unnamed"
+        d = base / safe
+        d.mkdir(parents=True, exist_ok=True)
+        for kind in ("TP", "FP", "FN"):
+            uuids = sorted(buckets[kind])
+            # 0건이어도 빈 파일을 만든다 - 파일이 없는 것과 0건인 것을
+            # 구분할 수 있어야 "아직 안 돌렸나?" 를 되묻지 않는다.
+            (d / f"{kind}.txt").write_text(
+                "".join(u + "\n" for u in uuids), encoding="utf-8")
+            n_files += 1
+    log(f"  [saved] {base}/  ({len(per_cat)} categories, {n_files} files)")
+
+
 def log_run_config(run_dir, log):
     """<run-dir>/run_config.json 의 주요 설정을 로그 머리에 찍는다.
 
@@ -205,7 +236,8 @@ def log_run_config(run_dir, log):
         + ("  (video)" if key.get("video_input") else "  (image list)"))
     log(f"[info] facts   : egomotion={_onoff(key.get('use_egomotion'))}  "
         f"3dbbox={_onoff(key.get('use_3dbbox'))}  "
-        f"tier-constraint={_onoff(key.get('constrain_tiers'))}")
+        f"tier-constraint={_onoff(key.get('constrain_tiers'))}  "
+        f"timeline={_onoff(key.get('timeline'))}")
     return cfg
 
 
@@ -357,6 +389,7 @@ def main():
                       or CONFIG_SCENE_JSON)
     if not SCENE_JSON.is_absolute():
         SCENE_JSON = ROOT / SCENE_JSON
+    taxonomy = set()
     if SCENE_JSON.exists():
         scene = json.loads(SCENE_JSON.read_text(encoding="utf-8"))
         taxonomy = {c["name"] for s in scene["special"]["scenarios"]
@@ -418,16 +451,27 @@ def main():
     per_clip_sp = [f1_set(labels[u]["categories"], results[u]["categories"])
                    for u in sp]
 
-    names = sorted({c for u in common for c in labels[u]["categories"]}
+    # taxonomy 에 정의된 카테고리는 정답도 예측도 0건이어도 모두 표기한다.
+    # 빠져 있으면 "모델이 한 번도 못 찾은 카테고리"와 "애초에 목록에 없는
+    # 카테고리"가 로그에서 구분되지 않는다 - 실측(20260818)에서 실제로
+    # Unusual Traffic Pattern 이 표에서 사라져 왜 없는지 되짚어야 했다.
+    # 라벨/예측에만 있고 taxonomy 에 없는 이름도 빠뜨리지 않고 함께 싣는다
+    # (위 [warn] 이 가리키는 버전 불일치를 표에서도 확인할 수 있어야 한다).
+    names = sorted(taxonomy
+                   | {c for u in common for c in labels[u]["categories"]}
                    | {c for u in common for c in results[u]["categories"]})
     rows, micro = [], [0, 0, 0]
+    per_cat = {}                      # 카테고리 -> {TP/FP/FN: [uuid, ...]}
     for c in names:
-        t = sum(c in labels[u]["categories"] for u in common)
-        ctp = sum(c in labels[u]["categories"] and c in results[u]["categories"]
-                  for u in common)
-        cfp = sum(c not in labels[u]["categories"] and c in results[u]["categories"]
-                  for u in common)
-        cfn = t - ctp
+        hit = [u for u in common if c in labels[u]["categories"]
+               and c in results[u]["categories"]]
+        false_pos = [u for u in common if c not in labels[u]["categories"]
+                     and c in results[u]["categories"]]
+        false_neg = [u for u in common if c in labels[u]["categories"]
+                     and c not in results[u]["categories"]]
+        per_cat[c] = {"TP": hit, "FP": false_pos, "FN": false_neg}
+        t = len(hit) + len(false_neg)
+        ctp, cfp, cfn = len(hit), len(false_pos), len(false_neg)
         micro[0] += ctp; micro[1] += cfp; micro[2] += cfn
         rows.append((c, t, *prf(ctp, cfp, cfn), ctp, cfp, cfn))
 
@@ -453,6 +497,7 @@ def main():
         log(f" {mark}{c:<32}{t:>4}{p:>8.2f}{r:>8.2f}{f:>8.2f}"
             f"{ctp:>5}{cfp:>5}{cfn:>5}")
     log("  * = too few labels to read the numbers reliably")
+    write_category_lists(run_dir, per_cat, log)
 
     # ---------------- 3/4) SAFETY, RARITY ----------------
     for key, title in (("safety", "3) SAFETY CRITICALITY"),

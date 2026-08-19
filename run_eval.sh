@@ -35,6 +35,7 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --viz                  시각화 mp4 도 만든다 (기본 안 만듦)          [CLIP_VIZ=1]
   --viz-normal           Normal 클립을 시각화 -> viz/normal/score_N/    [VIZ_NORMAL=1]
   --viz-special          Special 클립을 시각화 -> viz/special/score_N/  [VIZ_SPECIAL=1]
+  --timeline             1단계를 시간순 서술로 (기본 off)            [TIMELINE=1]
   --memo "TEXT"          이 실행이 무엇을 시험하는지 한 줄 메모.
                          evaluation.log 머리에 [info] MEMO 로 찍힌다      [MEMO]
   --use-egomotion        egomotion 사실(자차 행동 요약)을 주입 (기본 off) [USE_EGOMOTION=1]
@@ -68,6 +69,7 @@ while [ $# -gt 0 ]; do
     --viz)               CLIP_VIZ=1 ;;
     --viz-normal)        VIZ_NORMAL=1 ;;
     --viz-special)       VIZ_SPECIAL=1 ;;
+    --timeline)          TIMELINE=1 ;;
     --memo=*)            MEMO="${1#*=}" ;;
     --memo)              shift; MEMO="${1:-}" ;;
     --use-egomotion)     USE_EGOMOTION=1 ;;
@@ -122,6 +124,7 @@ TOTAL_CLIPS="$(wc -l < "$UUID_FILE")"
 OPTS="--clip-mode --single-view --only-uuids $UUID_FILE"
 # 명시했을 때만 넘긴다 - 안 넘기면 config.py 기본값이 실제로 쓰인다
 [ -n "$SCENE_JSON" ] && OPTS="$OPTS --scene-json $SCENE_JSON"
+[ "${TIMELINE:-0}" = "1" ]      && OPTS="$OPTS --timeline"
 [ "${USE_EGOMOTION:-0}" = "1" ] && OPTS="$OPTS --use-egomotion"
 [ "${USE_3DBBOX:-0}" = "1" ]    && OPTS="$OPTS --use-3dbbox"
 [ "${VIDEO_INPUT:-1}" = "0" ]   && OPTS="$OPTS --clip-no-video-input"

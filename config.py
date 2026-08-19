@@ -26,11 +26,11 @@ ROOT = Path(__file__).resolve().parent
 
 # 카테고리 분류 체계. 모델 프롬프트의 카테고리 메뉴, 집계 대상 목록,
 # 채점 시 라벨 이름 검증이 모두 이 파일을 본다.
-SCENE_JSON = ROOT / "scene_category_D.json"
+SCENE_JSON = ROOT / "scene_category_E.json"
 
 # 사람이 만든 정답 라벨. 채점(evaluate_labels.py --labels)과 시각화
 # 패널의 GT 표기(--gt-labels)가 함께 쓴다.
-LABELS_JSON = ROOT / "test_label_D.json"
+LABELS_JSON = ROOT / "test_label_E.json"
 
 
 if __name__ == "__main__":

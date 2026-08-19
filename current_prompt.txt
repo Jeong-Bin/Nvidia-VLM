@@ -33,14 +33,24 @@ recorded separately in step 3, and never a reason to leave a type out. If you
 see no unusual element at all, return an empty list.
 
 Work through these steps in order:
-1. Scene Description: the road environment and the visible agents or objects.
+1. Scene Description: walk through the clip in time order. A 20-second clip
+   often passes through more than one distinct situation, so describe them
+   one at a time with the rough timestamp of each, rather than blending the
+   whole clip into a single summary - for example "0-6 s: crossing a railroad;
+   8-20 s: a pedestrian steps into the lane between parked cars". Cover the
+   road environment and the visible agents or objects in each. If a stretch
+   has nothing worth noting, say so instead of inventing something.
    Do not describe lighting or weather.
 2. Ego Behaviour Summary: the ego-vehicle's speed profile, lateral behaviour,
    and right-of-way behaviour. State explicitly whether its behaviour is
    unchanged/typical.
-3. Unusual Elements and Ego Influence: list every unusual element, and for each
-   one state whether it changed the ego-vehicle's behaviour. Also name the
-   matching scenario types from the list above, copying the names EXACTLY.
+3. Unusual Elements and Ego Influence: go back over every situation you listed
+   in step 1 and check each one against the scenario types. An element that
+   appears in only part of the clip counts exactly as much as one that lasts
+   throughout, so a type you named in step 1 must not disappear here. List
+   every unusual element, and for each one state whether it changed the
+   ego-vehicle's behaviour. Also name the matching scenario types from the
+   list above, copying the names EXACTLY.
    For steps 4 and 5, rate the SITUATION, never the object by itself. The same
    object is routine or serious depending on what it is doing and where it is:
      a pedestrian using a crosswalk with the signal  ->  low;   a pedestrian stepping into the lane from between parked cars  ->  high
@@ -71,7 +81,7 @@ Work through these steps in order:
      4 (Extreme) = This is a highly rare situation that would never be encountered on ordinary roads—such as objects a car has likely never seen before or highly unusual road conditions.
 
 Respond with ONLY a JSON object, no other text:
-{"observation": "<scene description, one or two sentences>",
+{"observation": "<the clip in time order, each situation with its rough timestamp>",
  "ego_behavior": "<how the ego-vehicle is behaving and whether it changed>",
  "unusual_elements": "<each unusual element and whether it influenced the ego>",
  "safety_tier": <integer 1-4>,

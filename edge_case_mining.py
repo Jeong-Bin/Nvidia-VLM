@@ -526,7 +526,8 @@ from one image to the next tells you how the scene and the ego-vehicle evolved."
 def build_nureasoning_prompt(category_menu: str, sensor_facts: str = "",
                              single_view: bool = False,
                              behavior_facts: str = "",
-                             intro: str | None = None) -> str:
+                             intro: str | None = None,
+                             timeline: bool = False) -> str:
     """nuReasoning 6단계 CoT + 1~10 점수를 요구하는 프롬프트.
 
     build_vlm_prompt() 과 인자 구성을 최대한 맞춰 호출부에서 갈아끼우기 쉽게
@@ -599,6 +600,40 @@ the CURRENT moment. Each group of three is synchronized camera views
         "\n   so treat it as evidence only when the video shows what caused it."
         if behavior_facts else "")
 
+    # 1단계를 시간순 서술로 할지(--timeline) 예전처럼 한 덩어리 요약으로 할지.
+    #
+    # 왜 분기가 필요한가: 20초 클립에 서로 다른 시점의 사건이 둘 이상 있을 때,
+    # 한 덩어리로 요약하면 뒤 사건이 탈락한다. 실측(20260818, 100클립): GT 가
+    # 2개인 클립 11건의 재현율이 64% 로 1개짜리(72%)보다 낮았고, 어떤 클립은
+    # 1단계에 "crosses a railroad crossing" 이라 써놓고 3단계에서 Railroad 를
+    # 빠뜨렸다. 다만 구간마다 뭔가 찾아야 한다는 압력이 없는 사건을 만들어낼
+    # 위험도 있어(Jaywalking 과탐이 이미 최대 오류원) 옛 방식을 남겨 A/B 한다.
+    if timeline:
+        step1 = """1. Scene Description: walk through the clip in time order. A 20-second clip
+   often passes through more than one distinct situation, so describe them
+   one at a time with the rough timestamp of each, rather than blending the
+   whole clip into a single summary - for example "0-6 s: crossing a railroad;
+   8-20 s: a pedestrian steps into the lane between parked cars". Cover the
+   road environment and the visible agents or objects in each. If a stretch
+   has nothing worth noting, say so instead of inventing something.
+   Do not describe lighting or weather."""
+        step3_head = """3. Unusual Elements and Ego Influence: go back over every situation you listed
+   in step 1 and check each one against the scenario types. An element that
+   appears in only part of the clip counts exactly as much as one that lasts
+   throughout, so a type you named in step 1 must not disappear here. List
+   every unusual element, and for each one state whether it changed the
+   ego-vehicle's behaviour. Also name the matching scenario types from the
+   list above, copying the names EXACTLY."""
+        observation_field = ("<the clip in time order, each situation with "
+                             "its rough timestamp>")
+    else:
+        step1 = """1. Scene Description: the road environment and the visible agents or objects.
+   Do not describe lighting or weather."""
+        step3_head = """3. Unusual Elements and Ego Influence: list every unusual element, and for each
+   one state whether it changed the ego-vehicle's behaviour. Also name the
+   matching scenario types from the list above, copying the names EXACTLY."""
+        observation_field = "<scene description, one or two sentences>"
+
     return f"""{intro}
 {fact_block}
 Your job is to decide whether this clip contains any edge-case element - a rare
@@ -614,14 +649,11 @@ recorded separately in step 3, and never a reason to leave a type out. If you
 see no unusual element at all, return an empty list.
 
 Work through these steps in order:
-1. Scene Description: the road environment and the visible agents or objects.
-   Do not describe lighting or weather.
+{step1}
 2. Ego Behaviour Summary: the ego-vehicle's speed profile, lateral behaviour,
    and right-of-way behaviour. State explicitly whether its behaviour is
    unchanged/typical.
-3. Unusual Elements and Ego Influence: list every unusual element, and for each
-   one state whether it changed the ego-vehicle's behaviour. Also name the
-   matching scenario types from the list above, copying the names EXACTLY.
+{step3_head}
    For steps 4 and 5, rate the SITUATION, never the object by itself. The same
    object is routine or serious depending on what it is doing and where it is:
 {contrasts}
@@ -640,7 +672,7 @@ Work through these steps in order:
 {rarity_rubric}
 
 Respond with ONLY a JSON object, no other text:
-{{"observation": "<scene description, one or two sentences>",
+{{"observation": "{observation_field}",
  "ego_behavior": "<how the ego-vehicle is behaving and whether it changed>",
  "unusual_elements": "<each unusual element and whether it influenced the ego>",
  "safety_tier": <integer {tier_min}-{tier_max}>,
@@ -983,6 +1015,7 @@ def save_run_config(args, run_dir, n_views=1):
             "n_views": n_views,
             "single_view": bool(args.single_view),
             "video_input": bool(args.clip_video_input),
+            "timeline": bool(args.timeline),
             "use_egomotion": bool(args.use_egomotion),
             "use_3dbbox": bool(args.use_obstacle),
             "constrain_tiers": bool(args.constrain_tiers),
@@ -1124,6 +1157,11 @@ if __name__ == "__main__":
                     help=f"정답 라벨 json (기본 {LABELS_JSON.name}, config.py "
                          "에서 정함). 시각화 패널에 GT 와 Pred 를 나란히 "
                          "그린다. 라벨에 없는 클립은 Pred 만 그린다.")
+    ap.add_argument("--timeline", action="store_true",
+                    help="1단계(Scene Description)를 시간순 서술로 바꾼다 "
+                         "(기본 off). 20초 안에 사건이 둘 이상일 때 뒤 사건이 "
+                         "요약에서 탈락하는 것을 막으려는 것. 3단계도 함께 "
+                         "바뀌어 1단계에서 나열한 상황을 다시 훑게 한다.")
     ap.add_argument("--memo", default="",
                     help="이 실행이 무엇을 시험하는지 한 줄 메모. "
                          "run_config.json 에 저장되고 evaluation.log 머리에 "
@@ -1261,6 +1299,7 @@ if __name__ == "__main__":
                            viz_only_edge=not args.clip_viz_all,
                            not_save_low=args.not_save_low,
                            gt_labels=_load_gt_labels(args.gt_labels),
+                           timeline=args.timeline,
                            viz_normal=(args.viz_normal
                                        if (args.viz_normal or args.viz_special)
                                        else None),
