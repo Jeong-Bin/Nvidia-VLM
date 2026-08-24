@@ -234,10 +234,18 @@ def log_run_config(run_dir, log):
         f"long side {key.get('clip_long_side','?')}px  "
         f"views {key.get('n_views','?')}"
         + ("  (video)" if key.get("video_input") else "  (image list)"))
-    log(f"[info] facts   : egomotion={_onoff(key.get('use_egomotion'))}  "
+    # 대조군 C/D 는 use_egomotion 이 꺼진 채로 돌므로, 그대로 찍으면
+    # A(아무것도 없음)와 구분이 안 된다.
+    _ego = (f"ablation-{key['ego_ablation'].upper()}"
+            if key.get("ego_ablation") else _onoff(key.get("use_egomotion")))
+    log(f"[info] facts   : egomotion={_ego}  "
         f"3dbbox={_onoff(key.get('use_3dbbox'))}  "
         f"tier-constraint={_onoff(key.get('constrain_tiers'))}  "
-        f"timeline={_onoff(key.get('timeline'))}")
+        f"timeline={_onoff(key.get('timeline'))}  "
+        f"ego-track={_onoff(key.get('ego_track'))}  "
+        f"traj={key.get('traj') or 'off'}  "
+        f"header={key.get('header_style') or 'v1'}  "
+        f"score-tiers={_onoff(key.get('score_tiers', True))}")
     return cfg
 
 

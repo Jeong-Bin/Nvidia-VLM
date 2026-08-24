@@ -35,6 +35,8 @@ import numpy as np
 from PIL import Image
 
 from config import SCENE_JSON as CONFIG_SCENE_JSON, LABELS_JSON
+from trajectory import (TRAJ_HORIZON_S as _TRAJ_HORIZON_S,
+                        TRAJ_ALPHA as _TRAJ_ALPHA)
 from constrained_tier import (TIER_LABELS, TIER_VALUES, tier_label,
                               tier_menu, tier_score,
                               safety_rubric_text, rarity_rubric_text,
@@ -302,7 +304,8 @@ def sample_clip_indices(uuid: str, fps: float = CLIP_FPS,
 def sample_clip_frames(uuid: str, fps: float = CLIP_FPS,
                        max_frames: int = CLIP_MAX_FRAMES,
                        max_long_side: int = CLIP_MAX_LONG_SIDE,
-                       views: list[str] | None = None):
+                       views: list[str] | None = None,
+                       traj: str | None = None):
     """클립 하나를 1fps 로 훑어 시간순 프레임 목록을 만든다.
 
     반환: {"frames": [(frame_idx, view, PIL.Image), ...] 시간순,
@@ -319,6 +322,17 @@ def sample_clip_frames(uuid: str, fps: float = CLIP_FPS,
     for view in views:
         per_view[view] = _read_frames_at(str(clip_path(view, uuid)), idxs,
                                          max_long_side=max_long_side)
+    # 자차 미래 궤적을 프레임 위에 그린다. 텍스트로 주던 시공간 정보를
+    # 픽셀로 옮기는 것 - 리사이즈 후에 그려야 선 두께가 입력 해상도에
+    # 맞고, draw_trajectory 가 캘리브 해상도와의 배율을 알아서 맞춘다.
+    if traj:
+        from trajectory import draw_trajectory
+        for view, imgs in per_view.items():
+            for i, im in list(imgs.items()):
+                bgr = cv2.cvtColor(np.asarray(im), cv2.COLOR_RGB2BGR)
+                if draw_trajectory(bgr, uuid, i, cam=view, mode=traj):
+                    imgs[i] = Image.fromarray(
+                        cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
     frames = []
     for i in idxs:
         for view in views:
@@ -527,8 +541,26 @@ def build_nureasoning_prompt(category_menu: str, sensor_facts: str = "",
                              single_view: bool = False,
                              behavior_facts: str = "",
                              intro: str | None = None,
-                             timeline: bool = False) -> str:
+                             timeline: bool = False,
+                             force_behavior_hint: bool = False,
+                             header_style: str = "v1",
+                             score_tiers: bool = True) -> str:
     """nuReasoning 6단계 CoT + 1~10 점수를 요구하는 프롬프트.
+
+    --traj 로 궤적을 그려도 프롬프트에는 그 사실을 알리지 않는다. 알려주는
+    편이 나을 것 같지만 실측은 반대였다(115클립, 설정/라벨 동일, 프롬프트만
+    다름):
+
+      설명 없음  Verdict F1 90.5  micro 0.777  safety MAE 0.296
+      설명 있음  Verdict F1 83.0  micro 0.685  safety MAE 0.339
+
+    6개 축이 모두 나빠졌다. 원인은 "궤적으로 어떤 도로 사용자와 실제로
+    상호작용하는지 보라" 는 문구가 필터로 읽힌 것이다 - 경로 밖의 보행자를
+    특이 요소에서 통째로 빼버려, 놓친 클립 6건 모두 unusual_elements 가
+    비었다. 이 프롬프트는 이미 "지나쳤더라도 카테고리에 넣으라" 고 지시하고
+    있어 정면으로 충돌한다. 짧게 줄여도 설명 없는 쪽이 계속 나았다.
+
+    설명을 빼도 모델이 초록 선을 객체로 오신고하는 일은 없었다(실측 0건).
 
     build_vlm_prompt() 과 인자 구성을 최대한 맞춰 호출부에서 갈아끼우기 쉽게
     했다. 다른 점은 behavior_facts 하나 - egomotion 에서 뽑은 "지난 5초간
@@ -549,7 +581,31 @@ ground truth, trust these over your own guess from the images):
 {ego_facts}
 """
     if behavior_facts:
-        fact_block += f"""
+        # 헤더 문구가 이 프롬프트에서 가장 큰 단일 기여자다.
+        #
+        # 실측(115클립, 20260824) 4-way 분해:
+        #   A 아무것도 없음        79.1%
+        #   D hint 만              82.6%   (+3.5%p)
+        #   C 헤더+placebo+hint    87.0%   (+4.4%p 추가)
+        #   B 헤더+센서수치+hint   87.0%   (+0.0%p) <- 수치는 기여하지 않는다
+        # 즉 이득의 56%가 이 헤더에서 나오는데, 정작 그것이 소개하는 센서
+        # 수치는 0%p 다. 헤더가 사실 공급이 아니라 "2단계와 3단계에서 자차
+        # 영향을 따로 판단하라" 는 절차 지시로 작동했다는 뜻이다.
+        #
+        # 그래서 v2 는 없는 사실을 소개하는 대신 그 절차만 직접 말한다.
+        # v1 을 남겨두는 이유: 위 수치는 실행 간 변동폭(±5%p) 과 같은
+        # 크기라 v2 가 더 낫다는 보장이 없다. 되돌릴 수 있어야 한다.
+        if header_style == "v2":
+            fact_block += f"""
+EGO-VEHICLE BEHAVIOUR - judge this separately from the scene. In step 2 state
+what the ego-vehicle did (speed profile, lateral behaviour, right-of-way), and
+in step 3 decide for EACH unusual element whether that element is what made the
+ego-vehicle behave that way. An element can be unusual without influencing the
+ego, and the ego can slow or stop for reasons that are not in this list at all.
+{behavior_facts}
+"""
+        else:
+            fact_block += f"""
 HOW THE EGO-VEHICLE'S BEHAVIOUR CHANGED (measured from vehicle sensors, not a
 guess - use this for step 2 and for judging ego influence in step 3):
 {behavior_facts}
@@ -582,6 +638,7 @@ the CURRENT moment. Each group of three is synchronized camera views
     safety_rubric = safety_rubric_text()
     rarity_rubric = rarity_rubric_text()
     contrasts = contrast_text()
+
     # egomotion 을 켠 실행에서는 감속/조향이 100Hz 라벨로 이미 계산돼 있다.
     # 예전에는 이 값을 "급제동은 3등급을 뒷받침한다" 는 식으로 3등급의
     # 객관적 근거라고 지정했는데, 실측에서 그게 틀렸다.
@@ -594,12 +651,49 @@ the CURRENT moment. Each group of three is synchronized camera views
     #
     # 그래서 감속을 근거로 "지정" 하지 않고, 원인을 영상에서 확인하라고만
     # 한다. 실제로 위험이 보이는 클립은 여전히 높게 나와야 한다.
-    behavior_hint = (
-        "\n   The measured ego behaviour above says what the vehicle did, not"
-        "\n   why. Slowing or stopping is routine (signals, junctions, queues),"
-        "\n   so treat it as evidence only when the video shows what caused it."
-        if behavior_facts else "")
+    #
+    # --use-egomotion-d 는 이 지시문만 남기고 센서 문장(②)과 헤더(①)를 뺀다.
+    # 그때는 위 문장의 "above" 가 가리킬 대상이 없으므로, 참조를 지운 판을
+    # 쓴다. 내용은 같고 문장이 홀로 성립하도록만 고쳤다.
+    if force_behavior_hint and not behavior_facts:
+        behavior_hint = (
+            "\n   Slowing or stopping is routine (signals, junctions, queues),"
+            "\n   so treat the ego-vehicle's own braking or stopping as evidence"
+            "\n   only when the video shows what caused it.")
+    else:
+        behavior_hint = (
+            "\n   The measured ego behaviour above says what the vehicle did, not"
+            "\n   why. Slowing or stopping is routine (signals, junctions, queues),"
+            "\n   so treat it as evidence only when the video shows what caused it."
+            if behavior_facts else "")
 
+    # --no-score-tiers: 4/5 단계(Safety/Rarity)를 프롬프트와 출력 스키마에서
+    # 통째로 뺀다. edge-case 마이닝의 본체는 1~3단계(있는 요소를 빠짐없이
+    # 찾아 이름 붙이는 것)이고, 등급은 그 위에 얹은 부가 점수다. 등급을
+    # 요구하면 모델이 "몇 점을 줄까" 에 예산을 더 쓰게 되므로, 탐지 자체의
+    # 재현율/정밀도가 등급 유무로 갈리는지 보려는 A/B 용이다.
+    steps45 = f"""   For steps 4 and 5, rate the SITUATION, never the object by itself. The same
+   object is routine or serious depending on what it is doing and where it is:
+{contrasts}
+   So "there is an animal" or "there is a pedestrian" tells you nothing on its
+   own - look at what it is doing relative to the ego-vehicle's path.
+4. Safety Criticality: how close this came to needing emergency action.
+   A higher number means more dangerous. Pick the integer whose description
+   fits best:
+{safety_rubric}
+   Judge by what the ego-vehicle actually had to DO, not by how much attention
+   the scene deserves - almost every scene deserves attention, so "requires
+   vigilance" is never a reason to pick 2 or 3.{behavior_hint}
+5. Rarity: how unusual this situation is, judged the same way.
+   A higher number means more unusual. Pick the integer whose description
+   fits best:
+{rarity_rubric}
+""" if score_tiers else ""
+    tier_fields = f''' "safety_tier": <integer {tier_min}-{tier_max}>,
+ "safety_reason": "<why that safety rating>",
+ "rarity_tier": <integer {tier_min}-{tier_max}>,
+ "rarity_reason": "<why that rarity rating>",
+''' if score_tiers else ""
     # 1단계를 시간순 서술로 할지(--timeline) 예전처럼 한 덩어리 요약으로 할지.
     #
     # 왜 분기가 필요한가: 20초 클립에 서로 다른 시점의 사건이 둘 이상 있을 때,
@@ -654,32 +748,12 @@ Work through these steps in order:
    and right-of-way behaviour. State explicitly whether its behaviour is
    unchanged/typical.
 {step3_head}
-   For steps 4 and 5, rate the SITUATION, never the object by itself. The same
-   object is routine or serious depending on what it is doing and where it is:
-{contrasts}
-   So "there is an animal" or "there is a pedestrian" tells you nothing on its
-   own - look at what it is doing relative to the ego-vehicle's path.
-4. Safety Criticality: how close this came to needing emergency action.
-   A higher number means more dangerous. Pick the integer whose description
-   fits best:
-{safety_rubric}
-   Judge by what the ego-vehicle actually had to DO, not by how much attention
-   the scene deserves - almost every scene deserves attention, so "requires
-   vigilance" is never a reason to pick 2 or 3.{behavior_hint}
-5. Rarity: how unusual this situation is, judged the same way.
-   A higher number means more unusual. Pick the integer whose description
-   fits best:
-{rarity_rubric}
-
+{steps45}
 Respond with ONLY a JSON object, no other text:
 {{"observation": "{observation_field}",
  "ego_behavior": "<how the ego-vehicle is behaving and whether it changed>",
  "unusual_elements": "<each unusual element and whether it influenced the ego>",
- "safety_tier": <integer {tier_min}-{tier_max}>,
- "safety_reason": "<why that safety rating>",
- "rarity_tier": <integer {tier_min}-{tier_max}>,
- "rarity_reason": "<why that rarity rating>",
- "scenario_types": ["<exact scenario type name>", ...]}}"""
+{tier_fields} "scenario_types": ["<exact scenario type name>", ...]}}"""
 
 
 def _flatten_field(v) -> str:
@@ -1016,7 +1090,18 @@ def save_run_config(args, run_dir, n_views=1):
             "single_view": bool(args.single_view),
             "video_input": bool(args.clip_video_input),
             "timeline": bool(args.timeline),
+            "ego_track": bool(args.ego_track),
+            "traj": args.traj,
+            # 궤적 스타일은 trajectory.py 상수가 단일 진실 공급원이다.
+            # 그 값을 여기 박아두어야 나중에 상수를 바꿔도 과거 실행이
+            # 어떤 설정이었는지 되짚을 수 있다.
+            **({"traj_horizon": _TRAJ_HORIZON_S,
+                "traj_alpha": _TRAJ_ALPHA} if args.traj else {}),
             "use_egomotion": bool(args.use_egomotion),
+            "ego_ablation": args.ego_ablation,
+            "header_style": args.header_style,
+            "margin": bool(args.margin),
+            "score_tiers": bool(args.score_tiers),
             "use_3dbbox": bool(args.use_obstacle),
             "constrain_tiers": bool(args.constrain_tiers),
             "num_shards": args.num_shards,
@@ -1089,6 +1174,31 @@ if __name__ == "__main__":
                     help="이 프로세스가 처리할 shard 인덱스 (0-based)")
     ap.add_argument("--use-egomotion", action="store_true",
                     help="egomotion 라벨(속도/가속도/곡률)을 사실로 프롬프트에 넣는다 (기본 off).")
+    # --use-egomotion 이 켜면 프롬프트에 ① 헤더 ② 센서 수치 ③ Safety 루브릭
+    # 끝의 hint 가 한꺼번에 들어간다. 아래 두 플래그는 그 셋을 갈라 어느
+    # 것이 이득을 냈는지 재기 위한 대조군이다. 둘 다 --use-egomotion 은 꺼진
+    # 상태로 동작한다 (켜면 ②가 되살아나 대조가 깨진다).
+    ap.add_argument("--use-egomotion-c", dest="ego_c", action="store_true",
+                    help="[대조군 C] ①헤더와 ③hint 는 그대로 두고 ②센서 수치만 "
+                         "내용 없는 문장으로 바꾼다. B(--use-egomotion)에 "
+                         "근접하면 수치가 아니라 프롬프트 구조가 일한 것이다. "
+                         "--use-egomotion 과 함께 쓸 수 없다.")
+    ap.add_argument("--margin", action="store_true",
+                    help="생성 토큰마다 1위-2위 확률차를 재서 CSV 에 남긴다 "
+                         "(margin_min/margin_mean/n_close_tokens). 이 값이 "
+                         "작은 클립은 의미 없는 프롬프트 섭동(예: 마침표 하나)"
+                         "에도 예측이 뒤집힌다 - 실측 10/115 클립이 그랬다. "
+                         "A/B 비교 전에 그 차이를 믿어도 되는지 판단할 때 쓴다.")
+    ap.add_argument("--header-style", choices=["v1", "v2"], default="v1",
+                    help="자차 행동 블록의 헤더 문구. v1=기존('measured from "
+                         "vehicle sensors'), v2=센서 언급 없이 2/3단계 절차만 "
+                         "지시. 헤더가 이득의 56%%를 내는데 그것이 소개하는 "
+                         "센서 수치는 0%%p 라, v2 는 그 절차를 직접 말한다. "
+                         "--use-egomotion 또는 -c 와 함께 쓴다 (기본 v1).")
+    ap.add_argument("--use-egomotion-d", dest="ego_d", action="store_true",
+                    help="[대조군 D] ①②를 모두 빼고 ③hint 만 넣는다 (참조어 "
+                         "'above' 를 지운 판). A(아무것도 없음)보다 오르면 "
+                         "지시문 단독 효과다. --use-egomotion 과 함께 쓸 수 없다.")
     ap.add_argument("--use-3dbbox", dest="use_obstacle", action="store_true",
                     help="obstacle.offline 3D bbox 라벨(위치/크기/방향)의 주변 "
                          "객체 요약을 프롬프트에 넣는다 (기본 off). 2D 이미지 "
@@ -1157,6 +1267,15 @@ if __name__ == "__main__":
                     help=f"정답 라벨 json (기본 {LABELS_JSON.name}, config.py "
                          "에서 정함). 시각화 패널에 GT 와 Pred 를 나란히 "
                          "그린다. 라벨에 없는 클립은 Pred 만 그린다.")
+    ap.add_argument("--traj", choices=["center", "width"], default=None,
+                    help="자차 미래 궤적을 입력 프레임에 그린다 (기본 off). "
+                         "center=차량 중심 1줄, width=차폭 2줄. "
+                         "calibration/ 의 intrinsic/extrinsic 이 필요하다.")
+    ap.add_argument("--ego-track", action="store_true",
+                    help="egomotion 을 요약 문장만이 아니라 1초 간격 시계열로도 "
+                         "넘긴다 (--use-egomotion 필요, 기본 off). 요약 한 문장은 "
+                         "S자 조향이나 감속-가속 반복을 담지 못한다 - 실측 300클립 "
+                         "중 74%%가 속도 방향이 바뀌고 10%%는 좌우 회전이 모두 있다.")
     ap.add_argument("--timeline", action="store_true",
                     help="1단계(Scene Description)를 시간순 서술로 바꾼다 "
                          "(기본 off). 20초 안에 사건이 둘 이상일 때 뒤 사건이 "
@@ -1181,6 +1300,13 @@ if __name__ == "__main__":
                          "모델 스스로 '영향도 낮고 흔함'으로 판단한 경우다. "
                          "CSV/scenario_types 에는 영향 없음 - 시각화 대상만 "
                          "줄인다. --not-save-low=0 으로 끌 수 있다.")
+    ap.add_argument("--no-score-tiers", dest="score_tiers",
+                    action="store_false",
+                    help="4/5단계(Safety Criticality, Rarity)를 프롬프트와 "
+                         "출력 스키마에서 통째로 끈다 - 등급 산정 없이 1~3단계"
+                         "(요소 탐지)만 남는다. safety_tier/rarity_tier/"
+                         "tier_score 는 CSV 에서 빈 값이 되고, --not-save-low "
+                         "필터는 저절로 무력화된다(등급을 모르니 거를 수 없다).")
     ap.add_argument("--no-constrain-tiers", dest="constrain_tiers",
                     action="store_false",
                     help="등급(safety/rarity) 필드를 디코딩 단계에서 1/2/3 으로 "
@@ -1193,6 +1319,25 @@ if __name__ == "__main__":
                          "프레임을 병합하고 타임스탬프를 붙여줘서 토큰이 약 "
                          "절반이 된다(실측 4,449 -> 2,296).")
     args = ap.parse_args()
+
+    # 세 모드는 상호 배타다. 함께 켜면 ②가 되살아나거나 hint 가 두 번
+    # 정의되어 무엇을 재는 실행인지 알 수 없게 된다 - 몇 시간 돌린 뒤
+    # 결과를 못 쓰느니 여기서 멈춘다.
+    _ego_modes = [n for n, on in (("--use-egomotion", args.use_egomotion),
+                                  ("--use-egomotion-c", args.ego_c),
+                                  ("--use-egomotion-d", args.ego_d)) if on]
+    if len(_ego_modes) > 1:
+        ap.error("동시에 쓸 수 없습니다: " + ", ".join(_ego_modes)
+                 + " (대조군 C/D 는 --use-egomotion 이 꺼진 상태로 동작합니다)")
+    args.ego_ablation = "c" if args.ego_c else ("d" if args.ego_d else None)
+
+    # v2 는 헤더 문구를 바꾸는 옵션인데, 헤더 자체가 없는 조합에서는 아무
+    # 일도 하지 않는다. 조용히 무시하면 v1 과 똑같은 결과가 나오고 그걸
+    # "v2 는 효과 없음" 으로 읽게 된다 - 실행 전에 막는다.
+    if args.header_style == "v2" and not (args.use_egomotion or args.ego_c):
+        ap.error("--header-style v2 는 자차 행동 블록이 있어야 의미가 있습니다. "
+                 "--use-egomotion 또는 --use-egomotion-c 와 함께 쓰세요 "
+                 "(D 모드와 아무 플래그 없는 실행에는 헤더가 없습니다).")
 
     SCENE_JSON = Path(args.scene_json)
     if not SCENE_JSON.exists():
@@ -1232,7 +1377,10 @@ if __name__ == "__main__":
              if args.prompt_style == "nureasoning" else ""))
     print(f"[info] category menu: {args.num_examples} example(s) per category "
           f"from {args.example_source}")
-    print(f"[info] sensor facts: egomotion={'ON' if args.use_egomotion else 'OFF'}, "
+    _ego_state = ("ON" if args.use_egomotion
+                  else f"ABLATION-{args.ego_ablation.upper()}"
+                  if args.ego_ablation else "OFF")
+    print(f"[info] sensor facts: egomotion={_ego_state}, "
           f"obstacle={'ON' if args.use_obstacle else 'OFF'}")
     print(f"[info] Q3 blocking question: {'ON' if args.ask_blocking else 'OFF'}"
           + ("" if args.ask_blocking else " (viz not split by blocking)"))
@@ -1290,6 +1438,10 @@ if __name__ == "__main__":
         run_clip_inference(uuids, labels, category_menu,
                            model_id=args.model, out_csv=args.out,
                            use_egomotion=args.use_egomotion,
+                           ego_ablation=args.ego_ablation,
+                           header_style=args.header_style,
+                           want_margin=args.margin,
+                           score_tiers=args.score_tiers,
                            use_obstacle=args.use_obstacle,
                            single_view=args.single_view,
                            fps=args.clip_fps,
@@ -1300,6 +1452,8 @@ if __name__ == "__main__":
                            not_save_low=args.not_save_low,
                            gt_labels=_load_gt_labels(args.gt_labels),
                            timeline=args.timeline,
+                           ego_track=args.ego_track,
+                           traj=args.traj,
                            viz_normal=(args.viz_normal
                                        if (args.viz_normal or args.viz_special)
                                        else None),

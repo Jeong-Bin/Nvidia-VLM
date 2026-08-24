@@ -36,9 +36,15 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --viz-normal           Normal 클립을 시각화 -> viz/normal/score_N/    [VIZ_NORMAL=1]
   --viz-special          Special 클립을 시각화 -> viz/special/score_N/  [VIZ_SPECIAL=1]
   --timeline             1단계를 시간순 서술로 (기본 off)            [TIMELINE=1]
+  --ego-track            egomotion 을 1초 간격 시계열로도 제공        [EGO_TRACK=1]
+  --traj center|width    자차 미래 궤적을 프레임에 그린다 (기본 off)   [TRAJ]
   --memo "TEXT"          이 실행이 무엇을 시험하는지 한 줄 메모.
                          evaluation.log 머리에 [info] MEMO 로 찍힌다      [MEMO]
   --use-egomotion        egomotion 사실(자차 행동 요약)을 주입 (기본 off) [USE_EGOMOTION=1]
+  --use-egomotion-c      [대조군C] 헤더/hint 유지, 센서 수치만 제거         [EGO_ABLATION=c]
+  --use-egomotion-d      [대조군D] hint 만 남기고 헤더/수치 제거            [EGO_ABLATION=d]
+  --header-style v1|v2   자차 행동 블록 헤더 문구 (기본 v1)              [HEADER_STYLE]
+  --no-score-tiers        Safety/Rarity(4/5단계)를 프롬프트에서 통째로 끈다 [SCORE_TIERS=0]
   --use-3dbbox           obstacle.offline 3D bbox 라벨을 프롬프트에 주입
                          (기본 off, Animal/Jaywalking/cyclist 과탐 경향 실측됨)  [USE_3DBBOX=1]
   --no-video-input       프레임을 비디오가 아니라 낱장으로 넘긴다     [VIDEO_INPUT=0]
@@ -70,9 +76,17 @@ while [ $# -gt 0 ]; do
     --viz-normal)        VIZ_NORMAL=1 ;;
     --viz-special)       VIZ_SPECIAL=1 ;;
     --timeline)          TIMELINE=1 ;;
+    --ego-track)         EGO_TRACK=1 ;;
+    --traj=*)            TRAJ="${1#*=}" ;;
+    --traj)              shift; TRAJ="${1:-center}" ;;
     --memo=*)            MEMO="${1#*=}" ;;
     --memo)              shift; MEMO="${1:-}" ;;
     --use-egomotion)     USE_EGOMOTION=1 ;;
+    --use-egomotion-c)   EGO_ABLATION=c ;;
+    --use-egomotion-d)   EGO_ABLATION=d ;;
+    --header-style=*)    HEADER_STYLE="${1#*=}" ;;
+    --header-style)      shift; HEADER_STYLE="${1:-v1}" ;;
+    --no-score-tiers)    SCORE_TIERS=0 ;;
     --no-egomotion)      USE_EGOMOTION=0 ;;   # 옛 이름 - 이제 기본이 off 라 무의미하지만 받아준다
     --use-3dbbox)        USE_3DBBOX=1 ;;
     --no-video-input)    VIDEO_INPUT=0 ;;
@@ -125,7 +139,12 @@ OPTS="--clip-mode --single-view --only-uuids $UUID_FILE"
 # 명시했을 때만 넘긴다 - 안 넘기면 config.py 기본값이 실제로 쓰인다
 [ -n "$SCENE_JSON" ] && OPTS="$OPTS --scene-json $SCENE_JSON"
 [ "${TIMELINE:-0}" = "1" ]      && OPTS="$OPTS --timeline"
+[ "${EGO_TRACK:-0}" = "1" ]     && OPTS="$OPTS --ego-track"
+[ -n "${TRAJ:-}" ]              && OPTS="$OPTS --traj $TRAJ"
 [ "${USE_EGOMOTION:-0}" = "1" ] && OPTS="$OPTS --use-egomotion"
+[ -n "${EGO_ABLATION:-}" ]      && OPTS="$OPTS --use-egomotion-${EGO_ABLATION}"
+[ -n "${HEADER_STYLE:-}" ]      && OPTS="$OPTS --header-style $HEADER_STYLE"
+[ "${SCORE_TIERS:-1}" = "0" ]   && OPTS="$OPTS --no-score-tiers"
 [ "${USE_3DBBOX:-0}" = "1" ]    && OPTS="$OPTS --use-3dbbox"
 [ "${VIDEO_INPUT:-1}" = "0" ]   && OPTS="$OPTS --clip-no-video-input"
 [ "${CLIP_VIZ:-0}" = "1" ]      && OPTS="$OPTS --clip-viz"
@@ -169,7 +188,18 @@ fi
     done_n=0
     for g in $(seq 0 $((NSHARDS-1))); do
       f="${RUN_DIR}/clip_results_shard_${g}.csv"
-      [ -f "$f" ] && done_n=$((done_n + $(($(wc -l < "$f") - 1))))
+      # wc -l 로 세면 안 된다. 모델 출력이나 센서 시계열(--ego-track)에
+      # 줄바꿈이 들어가면 한 클립이 CSV 여러 줄을 차지해(실측 115클립 ->
+      # 460줄) 진행률이 총 개수를 넘어간다. CSV 규격대로 따옴표를 이해하는
+      # 파서로 레코드 수를 센다.
+      [ -f "$f" ] && done_n=$((done_n + $(python3 -c "
+import csv,sys
+try:
+    with open(sys.argv[1], newline='', encoding='utf-8') as fh:
+        print(max(sum(1 for _ in csv.reader(fh)) - 1, 0))
+except Exception:
+    print(0)
+" "$f")))
     done
     [ "$done_n" -lt 0 ] && done_n=0
     printf "\r[progress] %d/%d clips  (%d shard(s) running)   " \

@@ -242,13 +242,19 @@ def build_text_panel(result: dict, width: int, scale: float = 1.0) -> np.ndarray
 def render_clip_video(src_mp4, result: dict, out_path,
                       max_width: int | None = None,
                       fourcc: str = FOURCC,
-                      max_frames: int | None = None) -> Path | None:
+                      max_frames: int | None = None,
+                      traj: str | None = None, traj_uuid: str | None = None,
+                      traj_view: str = "camera_front_wide_120fov",
+                      ) -> Path | None:
     """원본 mp4 위에 추론 텍스트 패널을 붙여 새 mp4 로 저장.
 
     src_mp4    : 원본 클립 경로 (1fps 로 뽑은 추론 입력이 아니라 원본 그대로)
     result     : parse_nureasoning_output 결과 (+ "_headline" 을 넣어두면 제목에 쓴다)
     max_width  : 지정하면 그 폭으로 줄인다. None 이면 원본 해상도 유지.
     max_frames : 디버그용 - 앞에서 N 프레임만 쓴다.
+    traj       : "center"|"width" 를 주면 원본 프레임마다 자차 미래 궤적을
+                 그린다. 추론 입력(2fps 40장)과 달리 여기는 원본 605프레임을
+                 모두 쓰므로, 프레임 번호를 그대로 궤적 계산에 넘긴다.
 
     반환: 저장 경로. 원본을 못 열면 None.
     """
@@ -291,6 +297,13 @@ def render_clip_video(src_mp4, result: dict, out_path,
         """원본에서 프레임을 읽어 패널 위에 얹은 canvas(BGR)를 흘려준다."""
         n = 0
         limit = max_frames or n_total or 10 ** 9
+        draw = None
+        if traj and traj_uuid:
+            try:
+                from trajectory import draw_trajectory
+                draw = draw_trajectory
+            except ImportError:
+                draw = None
         while n < limit:
             ok, frame = cap.read()
             if not ok:
@@ -298,6 +311,10 @@ def render_clip_video(src_mp4, result: dict, out_path,
             if (frame.shape[1], frame.shape[0]) != (out_w, out_h):
                 frame = cv2.resize(frame, (out_w, out_h),
                                    interpolation=cv2.INTER_AREA)
+            if draw is not None:
+                # 리사이즈 후에 그린다 - 선 두께가 출력 해상도에 맞고,
+                # draw_trajectory 가 캘리브 해상도와의 배율을 알아서 맞춘다.
+                draw(frame, traj_uuid, n, cam=traj_view, mode=traj)
             canvas[:out_h] = frame
             yield canvas
             n += 1
@@ -384,7 +401,10 @@ def render_clip_result(uuid: str, src_mp4, result: dict, out_dir,
                        max_width: int | None = VIZ_WIDTH,
                        extra: dict | None = None,
                        max_frames: int | None = None,
-                       gt: dict | None = None):
+                       gt: dict | None = None,
+                       traj: str | None = None,
+                       traj_view: str = "camera_front_wide_120fov",
+                       ):
     """클립 하나의 영상 + json 을 같은 폴더에 저장하고 (video, json) 을 반환.
 
     gt 를 주면(정답 라벨이 있는 클립) 패널에 GT 와 Pred 를 나란히 그린다.
@@ -396,6 +416,8 @@ def render_clip_result(uuid: str, src_mp4, result: dict, out_dir,
         r["_gt"] = gt
     r["_headline"] = uuid
     video = render_clip_video(src_mp4, r, out_dir / "clip.mp4",
-                              max_width=max_width, max_frames=max_frames)
+                              max_width=max_width, max_frames=max_frames,
+                              traj=traj, traj_uuid=uuid, traj_view=traj_view,
+                              )
     js = save_clip_json(r, out_dir / "result.json", extra=extra)
     return video, js

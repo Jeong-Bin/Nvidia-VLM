@@ -727,7 +727,7 @@
         "influenced_ego": true,
         "safety_criticality": 3,
         "rarity": 3,
-        "note": ", 조도 강함"
+        "note": "조도 강함"
     },
     "fe11db95-3e03-4eb3-a816-e7d3f269cf7d": {
         "categories": ["Pedestrian on Road", "Cyclist on Road", "Road Construction"],
@@ -790,7 +790,7 @@
         "influenced_ego": true,
         "safety_criticality": 2,
         "rarity": 2,
-        "note": "night, 강한 헤드라이트"
+        "note": "night, 강한 헤드라이트, 반대편 차량들이 중앙선 넘어옴"
     },
     "ea9a632a-1a1b-4491-a2d8-f07a22e4cd5c":{
         "categories": ["Pedestrian on Road", "Road Construction"],

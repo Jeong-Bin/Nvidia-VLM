@@ -1,28 +1,4 @@
-tram, railroad 카테고리에 추가?
-Narrow road는 제거?
-tunnel은?
-Cyclist는 그냥 보행자로 여겨?
-f8b70942-59d7-45df-873c-0d13a6d0b3af 바닥 마커
 0a37154c-6b70-4082-b4ad-915d1389eebf 점수 조정?
 
 나중에 args.use_obstacle도 전부 args.use_3dbbox 로 변경
 
-test_label_D
-- Tram, Railroad 추가
-- Cyclist, Toll Gate, Tunnel, Narrow Road, Traffic Control Anomaly, Too Close Person 제거
-- Normal : Special = 50:50
-
-08/18 할 일 : scene_category_D, test_label_D + egomotion으로 추론 돌리기
-
-{
-"name": "Too Close Person",
-"synonyms": [
-            "A person is close enough to the ego vehicle to pose a risk of collision, so a slight evasive maneuver is necessary",
-            "A pedestrian or cyclist passes too close to the ego vehicle"
-            ],
-"prompt_templates_candidates": [
-                "a person is close enough to collide with the ego vehicle",
-                "a person standing too close to the lane of the moving ego vehicle.",
-                "a cyclist who is too close to the ego vehicle"
-                    ]
-},

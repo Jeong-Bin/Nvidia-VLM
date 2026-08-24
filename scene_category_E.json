@@ -173,12 +173,15 @@
                               "a car making a U-turn in traffic",
                               "a vehicle driving against the traffic direction",
                               "a vehicle reversing on the road",
-                              "a car running a red light"
+                              "a car running a red light",
+                              "A vehicle ahead has overturned due to an accident",
+                              "The vehicle ahead is swerving from side to side",
+                              "An oncoming vehicle crossed the center line"
                               ]
           },
           {
             "name": "Stationary Vehicle Obstruction",
-            "synonyms": [
+            "synonyms": [   
                       "A stopped car blocking the lane",
                       "A parked truck narrowing the lane"
                       ],
@@ -191,10 +194,12 @@
                               "Illegally parked cars narrowing the drivable space",
                               "The ego-vehicle steers around a car stopped in its lane",
                               "The vehicle changes lanes to pass a double-parked truck",
+                              
                               "a delivery truck unloading in the lane",
                               "a stalled vehicle in the roadway",
                               "a bus stopped in the lane",
-                              "a car with its door opening into traffic"
+                              "a car with its door opening into traffic",
+                              "on the side of the road"
                               ]
           },
           {

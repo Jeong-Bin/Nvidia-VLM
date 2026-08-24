@@ -433,6 +433,71 @@ def ego_clip_behavior(uuid: str) -> dict | None:
     }
 
 
+def ego_clip_track(uuid: str, frame_indices=None, n_points: int = 20) -> dict | None:
+    """클립 구간의 속도/조향을 n_points 개로 균등 샘플링한 시계열.
+
+    describe_clip_behavior() 의 한 문장이 못 담는 것을 담는다. 실측(300클립):
+    속도가 감속->가속(또는 반대)으로 꺾이는 클립이 74%, 회전 구간이 둘 이상인
+    클립이 42%, 좌회전과 우회전이 모두 있는 클립이 10% 다. 마지막 경우 순변화만
+    적으면 S 자 조향이 단순 회전으로 둔갑한다 - 실제로 어떤 클립은 "오른쪽으로
+    57도" 라고 요약되지만 앞 7초는 왼쪽으로 돌고 있었다.
+
+    n_points 기본값이 20 인 이유: Qwen3-VL 이 temporal_patch_size=2 로 40프레임을
+    20슬롯으로 병합하고 각 슬롯에 <0.2 seconds> ... <19.2 seconds> 를 붙인다.
+    같은 간격으로 주어야 모델이 본 영상 토큰과 일대일로 맞는다.
+
+    반환: {t[], speed_kmh[], heading_delta_deg[]}
+      heading_delta_deg 는 직전 지점 대비 변화량(+좌/-우). 누적이 아니라
+      구간별 값이라, 어느 구간에서 어느 쪽으로 돌았는지가 그대로 보인다.
+    """
+    ts = frame_timestamps(uuid)
+    ego = _ego_arrays_full(uuid)
+    if ts is None or ego is None or len(ts) < 2:
+        return None
+    t, speed, ax, curv, yaw = ego
+    t_beg, t_end = max(float(ts[0]), float(t[0])), min(float(ts[-1]), float(t[-1]))
+    if t_end - t_beg < 1e6:                       # 1초 미만이면 시계열이 무의미
+        return None
+
+    # 영상에 실제로 들어간 프레임의 시각을 그대로 쓴다. Qwen3-VL 이 인접
+    # 프레임 쌍을 병합하므로 두 장에 하나씩 골라야 영상 슬롯과 1:1 이 된다.
+    # (균등 linspace 로 하면 20.13s/19 = 1.06s 간격이 되어 1.0s 간격인 영상
+    #  타임스탬프와 끝에서 1초 넘게 어긋난다 - 정렬이 목적인데 어긋나면 무의미.)
+    if frame_indices is not None and len(frame_indices) >= 2:
+        picks = [ts[i] for i in frame_indices[::2] if 0 <= i < len(ts)]
+        grid = np.array([g for g in picks if t_beg <= g <= t_end], dtype=np.float64)
+        if len(grid) < 2:
+            grid = np.linspace(t_beg, t_end, n_points)
+    else:
+        grid = np.linspace(t_beg, t_end, n_points)
+    sp = np.interp(grid, t, speed) * 3.6
+    # yaw 는 +-180 에서 튀므로 unwrap 후 보간해야 한다
+    yw = np.unwrap(np.radians(np.interp(grid, t, yaw)))
+    yd = np.degrees(np.diff(yw, prepend=yw[0]))
+    return {
+        "t": [(g - t_beg) / 1e6 for g in grid],
+        "speed_kmh": sp.tolist(),
+        "heading_delta_deg": yd.tolist(),
+    }
+
+
+def describe_clip_track(tr: dict | None) -> str:
+    """ego_clip_track -> 프롬프트에 넣을 2줄짜리 수치 나열.
+
+    해석어("hard braking" 같은)를 일절 쓰지 않는다. 실측(20260818)에서 그
+    표현 하나가 safety 정확도를 급제동 클립 기준 66% -> 37% 로 무너뜨렸고,
+    수치만 남기자 60% 로 돌아왔다. 판단은 영상을 보고 하라는 뜻이다.
+    """
+    if tr is None:
+        return ""
+    step = tr["t"][1] - tr["t"][0] if len(tr["t"]) > 1 else 1.0
+    sp = " ".join(f"{v:.0f}" for v in tr["speed_kmh"])
+    yd = " ".join(f"{v:+.0f}" for v in tr["heading_delta_deg"])
+    return (f"Sampled every {step:.1f} s from the start of the clip.\n"
+            f"  speed (km/h)          : {sp}\n"
+            f"  heading change (deg)  : {yd}   (+ is left, - is right)")
+
+
 def describe_clip_behavior(ch: dict | None) -> str:
     """ego_clip_behavior -> 프롬프트에 넣을 1~2 문장.
 

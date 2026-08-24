@@ -45,6 +45,7 @@ from edge_case_mining import (
 from egomotion import (
     ego_state, describe_ego, ego_behavior_change, describe_behavior,
     ego_clip_behavior, describe_clip_behavior,
+    ego_clip_track, describe_clip_track,
 )
 from obstacle import obstacle_summary, describe_obstacles, path_intrusion
 from visualize import render_scene_card
@@ -86,9 +87,110 @@ def _lp_list(proc):
     return LogitsProcessorList([proc])
 
 
+# 판정을 담는 JSON 키 - 이 값들이 바뀌면 채점 결과가 바뀐다.
+DECISION_KEYS = ("scenario_types", "safety_tier", "rarity_tier", "verdict",
+                 "scenario_type", "influenced_ego")
+
+
+def _decision_steps(gen_ids, tokenizer):
+    """생성 토큰 인덱스 중 '판정 값이 시작되는' 자리들의 집합.
+
+    토큰을 하나씩 붙여가며 문자열을 재구성하고, DECISION_KEYS 뒤의 값이
+    열리는 지점(따옴표/숫자/true/false 가 시작되는 곳)을 담은 토큰을 고른다.
+    """
+    import re
+    text, spans = "", []
+    for t in gen_ids:
+        piece = tokenizer.decode([t])
+        spans.append((len(text), len(text) + len(piece)))
+        text += piece
+
+    targets = []
+    for key in DECISION_KEYS:
+        for mk in re.finditer(re.escape(f'"{key}"'), text):
+            # 키 뒤 ':' 다음에 오는 첫 값 문자
+            mv = re.compile(r'\s*:\s*\[?\s*("?)').search(text, mk.end())
+            if mv:
+                targets.append(mv.end())
+    out = set()
+    for pos in targets:
+        for i, (a, b) in enumerate(spans):
+            if a <= pos < b:
+                out.add(i)
+                break
+    return out
+
+
+def _decision_margin(gen_out, tokenizer):
+    """생성 토큰의 1위-2위 확률차를 재되, 판정에 실제로 쓰이는 자리만 본다.
+
+    왜 필요한가: 이 파이프라인은 결정적이다(같은 입력 -> 같은 출력, 실측
+    115/115 일치). 그런데 카테고리 메뉴의 마침표 하나를 빼자 10/115 클립의
+    예측이 뒤집혀 accuracy 가 2.7%p 움직였다. 토큰 수도 위치도 그대로이고
+    바뀐 것은 토큰 하나의 임베딩뿐이었다 - 즉 그 10개는 1위와 2위가 백지
+    한 장 차이인 경계선 클립이고, 의미 없는 섭동에도 넘어간다.
+
+    왜 전체 토큰의 최솟값을 쓰면 안 되는가:
+      처음에 그렇게 재봤더니 3/3 클립이 margin_min=0.0000 이었다. 0 이
+      나온 자리를 열어보니 산문 안의 ',' vs '.', ' in' vs ' with' 같은
+      말투 선택이었다. 그런 동점은 어느 쪽이 이겨도 카테고리도 등급도
+      바뀌지 않는다 - 지표가 판정이 아니라 문장 표현의 흔들림을 재고
+      있었고, 모든 클립이 0 으로 뭉개져 아무것도 구분하지 못했다.
+
+    그래서 JSON 값이 시작되는 자리(따옴표/괄호/숫자 직후)만 센다. 여기서
+    갈리면 카테고리 이름이나 등급 숫자가 실제로 바뀐다.
+
+    돌려주는 값:
+      margin_min  판정 자리 중 가장 아슬아슬했던 확률차. 클립이 뒤집힐지를
+                  좌우하는 것은 평균이 아니라 이 최솟값이다.
+      margin_mean 판정 자리들의 평균.
+      n_close     확률차가 CLOSE_CALL_P 미만인 판정 자리 수.
+
+    scores 가 없으면(구버전 transformers) None - 마진은 부가 정보라
+    없다고 실행을 세울 이유는 없다.
+    """
+    scores = getattr(gen_out, "scores", None)
+    seqs = getattr(gen_out, "sequences", None)
+    if not scores or seqs is None:
+        return None
+    gen_ids = seqs[0, seqs.shape[1] - len(scores):].tolist()
+
+    # 판정 자리 찾기: 생성 텍스트에서 우리가 실제로 파싱하는 키의 값이
+    # 시작되는 오프셋을 구하고, 그 오프셋을 담은 토큰을 고른다.
+    # 문장 안의 쉼표 같은 자리를 세면 말투의 흔들림을 재게 된다(실측:
+    # 그렇게 했더니 ',' vs '.' 동점 때문에 전 클립이 0 으로 뭉개졌다).
+    decision_at = _decision_steps(gen_ids, tokenizer)
+    if not decision_at:
+        return None
+
+    mn, tot, n_close, n = 1.0, 0.0, 0, 0
+    for i, step in enumerate(scores):
+        # 판정 자리인가: 직전 토큰이 값의 시작을 여는 자리여야 한다.
+        # 첫 토큰과 여는 따옴표/괄호/콜론 뒤가 그렇다.
+        if i not in decision_at:
+            continue
+        top2 = torch.topk(torch.softmax(step[0].float(), dim=-1), 2)
+        d = float(top2.values[0] - top2.values[1])
+        mn = min(mn, d)
+        tot += d
+        n_close += int(d < CLOSE_CALL_P)
+        n += 1
+    if n == 0:
+        return None
+    return {"margin_min": mn, "margin_mean": tot / n, "n_close": n_close,
+            "n_tokens": n}
+
+
+# 1위-2위 확률차가 이 값 미만이면 "아슬아슬한 판정" 으로 센다. 0.1 은
+# 임의 기준이지만, 마침표 실험에서 뒤집힌 클립을 가르는 데 쓸 수 있는
+# 크기다 (뒤집히려면 섭동이 이 차이를 넘겨야 한다).
+CLOSE_CALL_P = 0.1
+
+
 @torch.inference_mode()
 def _generate(model, processor, images, text_prompt, max_new_tokens=256,
-              as_video=False, video_fps=None, logits_processor=None):
+              as_video=False, video_fps=None, logits_processor=None,
+              want_margin=False):
     """이미지 목록을 넣고 모델 원문 출력을 받는다.
 
     as_video=True 면 낱장 이미지 N개가 아니라 "비디오 한 편"으로 넘긴다.
@@ -110,7 +212,8 @@ def _generate(model, processor, images, text_prompt, max_new_tokens=256,
         return _generate_video(model, processor, images, text_prompt,
                                max_new_tokens=max_new_tokens,
                                video_fps=video_fps or 1.0,
-                               logits_processor=logits_processor)
+                               logits_processor=logits_processor,
+                               want_margin=want_margin)
 
     content = [{"type": "image", "image": img} for img in images]
     content.append({"type": "text", "text": text_prompt})
@@ -126,8 +229,12 @@ def _generate(model, processor, images, text_prompt, max_new_tokens=256,
 
     gen = model.generate(**inputs, max_new_tokens=max_new_tokens,
                          do_sample=False,
-                         logits_processor=_lp_list(logits_processor))
-    trimmed = gen[:, inputs.input_ids.shape[1]:]
+                         logits_processor=_lp_list(logits_processor),
+                         return_dict_in_generate=want_margin,
+                         output_scores=want_margin)
+    margin = _decision_margin(gen, processor.tokenizer) if want_margin else None
+    seq = gen.sequences if want_margin else gen
+    trimmed = seq[:, inputs.input_ids.shape[1]:]
     out = processor.batch_decode(
         trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
     )[0]
@@ -138,7 +245,7 @@ def _generate(model, processor, images, text_prompt, max_new_tokens=256,
 
 @torch.inference_mode()
 def _generate_video(model, processor, frames, text_prompt, max_new_tokens=256,
-                    video_fps=1.0, logits_processor=None):
+                    video_fps=1.0, logits_processor=None, want_margin=False):
     """이미 뽑아둔 프레임 목록을 비디오 한 편으로 넘겨 생성한다.
 
     do_sample_frames=False 로 두는 것이 핵심 - 우리가 이미 1fps 로 골라둔
@@ -166,14 +273,18 @@ def _generate_video(model, processor, frames, text_prompt, max_new_tokens=256,
 
     gen = model.generate(**inputs, max_new_tokens=max_new_tokens,
                          do_sample=False,
-                         logits_processor=_lp_list(logits_processor))
-    trimmed = gen[:, inputs.input_ids.shape[1]:]
+                         logits_processor=_lp_list(logits_processor),
+                         return_dict_in_generate=want_margin,
+                         output_scores=want_margin)
+    margin = _decision_margin(gen, processor.tokenizer) if want_margin else None
+    seq = gen.sequences if want_margin else gen
+    trimmed = seq[:, inputs.input_ids.shape[1]:]
     out = processor.batch_decode(
         trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
     )[0]
     del inputs, gen, trimmed
     torch.cuda.empty_cache()
-    return out.strip()
+    return (out.strip(), margin) if want_margin else out.strip()
 
 
 def build_sensor_facts(uuid, frame_idx, use_egomotion, use_obstacle, n_views=3):
@@ -208,7 +319,22 @@ def build_behavior_facts(uuid, frame_idx, use_egomotion):
     return (describe_behavior(ch) if ch else ""), ch
 
 
-def build_clip_ego_facts(uuid, use_egomotion):
+# --use-egomotion-c 가 ② 자리에 넣는 내용 없는 문장.
+#
+# 왜 이런 게 필요한가: --use-egomotion 을 켜면 프롬프트에 세 가지가 한꺼번에
+# 들어간다 - ① "HOW THE EGO-VEHICLE'S BEHAVIOUR CHANGED" 헤더, ② 센서 수치
+# 문장, ③ Safety 루브릭 끝의 behavior_hint. 셋 다 behavior_facts 가 비었는지
+# 하나로 갈리므로, A(전부 off)/B(전부 on) 두 점만으로는 +7.9%p 가 어디서
+# 왔는지 알 수 없다.
+#
+# C 는 ①③ 을 그대로 둔 채 ② 의 정보만 뺀다. 문장 구조와 길이는 유지하되
+# 클립마다 달라지는 값이 없으므로, B 에 근접하면 센서 수치는 기여하지 않고
+# 프롬프트 구조가 일을 한 것이다.
+EGO_PLACEBO_SENTENCE = "This clip covers about 20 seconds of continuous driving."
+
+
+def build_clip_ego_facts(uuid, use_egomotion, ego_track=False,
+                         frame_indices=None, ego_ablation=None):
     """클립 모드용 egomotion 사실. (프롬프트 문구, 요약 dict) 를 돌려준다.
 
     build_sensor_facts + build_behavior_facts 의 클립 판이다. 저 둘은
@@ -221,10 +347,33 @@ def build_clip_ego_facts(uuid, use_egomotion):
     마지막 프레임의 값이다. 구간 요약이 속도 범위를 이미 말하므로
     중복이기도 하다.
     """
-    if not use_egomotion:
+    # 두 플래그는 독립이다. 세 조합을 각각 A/B 할 수 있어야 "요약 문장이
+    # 기여하는가" 와 "원시 수치가 기여하는가" 를 분리할 수 있다:
+    #   use_egomotion 만  -> 요약 한 문장 (해석이 들어간 서술)
+    #   ego_track 만      -> 1초 간격 수치만 (해석어 없음)
+    #   둘 다             -> 요약 + 수치
+    # C: 센서 수치 대신 내용 없는 문장. ch 는 CSV/시각화용으로 계속 만든다.
+    if ego_ablation == "c":
+        return EGO_PLACEBO_SENTENCE, ego_clip_behavior(uuid)
+    # D: 프롬프트에는 아무것도 넣지 않는다 (hint 만 별도로 켜진다).
+    if ego_ablation == "d":
+        return "", ego_clip_behavior(uuid)
+
+    if not (use_egomotion or ego_track):
         return "", None
+
+    # ch 는 CSV/시각화가 쓰는 원본 dict 라 ego_track 단독일 때도 만들어 둔다
+    # (프롬프트에 넣지 않을 뿐, 결과 파일의 ego_speed_kmh 등이 비면 곤란하다).
     ch = ego_clip_behavior(uuid)
-    return (describe_clip_behavior(ch) if ch else ""), ch
+
+    parts = []
+    if use_egomotion and ch:
+        parts.append(describe_clip_behavior(ch))
+    if ego_track:
+        tr = describe_clip_track(ego_clip_track(uuid, frame_indices))
+        if tr:
+            parts.append(tr)
+    return "\n".join(parts), ch
 
 
 def classify_unit(model, processor, unit_frames, prompt, views,
@@ -251,7 +400,10 @@ def run_clip_inference(uuids, labels, category_menu,
                        viz_width=VIZ_WIDTH, video_input=True,
                        constrain_tiers=True,
                        viz_normal=None, viz_special=None,
-                       gt_labels=None, timeline=False):
+                       gt_labels=None, timeline=False, ego_track=False,
+                       ego_ablation=None, header_style="v1",
+                       want_margin=False, score_tiers=True,
+                       traj=None):
     """클립 전체(20초)를 1fps 로 넣어 클립 단위로 판정한다.
 
     run_inference 와 판정 단위가 다르다 - 저쪽은 (uuid, frame_idx) 이고
@@ -287,8 +439,9 @@ def run_clip_inference(uuids, labels, category_menu,
 
     # 등급 필드를 1/2/3 정수로만 나오게 디코딩 단계에서 막는다.
     # 프롬프트 지시만으로는 "Low to moderate" 류가 새어나왔다(실측 20260811).
+    # 등급 자체를 안 물으면(--no-score-tiers) 제약할 필드가 없다.
     tier_proc = (make_tier_processor(processor.tokenizer)
-                 if constrain_tiers else None)
+                 if constrain_tiers and score_tiers else None)
 
     n_special = sum(1 for l in labels if not l["is_normal"])
     print(f"[clip] {len(uuids)} clips | {len(views)} view(s) | {fps}fps "
@@ -323,23 +476,31 @@ def run_clip_inference(uuids, labels, category_menu,
             "safety_reason", "rarity_tier", "rarity_label", "rarity_reason",
             "tier_score",
             "ego_speed_kmh", "ego_motion", "ego_behavior_measured",
+            # 결정 마진 - 이 클립의 판정이 얼마나 아슬아슬했는지.
+            # margin_min 이 작을수록 의미 없는 프롬프트 섭동에도 뒤집힌다.
+            "margin_min", "margin_mean", "n_close_tokens",
         ])
 
         pbar = tqdm(uuids, total=len(uuids), unit="clip", dynamic_ncols=True,
                     mininterval=1.0, smoothing=0.1)
         for uuid in pbar:
             clip = sample_clip_frames(uuid, fps=fps, max_frames=max_frames,
-                                      max_long_side=max_long_side, views=views)
+                                      max_long_side=max_long_side, views=views,
+                                      traj=traj)
             images = [im for _, _, im in clip["frames"]]
             if not images:
                 writer.writerow([uuid, 0, "Normal", 0, "", 0,
                                  "(no frames)", "", "", "", "", "", "",
-                                 "", "", "", "", "", ""])
+                                 "", "", "", "", "", "",
+                                 "", "", ""])
                 n_parse_fail += 1
                 continue
 
             # egomotion 은 클립 전 구간을 요약한다 (시간축 정렬).
-            behavior, ego = build_clip_ego_facts(uuid, use_egomotion)
+            behavior, ego = build_clip_ego_facts(uuid, use_egomotion,
+                                                 ego_track=ego_track,
+                                                 frame_indices=clip["indices"],
+                                                 ego_ablation=ego_ablation)
 
             # 3D bbox 는 아직 마지막 프레임 ±0.05초 스냅샷이다. 20초 영상에
             # 붙이기엔 시간축이 어긋나 있어(실측: 과탐 감소 대신 recall -6%p)
@@ -354,11 +515,17 @@ def run_clip_inference(uuids, labels, category_menu,
                 category_menu, facts, behavior_facts=behavior,
                 intro=clip_intro(len(images), len(views), fps=fps,
                                  as_video=video_input),
-                timeline=timeline)
-            raw = _generate(model, processor, images, prompt,
-                            max_new_tokens=NUR_MAX_NEW_TOKENS,
-                            as_video=video_input, video_fps=fps,
-                            logits_processor=tier_proc)
+                timeline=timeline,
+                # D 는 behavior_facts 가 비어도 hint 를 켠다.
+                force_behavior_hint=(ego_ablation == "d"),
+                header_style=header_style,
+                score_tiers=score_tiers)
+            gen_out = _generate(model, processor, images, prompt,
+                                max_new_tokens=NUR_MAX_NEW_TOKENS,
+                                as_video=video_input, video_fps=fps,
+                                logits_processor=tier_proc,
+                                want_margin=want_margin)
+            raw, margin = gen_out if want_margin else (gen_out, None)
             result = parse_nureasoning_output(raw, labels)
 
             cats = result["categories"]
@@ -381,6 +548,9 @@ def run_clip_inference(uuids, labels, category_menu,
                 ("stopped" if ego and ego["stopped_s"] >= ego["span_s"] - 0.5
                  else "moving" if ego else ""),
                 behavior,
+                f"{margin['margin_min']:.4f}" if margin else "",
+                f"{margin['margin_mean']:.4f}" if margin else "",
+                margin["n_close"] if margin else "",
             ])
             f.flush()
             pbar.set_postfix_str(
@@ -414,6 +584,7 @@ def run_clip_inference(uuids, labels, category_menu,
                     uuid, clip_path(views[0], uuid), result,
                     out_dir, max_width=viz_width,
                     gt=(gt_labels or {}).get(uuid),
+                    traj=traj, traj_view=views[0],
                     extra={"ego_behavior_measured": behavior,
                            "n_frames_seen": len(images),
                            # 클립 요약이라 한 시점의 속도가 없다 - 구간 범위를 준다
