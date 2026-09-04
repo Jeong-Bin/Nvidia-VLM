@@ -11,6 +11,11 @@ aggregate.py 와 판정 단위가 달라 파일을 나눴다:
      동시에 잡히면 그 카테고리 각각에 1 씩 반영한다 - 따라서 카테고리
      합계는 클립 수를 넘고 비율 합도 100% 를 넘을 수 있다.
   3) 동시 출현 - 한 클립에 몇 개가 같이 붙는지, 어떤 쌍이 자주 겹치는지
+  4) 등급 분포 - safety/rarity 의 값별 개수와 비율, 평균/분산/중앙값.
+     정답 라벨이 없는 실행(NAS 신규 청크 등)에서는 evaluate_labels.py 를
+     못 돌리므로, 모델 출력 자체의 분포를 보는 것이 여기서 유일한 점검
+     수단이다. edge-case 만 따로 한 번 더 낸다 - normal 클립이 거의 전부
+     1 이라 전체 평균에 섞으면 special 안에서의 분포가 묻힌다.
 
 결과는 화면과 <run_dir>/aggregate_clip.log 에 함께 기록한다.
 
@@ -29,6 +34,7 @@ from pathlib import Path
 import pandas as pd
 
 from config import SCENE_JSON as CONFIG_SCENE_JSON
+from constrained_tier import TIER_VALUES, tier_label
 
 ROOT = Path(__file__).resolve().parent
 # 기본값은 config.py 한 곳에서만 정한다. 다만 집계는 "이 실행이 실제로 쓴"
@@ -87,6 +93,81 @@ def split_categories(cell) -> list[str]:
     if not isinstance(cell, str) or not cell.strip():
         return []
     return [c for c in (p.strip() for p in cell.split("|")) if c]
+
+
+def tier_series(df, col):
+    """CSV 의 등급 칸 -> 정수 리스트. 비었거나 못 읽는 값은 뺀다.
+
+    parse 실패한 클립은 이 칸이 빈 문자열이라 float NaN 으로 읽힌다.
+    그걸 0 으로 치면 평균이 통째로 내려앉으므로 아예 분모에서 뺀다 -
+    대신 아래에서 "미기록 N건"으로 따로 알린다.
+    """
+    if col not in df.columns:
+        return []
+    out = []
+    for v in df[col]:
+        try:
+            if pd.isna(v):
+                continue
+            out.append(int(float(v)))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def tier_block(log, title, values, total):
+    """등급 한 축(safety/rarity)의 분포 - 값별 개수/비율과 평균/분산/중앙값.
+
+    라벨이 없는 데이터에서는 정답과 대조할 수 없으므로(evaluate_labels.py 의
+    MAE/혼동행렬을 못 쓴다) 모델 출력 자체의 분포만 본다. 그래도 쓸모가
+    있는 이유는, 한쪽 등급으로 쏠렸는지가 여기서 바로 보이기 때문이다 -
+    실측으로 safety 가 2 에 몰리는 경향이 있어 그 쏠림을 보는 것이 이
+    표의 주된 목적이다.
+
+    분산은 모분산(N 으로 나눔)이다. 표본에서 모집단을 추정하는 상황이
+    아니라 "이번 실행이 낸 출력의 퍼짐"을 그대로 기술하는 값이라서다.
+    """
+    log("")
+    log("=" * 64)
+    log(f"{title}  (model output distribution)")
+    log("=" * 64)
+    n = len(values)
+    if not n:
+        log("  (no rows - 등급 칸이 비어 있다. 프롬프트에서 이 축을 껐거나"
+            " JSON parse 가 전부 실패한 경우다)")
+        return
+
+    counts = Counter(values)
+    log(f"{'TIER':<28}{'COUNT':>10}{'% RATED':>10}{'% ALL':>10}")
+    log("-" * 64)
+    # taxonomy 에 정의된 등급은 0 건이어도 모두 찍는다 - 빠져 있으면
+    # "한 번도 안 나온 등급"과 "정의에 없는 등급"이 구분되지 않는다.
+    for v in TIER_VALUES:
+        c = counts.get(v, 0)
+        log(f"{f'{v} = {tier_label(v)}':<28}{c:>10}{100*c/n:>9.1f}%"
+            f"{100*c/total:>9.1f}%")
+    # 정의 밖의 값이 나오면 조용히 버리지 않는다 (파서가 샌 경우).
+    extra = sorted(set(counts) - set(TIER_VALUES))
+    if extra:
+        log("-" * 64)
+        for v in extra:
+            c = counts[v]
+            log(f"{f'{v} = (out of range)':<28}{c:>10}{100*c/n:>9.1f}%"
+                f"{100*c/total:>9.1f}%")
+    log("-" * 64)
+    log(f"{'TOTAL rated':<28}{n:>10}{100.0:>9.1f}%{100*n/total:>9.1f}%")
+    if n < total:
+        log(f"{'unrated (blank/parse fail)':<28}{total-n:>10}{'':>10}"
+            f"{100*(total-n)/total:>9.1f}%")
+
+    s = sorted(values)
+    mean = sum(s) / n
+    # 모분산 - 표본분산이 아니다 (위 docstring 참고)
+    var = sum((x - mean) ** 2 for x in s) / n
+    median = (s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2)
+    log("")
+    log(f"  mean {mean:.3f}   var {var:.3f}   std {var ** 0.5:.3f}   "
+        f"median {median:g}   min {s[0]}   max {s[-1]}")
 
 
 class Tee:
@@ -237,6 +318,18 @@ def main():
         log(f"most frequent co-occurring pairs (top {args.top_pairs}):")
         for (a, b), n in pairs.most_common(args.top_pairs):
             log(f"   {n:4d}  {a} + {b}")
+
+    # --- 4) 등급 분포 ---
+    # 라벨 없는 실행에서는 evaluate_labels.py 를 못 돌리므로, 등급을 여기서
+    # 본다. edge-case 만 따로 다시 내는 이유는 normal 클립이 거의 전부 1 이라
+    # 전체 평균이 1 쪽으로 눌려 special 안에서의 분포가 안 보이기 때문이다.
+    edge_df = df[labeled]
+    for col, title in (("safety_tier", "SAFETY CRITICALITY"),
+                       ("rarity_tier", "RARITY")):
+        tier_block(log, f"{title} - ALL clips", tier_series(df, col), total)
+        if n_edge:
+            tier_block(log, f"{title} - EDGE-CASE clips only",
+                       tier_series(edge_df, col), n_edge)
 
     log("")
     log(f"[saved] merged CSV -> {merged}  ({total} clips"

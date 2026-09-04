@@ -16,13 +16,44 @@ set -u
 cd /home/etri/Jeongbin/Nvidia-VLM
 
 NSHARDS=8
+
+# 어떤 파이썬으로 돌 것인가.
+#   PATH 의 python3 를 그냥 믿으면 안 된다. GUI(gui_server.py)나 cron 처럼
+#   conda 가 활성화되지 않은 셸에서 이 스크립트를 부르면 /usr/bin/python3
+#   (3.8) 이 잡히고, 샤드 8개가 전부 edge_case_mining.py 의 list[str] 표기에서
+#   "'type' object is not subscriptable" 로 즉사한다(실측 20260831_132629_eval).
+#   고약한 건 merge/evaluate 단계는 3.8 에서도 임포트가 돼서 스크립트가 끝까지
+#   "정상" 진행한다는 점이다 - 결과가 0건이라는 사실만 남는다.
+# 그래서 PATH 의 python3 가 요건(3.9+, torch)을 만족하면 그대로 쓰고,
+# 아니면 conda base 로 넘어가고, 그것도 안 되면 시작 전에 멈춘다.
+pyok() {
+  [ -x "$1" ] || return 1
+  "$1" - >/dev/null 2>&1 <<'PYCHK'
+import sys, importlib.util as u
+assert sys.version_info >= (3, 9)           # list[str] 표기가 되는가
+for m in ("torch", "transformers", "cv2"):  # 파이프라인 의존성이 있는가
+    assert u.find_spec(m), m
+PYCHK
+}
+PYBIN="${PYBIN:-}"
+if [ -z "$PYBIN" ]; then
+  for cand in "$(command -v python3 || true)" /home/etri/miniconda3/bin/python3; do
+    if [ -n "$cand" ] && pyok "$cand"; then PYBIN="$cand"; break; fi
+  done
+fi
+if [ -z "$PYBIN" ] || ! pyok "$PYBIN"; then
+  echo "[error] 쓸 수 있는 파이썬이 없습니다 (python 3.9+ 와 torch 가 필요)." >&2
+  echo "        시도한 인터프리터   : ${PYBIN:-$(command -v python3 || echo 없음)}" >&2
+  echo "        conda activate base 후 다시 돌리거나 PYBIN=<경로> 로 지정하세요." >&2
+  exit 2
+fi
 # 카테고리 정의와 정답 라벨의 기본값은 config.py 가 단일 진실 공급원이다.
 # 여기서 기본값을 들고 있으면 안 된다 - 예전에는 이 스크립트가 자기 값을
 # 항상 명령행으로 넘겨서, config/argparse 쪽 기본값을 아무리 고쳐도
 # 반영되지 않았다. 미지정이면 아래에서 플래그 자체를 생략한다.
 SCENE_JSON="${SCENE_JSON:-}"
 # --labels 만은 uuid 목록을 뽑아야 해서 셸도 실제 경로를 알아야 한다.
-LABELS="${LABELS:-$(python3 -c 'import config; print(config.LABELS_JSON)')}"
+LABELS="${LABELS:-$("$PYBIN" -c 'import config; print(config.LABELS_JSON)')}"
 
 usage() {
   cat <<'USAGE'
@@ -32,6 +63,10 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --labels PATH          정답 라벨 json (기본: config.py 의 LABELS_JSON)  [LABELS]
   --scene-json PATH      카테고리 정의 (기본: config.py 의 SCENE_JSON)    [SCENE_JSON]
   --num-shards N         GPU/shard 개수 (기본 8)                     [NSHARDS]
+  --model ID             사용할 VLM (기본: edge_case_mining.py 의 8B)      [MODEL]
+  --data SRC             프레임 소스 local|nas|경로 (기본 local)          [DATA]
+                         27B 는 GPU 여러 장이 필요해 여기서 못 돌린다 -
+                         run_video_27b.sh --eval 를 쓸 것.
   --viz                  시각화 mp4 도 만든다 (기본 안 만듦)          [CLIP_VIZ=1]
   --viz-normal           Normal 클립을 시각화 -> viz/normal/score_N/    [VIZ_NORMAL=1]
   --viz-special          Special 클립을 시각화 -> viz/special/score_N/  [VIZ_SPECIAL=1]
@@ -44,7 +79,9 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --use-egomotion-c      [대조군C] 헤더/hint 유지, 센서 수치만 제거         [EGO_ABLATION=c]
   --use-egomotion-d      [대조군D] hint 만 남기고 헤더/수치 제거            [EGO_ABLATION=d]
   --header-style v1|v2   자차 행동 블록 헤더 문구 (기본 v1)              [HEADER_STYLE]
-  --no-score-tiers        Safety/Rarity(4/5단계)를 프롬프트에서 통째로 끈다 [SCORE_TIERS=0]
+  --no-safety-tier        Safety Criticality(4단계)만 프롬프트에서 끈다  [SAFETY_TIER=0]
+  --no-rarity-tier        Rarity(5단계)만 프롬프트에서 끈다              [RARITY_TIER=0]
+  --no-score-tiers        위 둘을 한꺼번에 끄는 별칭                     [SCORE_TIERS=0]
   --use-3dbbox           obstacle.offline 3D bbox 라벨을 프롬프트에 주입
                          (기본 off, Animal/Jaywalking/cyclist 과탐 경향 실측됨)  [USE_3DBBOX=1]
   --no-video-input       프레임을 비디오가 아니라 낱장으로 넘긴다     [VIDEO_INPUT=0]
@@ -72,6 +109,10 @@ while [ $# -gt 0 ]; do
     --scene-json)        shift; SCENE_JSON="${1:-}" ;;
     --num-shards=*)      NSHARDS="${1#*=}" ;;
     --num-shards)        shift; NSHARDS="${1:-8}" ;;
+    --data=*)            DATA="${1#*=}" ;;
+    --data)              shift; DATA="${1:-}" ;;
+    --model=*)           MODEL="${1#*=}" ;;
+    --model)             shift; MODEL="${1:-}" ;;
     --viz)               CLIP_VIZ=1 ;;
     --viz-normal)        VIZ_NORMAL=1 ;;
     --viz-special)       VIZ_SPECIAL=1 ;;
@@ -86,7 +127,9 @@ while [ $# -gt 0 ]; do
     --use-egomotion-d)   EGO_ABLATION=d ;;
     --header-style=*)    HEADER_STYLE="${1#*=}" ;;
     --header-style)      shift; HEADER_STYLE="${1:-v1}" ;;
-    --no-score-tiers)    SCORE_TIERS=0 ;;
+    --no-safety-tier)    SAFETY_TIER=0 ;;
+    --no-rarity-tier)    RARITY_TIER=0 ;;
+    --no-score-tiers)    SAFETY_TIER=0; RARITY_TIER=0 ;;
     --no-egomotion)      USE_EGOMOTION=0 ;;   # 옛 이름 - 이제 기본이 off 라 무의미하지만 받아준다
     --use-3dbbox)        USE_3DBBOX=1 ;;
     --no-video-input)    VIDEO_INPUT=0 ;;
@@ -109,7 +152,7 @@ done
 # 추론을 건너뛰고 기존 결과만 채점하는 경로
 if [ -n "$EVAL_ONLY" ]; then
   [ -d "$EVAL_ONLY" ] || { echo "[error] no such dir: $EVAL_ONLY" >&2; exit 2; }
-  python3 -u evaluate_labels.py --run-dir "$EVAL_ONLY" --labels "$LABELS"
+  "$PYBIN" -u evaluate_labels.py --run-dir "$EVAL_ONLY" --labels "$LABELS"
   exit $?
 fi
 
@@ -123,7 +166,7 @@ mkdir -p "$RUN_DIR"
 
 # 라벨된 uuid 만 뽑아 파일로 넘긴다 (한 줄에 하나)
 UUID_FILE="${RUN_DIR}/eval_uuids.txt"
-python3 - "$LABELS" "$UUID_FILE" <<'PY'
+"$PYBIN" - "$LABELS" "$UUID_FILE" <<'PY'
 import json, sys
 labels = json.load(open(sys.argv[1], encoding="utf-8"))
 clips = labels.get("clips", labels)
@@ -136,6 +179,16 @@ PY
 TOTAL_CLIPS="$(wc -l < "$UUID_FILE")"
 
 OPTS="--clip-mode --single-view --only-uuids $UUID_FILE"
+# 이 스크립트는 GPU 1장 = 샤드 1개 구조라 GPU 여러 장에 걸쳐야 하는 27B 는
+# 못 돌린다. 조용히 8B 로 돌면 몇 시간 뒤에야 알게 되므로 여기서 막는다.
+case "${MODEL:-}" in
+  *27B*) echo "[error] $MODEL 은 GPU 여러 장이 필요합니다." >&2
+         echo "        bash run_video_27b.sh --eval --model $MODEL 을 쓰세요." >&2
+         exit 2 ;;
+esac
+[ -n "${MODEL:-}" ] && OPTS="$OPTS --model $MODEL"
+# 프레임 소스. nas 면 NAS 청크 zip 을 직접 읽는다(압축 해제 불필요).
+[ -n "${DATA:-}" ] && OPTS="$OPTS --data $DATA"
 # 명시했을 때만 넘긴다 - 안 넘기면 config.py 기본값이 실제로 쓰인다
 [ -n "$SCENE_JSON" ] && OPTS="$OPTS --scene-json $SCENE_JSON"
 [ "${TIMELINE:-0}" = "1" ]      && OPTS="$OPTS --timeline"
@@ -144,7 +197,10 @@ OPTS="--clip-mode --single-view --only-uuids $UUID_FILE"
 [ "${USE_EGOMOTION:-0}" = "1" ] && OPTS="$OPTS --use-egomotion"
 [ -n "${EGO_ABLATION:-}" ]      && OPTS="$OPTS --use-egomotion-${EGO_ABLATION}"
 [ -n "${HEADER_STYLE:-}" ]      && OPTS="$OPTS --header-style $HEADER_STYLE"
-[ "${SCORE_TIERS:-1}" = "0" ]   && OPTS="$OPTS --no-score-tiers"
+# SCORE_TIERS=0 은 옛 이름 - 둘 다 끄는 뜻으로 계속 받아준다.
+[ "${SCORE_TIERS:-1}" = "0" ]   && { SAFETY_TIER=0; RARITY_TIER=0; }
+[ "${SAFETY_TIER:-1}" = "0" ]   && OPTS="$OPTS --no-safety-tier"
+[ "${RARITY_TIER:-1}" = "0" ]   && OPTS="$OPTS --no-rarity-tier"
 [ "${USE_3DBBOX:-0}" = "1" ]    && OPTS="$OPTS --use-3dbbox"
 [ "${VIDEO_INPUT:-1}" = "0" ]   && OPTS="$OPTS --clip-no-video-input"
 [ "${CLIP_VIZ:-0}" = "1" ]      && OPTS="$OPTS --clip-viz"
@@ -163,15 +219,16 @@ fi
 {
   echo "[info] run dir     : $RUN_DIR"
   echo "[info] labels      : $LABELS  ($TOTAL_CLIPS clips)"
-  echo "[info] categories  : ${SCENE_JSON:-$(python3 -c 'import config; print(config.SCENE_JSON.name)') (config.py)}"
+  echo "[info] categories  : ${SCENE_JSON:-$("$PYBIN" -c 'import config; print(config.SCENE_JSON.name)') (config.py)}"
   echo "[info] opts        : $OPTS"
+  echo "[info] python      : $PYBIN"
   [ -n "${MEMO:-}" ] && echo "[info] memo        : $MEMO"
   echo
 
   pids=()
   for g in $(seq 0 $((NSHARDS-1))); do
     CUDA_VISIBLE_DEVICES=$g PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
-      nohup python3 -u edge_case_mining.py \
+      nohup "$PYBIN" -u edge_case_mining.py \
         --num-shards "$NSHARDS" --shard-id "$g" \
         $OPTS \
         --memo "${MEMO:-}" \
@@ -192,7 +249,7 @@ fi
       # 줄바꿈이 들어가면 한 클립이 CSV 여러 줄을 차지해(실측 115클립 ->
       # 460줄) 진행률이 총 개수를 넘어간다. CSV 규격대로 따옴표를 이해하는
       # 파서로 레코드 수를 센다.
-      [ -f "$f" ] && done_n=$((done_n + $(python3 -c "
+      [ -f "$f" ] && done_n=$((done_n + $("$PYBIN" -c "
 import csv,sys
 try:
     with open(sys.argv[1], newline='', encoding='utf-8') as fh:
@@ -214,11 +271,19 @@ except Exception:
   echo
 
   # 샤드 CSV 를 clip_results_all.csv 로 합치고 원본은 지운다
-  python3 -u merge_shards.py --run-dir "$RUN_DIR"
+  "$PYBIN" -u merge_shards.py --run-dir "$RUN_DIR"
   echo
 
-  python3 -u evaluate_labels.py --run-dir "$RUN_DIR" --labels "$LABELS"
+  "$PYBIN" -u evaluate_labels.py --run-dir "$RUN_DIR" --labels "$LABELS"
 
   echo
   echo "[info] results saved in: ${RUN_DIR}/"
 } 2>&1 | tee "${RUN_DIR}/run.log"
+
+# tee 로 파이프하면 종료 코드가 tee 의 것(항상 0)이 된다. 그래서 샤드가 8개
+# 전부 죽어도 GUI/cron 은 "정상 완료"로 표시한다. 결과 CSV 유무로 판정한다.
+if ! ls "${RUN_DIR}"/clip_results*.csv >/dev/null 2>&1; then
+  echo "[error] 결과 CSV 가 없습니다 - 샤드가 전부 실패했습니다." >&2
+  echo "        원인: ${RUN_DIR}/run_shard_0.log" >&2
+  exit 1
+fi

@@ -30,9 +30,17 @@ import re
 import time
 from pathlib import Path
 
+import av
 import cv2
 import numpy as np
 from PIL import Image
+
+# PyAV 9 에서 av.AVError 가 없어졌다(현재 18.0.0). 이름만 사라진 게 아니라
+# except 절에서 av.AVError 를 평가하는 순간 AttributeError 가 터지므로,
+# "열기 실패하면 0 을 돌려준다" 는 방어 코드가 도리어 프로세스를 죽인다 -
+# 실측으로 NAS 첫 실행 때 8샤드가 전부 여기서 죽었다.
+# FFmpegError 는 OSError 를 상속하지 않으므로 따로 잡아야 한다.
+AV_ERROR = getattr(av, "AVError", None) or av.FFmpegError
 
 from config import SCENE_JSON as CONFIG_SCENE_JSON, LABELS_JSON
 from trajectory import (TRAJ_HORIZON_S as _TRAJ_HORIZON_S,
@@ -44,6 +52,10 @@ from constrained_tier import (TIER_LABELS, TIER_VALUES, tier_label,
 
 ROOT = Path(__file__).resolve().parent
 CAMERA_DIR = ROOT / "pav_sample" / "camera"
+
+# 프레임 소스. None 이면 CAMERA_DIR 아래의 mp4 파일을 직접 연다.
+# --data 로 NAS 청크 zip 을 고르면 set_clip_source() 가 여기에 꽂는다.
+CLIP_SOURCE = None
 # 카테고리 정의와 정답 라벨의 기본값은 config.py 한 곳에서만 정한다.
 # (예전에는 여기/evaluate_labels/aggregate_clip/셸 스크립트가 각자
 #  다른 값을 들고 있어 같은 실행을 서로 다른 체계로 해석한 적이 있다.)
@@ -173,19 +185,40 @@ def _resize_to_pil(bgr, max_long_side: int):
     return Image.fromarray(rgb)
 
 
-def _read_frames_at(mp4_path: str, indices, max_long_side: int = 896):
+def _read_frames_at(src, indices, max_long_side: int = 896):
     """비디오에서 여러 frame index 를 읽어 {idx: PIL.Image} 로 반환 (한 번의 open).
+
+    src 는 경로 문자열이거나 file-like(zip 내부 구간). NAS 청크 zip 은 mp4 가
+    파일로 존재하지 않으므로 cv2 대신 PyAV 를 쓴다 - cv2 는 경로만 받는다.
+    PyAV 순차 디코딩이 cv2 의 CAP_PROP_POS_FRAMES 와 픽셀 단위로 일치함을
+    확인했다(평균차 0.00).
 
     실패한 인덱스는 결과 dict 에서 빠진다.
     """
-    cap = cv2.VideoCapture(mp4_path)
+    want = sorted(set(int(i) for i in indices))
+    if not want:
+        return {}
     out = {}
-    for idx in sorted(set(int(i) for i in indices)):
-        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
-        ok, bgr = cap.read()
-        if ok:
-            out[idx] = _resize_to_pil(bgr, max_long_side)
-    cap.release()
+    try:
+        container = av.open(src)
+    except (AV_ERROR, OSError):
+        return {}
+    try:
+        stream = container.streams.video[0]
+        stream.thread_type = "AUTO"
+        last = want[-1]
+        remain = set(want)
+        for n, frame in enumerate(container.decode(video=0)):
+            if n in remain:
+                rgb = frame.to_ndarray(format="rgb24")
+                out[n] = _resize_to_pil(rgb[:, :, ::-1], max_long_side)
+                remain.discard(n)
+            if n >= last or not remain:
+                break
+    except AV_ERROR:
+        pass
+    finally:
+        container.close()
     return out
 
 
@@ -193,12 +226,68 @@ def clip_path(view: str, uuid: str) -> Path:
     return CAMERA_DIR / view / f"{uuid}.{view}.mp4"
 
 
+def _mirror_clip_source():
+    """이 모듈이 __main__ 으로 돌 때, import 된 쪽 사본에도 같은 값을 심는다.
+
+    이 파일을 스크립트로 실행하면 파이썬은 그것을 __main__ 으로 올린다.
+    그런데 qwen_runner 는 `from edge_case_mining import sample_clip_frames`
+    로 같은 파일을 한 번 더 - 이번엔 edge_case_mining 이라는 별개의 모듈
+    객체로 - 올린다. 그래서 __main__ 쪽에서 CLIP_SOURCE 를 아무리 채워도
+    qwen_runner 가 부르는 sample_clip_frames 는 CLIP_SOURCE=None 인 사본을
+    보고 로컬 pav_sample 경로를 열려 든다.
+
+    실측: --data nas 첫 실행에서 8샤드 전부가 NAS uuid 를 로컬 경로로 찾다
+    FileNotFoundError 로 죽었다. uuid 목록은 __main__ 이 만들어 NAS 것이
+    맞았기에, 목록은 NAS / 읽기는 로컬이라는 어긋난 상태였다.
+    """
+    if __name__ != "__main__":
+        return
+    import sys
+    other = sys.modules.get("edge_case_mining")
+    if other is not None and other is not sys.modules[__name__]:
+        other.CLIP_SOURCE = CLIP_SOURCE
+        other.CAMERA_DIR = CAMERA_DIR
+
+
+def set_clip_source(spec):
+    """--data 값으로 프레임 소스를 정한다. None/"local" 이면 기존 동작."""
+    global CLIP_SOURCE, CAMERA_DIR
+    if spec in (None, "local"):
+        CLIP_SOURCE = None
+        _mirror_clip_source()
+        return None
+    from clip_source import make_source
+    CLIP_SOURCE = make_source(spec, root=ROOT)
+    if getattr(CLIP_SOURCE, "kind", None) == "local":
+        CAMERA_DIR = CLIP_SOURCE.camera_dir
+    _mirror_clip_source()
+    return CLIP_SOURCE
+
+
+def clip_open(view: str, uuid: str):
+    """프레임 소스를 연다. CLIP_SOURCE 가 설정돼 있으면 그쪽에 위임한다."""
+    if CLIP_SOURCE is not None:
+        return CLIP_SOURCE.open_video(view, uuid)
+    return str(clip_path(view, uuid))
+
+
 def clip_frame_count(uuid: str) -> int:
     """front_wide 뷰 기준 클립의 총 프레임 수 (3뷰 모두 동일함이 확인됨)."""
-    cap = cv2.VideoCapture(str(clip_path(FRONT_VIEWS[0], uuid)))
-    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 0
-    cap.release()
-    return total
+    try:
+        container = av.open(clip_open(FRONT_VIEWS[0], uuid))
+    except (AV_ERROR, OSError):
+        return 0
+    try:
+        stream = container.streams.video[0]
+        total = stream.frames
+        if not total:  # 컨테이너가 프레임 수를 안 들고 있으면 duration 으로
+            total = int(float(stream.duration * stream.time_base)
+                        * float(stream.average_rate)) if stream.duration else 0
+        return int(total)
+    except (AV_ERROR, TypeError):
+        return 0
+    finally:
+        container.close()
 
 
 def sample_timestamp_indices(uuid: str, n_timestamps: int = 10):
@@ -215,8 +304,11 @@ def list_scene_uuids(limit: int | None = None):
 
     세 뷰 모두 같은 uuid 집합을 공유함 (500 클립 x 3앵글).
     """
-    d = CAMERA_DIR / FRONT_VIEWS[0]
-    uuids = sorted(p.name.split(".")[0] for p in d.glob("*.mp4"))
+    if CLIP_SOURCE is not None:
+        uuids = CLIP_SOURCE.uuids(FRONT_VIEWS[0])
+    else:
+        d = CAMERA_DIR / FRONT_VIEWS[0]
+        uuids = sorted(p.name.split(".")[0] for p in d.glob("*.mp4"))
     if limit:
         uuids = uuids[:limit]
     return uuids
@@ -253,8 +345,8 @@ def sample_unit_frames(uuid: str, frame_idx: int, max_long_side: int = 896,
     prev_idx = max(0, frame_idx - temporal_delta)
     prev, cur = {}, {}
     for view in (views or FRONT_VIEWS):
-        p = str(clip_path(view, uuid))
-        frames = _read_frames_at(p, [prev_idx, frame_idx], max_long_side=max_long_side)
+        frames = _read_frames_at(clip_open(view, uuid), [prev_idx, frame_idx],
+                                 max_long_side=max_long_side)
         prev[view] = frames.get(prev_idx)
         cur[view] = frames.get(frame_idx)
     return {"prev": prev, "cur": cur, "prev_idx": prev_idx, "cur_idx": frame_idx}
@@ -320,7 +412,7 @@ def sample_clip_frames(uuid: str, fps: float = CLIP_FPS,
 
     per_view = {}
     for view in views:
-        per_view[view] = _read_frames_at(str(clip_path(view, uuid)), idxs,
+        per_view[view] = _read_frames_at(clip_open(view, uuid), idxs,
                                          max_long_side=max_long_side)
     # 자차 미래 궤적을 프레임 위에 그린다. 텍스트로 주던 시공간 정보를
     # 픽셀로 옮기는 것 - 리사이즈 후에 그려야 선 두께가 입력 해상도에
@@ -544,7 +636,8 @@ def build_nureasoning_prompt(category_menu: str, sensor_facts: str = "",
                              timeline: bool = False,
                              force_behavior_hint: bool = False,
                              header_style: str = "v1",
-                             score_tiers: bool = True) -> str:
+                             safety_tiers: bool = True,
+                             rarity_tiers: bool = True) -> str:
     """nuReasoning 6단계 CoT + 1~10 점수를 요구하는 프롬프트.
 
     --traj 로 궤적을 그려도 프롬프트에는 그 사실을 알리지 않는다. 알려주는
@@ -667,33 +760,59 @@ the CURRENT moment. Each group of three is synchronized camera views
             "\n   so treat it as evidence only when the video shows what caused it."
             if behavior_facts else "")
 
-    # --no-score-tiers: 4/5 단계(Safety/Rarity)를 프롬프트와 출력 스키마에서
-    # 통째로 뺀다. edge-case 마이닝의 본체는 1~3단계(있는 요소를 빠짐없이
-    # 찾아 이름 붙이는 것)이고, 등급은 그 위에 얹은 부가 점수다. 등급을
-    # 요구하면 모델이 "몇 점을 줄까" 에 예산을 더 쓰게 되므로, 탐지 자체의
+    # --no-safety-tier / --no-rarity-tier: 등급 단계를 하나씩 끈다.
+    # edge-case 마이닝의 본체는 1~3단계(있는 요소를 빠짐없이 찾아 이름
+    # 붙이는 것)이고, 등급은 그 위에 얹은 부가 점수다. 등급을 요구하면
+    # 모델이 "몇 점을 줄까" 에 예산을 더 쓰게 되므로, 탐지 자체의
     # 재현율/정밀도가 등급 유무로 갈리는지 보려는 A/B 용이다.
-    steps45 = f"""   For steps 4 and 5, rate the SITUATION, never the object by itself. The same
+    #
+    # 둘을 따로 끄므로 단계 번호를 고정할 수 없다. rarity 만 켠 실행에서
+    # "5." 로 시작하면 4번이 없는 목록이 되어, 모델이 빠진 단계를 찾으려
+    # 하거나 없는 safety_tier 를 지어낸다. 그래서 켜진 것부터 4, 5 로
+    # 다시 매긴다.
+    steps45 = ""
+    if safety_tiers or rarity_tiers:
+        n_on = int(safety_tiers) + int(rarity_tiers)
+        # 머리말도 켜진 개수에 맞춘다 - 한 단계만 남았는데 "steps 4 and 5"
+        # 라고 하면 없는 단계를 가리킨다.
+        step_no = 4
+        head_ref = ("steps 4 and 5" if n_on == 2 else f"step {step_no}")
+        parts = [f"""   For {head_ref}, rate the SITUATION, never the object by itself. The same
    object is routine or serious depending on what it is doing and where it is:
 {contrasts}
    So "there is an animal" or "there is a pedestrian" tells you nothing on its
    own - look at what it is doing relative to the ego-vehicle's path.
-4. Safety Criticality: how close this came to needing emergency action.
+"""]
+        if safety_tiers:
+            parts.append(f"""{step_no}. Safety Criticality: how close this came to needing emergency action.
    A higher number means more dangerous. Pick the integer whose description
    fits best:
 {safety_rubric}
    Judge by what the ego-vehicle actually had to DO, not by how much attention
    the scene deserves - almost every scene deserves attention, so "requires
    vigilance" is never a reason to pick 2 or 3.{behavior_hint}
-5. Rarity: how unusual this situation is, judged the same way.
+""")
+            step_no += 1
+        if rarity_tiers:
+            # "judged the same way" 는 앞의 safety 단계를 받는 말이라,
+            # rarity 만 켜면 가리킬 대상이 없어진다.
+            lead = ("how unusual this situation is, judged the same way."
+                    if safety_tiers else "how unusual this situation is.")
+            parts.append(f"""{step_no}. Rarity: {lead}
    A higher number means more unusual. Pick the integer whose description
    fits best:
 {rarity_rubric}
-""" if score_tiers else ""
-    tier_fields = f''' "safety_tier": <integer {tier_min}-{tier_max}>,
+""")
+        steps45 = "".join(parts)
+    tier_fields = ""
+    if safety_tiers:
+        tier_fields += f''' "safety_tier": <integer {tier_min}-{tier_max}>,
  "safety_reason": "<why that safety rating>",
- "rarity_tier": <integer {tier_min}-{tier_max}>,
+'''
+    if rarity_tiers:
+        tier_fields += f''' "rarity_tier": <integer {tier_min}-{tier_max}>,
  "rarity_reason": "<why that rarity rating>",
-''' if score_tiers else ""
+'''
     # 1단계를 시간순 서술로 할지(--timeline) 예전처럼 한 덩어리 요약으로 할지.
     #
     # 왜 분기가 필요한가: 20초 클립에 서로 다른 시점의 사건이 둘 이상 있을 때,
@@ -1101,7 +1220,8 @@ def save_run_config(args, run_dir, n_views=1):
             "ego_ablation": args.ego_ablation,
             "header_style": args.header_style,
             "margin": bool(args.margin),
-            "score_tiers": bool(args.score_tiers),
+            "safety_tiers": bool(args.safety_tiers),
+            "rarity_tiers": bool(args.rarity_tiers),
             "use_3dbbox": bool(args.use_obstacle),
             "constrain_tiers": bool(args.constrain_tiers),
             "num_shards": args.num_shards,
@@ -1153,11 +1273,20 @@ if __name__ == "__main__":
     ap.add_argument("--model", default="Qwen/Qwen3-VL-8B-Instruct",
                     choices=["Qwen/Qwen2.5-VL-7B-Instruct",
                              "Qwen/Qwen3-VL-8B-Instruct",
-                             "Qwen/Qwen3-VL-32B-Instruct"],
+                             "Qwen/Qwen3-VL-32B-Instruct",
+                             "Qwen/Qwen3.8-27B"],
                     help="사용할 VLM. Qwen3-VL 은 Qwen2.5-VL 과 동일한 "
                          "Qwen2_5_VLForConditionalGeneration 아키텍처가 아니므로 "
                          "qwen_runner.py 가 model_id 를 보고 알맞은 모델/프로세서 "
-                         "클래스를 자동으로 고른다.")
+                         "클래스를 자동으로 고른다. Qwen3.8-27B 는 "
+                         "architectures=Qwen3_5ForConditionalGeneration 로 또 "
+                         "다르고, bf16 55.6GB 라 GPU 1장에 안 들어가 "
+                         "device_map='auto' 로 여러 GPU 에 걸쳐 로드한다 - "
+                         "8샤드 병렬(run_video_C.sh)이 아니라 run_video_27b.sh "
+                         "(qwen38 conda 환경)로 돌려야 한다. FP8 판(-FP8)은 "
+                         "일부러 목록에서 뺐다 - 멀티 GPU 로 로드하면 출력이 "
+                         "깨진다(실측, 텍스트 전용 생성도 실패). GPU 1장에 "
+                         "FP8(30.9GB)을 통째로 올릴 방법이 없는 한 못 쓴다.")
     # 후보로 검토했던 타 계열: InternVL3-38B/78B(OCR/세밀한 장면 이해가 강해
     # 표지판·차선 마킹에 유리할 수 있음), LLaVA-OneVision-72B(비디오 벤치마크
     # 강점). 다만 지금 프롬프트는 Qwen 특성에 맞춰 튜닝한 것이라 계열을 바꾸면
@@ -1299,14 +1428,23 @@ if __name__ == "__main__":
                          "시각화에서 제외한다 (기본 True). 카테고리가 나열됐지만 "
                          "모델 스스로 '영향도 낮고 흔함'으로 판단한 경우다. "
                          "CSV/scenario_types 에는 영향 없음 - 시각화 대상만 "
-                         "줄인다. --not-save-low=0 으로 끌 수 있다.")
-    ap.add_argument("--no-score-tiers", dest="score_tiers",
+                         "줄인다. --not-save-low=0 으로 끌 수 있다. "
+                         "--no-safety-tier/--no-rarity-tier 로 끈 등급은 값이 "
+                         "없어 '둘 다 Low' 가 성립하지 않으므로, 이 필터는 "
+                         "저절로 무력화된다(놓치는 것보다 더 보는 쪽).")
+    ap.add_argument("--no-safety-tier", dest="safety_tiers",
                     action="store_false",
-                    help="4/5단계(Safety Criticality, Rarity)를 프롬프트와 "
-                         "출력 스키마에서 통째로 끈다 - 등급 산정 없이 1~3단계"
-                         "(요소 탐지)만 남는다. safety_tier/rarity_tier/"
-                         "tier_score 는 CSV 에서 빈 값이 되고, --not-save-low "
-                         "필터는 저절로 무력화된다(등급을 모르니 거를 수 없다).")
+                    help="Safety Criticality 단계를 프롬프트와 출력 스키마에서 "
+                         "뺀다. safety_tier/safety_label/safety_reason 은 CSV "
+                         "에서 빈 값이 되고, tier_score(safety+rarity 합)도 빈 "
+                         "값이 된다. --no-rarity-tier 와 함께 주면 등급 산정 "
+                         "없이 1~3단계(요소 탐지)만 남는다.")
+    ap.add_argument("--no-rarity-tier", dest="rarity_tiers",
+                    action="store_false",
+                    help="Rarity 단계를 프롬프트와 출력 스키마에서 뺀다. "
+                         "rarity_tier/rarity_label/rarity_reason 은 CSV 에서 "
+                         "빈 값이 되고, tier_score 도 빈 값이 된다. 남은 "
+                         "단계는 4번으로 다시 매겨진다.")
     ap.add_argument("--no-constrain-tiers", dest="constrain_tiers",
                     action="store_false",
                     help="등급(safety/rarity) 필드를 디코딩 단계에서 1/2/3 으로 "
@@ -1318,7 +1456,15 @@ if __name__ == "__main__":
                          "목록으로 넘긴다. 기본은 비디오 - Qwen3-VL 이 인접 "
                          "프레임을 병합하고 타임스탬프를 붙여줘서 토큰이 약 "
                          "절반이 된다(실측 4,449 -> 2,296).")
+    ap.add_argument("--data", default="local",
+                    help="프레임 소스. local(기본, pav_sample) | nas(NAS 청크 "
+                         "zip) | 임의 경로. zip 이 보이면 zip 모드로 자동 판별.")
     args = ap.parse_args()
+
+    # 프레임 소스를 먼저 정한다 - 이후 list_scene_uuids 등이 이걸 본다.
+    _src = set_clip_source(args.data)
+    if _src is not None:
+        print(f"[data] {args.data} -> {_src.kind}", flush=True)
 
     # 세 모드는 상호 배타다. 함께 켜면 ②가 되살아나거나 hint 가 두 번
     # 정의되어 무엇을 재는 실행인지 알 수 없게 된다 - 몇 시간 돌린 뒤
@@ -1435,13 +1581,16 @@ if __name__ == "__main__":
             print("[dry-run] done")
             raise SystemExit(0)
         from qwen_runner import run_clip_inference
+        # 이 import 가 edge_case_mining 사본을 만든다 - 프레임 소스를 옮겨 심는다
+        _mirror_clip_source()
         run_clip_inference(uuids, labels, category_menu,
                            model_id=args.model, out_csv=args.out,
                            use_egomotion=args.use_egomotion,
                            ego_ablation=args.ego_ablation,
                            header_style=args.header_style,
                            want_margin=args.margin,
-                           score_tiers=args.score_tiers,
+                           safety_tiers=args.safety_tiers,
+                           rarity_tiers=args.rarity_tiers,
                            use_obstacle=args.use_obstacle,
                            single_view=args.single_view,
                            fps=args.clip_fps,
@@ -1487,6 +1636,7 @@ if __name__ == "__main__":
         raise SystemExit(0)
 
     from qwen_runner import run_inference
+    _mirror_clip_source()
     run_inference(units, labels, category_menu,
                   model_id=args.model, out_csv=args.out, viz_dir=args.viz_dir,
                   use_egomotion=args.use_egomotion, use_obstacle=args.use_obstacle,

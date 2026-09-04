@@ -30,7 +30,7 @@ SCENE_JSON = ROOT / "scene_category_E.json"
 
 # 사람이 만든 정답 라벨. 채점(evaluate_labels.py --labels)과 시각화
 # 패널의 GT 표기(--gt-labels)가 함께 쓴다.
-LABELS_JSON = ROOT / "test_label_E.json"
+LABELS_JSON = ROOT / "test_label_F.json"
 
 
 if __name__ == "__main__":

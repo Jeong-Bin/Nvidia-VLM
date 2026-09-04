@@ -53,20 +53,63 @@ from visualize_clip import render_clip_result, VIZ_WIDTH
 from constrained_tier import make_tier_processor, tier_label, score_dirname
 
 
+# 27B(Qwen3.8, architectures=Qwen3_5ForConditionalGeneration)는 bf16 55.6GB /
+# FP8 30.9GB 라 GPU 1장(24GB)에 안 들어간다. 8B 는 GPU 1장에 모델 전체를
+# 올려 8샤드를 각자 다른 GPU 에서 동시에 돌리는데(CUDA_VISIBLE_DEVICES 로
+# 프로세스마다 GPU 1장만 보여줌), 27B 는 애초에 여러 GPU 에 걸쳐야 해서
+# 그 구조를 못 쓴다 - device_map="auto" 로 한 프로세스가 GPU 여러 장을
+# 동시에 물어야 한다. 그래서 model_id 로 자동 판별해 로딩 방식을 가른다.
+#
+# FP8(Qwen/Qwen3.8-27B-FP8)은 목록에 없다 - 여기 넣지 말 것.
+# 실측(20260824): 멀티 GPU 로 로드하면 transformers 가 "DeepGEMM 대신
+# Triton/grouped_mm 경로로 우회한다" 고 경고하는데, 실제로 그 경로가
+# 손상된 값을 낸다. 이미지와 무관하게 "2+2는?" 같은 순수 텍스트 질문도
+# 의미 없는 토큰을 반복하다 무한 루프로 깨졌다(비전 문제가 아님을 순수
+# 텍스트 생성으로 격리 확인). bf16 원본은 같은 멀티 GPU 배치에서 정상
+# 응답했으므로 FP8 양자화 자체가 원인이다. GPU 1장에 FP8 을 통째로 올릴
+# 방법이 없는 한(24GB < 30.9GB) 이 경로는 막혀 있다 - bf16 만 쓴다.
+MULTI_GPU_MODELS = ("Qwen/Qwen3.8-27B",)
+
+# chat_template.jinja 를 보면 enable_thinking 이 undefined 거나 true 면
+# 기본 reasoning_effort="xhigh" 로 사고 과정을 먼저 뱉는다 - 편집 방식 클립
+# 분류에는 그 사고 분량이 낭비다. 실측(20260824, 27B): thinking=True 로
+# 두면 프레임을 한 장씩 짚어가는 800단어 넘는 서술을 쏟아내다
+# NUR_MAX_NEW_TOKENS=800 에 걸려 JSON 을 한 글자도 못 내고 잘렸다
+# (parse_ok=False). thinking=False 로 끄면 같은 프롬프트로 곧장 깨끗한
+# JSON 을 낸다. 그래서 THINKING_MODELS 는 항상 빈 튜플이다 - MULTI_GPU_MODELS
+# 와 절대 같은 값으로 두지 말 것(다시 27B 를 thinking 모델로 자동 분류하는
+# 실수를 반복하게 된다). 8B(Qwen3-VL) 의 템플릿에는 이 인자가 아예 없어
+# 넘겨도 조용히 무시된다.
+THINKING_MODELS = ()
+
+
 def load_model(model_id: str):
     """model_id 에 맞는 모델/프로세서 클래스를 Auto* 로 자동 선택해 로드한다.
 
     Qwen2.5-VL 은 Qwen2_5_VLForConditionalGeneration, Qwen3-VL(dense 8B/32B)은
     Qwen3VLForConditionalGeneration 으로 클래스가 다르지만, 둘 다
     AutoModelForImageTextToText 로 커버되므로 여기서 분기할 필요가 없다.
+
+    27B 는 device_map="auto" 로 여러 GPU 에 층을 나눠 올린다 - 그러면 이
+    프로세스가 CUDA_VISIBLE_DEVICES 로 보이는 GPU 를 전부 쓰게 되므로, 8샤드
+    병렬(샤드마다 GPU 1장) 구조로는 못 돌린다. run_video_27b.sh 는 처음부터
+    GPU 여러 장을 한 프로세스에 몰아준다.
     """
     print(f"[model] loading {model_id} ...")
     t0 = time.time()
-    model = AutoModelForImageTextToText.from_pretrained(
-        model_id,
-        torch_dtype=torch.bfloat16,
-        attn_implementation="sdpa",
-    ).to("cuda:0")
+    if model_id in MULTI_GPU_MODELS:
+        model = AutoModelForImageTextToText.from_pretrained(
+            model_id,
+            dtype=torch.bfloat16,
+            attn_implementation="sdpa",
+            device_map="auto",
+        )
+    else:
+        model = AutoModelForImageTextToText.from_pretrained(
+            model_id,
+            torch_dtype=torch.bfloat16,
+            attn_implementation="sdpa",
+        ).to("cuda:0")
     processor = AutoProcessor.from_pretrained(model_id, max_pixels=768 * 768)
     model.eval()
     print(f"[model] loaded in {time.time()-t0:.1f}s")
@@ -190,7 +233,7 @@ CLOSE_CALL_P = 0.1
 @torch.inference_mode()
 def _generate(model, processor, images, text_prompt, max_new_tokens=256,
               as_video=False, video_fps=None, logits_processor=None,
-              want_margin=False):
+              want_margin=False, thinking=False):
     """이미지 목록을 넣고 모델 원문 출력을 받는다.
 
     as_video=True 면 낱장 이미지 N개가 아니라 "비디오 한 편"으로 넘긴다.
@@ -213,14 +256,15 @@ def _generate(model, processor, images, text_prompt, max_new_tokens=256,
                                max_new_tokens=max_new_tokens,
                                video_fps=video_fps or 1.0,
                                logits_processor=logits_processor,
-                               want_margin=want_margin)
+                               want_margin=want_margin, thinking=thinking)
 
     content = [{"type": "image", "image": img} for img in images]
     content.append({"type": "text", "text": text_prompt})
     messages = [{"role": "user", "content": content}]
 
     text = processor.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
+        messages, tokenize=False, add_generation_prompt=True,
+        enable_thinking=thinking,
     )
     proc_kwargs = dict(text=[text], padding=True, return_tensors="pt")
     if images:
@@ -245,7 +289,8 @@ def _generate(model, processor, images, text_prompt, max_new_tokens=256,
 
 @torch.inference_mode()
 def _generate_video(model, processor, frames, text_prompt, max_new_tokens=256,
-                    video_fps=1.0, logits_processor=None, want_margin=False):
+                    video_fps=1.0, logits_processor=None, want_margin=False,
+                    thinking=False):
     """이미 뽑아둔 프레임 목록을 비디오 한 편으로 넘겨 생성한다.
 
     do_sample_frames=False 로 두는 것이 핵심 - 우리가 이미 1fps 로 골라둔
@@ -266,7 +311,8 @@ def _generate_video(model, processor, frames, text_prompt, max_new_tokens=256,
                                              {"type": "text",
                                               "text": text_prompt}]}]
     text = processor.apply_chat_template(messages, tokenize=False,
-                                         add_generation_prompt=True)
+                                         add_generation_prompt=True,
+                                         enable_thinking=thinking)
     inputs = processor(text=[text], videos=[arr], video_metadata=[meta],
                        do_sample_frames=False, padding=True,
                        return_tensors="pt").to(model.device)
@@ -402,7 +448,7 @@ def run_clip_inference(uuids, labels, category_menu,
                        viz_normal=None, viz_special=None,
                        gt_labels=None, timeline=False, ego_track=False,
                        ego_ablation=None, header_style="v1",
-                       want_margin=False, score_tiers=True,
+                       want_margin=False, safety_tiers=True, rarity_tiers=True,
                        traj=None):
     """클립 전체(20초)를 1fps 로 넣어 클립 단위로 판정한다.
 
@@ -433,21 +479,35 @@ def run_clip_inference(uuids, labels, category_menu,
     자차에 영향도 없고(Q3 폐지 대신 4단계가 이 역할) 희귀하지도 않다고 모델
     스스로 판단한 경우다. 탐지(scenario_types, CSV)는 건드리지 않고 시각화
     대상만 줄인다 - 이 필터가 틀려도 재추론 없이 CSV 로 다시 뽑을 수 있다.
+
+    safety_tiers / rarity_tiers 는 4/5단계를 하나씩 끈다. 끈 등급은 프롬프트와
+    출력 스키마에서 빠지고 CSV 에서 빈 칸이 되며, tier_score(합계)도 비게
+    된다. 값이 없으면 not_save_low 의 "둘 다 Low" 조건이 성립하지 않아 그
+    필터는 저절로 무력화된다.
     """
     model, processor = load_model(model_id)
     views = views_for(single_view)
 
     # 등급 필드를 1/2/3 정수로만 나오게 디코딩 단계에서 막는다.
     # 프롬프트 지시만으로는 "Low to moderate" 류가 새어나왔다(실측 20260811).
-    # 등급 자체를 안 물으면(--no-score-tiers) 제약할 필드가 없다.
-    tier_proc = (make_tier_processor(processor.tokenizer)
-                 if constrain_tiers and score_tiers else None)
+    # 끈 등급은 애초에 생성되지 않으므로 제약 대상에서도 뺀다 - 둘 다 끄면
+    # 제약할 필드가 없어 프로세서 자체를 만들지 않는다.
+    tier_field_names = tuple(
+        n for n, on in (("safety_tier", safety_tiers),
+                        ("rarity_tier", rarity_tiers)) if on)
+    tier_proc = (make_tier_processor(processor.tokenizer,
+                                     fields=tier_field_names)
+                 if constrain_tiers and tier_field_names else None)
 
     n_special = sum(1 for l in labels if not l["is_normal"])
     print(f"[clip] {len(uuids)} clips | {len(views)} view(s) | {fps}fps "
           f"max {max_frames} frames @ {max_long_side}px | {n_special} categories")
     print(f"[clip] input mode: {'VIDEO (temporal merge + timestamps)' if video_input else 'image list'}")
-    print(f"[clip] tier constraint: {'ON (1/2/3 enforced at decode)' if constrain_tiers else 'OFF'}")
+    print(f"[clip] tiers: safety={'on' if safety_tiers else 'off'}  "
+          f"rarity={'on' if rarity_tiers else 'off'}")
+    print("[clip] tier constraint: "
+          + (f"ON (1/2/3 enforced at decode: {', '.join(tier_field_names)})"
+             if tier_proc else "OFF"))
 
     cat_counts = Counter()
     n_parse_fail = n_viz = n_edge = 0
@@ -519,12 +579,14 @@ def run_clip_inference(uuids, labels, category_menu,
                 # D 는 behavior_facts 가 비어도 hint 를 켠다.
                 force_behavior_hint=(ego_ablation == "d"),
                 header_style=header_style,
-                score_tiers=score_tiers)
+                safety_tiers=safety_tiers,
+                rarity_tiers=rarity_tiers)
             gen_out = _generate(model, processor, images, prompt,
                                 max_new_tokens=NUR_MAX_NEW_TOKENS,
                                 as_video=video_input, video_fps=fps,
                                 logits_processor=tier_proc,
-                                want_margin=want_margin)
+                                want_margin=want_margin,
+                                thinking=(model_id in THINKING_MODELS))
             raw, margin = gen_out if want_margin else (gen_out, None)
             result = parse_nureasoning_output(raw, labels)
 

@@ -21,8 +21,35 @@ from pathlib import Path
 
 import pandas as pd
 
+from config import SCENE_JSON as CONFIG_SCENE_JSON
+
 ROOT = Path(__file__).resolve().parent
-SCENE_JSON = ROOT / "scene_category_B.json"
+# 기본값은 config.py 한 곳에서만 정한다. 예전에는 여기서 직접
+# scene_category_B.json 을 들고 있었는데, config.py 가 E 를 가리키는 동안에도
+# 이 파일만 B 로 남아 있었다 - 그러면 멀쩡한 카테고리가 전부 0 으로 찍혀서
+# 모델이 못 맞춘 것인지 이름이 안 맞은 것인지 구분할 수 없게 된다.
+# 다만 집계는 "이 실행이 실제로 쓴" 정의를 우선하므로, run_config.json 이
+# 있으면 아래 scene_json_for_run() 이 그쪽을 쓴다 (aggregate_clip.py 와 동일).
+SCENE_JSON = CONFIG_SCENE_JSON
+
+
+def scene_json_for_run(run_dir):
+    """이 실행이 실제로 쓴 카테고리 정의. 없으면 config.py 기본값.
+
+    edge_case_mining.py 샤드 0 이 남긴 run_config.json 을 본다. 집계 기준이
+    실행 기준과 어긋나면 멀쩡한 카테고리가 전부 0 으로 찍힌다.
+    """
+    cfg_path = Path(run_dir) / "run_config.json"
+    if cfg_path.exists():
+        try:
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            name = cfg.get("key", {}).get("scene_json")
+            if name:
+                p = Path(name)
+                return p if p.is_absolute() else ROOT / p
+        except (json.JSONDecodeError, OSError):
+            pass
+    return SCENE_JSON
 
 
 def latest_run_dir():
@@ -150,7 +177,7 @@ def main():
     log("(a scene with several categories counts once as SPECIAL)")
 
     # --- 2) 카테고리 빈도 (blocking 을 물었으면 yes/no 로 쪼개서도) ---
-    specials = load_special_categories(SCENE_JSON)
+    specials = load_special_categories(scene_json_for_run(run_dir))
     known = {c for _, c in specials}
 
     def counts_for(mask):

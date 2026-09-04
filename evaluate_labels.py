@@ -245,12 +245,24 @@ def log_run_config(run_dir, log):
         f"ego-track={_onoff(key.get('ego_track'))}  "
         f"traj={key.get('traj') or 'off'}  "
         f"header={key.get('header_style') or 'v1'}  "
-        f"score-tiers={_onoff(key.get('score_tiers', True))}")
+        f"tiers=safety:{_tier_onoff(key, 'safety_tiers')}"
+        f"/rarity:{_tier_onoff(key, 'rarity_tiers')}")
     return cfg
 
 
 def _onoff(v):
     return "on" if v else "off" if v is not None else "?"
+
+
+def _tier_onoff(key, name):
+    """등급 단계 on/off. 예전 run_config 는 score_tiers 하나로만 기록했다.
+
+    --no-score-tiers 시절의 실행은 safety/rarity 를 함께 켜고 껐으므로,
+    새 키가 없으면 옛 키를 그대로 두 단계의 값으로 읽는다.
+    """
+    if name in key:
+        return _onoff(key[name])
+    return _onoff(key.get("score_tiers", True))
 
 
 # 샤드 로그에서 실패를 알아보는 표식. 파이썬 traceback 과, 죽지는 않았지만
@@ -501,10 +513,8 @@ def main():
         f"{'TP':>5}{'FP':>5}{'FN':>5}")
     log("  " + "-" * 66)
     for c, t, p, r, f, ctp, cfp, cfn in sorted(rows, key=lambda x: -x[1]):
-        mark = " " if t >= args.min_support else "*"
-        log(f" {mark}{c:<32}{t:>4}{p:>8.2f}{r:>8.2f}{f:>8.2f}"
+        log(f" {c:<32}{t:>4}{p:>8.2f}{r:>8.2f}{f:>8.2f}"
             f"{ctp:>5}{cfp:>5}{cfn:>5}")
-    log("  * = too few labels to read the numbers reliably")
     write_category_lists(run_dir, per_cat, log)
 
     # ---------------- 3/4) SAFETY, RARITY ----------------

@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Edge-Case Mining Console</title>
+<style>
+:root{
+  --bg:#0f1115; --panel:#171a21; --panel2:#1d2129; --line:#2a2f3a;
+  --fg:#e6e9ef; --muted:#9aa4b2; --accent:#5b9cff; --accent2:#b3541e;
+  --ok:#3fb950; --bad:#f85149; --warn:#d29922;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR",sans-serif}
+h1,h2,h3{margin:0 0 8px;font-weight:600}
+h1{font-size:16px}h2{font-size:14px}h3{font-size:13px;color:var(--muted)}
+a{color:var(--accent);text-decoration:none}
+button,select,input,textarea{font:inherit;color:var(--fg);background:var(--panel2);
+  border:1px solid var(--line);border-radius:6px;padding:5px 9px}
+button{cursor:pointer}button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:#05070c;border-color:var(--accent);font-weight:600}
+button.danger{border-color:var(--bad);color:var(--bad)}
+input[type=text],input[type=number],select,textarea{min-width:0}
+textarea{width:100%;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+header{display:flex;align-items:center;gap:14px;padding:10px 16px;
+  background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+nav{display:flex;gap:4px}
+nav button{background:none;border:1px solid transparent}
+nav button.on{background:var(--panel2);border-color:var(--line);color:var(--accent)}
+main{padding:14px 16px 40px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.row>label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted)}
+    /* 체크박스는 상자 오른쪽에 글자가 오도록 - 세로 쌓기가 기본이라 예외 */
+    .row>label.chk{flex-direction:row;align-items:center;gap:5px}
+.grid{display:grid;gap:12px}
+.hide{display:none!important}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th,td{padding:4px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--panel);z-index:1}
+tbody tr:hover{background:var(--panel2)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.scroll{max-height:60vh;overflow:auto;border:1px solid var(--line);border-radius:6px}
+.tag{display:inline-block;padding:1px 6px;border-radius:99px;background:var(--panel2);
+  border:1px solid var(--line);font-size:11px;margin:1px 2px 1px 0}
+.tag.tp{border-color:var(--ok);color:var(--ok)}
+.tag.fp{border-color:var(--bad);color:var(--bad)}
+.tag.fn{border-color:var(--warn);color:var(--warn)}
+.kpi{display:flex;gap:16px;flex-wrap:wrap}
+.kpi div{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 12px;min-width:104px}
+.kpi b{display:block;font-size:19px;font-variant-numeric:tabular-nums}
+.kpi span{color:var(--muted);font-size:11px}
+.muted{color:var(--muted)}
+.pill{cursor:pointer;padding:2px 8px;border:1px solid var(--line);border-radius:99px;background:var(--panel2);font-size:11px}
+.pill.on{border-color:var(--accent);color:var(--accent)}
+pre{margin:0;white-space:pre-wrap;word-break:break-word;font-size:11.5px;
+  font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--muted)}
+.modal{position:fixed;inset:0;background:#000a;display:flex;align-items:center;
+  justify-content:center;z-index:50;padding:20px}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  max-width:1000px;width:100%;max-height:92vh;overflow:auto;padding:16px}
+video{width:100%;background:#000;border-radius:6px}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:900px){.split{grid-template-columns:1fr}}
+.toast{position:fixed;right:16px;bottom:16px;background:var(--panel2);
+  border:1px solid var(--accent);border-radius:8px;padding:10px 14px;z-index:99}
+</style>
+</head>
+<body>
+<header>
+  <h1>Edge-Case Mining Console</h1>
+  <nav>
+    <button data-tab="eval" class="on">평가 결과</button>
+    <button data-tab="search">씬 검색</button>
+    <button data-tab="label">라벨 편집</button>
+    <button data-tab="scene">카테고리 정의</button>
+    <button data-tab="run">추론 실행</button>
+  </nav>
+  <span id="hdr" class="muted" style="margin-left:auto"></span>
+</header>
+<main>
+
+<!-- ============ 1. 평가 결과 ============ -->
+<section id="tab-eval">
+  <div class="panel">
+    <div class="row">
+      <label>실행(run)
+        <select id="ev-run" style="min-width:340px"></select></label>
+      <label>정답 라벨
+        <select id="ev-labels"></select></label>
+      <button class="primary" id="ev-load">불러오기</button>
+      <button id="ev-log">evaluation.log 원문</button>
+      <span id="ev-cfg" class="muted"></span>
+    </div>
+  </div>
+  <div id="ev-body" class="hide">
+    <div class="panel">
+      <h2>1) Verdict — 카테고리가 1개 이상이면 Special</h2>
+      <div class="kpi" id="ev-kpi"></div>
+      <p class="muted" id="ev-note" style="margin:8px 0 0"></p>
+    </div>
+    <div class="panel">
+      <h2>2) 카테고리별 성능</h2>
+      <p class="muted" style="margin:-4px 0 8px">
+        행을 클릭하면 아래에 TP / FP / FN 클립 목록이 열립니다.
+        지지수(n)가 3 미만인 카테고리는 * 로 표시 — 한 건에 지표가 크게 흔들려 신뢰하기 어렵습니다.</p>
+      <div class="scroll"><table>
+        <thead><tr><th>카테고리</th><th class="num">n</th><th class="num">P</th>
+          <th class="num">R</th><th class="num">F1</th>
+          <th class="num">TP</th><th class="num">FP</th><th class="num">FN</th></tr></thead>
+        <tbody id="ev-cats"></tbody></table></div>
+    </div>
+    <div class="panel" id="ev-listwrap" style="display:none">
+      <h2 id="ev-listtitle"></h2>
+      <div class="row" style="margin-bottom:8px">
+        <span class="pill on" data-kind="tp">TP</span>
+        <span class="pill" data-kind="fp">FP</span>
+        <span class="pill" data-kind="fn">FN</span>
+        <span class="muted" id="ev-listcount"></span>
+      </div>
+      <div class="scroll"><table>
+        <thead><tr><th>uuid</th><th>GT 카테고리</th><th>예측 카테고리</th>
+          <th class="num">GT S/R</th><th class="num">예측 S/R</th><th>동작</th></tr></thead>
+        <tbody id="ev-list"></tbody></table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2. 씬 검색 ============ -->
+<section id="tab-search" class="hide">
+  <div class="panel">
+    <div class="row">
+      <label>정답 라벨<select id="s-labels"></select></label>
+      <label>대조할 실행(선택)<select id="s-run" style="min-width:280px"></select></label>
+      <label>uuid 포함<input type="text" id="s-uuid" placeholder="앞 8자리 등" size="16"></label>
+      <label>note 포함<input type="text" id="s-note" size="12"></label>
+      <label>Special 여부<select id="s-special">
+        <option value="">전체</option><option value="special">Special만</option>
+        <option value="normal">Normal만</option></select></label>
+      <label>오류 유형(실행 필요)<select id="s-only">
+        <option value="">전체</option><option value="fp">FP 있는 클립</option>
+        <option value="fn">FN 있는 클립</option><option value="tp">TP 있는 클립</option>
+      </select></label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label>Safety 최소<input type="number" id="s-smin" value="1" min="1" max="4" size="2"></label>
+      <label>Safety 최대<input type="number" id="s-smax" value="4" min="1" max="4" size="2"></label>
+      <label>Rarity 최소<input type="number" id="s-rmin" value="1" min="1" max="4" size="2"></label>
+      <label>Rarity 최대<input type="number" id="s-rmax" value="4" min="1" max="4" size="2"></label>
+      <label>카테고리 조건<select id="s-catmode">
+        <option value="any">하나라도 포함</option><option value="all">모두 포함</option>
+        <option value="none">모두 제외</option></select></label>
+      <button class="primary" id="s-go">검색</button>
+      <button id="s-clear">초기화</button>
+    </div>
+    <div style="margin-top:10px"><span class="muted">카테고리 선택:</span>
+      <div id="s-cats" style="margin-top:4px"></div></div>
+  </div>
+  <div class="panel">
+    <div class="row" style="margin-bottom:8px">
+      <b id="s-count" class="muted"></b>
+      <button id="s-csv" style="margin-left:auto">CSV로 저장</button>
+    </div>
+    <div class="scroll"><table>
+      <thead><tr><th>uuid</th><th>GT 카테고리</th><th>예측</th><th class="num">S</th>
+        <th class="num">R</th><th>note</th><th>동작</th></tr></thead>
+      <tbody id="s-rows"></tbody></table></div>
+  </div>
+</section>
+
+<!-- ============ 3. 라벨 편집 ============ -->
+<section id="tab-label" class="hide">
+  <div class="panel">
+    <div class="row">
+      <label>라벨 파일<select id="l-file"></select></label>
+      <label>uuid<input type="text" id="l-uuid" size="40" placeholder="36자 uuid"></label>
+      <button id="l-load">불러오기</button>
+      <button class="primary" id="l-save">저장</button>
+      <button class="danger" id="l-del">삭제</button>
+      <span class="muted" id="l-status"></span>
+    </div>
+    <p class="muted" style="margin:8px 0 0">
+      저장 시 기존 파일은 <span class="mono">.bak</span> 으로 백업되고, 임시 파일에 쓴 뒤 교체하므로
+      쓰는 도중 중단돼도 반쪽짜리 파일이 남지 않습니다.</p>
+  </div>
+  <div class="split">
+    <div class="panel">
+      <h2>라벨 값</h2>
+      <div class="row" style="margin-bottom:10px">
+        <label>Safety(1-4)<input type="number" id="l-safety" min="1" max="4" value="1" size="2"></label>
+        <label>Rarity(1-4)<input type="number" id="l-rarity" min="1" max="4" value="1" size="2"></label>
+        <label>자차 영향<select id="l-infl">
+          <option value="false">false</option><option value="true">true</option></select></label>
+        <label>야간<select id="l-night">
+          <option value="false">false</option><option value="true">true</option></select></label>
+      </div>
+      <h3>카테고리 (클릭해서 토글)</h3>
+      <div id="l-cats" style="margin-bottom:10px"></div>
+      <h3>날씨 (쉼표 구분)</h3>
+      <input type="text" id="l-weather" style="width:100%;margin-bottom:10px">
+      <h3>note</h3>
+      <textarea id="l-note" rows="3"></textarea>
+    </div>
+    <div class="panel">
+      <h2>클립 미리보기</h2>
+      <div id="l-preview" class="muted">uuid 를 불러오면 원본 영상이 표시됩니다.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4. 카테고리 정의 ============ -->
+<section id="tab-scene" class="hide">
+  <div class="panel">
+    <div class="row">
+      <label>분류 체계 파일<select id="c-file"></select></label>
+      <button id="c-load">불러오기</button>
+      <button class="primary" id="c-new">새 카테고리</button>
+      <span class="muted" id="c-status"></span>
+    </div>
+    <p class="muted" style="margin:8px 0 0">
+      카테고리 <b>이름</b>은 프롬프트 메뉴와 정답 라벨이 문자열로 맞춰 쓰는 키입니다.
+      이름을 바꾸면 기존 라벨이 매칭되지 않으니, 이름 변경은 라벨도 함께 고칠 각오가 있을 때만 하세요.</p>
+  </div>
+  <div class="split">
+    <div class="panel">
+      <h2>카테고리 목록</h2>
+      <div class="scroll"><table>
+        <thead><tr><th>시나리오</th><th>이름</th><th class="num">동의어</th><th class="num">템플릿</th></tr></thead>
+        <tbody id="c-rows"></tbody></table></div>
+    </div>
+    <div class="panel">
+      <h2 id="c-edit-title">편집</h2>
+      <div class="row" style="margin-bottom:8px">
+        <label>시나리오<input type="text" id="c-scenario" size="20" value="Dynamic object"></label>
+        <label>이름<input type="text" id="c-name" size="24"></label>
+      </div>
+      <h3>동의어 — 프롬프트 메뉴에 실제로 들어가는 예시 (한 줄에 하나)</h3>
+      <textarea id="c-syn" rows="4"></textarea>
+      <h3 style="margin-top:8px">prompt_templates_candidates (한 줄에 하나)</h3>
+      <textarea id="c-tpl" rows="6"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" id="c-save">저장</button>
+        <button class="danger" id="c-del">삭제</button>
+      </div>
+      <p class="muted" style="margin-top:8px">
+        기본 실행은 동의어 2개만 프롬프트에 넣습니다(<span class="mono">--example-source synonyms
+        --num-examples 2</span>). 템플릿은 프롬프트에 들어가지 않습니다.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5. 추론 실행 ============ -->
+<section id="tab-run" class="hide">
+  <div class="panel">
+    <h2>새 추론</h2>
+    <div class="row">
+      <label>모델<select id="r-model" style="min-width:280px"></select></label>
+      <label>정답 라벨(평가 대상)<select id="r-labels"></select></label>
+      <label>분류 체계<select id="r-scene"></select></label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label>궤적 오버레이<select id="r-traj">
+        <option value="">사용 안 함</option><option value="center">center</option>
+        <option value="width">width</option></select></label>
+      <label>egomotion<select id="r-ego">
+        <option value="1">사용</option><option value="0">사용 안 함</option></select></label>
+      <label>시각화 mp4<select id="r-viz">
+        <option value="1">생성</option><option value="0">생성 안 함</option></select></label>
+      <label title="프레임을 어디서 읽을지. nas 는 NAS 청크 zip 을 압축 해제 없이 직접 읽는다">
+        데이터<select id="r-data">
+        <option value="local">local (pav_sample)</option>
+        <option value="nas">nas (NAS 청크 zip)</option></select></label>
+      <label class="chk" title="프롬프트 4) Safety Criticality 항목을 통째로 뺀다">
+        <input type="checkbox" id="r-nosafety"> Safety 등급 끄기</label>
+      <label class="chk" title="프롬프트 5) Rarity 항목을 통째로 뺀다">
+        <input type="checkbox" id="r-norarity"> Rarity 등급 끄기</label>
+      <label id="r-gpuwrap" class="hide">GPU<input type="text" id="r-gpus" value="0,1,2" size="8"></label>
+      <label id="r-shardwrap">샤드 수<input type="number" id="r-shards" value="8" min="1" max="8" size="2"></label>
+      <label>메모<input type="text" id="r-memo" size="26" placeholder="이 실행이 무엇을 시험하는지"></label>
+      <button class="primary" id="r-go">실행</button>
+    </div>
+    <p class="muted mono" id="r-cmd" style="margin:10px 0 0"></p>
+    <p class="muted" style="margin:6px 0 0">
+      27B 는 GPU 여러 장을 한 프로세스가 물고 순차 처리합니다 — 클립당 약 40초로,
+      230개면 2시간 반쯤 걸립니다. 창을 닫아도 실행은 계속됩니다.</p>
+  </div>
+  <div class="panel">
+    <h2>작업 목록</h2>
+    <div id="r-jobs" class="muted">아직 없습니다.</div>
+  </div>
+</section>
+
+</main>
+<div id="modal"></div>
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const api = async (p, o) => {
+  const r = await fetch(p, o);
+  const j = await r.json();
+  if (j.error) throw new Error(j.error);
+  return j;
+};
+const esc = s => String(s ?? '').replace(/[<>&"]/g, c =>
+  ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const pct = x => (x * 100).toFixed(1) + '%';
+const f3 = x => Number(x).toFixed(3);
+let BOOT = {}, TAX = [], EV = null, EVKIND = 'tp', EVCAT = null;
+
+function toast(msg, ms = 2600) {
+  const d = document.createElement('div');
+  d.className = 'toast'; d.textContent = msg;
+  document.body.appendChild(d); setTimeout(() => d.remove(), ms);
+}
+function opts(sel, arr, val) {
+  sel.innerHTML = arr.map(a => {
+    const [v, t] = Array.isArray(a) ? a : [a, a];
+    return `<option value="${esc(v)}">${esc(t)}</option>`;
+  }).join('');
+  if (val) sel.value = val;
+}
+
+/* ---------- 탭 ---------- */
+$$('nav button').forEach(b => b.onclick = () => {
+  $$('nav button').forEach(x => x.classList.toggle('on', x === b));
+  $$('main > section').forEach(s =>
+    s.classList.toggle('hide', s.id !== 'tab-' + b.dataset.tab));
+  if (b.dataset.tab === 'run') refreshJobs();
+});
+
+/* ---------- 부팅 ---------- */
+async function boot() {
+  BOOT = await api('/api/bootstrap');
+  const runs = BOOT.runs.filter(r => r.has_results)
+    .map(r => [r.name, r.name + (r.memo ? '  — ' + r.memo : '')]);
+  opts($('#ev-run'), runs);
+  opts($('#s-run'), [['', '(선택 안 함)'], ...runs]);
+  for (const s of ['#ev-labels', '#s-labels', '#l-file', '#r-labels'])
+    opts($(s), BOOT.labels, BOOT.default_labels);
+  for (const s of ['#c-file', '#r-scene'])
+    opts($(s), BOOT.scenes, BOOT.default_scene);
+  opts($('#r-model'), BOOT.models.map(m => [m.id, m.label]));
+  $('#hdr').textContent = `${BOOT.runs.length}개 실행 · 라벨 ${BOOT.labels.length}종`;
+  await loadTax();
+  onModelChange();
+  refreshJobs();
+}
+async function loadTax(scene) {
+  const j = await api('/api/taxonomy?scene=' + encodeURIComponent(scene || BOOT.default_scene));
+  TAX = j.categories;
+  const html = TAX.map(c =>
+    `<span class="pill" data-cat="${esc(c.name)}">${esc(c.name)}</span>`).join(' ');
+  $('#s-cats').innerHTML = html; $('#l-cats').innerHTML = html;
+  $$('#s-cats .pill,#l-cats .pill').forEach(p =>
+    p.onclick = () => p.classList.toggle('on'));
+}
+
+/* ---------- 1. 평가 ---------- */
+$('#ev-load').onclick = async () => {
+  const name = $('#ev-run').value;
+  if (!name) return toast('실행을 선택하세요');
+  $('#ev-load').textContent = '계산 중…';
+  try {
+    EV = await api(`/api/run?name=${encodeURIComponent(name)}&labels=${encodeURIComponent($('#ev-labels').value)}`);
+    renderEval();
+  } catch (e) { toast(e.message); }
+  $('#ev-load').textContent = '불러오기';
+};
+function renderEval() {
+  const v = EV.verdict;
+  $('#ev-body').classList.remove('hide');
+  $('#ev-kpi').innerHTML = `
+    <div><b>${pct(v.accuracy)}</b><span>정확도</span></div>
+    <div><b>${pct(v.precision)}</b><span>정밀도</span></div>
+    <div><b>${pct(v.recall)}</b><span>재현율</span></div>
+    <div><b>${pct(v.f1)}</b><span>F1</span></div>
+    <div><b>${f3(EV.micro_f1)}</b><span>micro F1(카테고리)</span></div>
+    <div><b>${f3(EV.macro_f1)}</b><span>macro F1</span></div>
+    <div><b>${f3(EV.per_clip_f1)}</b><span>per-clip F1</span></div>
+    <div><b>${v.tp}/${v.fp}/${v.fn}/${v.tn}</b><span>TP/FP/FN/TN</span></div>`;
+  const t = EV.tiers || {};
+  const tier = k => t[k] && t[k].n
+    ? `${k} MAE ${t[k].mae.toFixed(3)} · 정확일치 ${pct(t[k].exact)}` : `${k} 없음`;
+  $('#ev-note').innerHTML =
+    `라벨 ${EV.n_labels}개 중 ${EV.n_matched}개 채점` +
+    (EV.n_missing ? ` · <span style="color:var(--warn)">결과에 없는 라벨 ${EV.n_missing}개</span>` : '') +
+    ` · GT special ${v.n_special_truth} / normal ${v.n_normal_truth}<br>` +
+    `${tier('safety')} · ${tier('rarity')}`;
+  const c = EV.config || {};
+  $('#ev-cfg').innerHTML = `<span class="mono">${esc(c.model || '')}</span>` +
+    (c.use_egomotion ? ' · egomotion' : '') + (c.traj ? ' · traj=' + esc(c.traj) : '') +
+    (c.safety_tiers === false ? ' · <span style="color:var(--warn)">safety 등급 off</span>' : '') +
+    (c.rarity_tiers === false ? ' · <span style="color:var(--warn)">rarity 등급 off</span>' : '') +
+    (c.memo ? ' · ' + esc(c.memo) : '');
+
+  $('#ev-cats').innerHTML = EV.categories.map((c, i) => `
+    <tr data-i="${i}" style="cursor:pointer">
+      <td>${c.reliable ? '' : '<span class="muted">*</span> '}${esc(c.name)}</td>
+      <td class="num">${c.support}</td><td class="num">${f3(c.precision)}</td>
+      <td class="num">${f3(c.recall)}</td><td class="num"><b>${f3(c.f1)}</b></td>
+      <td class="num" style="color:var(--ok)">${c.n_tp}</td>
+      <td class="num" style="color:var(--bad)">${c.n_fp}</td>
+      <td class="num" style="color:var(--warn)">${c.n_fn}</td></tr>`).join('');
+  $$('#ev-cats tr').forEach(tr => tr.onclick = () => {
+    EVCAT = EV.categories[+tr.dataset.i]; renderCatList();
+  });
+}
+$$('#ev-listwrap .pill').forEach(p => p.onclick = () => {
+  $$('#ev-listwrap .pill').forEach(x => x.classList.toggle('on', x === p));
+  EVKIND = p.dataset.kind; renderCatList();
+});
+function renderCatList() {
+  if (!EVCAT) return;
+  $('#ev-listwrap').style.display = '';
+  $('#ev-listtitle').textContent = `${EVCAT.name} — ${EVKIND.toUpperCase()} 클립`;
+  const ids = EVCAT[EVKIND] || [];
+  $('#ev-listcount').textContent = `${ids.length}개`;
+  $('#ev-list').innerHTML = ids.length ? ids.map(u =>
+    `<tr><td class="mono">${esc(u.slice(0, 18))}…</td>
+      <td colspan="4" class="muted" data-fill="${esc(u)}">불러오는 중…</td>
+      <td><button data-clip="${esc(u)}">열기</button></td></tr>`).join('')
+    : '<tr><td colspan="6" class="muted">없음</td></tr>';
+  $$('#ev-list [data-clip]').forEach(b => b.onclick = () => openClip(b.dataset.clip));
+  // 목록이 길 수 있으니 상세는 클립 단위로 나눠 채운다
+  ids.slice(0, 60).forEach(async u => {
+    try {
+      const d = await api(`/api/clip?uuid=${u}&run=${encodeURIComponent(EV.run)}&labels=${encodeURIComponent(EV.labels_name)}`);
+      const td = $(`#ev-list [data-fill="${u}"]`); if (!td) return;
+      const g = d.truth || {}, p = d.pred || {};
+      td.outerHTML =
+        `<td>${(g.categories || []).map(x => `<span class="tag">${esc(x)}</span>`).join('') || '<span class="muted">없음</span>'}</td>
+         <td>${(p.categories || []).map(x => `<span class="tag ${(g.categories || []).includes(x) ? 'tp' : 'fp'}">${esc(x)}</span>`).join('') || '<span class="muted">없음</span>'}</td>
+         <td class="num">${g.safety ?? '-'}/${g.rarity ?? '-'}</td>
+         <td class="num">${p.safety ?? '-'}/${p.rarity ?? '-'}</td>`;
+    } catch (e) {}
+  });
+}
+$('#ev-log').onclick = async () => {
+  try {
+    const j = await api('/api/evaluation_log?name=' + encodeURIComponent($('#ev-run').value));
+    showModal(`<h2>evaluation.log</h2><pre>${esc(j.text)}</pre>`);
+  } catch (e) { toast(e.message); }
+};
+
+/* ---------- 클립 상세 ---------- */
+async function openClip(uuid, run) {
+  const r = run || (EV && EV.run) || $('#s-run').value || '';
+  const lab = $('#ev-labels').value || BOOT.default_labels;
+  let d;
+  try {
+    d = await api(`/api/clip?uuid=${uuid}&run=${encodeURIComponent(r)}&labels=${encodeURIComponent(lab)}`);
+  } catch (e) { return toast(e.message); }
+  const g = d.truth || {}, p = d.pred || {};
+  const vid = d.video || d.source_video;
+  const rs = (d.reasoning || {}).reasoning || {};
+  showModal(`
+    <h2 class="mono">${esc(uuid)}</h2>
+    ${vid ? `<video controls src="/media?path=${encodeURIComponent(vid)}"></video>
+      <div class="row" style="margin:8px 0 12px">
+        <a class="pill" href="/media?path=${encodeURIComponent(vid)}&dl=1"
+           download>영상 다운로드</a>
+        ${d.video ? '<span class="muted">시각화 패널 포함 영상</span>'
+                  : '<span class="muted">원본 영상(이 실행에 시각화 없음)</span>'}
+      </div>` : '<p class="muted">영상을 찾지 못했습니다.</p>'}
+    <div class="split">
+      <div><h3>정답(GT)</h3>
+        <p>${(g.categories || []).map(x => `<span class="tag">${esc(x)}</span>`).join('') || '<span class="muted">카테고리 없음</span>'}</p>
+        <p class="muted">Safety ${g.safety ?? '-'} · Rarity ${g.rarity ?? '-'}</p>
+        ${g.note ? `<p class="muted">note: ${esc(g.note)}</p>` : ''}</div>
+      <div><h3>모델 예측</h3>
+        <p>${(p.categories || []).map(x => `<span class="tag ${(g.categories || []).includes(x) ? 'tp' : 'fp'}">${esc(x)}</span>`).join('') || '<span class="muted">카테고리 없음</span>'}</p>
+        <p class="muted">Safety ${p.safety ?? '-'} · Rarity ${p.rarity ?? '-'}</p></div>
+    </div>
+    ${rs.observation ? `<h3 style="margin-top:12px">모델 서술</h3>
+      <p class="muted"><b>장면</b> ${esc(rs.observation)}</p>
+      <p class="muted"><b>자차</b> ${esc(rs.ego_behavior || '')}</p>
+      <p class="muted"><b>특이요소</b> ${esc(rs.unusual_elements || '')}</p>` : ''}
+    <div class="row" style="margin-top:14px">
+      <button onclick="editLabel('${uuid}')">이 클립 라벨 편집</button>
+      <button onclick="closeModal()" style="margin-left:auto">닫기</button>
+    </div>`);
+}
+function showModal(html) {
+  $('#modal').innerHTML = `<div class="modal" onclick="if(event.target===this)closeModal()">
+    <div class="box">${html}</div></div>`;
+}
+function closeModal() { $('#modal').innerHTML = ''; }
+window.closeModal = closeModal;
+window.editLabel = u => {
+  closeModal();
+  $$('nav button').find(b => b.dataset.tab === 'label').click();
+  $('#l-uuid').value = u; $('#l-load').click();
+};
+
+/* ---------- 2. 검색 ---------- */
+function searchQuery() {
+  const cats = $$('#s-cats .pill.on').map(p => p.dataset.cat).join('|');
+  const q = new URLSearchParams({
+    labels: $('#s-labels').value, run: $('#s-run').value,
+    uuid: $('#s-uuid').value, note: $('#s-note').value,
+    categories: cats, cat_mode: $('#s-catmode').value,
+    safety_min: $('#s-smin').value, safety_max: $('#s-smax').value,
+    rarity_min: $('#s-rmin').value, rarity_max: $('#s-rmax').value,
+    special: $('#s-special').value, only: $('#s-only').value,
+  });
+  return q.toString();
+}
+let SROWS = [];
+$('#s-go').onclick = async () => {
+  try {
+    const j = await api('/api/search?' + searchQuery());
+    SROWS = j.rows;
+    $('#s-count').textContent = `${j.total}개 중 ${j.rows.length}개 표시`;
+    $('#s-rows').innerHTML = j.rows.map(r => `
+      <tr><td class="mono">${esc(r.uuid.slice(0, 18))}…</td>
+        <td>${r.categories.map(x => `<span class="tag">${esc(x)}</span>`).join('') || '<span class="muted">-</span>'}</td>
+        <td>${r.pred_categories ? r.pred_categories.map(x =>
+          `<span class="tag ${r.categories.includes(x) ? 'tp' : 'fp'}">${esc(x)}</span>`).join('') || '<span class="muted">없음</span>' : ''}</td>
+        <td class="num">${r.safety}</td><td class="num">${r.rarity}</td>
+        <td class="muted">${esc((r.note || '').slice(0, 30))}</td>
+        <td><button data-clip="${esc(r.uuid)}">열기</button></td></tr>`).join('');
+    $$('#s-rows [data-clip]').forEach(b =>
+      b.onclick = () => openClip(b.dataset.clip, $('#s-run').value));
+  } catch (e) { toast(e.message); }
+};
+$('#s-clear').onclick = () => {
+  $('#s-uuid').value = ''; $('#s-note').value = '';
+  $('#s-smin').value = 1; $('#s-smax').value = 4;
+  $('#s-rmin').value = 1; $('#s-rmax').value = 4;
+  $('#s-special').value = ''; $('#s-only').value = '';
+  $$('#s-cats .pill').forEach(p => p.classList.remove('on'));
+};
+$('#s-csv').onclick = () => {
+  if (!SROWS.length) return toast('검색 결과가 없습니다');
+  const head = 'uuid,categories,pred_categories,safety,rarity,note';
+  const body = SROWS.map(r => [r.uuid, r.categories.join('|'),
+    (r.pred_categories || []).join('|'), r.safety, r.rarity,
+    (r.note || '').replace(/"/g, '""')]
+    .map(x => `"${x}"`).join(',')).join('\n');
+  const blob = new Blob([head + '\n' + body], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'search_result.csv'; a.click();
+};
+
+/* ---------- 3. 라벨 편집 ---------- */
+$('#l-load').onclick = async () => {
+  const u = $('#l-uuid').value.trim();
+  if (!u) return toast('uuid 를 입력하세요');
+  try {
+    const d = await api(`/api/clip?uuid=${u}&labels=${encodeURIComponent($('#l-file').value)}`);
+    const t = d.truth;
+    $('#l-status').textContent = t ? '기존 라벨을 불러왔습니다' : '새 라벨입니다(저장 시 추가)';
+    $('#l-safety').value = t?.safety ?? 1;
+    $('#l-rarity').value = t?.rarity ?? 1;
+    $('#l-note').value = t?.note ?? '';
+    $$('#l-cats .pill').forEach(p =>
+      p.classList.toggle('on', (t?.categories || []).includes(p.dataset.cat)));
+    const v = d.source_video || d.video;
+    $('#l-preview').innerHTML = v
+      ? `<video controls src="/media?path=${encodeURIComponent(v)}"></video>`
+      : '<span class="muted">이 uuid 의 영상을 찾지 못했습니다.</span>';
+  } catch (e) { toast(e.message); }
+};
+$('#l-save').onclick = async () => {
+  const u = $('#l-uuid').value.trim();
+  if (!u) return toast('uuid 를 입력하세요');
+  const patch = {
+    categories: $$('#l-cats .pill.on').map(p => p.dataset.cat),
+    safety_criticality: +$('#l-safety').value,
+    rarity: +$('#l-rarity').value,
+    influenced_ego: $('#l-infl').value === 'true',
+    is_night: $('#l-night').value === 'true',
+    weather: $('#l-weather').value.split(',').map(s => s.trim()).filter(Boolean),
+    note: $('#l-note').value,
+  };
+  try {
+    await api('/api/label', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labels: $('#l-file').value, uuid: u, patch })
+    });
+    toast('저장했습니다 (.bak 백업 생성)');
+    $('#l-status').textContent = '저장됨 ' + new Date().toLocaleTimeString();
+  } catch (e) { toast(e.message); }
+};
+$('#l-del').onclick = async () => {
+  const u = $('#l-uuid').value.trim();
+  if (!u || !confirm(`${u} 라벨을 삭제할까요?`)) return;
+  try {
+    const j = await api('/api/label', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labels: $('#l-file').value, uuid: u, delete: true })
+    });
+    toast(j.deleted ? '삭제했습니다' : '해당 uuid 가 없습니다');
+  } catch (e) { toast(e.message); }
+};
+
+/* ---------- 4. 카테고리 정의 ---------- */
+let CEDIT = null;
+$('#c-load').onclick = async () => {
+  try {
+    const j = await api('/api/taxonomy?scene=' + encodeURIComponent($('#c-file').value));
+    $('#c-rows').innerHTML = j.categories.map((c, i) => `
+      <tr data-i="${i}" style="cursor:pointer"><td class="muted">${esc(c.scenario)}</td>
+        <td>${esc(c.name)}</td><td class="num">${c.synonyms.length}</td>
+        <td class="num">${c.templates.length}</td></tr>`).join('');
+    $$('#c-rows tr').forEach(tr => tr.onclick = () => {
+      const c = j.categories[+tr.dataset.i];
+      CEDIT = c.name;
+      $('#c-edit-title').textContent = '편집: ' + c.name;
+      $('#c-scenario').value = c.scenario; $('#c-name').value = c.name;
+      $('#c-syn').value = c.synonyms.join('\n');
+      $('#c-tpl').value = c.templates.join('\n');
+    });
+    $('#c-status').textContent = `${j.categories.length}개 카테고리`;
+  } catch (e) { toast(e.message); }
+};
+$('#c-new').onclick = () => {
+  CEDIT = null; $('#c-edit-title').textContent = '새 카테고리';
+  $('#c-name').value = ''; $('#c-syn').value = ''; $('#c-tpl').value = '';
+};
+$('#c-save').onclick = async () => {
+  const name = $('#c-name').value.trim();
+  if (!name) return toast('이름을 입력하세요');
+  if (CEDIT && CEDIT !== name &&
+      !confirm(`이름을 "${CEDIT}" → "${name}" 로 바꿉니다.\n기존 라벨은 옛 이름으로 남아 매칭되지 않습니다. 계속할까요?`))
+    return;
+  try {
+    await api('/api/category', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        scene: $('#c-file').value, scenario: $('#c-scenario').value.trim(),
+        name, old_name: CEDIT,
+        synonyms: $('#c-syn').value.split('\n').map(s => s.trim()).filter(Boolean),
+        templates: $('#c-tpl').value.split('\n').map(s => s.trim()).filter(Boolean),
+      })
+    });
+    toast('저장했습니다'); CEDIT = name;
+    $('#c-load').click(); loadTax($('#c-file').value);
+  } catch (e) { toast(e.message); }
+};
+$('#c-del').onclick = async () => {
+  const name = $('#c-name').value.trim();
+  if (!name || !confirm(`카테고리 "${name}" 을 삭제할까요?`)) return;
+  try {
+    await api('/api/category', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scene: $('#c-file').value, name, delete: true })
+    });
+    toast('삭제했습니다'); $('#c-load').click(); loadTax($('#c-file').value);
+  } catch (e) { toast(e.message); }
+};
+
+/* ---------- 5. 추론 ---------- */
+function onModelChange() {
+  const is27 = $('#r-model').value.includes('27B');
+  $('#r-gpuwrap').classList.toggle('hide', !is27);
+  $('#r-shardwrap').classList.toggle('hide', is27);
+  previewCmd();
+}
+function previewCmd() {
+  const m = $('#r-model').value, is27 = m.includes('27B');
+  const parts = is27 ? ['bash run_video_27b.sh --eval', '--gpus ' + $('#r-gpus').value,
+                        '--model ' + m]
+                     : ['bash run_eval.sh', '--num-shards ' + $('#r-shards').value];
+  parts.push('--labels ' + $('#r-labels').value);
+  parts.push('--scene-json ' + $('#r-scene').value);
+  if ($('#r-ego').value === '1') parts.push('--use-egomotion');
+  if ($('#r-traj').value) parts.push('--traj ' + $('#r-traj').value);
+  if ($('#r-viz').value === '1') parts.push('--viz-normal --viz-special');
+  if ($('#r-data').value !== 'local') parts.push('--data ' + $('#r-data').value);
+  if ($('#r-nosafety').checked) parts.push('--no-safety-tier');
+  if ($('#r-norarity').checked) parts.push('--no-rarity-tier');
+  if ($('#r-memo').value) parts.push(`--memo "${$('#r-memo').value}"`);
+  $('#r-cmd').textContent = '$ ' + parts.join(' ');
+}
+['#r-model', '#r-labels', '#r-scene', '#r-traj', '#r-ego', '#r-viz', '#r-data',
+ '#r-nosafety', '#r-norarity', '#r-gpus', '#r-shards', '#r-memo'].forEach(s => {
+  $(s).addEventListener('input', previewCmd); $(s).addEventListener('change', previewCmd);
+});
+$('#r-model').addEventListener('change', onModelChange);
+$('#r-go').onclick = async () => {
+  if (!confirm('추론을 시작할까요? 모델에 따라 수 시간이 걸릴 수 있습니다.')) return;
+  try {
+    await api('/api/job', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: $('#r-model').value, labels: $('#r-labels').value,
+        scene_json: $('#r-scene').value, traj: $('#r-traj').value,
+        use_egomotion: $('#r-ego').value === '1', viz: $('#r-viz').value === '1',
+        data: $('#r-data').value,
+        no_safety_tier: $('#r-nosafety').checked,
+        no_rarity_tier: $('#r-norarity').checked,
+        gpus: $('#r-gpus').value, shards: +$('#r-shards').value,
+        memo: $('#r-memo').value,
+      })
+    });
+    toast('시작했습니다'); refreshJobs();
+  } catch (e) { toast(e.message); }
+};
+async function refreshJobs() {
+  try {
+    const j = await api('/api/jobs');
+    if (!j.jobs.length) { $('#r-jobs').innerHTML = '<span class="muted">아직 없습니다.</span>'; return; }
+    // 5초마다 innerHTML 을 통째로 갈아끼우므로, 펼쳐둔 로그가 접히고
+    // 스크롤도 맨 위로 튄다. 다시 그리기 전에 상태를 받아둔다.
+    const openLogs = new Map();
+    $$('#r-jobs details[data-log]').forEach(d => {
+      if (d.open) {
+        const pre = d.querySelector('pre');
+        openLogs.set(d.dataset.log, pre ? pre.scrollTop : 0);
+      }
+    });
+    $('#r-jobs').innerHTML = j.jobs.map(x => {
+      const pr = x.progress
+        ? `<b>${x.progress.done}/${x.progress.total}</b> (${pct(x.progress.done / x.progress.total)})`
+        : '';
+      const col = x.status === 'running' ? 'var(--accent)'
+        : x.status === 'done' ? 'var(--ok)' : 'var(--bad)';
+      return `<div class="panel" style="background:var(--panel2);margin-bottom:8px">
+        <div class="row">
+          <b style="color:${col}">${esc(x.status)}</b>
+          <span class="mono muted">${esc(x.id)}</span> ${pr}
+          ${x.run_dir ? `<span class="muted">→ ${esc(x.run_dir)}</span>` : ''}
+          ${x.status === 'running'
+            ? `<button class="danger" data-stop="${esc(x.id)}" style="margin-left:auto">중단</button>` : ''}
+        </div>
+        <p class="mono muted" style="margin:6px 0 0;font-size:11px">$ ${esc((x.cmd || []).join(' '))}</p>
+        <details data-log="${esc(x.id)}" style="margin-top:6px">
+          <summary class="muted">로그 보기</summary>
+          <pre style="margin-top:6px">${esc((x.tail || []).join('\n'))}</pre></details>
+      </div>`;
+    }).join('');
+    $$('#r-jobs details[data-log]').forEach(d => {
+      if (!openLogs.has(d.dataset.log)) return;
+      d.open = true;
+      const pre = d.querySelector('pre');
+      if (pre) pre.scrollTop = openLogs.get(d.dataset.log);
+    });
+    $$('#r-jobs [data-stop]').forEach(b => b.onclick = async () => {
+      if (!confirm('작업을 중단할까요?')) return;
+      await api('/api/job', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stop: true, id: b.dataset.stop })
+      });
+      refreshJobs();
+    });
+  } catch (e) {}
+}
+setInterval(() => {
+  if (!$('#tab-run').classList.contains('hide')) refreshJobs();
+}, 5000);
+
+boot().catch(e => toast('초기화 실패: ' + e.message, 8000));
+</script>
+</body>
+</html>

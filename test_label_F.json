@@ -1,0 +1,2398 @@
+{
+  "_meta": {
+    "labeled_by": "JeongbinHong",
+    "date": "2026-08-12",
+    "source_run": "results/20260812_135056_videoC",
+    "guide": "categories: scene_category_C.json 이름 그대로. 없으면 []"
+  },
+  "clips": {
+    "00ce9071-ecee-45f8-acc9-9267a7814af7": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "1ab5a557-0374-4db3-99ae-dc28595f7520": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": "무지개색 횡단보도"
+    },
+    "2cbaccdb-207e-4873-8b8e-1ef265671139": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "rain"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "f8b70942-59d7-45df-873c-0d13a6d0b3af": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": "바닥 차선 대신 포인트 마커(Cat's eye, Stud)? obstacle로 인지할 수 있음"
+    },
+    "1e8f7dcf-2a12-4fdd-b73a-2e414f239c1a": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "b6c103d4-dc37-464d-974a-089c2d9a66e1": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "53e33f31-a21c-4b0d-b24f-ef8381c60e04": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "34860342-d420-4ec4-8353-6d79ae77f83c": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "fog"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "ed4763d7-dce0-440d-9a66-ad218e3867e3": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "28d7fbd1-4006-49cf-b161-403c360590bc": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "450ebd63-d7e6-44c8-b1b4-87c9d2ae900a": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "0019ded5-41bf-48da-9f66-0e46e31e234e": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "01b5167c-0fa2-499b-b761-f6ed78897d22": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "04084cd0-ae09-4f79-8365-d41fe3490433": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "04b08c41-326f-4cef-af21-359643f3b3d8": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "05095b2e-d0c2-4b0b-ab73-b35c138044ad": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "0bfb5463-5949-4505-a81c-47c7043da9de": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "0de620cf-fcc7-4243-95d7-d8c80e048de7": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "0ec20b83-bba6-4713-a560-41c074453212": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "102123c5-a2e7-4ba9-af4b-1e32e851ceda": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "1229b67d-3141-4ba9-b0ad-16df315627bb": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "fa12ea2c-3912-49c9-9a30-0fda4599a49e": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "rain"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "ff9df15f-adbf-4eb1-9f6b-6783cbb34dd3": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "f09f6944-8dba-4f79-a7ed-2d06f7fa52a6": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": "Tunnel"
+    },
+    "596ab2a6-c52a-4b10-b4df-cebcb56642d3": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": "Elevated road, not Tunnel"
+    },
+    "91a87f11-bf0f-452c-8273-36f724a12adc": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": "Elevated road, not Tunnel"
+    },
+    "064967a7-08a1-4cf0-b55b-5fcde3d91f67": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "fog"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "07514f46-9e4f-4a18-80d0-5a937d6314ed": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "09214f36-6825-464a-a4f3-22c5f71d46ec": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "09c889da-2e2e-47f5-99bd-893a59be5c66": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "0a68b99a-efdd-4433-aa58-ec1fa8d50908": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "48d5f0e5-5686-4c57-a709-24c0ac634c67": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "rain"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "7464068e-ce2f-4d2d-b769-40d4852f8709": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "e3337771-9415-4cad-9c7c-4b4be35645f6": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": "이중주차"
+    },
+    "e5874477-deef-4360-b030-42a1cb37e110": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "snow"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "e7414939-026f-48ad-bc68-8b698814c4b6": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "rain"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "e7733739-d7bc-478f-8995-54ce96fc46a4": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "eae68c9b-45c7-4326-b35f-d8e6a3967596": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": "obstacle ?"
+    },
+    "eba8c4ed-a142-4d18-86cb-99d530fa6c64": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "ebfc7083-501d-4eec-825d-a0984433365c": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "ec6ca7a8-0df6-4de5-988b-cc3ccabb76c8": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "rain"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "ed238f40-5664-4729-b55e-d7edcbcb57fd": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": "낙엽"
+    },
+    "ed4c0c5e-258e-4326-ae8e-b7b9728bdf13": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "ecafce84-447d-43a6-aff1-b385fbc71f15": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": "바닥 차선 대신 포인트 마커(Cat's eye, Stud)? obstacle로 인지할 수 있음"
+    },
+    "4c8fe364-4ad1-4e32-b94a-f3478502cab4": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "db997f6d-81ec-44d9-9a37-bbc6c25c07e3": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "db891736-b803-422b-a473-872fdd1af6a6": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "dba53e8e-6a67-4d5e-bd37-df12a56730da": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "dbb2b556-53d6-4612-9478-28f43ac2efb1": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "dbcf2943-b7d6-4e14-9a5b-9f6a4966731d": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 2,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": "safety_criticality 1도 괜찮을지도?"
+    },
+    "dc1cfa04-9245-4637-b0df-f40e5107ced1": {
+      "categories": [
+        "Cyclist on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "dc1f6f0c-3710-4e63-abe8-e155b86b719f": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "dc2d3805-1054-49db-8594-e9ef2f99fb06": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "dc8ebc88-bc59-4346-9267-a2b5d8d3e7db": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "dc9d34f1-9118-4acc-b0a9-7057a3f69eb5": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": "다리 아래, 정면 느린 트럭(Stationary Vehicle Obstruction라고 판단할 수도?)"
+    },
+    "dc84dd80-5155-4af4-9264-c8f141120e74": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "dc3417c6-3ebb-4671-bbd1-848c39886576": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "dc257402-687c-4a34-a950-8bb6a3c2508d": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "dc952848-d8ec-4554-971c-149209474fc5": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": "바닥 차선 대신 포인트 마커(Cat's eye, Stud)? obstacle로 인지할 수 있음"
+    },
+    "dca87480-3ad4-4250-99ae-256d80eeafbd": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "dcddb033-8f0c-4e63-b255-c123f2b30308": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "dcf9e678-7244-4ac3-9032-8471a49e0c4d": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "dd0ac327-1841-4a0b-a98e-30517673d80d": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "dd1b6121-dec2-4163-adde-b3f09f0a66d8": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": "급경사 오르막길"
+    },
+    "dd6ccd25-b55c-4b1b-b90c-fc93f5961fce": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": "급경사 오르막길"
+    },
+    "dd910e9f-ad6b-48ef-9851-17555d1cbc0e": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "rain"
+      ],
+      "is_night": true,
+      "note": ""
+    },
+    "dda85121-239e-41b6-be67-b66a48131cc2": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "de7accd0-c21f-47c2-8888-3f56d8fc31c8": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "de7b7ae4-f78d-41a1-bfcf-8646328f5082": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "de28db2c-c209-42c1-8bac-f468fdfb6fcb": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "de42d859-937c-442a-98dd-2b210be12d31": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "de52f7df-db55-4cb0-bc44-18b632dec3be": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": "바닥 차선 대신 포인트 마커(Cat's eye, Stud)? obstacle로 인지할 수 있음"
+    },
+    "de04755e-4bab-4618-b13b-ae84a528028a": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "de5216af-060b-4c19-9900-7c49ec61fdfb": {
+      "categories": [
+        "Cyclist on Road"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": "버스를 tram으로 인식할 수도 있음, 스쿨버스"
+    },
+    "de7693ec-1346-4378-a541-cc54b3dc0817": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "de865495-017f-4e8d-a6b6-8c24de4425dd": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "dea8d46d-f228-4a21-969e-4a59daf8a981": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "decb242c-71c1-4781-994d-83e90d839164": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "dee31965-6103-4ad8-badf-989d823e4e9a": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "df4be630-17ab-44ff-b0ea-34f5f7205ffa": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "df5e634f-198d-4211-9d39-b672bdd4dd48": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "rain"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "df0687d0-a2a3-4534-95e0-164f02bec8af": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "df3775a1-2573-496a-9f29-dfdb16ec811f": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "df554762-6475-4d4f-9c23-e6db986d9a2c": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "dfb6db91-d361-4ede-a41e-1d5086b650f8": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "dfc7106d-935e-45af-ac23-de15e343e2d5": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "e00aa654-f7c1-4c76-9bdc-5fa354c9bffe": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "e0d9a6ac-409f-44a3-b329-6737d839666d": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": "바닥 차선 대신 포인트 마커(Cat's eye, Stud)? obstacle로 인지할 수 있음"
+    },
+    "e0d93b80-40b1-4b34-b07e-531845552447": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "e0e3a853-ca7d-4cf1-bc15-7f40ae94b571": {
+      "categories": [
+        "Cyclist on Road"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "rain"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "e1b35e94-91a4-48de-91cf-a1e65c96319b": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "e01de701-9d38-47f5-9a7e-35bdc0c3955b": {
+      "categories": [
+        "Road Construction"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "e1f5c31a-7d63-4f70-a32f-3363ebaae006": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "e2ab4702-a9d6-4ad8-b830-102418d09ccf": {
+      "categories": [
+        "Cyclist on Road"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "e2dfdef1-67e2-485d-a621-24a5e5dbe5aa": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "e3adcc67-efc6-48fd-a883-368f30e5aae2": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "e4a6a32e-eb74-463b-9b06-d117b5f1f2c4": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": "바닥 차선 대신 포인트 마커(Cat's eye, Stud)? obstacle로 인지할 수 있음"
+    },
+    "e4a8b18e-ca79-434e-a171-07ef638810a7": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "e4b5930a-b00e-4f73-b7d7-9d1e2388310c": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "db4bbc52-252c-4767-80ec-31480b6ab2d2": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "db2c5fbe-1903-4b8e-8df3-a7d02cff1893": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "daa2f43c-d32a-438b-9a1a-58a2f1d3106c": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "da221591-bd5a-46e3-a68f-537886db641e": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "da28084a-9224-4cae-8f99-a518b984fcdd": {
+      "categories": [
+        "Pedestrian on Road",
+        "Stationary Vehicle Obstruction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "da122d23-9fa6-4b81-9a3a-bd5a74e87c9e": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "d4190223-c9fd-4671-a0f1-cc7424171971": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "d3323549-763d-4809-a728-ef9e8eb65f90": {
+      "categories": [
+        "Stationary Vehicle Obstruction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "d1695972-f72c-4ef2-bb22-a496775339c3": {
+      "categories": [
+        "Road Construction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "d43da341-f39f-45d1-a9fe-a62ac2c9af4a": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": "강아지 animal 나올 수도 있음"
+    },
+    "d30658ba-8a7c-4e0c-b5a0-9bd7f84d7734": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "d12352ce-3b24-4212-b59a-1909f19463b4": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "d9521c51-3da1-4503-86d0-4d668cabf028": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "d52e41c5-b20a-4a69-ac56-ef23c9c0ee50": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "d4148fa7-0a35-4f83-a5dd-4cf702578927": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "d3c54942-9af0-49c3-a125-81960d6a16f8": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "rain"
+      ],
+      "is_night": true,
+      "note": ""
+    },
+    "d8f30197-6403-4a0b-a815-0fdc0534b77e": {
+      "categories": [
+        "Pedestrian on Road",
+        "Tram"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "d1248bb6-a02a-49a1-9018-6e85159ca9e1": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": "바닥 차선 대신 포인트 마커(Cat's eye, Stud)? obstacle로 인지할 수 있음"
+    },
+    "ca440ae0-2e49-4858-a8e8-57abd28e6962": {
+      "categories": [
+        "Road Construction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "d963eb97-d0fb-4980-be7b-69c66c5794c5": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": "바닥 차선 대신 포인트 마커(Cat's eye, Stud)? obstacle로 인지할 수 있음"
+    },
+    "d28e64a7-dece-454e-950e-449435ad5796": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": "트럭 짐 칸 오토바이"
+    },
+    "d912b7d2-1071-4467-9227-28c951485bc0": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "d95ddbc1-8472-47a7-8ede-51ea2321697b": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "d7e1e945-81e5-4efe-9979-5562d199ccbf": {
+      "categories": [
+        "Pedestrian on Road",
+        "Road Construction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "d5eef248-a953-4647-9680-3a16f4cfd642": {
+      "categories": [
+        "Cyclist on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "d1a173e1-9653-4af0-abfe-7b95cfe76276": {
+      "categories": [
+        "Pedestrian on Road",
+        "Manual Traffic Control",
+        "Animal"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "d0f850c9-3c68-4a20-8163-6da96f2edc38": {
+      "categories": [
+        "Cyclist on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "d0a0cbf0-bcc2-4c72-9a54-f542dc99f560": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": "강아지 animal 나올 수도 있음"
+    },
+    "ceb52996-af8c-4953-8962-a3cb2ddb986f": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "snow"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "cd43c62f-fd9f-4064-abb3-bfd926f39a65": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "rain"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "cd0d9929-989a-4116-9ae1-27f0f27938a6": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "rain"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "cccc6b04-884d-4a4e-991a-0a0d500bbf74": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "fog"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "c74801b3-d02e-4d09-b53a-c5f5b71107cc": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "fog"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "cb01e385-6a7b-4563-9ec6-9aed407cff48": {
+      "categories": [
+        "Pedestrian on Road",
+        "Cyclist on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "ca0677e3-2024-462b-a5ac-ef37abec9528": {
+      "categories": [
+        "Obstacle"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": "낙엽"
+    },
+    "c91072f7-603f-42f7-9f87-1d5439059b5f": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "rain"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "c69229fa-c8f7-485c-83dc-ba9e0058cea4": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "rain"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "c65726c2-ea4c-47d2-982b-3fe136e177ab": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [
+        "rain"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "c7928d92-0df9-4b7e-94cc-8715334830e0": {
+      "categories": [
+        "Pedestrian on Road",
+        "Cyclist on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "c7146aff-54dd-471b-bd90-1db9ec7590e6": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": "스쿨버스"
+    },
+    "c6915a10-9f22-464d-a422-15b8960a57d7": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [
+        "rain"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "c03477b0-117c-4202-b6ff-5fb9d2de65fd": {
+      "categories": [
+        "Stationary Vehicle Obstruction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "c442f54e-823a-4ab5-8fe5-c23e483a2382": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "rain"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "c98e3076-2ec0-4d4c-aa43-f24083f1619e": {
+      "categories": [
+        "Animal"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "c86f0599-a818-474c-a3c0-030c61047d1b": {
+      "categories": [
+        "Obstacle"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": "낙엽"
+    },
+    "c22bcefd-cece-4baa-8e9e-6842f3254dde": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "c9a4cd43-395b-4bec-9072-62b36e2cdb41": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "c6d40267-f8eb-4821-a165-5db37c3e354d": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [
+        "rain"
+      ],
+      "is_night": true,
+      "note": ""
+    },
+    "c6c2beb6-97f3-4afa-b06a-4585f65e2b26": {
+      "categories": [
+        "Road Construction"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "c4ff17f1-6a90-4b76-9bf2-ce4c0dfcadb8": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "rain"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "c4ae9ece-a2db-4912-8f22-5825f730f25e": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "c4a1a453-b7d2-4fb0-adf7-3aec7a0fa2e0": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "c2a358d1-6e34-4d72-b570-81da80d49836": {
+      "categories": [
+        "Pedestrian on Road",
+        "Cyclist on Road",
+        "Road Construction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [
+        "rain"
+      ],
+      "is_night": true,
+      "note": ""
+    },
+    "0afeeb82-21d2-421a-9f30-240b2db0a0cf": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "rain"
+      ],
+      "is_night": true,
+      "note": ""
+    },
+    "0b4ddc9a-b25e-4cfb-b00f-716d9b7b08ec": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "0bf98d89-88f1-4c72-8485-238dc2b10b44": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "0f5e616c-6223-4ede-ab77-bd781a952556": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "0ff5439a-4178-4153-ab25-61367be0a0a8": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "1a1ee658-0cd0-4848-b72f-f90b824a0758": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "snow"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "1cac6cb0-f3b6-4ceb-abce-54793a77e159": {
+      "categories": [
+        "Pedestrian on Road",
+        "Cyclist on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": "포크레인이 있지만 공사현장은 아님"
+    },
+    "1c731638-c07f-433c-94aa-f9f647f72d5c": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "rain"
+      ],
+      "is_night": true,
+      "note": ""
+    },
+    "0a948f59-0a06-41a2-8e20-ac3a39ff4d61": {
+      "categories": [
+        "Cyclist on Road"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 2,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "3abcba98-f17d-4f46-ae72-7cdfb49824af": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "007bacc8-fb2a-4dbd-a324-e4e3b9075a14": {
+      "categories": [
+        "Cyclist on Road"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 2,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "d819fc90-1634-49c3-a231-36d808bd9377": {
+      "categories": [
+        "Road Construction"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "c16d503b-596f-44af-b15b-3f13538dfe1c": {
+      "categories": [
+        "Railroad",
+        "Road Construction"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "2d2807d4-6527-446b-8419-2714bd437b84": {
+      "categories": [
+        "Railroad"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "b85701de-15a1-4fc5-b996-06e48432b99a": {
+      "categories": [
+        "Emergency Vehicle",
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": "5~6초에 중앙분리에대 꽃?파는 사람"
+    },
+    "5bc20bbe-e124-4695-b748-0d191378a7a8": {
+      "categories": [
+        "Emergency Vehicle"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "bc712e0d-cc45-40b0-991c-f554ba5c1812": {
+      "categories": [
+        "Emergency Vehicle"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "6f2eb974-c7fd-4c48-9786-40b766655765": {
+      "categories": [
+        "Animal"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 3,
+      "weather": [],
+      "is_night": false,
+      "note": "우측 팬스 안에 염소들"
+    },
+    "65024728-6ba1-40c8-a290-70365d475cbf": {
+      "categories": [
+        "Road Construction"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "47a4e30b-85db-43cf-b3f7-7f95bf0d47fc": {
+      "categories": [
+        "Road Construction"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "1758a9e5-34b5-4789-8c98-b9c413319ced": {
+      "categories": [
+        "Animal"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "a84a5e42-89e9-4a2c-b0f7-8173b0176970": {
+      "categories": [
+        "Cyclist on Road"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": "Elevated road, not Tunnel"
+    },
+    "56c703f3-2274-4740-8000-85ff1cad21b7": {
+      "categories": [
+        "Stationary Vehicle Obstruction"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "0d66f9c7-b691-4328-8616-a22c38e6c7db": {
+      "categories": [
+        "Tram"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "9717031a-c73c-4045-830c-09283bc1f489": {
+      "categories": [
+        "Tram"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "2cc8ab5d-2eda-4193-aef2-535a54176759": {
+      "categories": [
+        "Tram"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "076fce0d-41fc-41a3-b085-88c7b20f2689": {
+      "categories": [
+        "Tram"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "48f47f26-d14c-4be2-838e-03ebff3f4806": {
+      "categories": [
+        "Cyclist on Road"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "6edfc385-4702-4099-a053-29a3b46f1525": {
+      "categories": [
+        "Tram"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "0de06134-e900-43ba-bc44-624789e0be83": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "02561b8e-0706-470a-90bd-3af2582b3760": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "01d3588e-bca7-4a18-8e74-c6cfe9e996db": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "0abe118e-aa79-41f6-a719-f2df8abaf1ea": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "2e4cc94f-decb-431f-9000-9cbb33c179a4": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 1,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "2575a110-44c1-4004-a1c2-f77123f72084": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "3598d469-8239-4138-9f51-4c779859f2a0": {
+      "categories": [
+        "Cyclist on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": "스쿨버스"
+    },
+    "034c2086-8a8e-42fa-9f28-4cb2e38ef676": {
+      "categories": [
+        "Cyclist on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": "킥보드 2대가 직진 신호에 갔기 때문에 무단횡단은 아님"
+    },
+    "fcc8b351-0e29-41fa-8129-682006aab6ae": {
+      "categories": [
+        "Cyclist on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "1ce86e13-03cf-4cb5-99b2-a65400650117": {
+      "categories": [
+        "Animal"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 3,
+      "weather": [],
+      "is_night": false,
+      "note": "칠면조"
+    },
+    "0f2ebc67-bd15-4b3a-ad6a-40846ad480bc": {
+      "categories": [
+        "Animal",
+        "Cyclist on Road",
+        "Stationary Vehicle Obstruction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 3,
+      "weather": [],
+      "is_night": false,
+      "note": "말"
+    },
+    "00d4efa8-62a5-47ce-b8c7-e2a6b67b8f5c": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "0d35d80b-5b67-406a-9018-e94b3f3d7372": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": "스쿨버스, "
+    },
+    "0064ce6d-5f40-417f-915f-87c6643e0de4": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "027c10f0-ca30-414a-8fdd-d4200b736b9f": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 3,
+      "rarity": 3,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "0a37154c-6b70-4082-b4ad-915d1389eebf": {
+      "categories": [
+        "Railroad",
+        "Cyclist on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 3,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "1bb723de-258e-464b-9557-8f4c2bb1ca1a": {
+      "categories": [
+        "Pedestrian on Road",
+        "Cyclist on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 3,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "1caa3935-e406-48c7-a205-717b7243584b": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "2b11f06f-da0f-4bb6-863c-e6933bd20535": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 3,
+      "rarity": 3,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "002dec8e-3d95-4cc2-abbe-99b3a2e78618": {
+      "categories": [
+        "Pedestrian on Road",
+        "Road Construction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 3,
+      "rarity": 3,
+      "weather": [],
+      "is_night": false,
+      "note": ", Road Construction(?)"
+    },
+    "3587b066-aa84-4761-a5f5-c8fb6ccdfd0f": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "is_night": false,
+      "note": "Abnormal Vehicle Behavior ?"
+    },
+    "b30fbc40-aa45-4553-b121-229ecf8c3947": {
+      "categories": [
+        "Road Construction",
+        "Stationary Vehicle Obstruction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 3,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "36bfc24c-c42c-4f6b-a501-a908bc290aab": {
+      "categories": [
+        "Pedestrian on Road",
+        "Road Construction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 3,
+      "weather": [],
+      "is_night": false,
+      "note": "이거 시각화 보여주기"
+    },
+    "17f2e4d1-74be-43ef-9229-4f169b68467b": {
+      "categories": [
+        "Road Construction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 3,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "a525440d-577b-43f6-a739-00e3bc4af729": {
+      "categories": [
+        "Emergency Vehicle"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "841f4737-b5ac-4519-88e2-5490df99a7df": {
+      "categories": [
+        "Emergency Vehicle"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 1,
+      "rarity": 3,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "41265e9d-7969-4b07-9030-717a7b700bc9": {
+      "categories": [
+        "Manual Traffic Control"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 3,
+      "weather": [],
+      "is_night": false,
+      "note": "스쿨버스"
+    },
+    "12606261-f6f7-4af1-b6e7-0e44f0668945": {
+      "categories": [
+        "Manual Traffic Control",
+        "Road Construction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 3,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "79fd94b2-100a-45bd-8b6f-786e50e12a47": {
+      "categories": [
+        "Manual Traffic Control",
+        "Road Construction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 3,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "ea6acc44-6eea-4328-be2b-a2b06b82aa08": {
+      "categories": [
+        "Unpaved road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 3,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "97c6130d-643b-43d1-88c5-6cba67842a16": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [
+        "rain"
+      ],
+      "is_night": false,
+      "note": ""
+    },
+    "ecd53c87-32c2-4edd-a047-eeb4beae4c63": {
+      "categories": [
+        "Railroad"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 3,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "5855208b-190c-4b04-964f-2b4f4ba10839": {
+      "categories": [
+        "Road Construction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "014a6337-e5ff-42fc-9487-49e674b4cac7": {
+      "categories": [
+        "Road Construction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "845eec10-71f0-473e-ae4c-155baf2c30d0": {
+      "categories": [
+        "Stationary Vehicle Obstruction",
+        "Cyclist on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 3,
+      "rarity": 3,
+      "weather": [],
+      "is_night": false,
+      "note": "조도 강함"
+    },
+    "fe11db95-3e03-4eb3-a816-e7d3f269cf7d": {
+      "categories": [
+        "Pedestrian on Road",
+        "Cyclist on Road",
+        "Road Construction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "faff17c7-4572-472a-be28-0f035bb88a37": {
+      "categories": [
+        "Road Construction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "fa6c3c98-6f54-431f-8ac8-1fcee7cc6261": {
+      "categories": [
+        "Stationary Vehicle Obstruction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "f9189583-e419-4e67-a075-cbc197133e4a": {
+      "categories": [
+        "Cyclist on Road",
+        "Pedestrian on Road",
+        "Manual Traffic Control"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "26210df5-f57d-499e-bec1-9d0a197619be": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 3,
+      "rarity": 3,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "1503c87e-5429-4311-b9b3-acfa438bd382": {
+      "categories": [
+        "Tram",
+        "Stationary Vehicle Obstruction",
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": true,
+      "note": ""
+    },
+    "031bc104-aadb-4a02-9611-9f49be421c0f": {
+      "categories": [
+        "Cyclist on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": "보행자가 아직 지나가는데도 자차가 횡단보도로 진입함"
+    },
+    "ea5c5be6-5e18-4489-9784-8f73860f887b": {
+      "categories": [
+        "Road Construction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "ea7bde4a-11f4-4732-97d5-a6f1d1272fa1": {
+      "categories": [
+        "Pedestrian on Road",
+        "Abnormal Vehicle Behavior"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": true,
+      "note": "강한 헤드라이트, 반대편 차량들이 중앙선 넘어옴"
+    },
+    "ea9a632a-1a1b-4491-a2d8-f07a22e4cd5c": {
+      "categories": [
+        "Pedestrian on Road",
+        "Road Construction"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": "엄밀히 말하면 도로 공사가 아니라 학교 앞 주차 금지용 라바콘임"
+    },
+    "0c8731a8-9cd4-4f59-9603-165b1ed53e07": {
+      "categories": [
+        "Road Construction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 1,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    },
+    "7a089606-1680-4db1-9ffa-1ec8f6c8193d": {
+      "categories": [
+        "Road Construction"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": "Elevated road, not Tunnel"
+    },
+    "0b5b8ddd-6f27-43f2-b1d0-5b44acc695f3": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": "주황불에서 빨간불로 바뀌기 직전에 보행자들이 횡단보도 앞에 있음"
+    },
+    "ff19066e-0086-499f-b186-178da082fbe8": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "is_night": false,
+      "note": ""
+    }
+  }
+}

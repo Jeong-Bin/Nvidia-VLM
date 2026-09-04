@@ -1,19 +1,27 @@
 #!/usr/bin/env bash
-# 클립 단위 edge-case mining - 비디오 입력 + 전방 1뷰 + scene_category_C.json.
+# 클립 단위 edge-case mining (Qwen3-8B 전용) - 비디오 입력 + 전방 1뷰.
+#
+# 정답 라벨이 없는 데이터를 그냥 훑는 용도다. 라벨이 있는 100클립만 골라
+# 채점까지 하려면 run_eval.sh 를, GPU 여러 장이 필요한 27B 는
+# run_video_27b.sh 를 쓸 것.
 #
 # run_all.sh 와 무엇이 다른가:
-#   run_all.sh      판정 단위 = (uuid, frame_idx). 클립당 10 timestamp x 2프레임
-#                   x 3뷰. Q1/Q2/Q3 프롬프트.
-#   run_video_C.sh  판정 단위 = 클립 하나. 20초를 1fps 20장으로 훑어 비디오
-#                   한 편으로 넣는다. nuReasoning 단계별 프롬프트.
+#   run_all.sh       판정 단위 = (uuid, frame_idx). 클립당 10 timestamp x 2프레임
+#                    x 3뷰. Q1/Q2/Q3 프롬프트.
+#   run_video_8b.sh  판정 단위 = 클립 하나. 20초를 1fps 20장으로 훑어 비디오
+#                    한 편으로 넣는다. nuReasoning 단계별 프롬프트.
 #
-# 클립 1,998개를 8개 shard 로 나눠 GPU 0~7 에 배정한다. 각 프로세스가 자기
-# GPU 1장에 모델 전체를 올린다(실측 약 18.5GB / 24GB).
+# 클립을 8개 shard 로 나눠 GPU 0~7 에 배정한다. 각 프로세스가 자기 GPU
+# 1장에 모델 전체를 올린다(실측 약 18.5GB / 24GB).
 #
-# 결과: results/<YYYYMMDD_HHMMSS>_videoC/
+# 프레임 소스는 --data 로 고른다. NAS 에 새로 받은 청크를 돌리려면
+# --data nas (또는 청크 zip 이 있는 경로)를 주면 된다 - 압축을 풀 필요는
+# 없다. zip 인덱스는 첫 실행에서 한 번 만들어 캐시된다.
+#
+# 결과: results/<YYYYMMDD_HHMMSS>_video8b/
 #   clip_results_shard_N.csv   샤드별 결과
 #   clip_results_all.csv       병합본 (aggregate_clip.py 가 생성)
-#   aggregate_clip.log         카테고리 집계
+#   aggregate_clip.log         카테고리 + 등급 분포 집계
 #   viz/<uuid>/{clip.mp4,result.json}   edge-case 클립 시각화
 #   run_shard_N.log            샤드별 원본 로그
 set -u
@@ -22,12 +30,44 @@ cd /home/etri/Jeongbin/Nvidia-VLM
 NSHARDS=8
 # 기본값은 config.py 가 단일 진실 공급원 - 미지정이면 플래그를 생략한다
 SCENE_JSON="${SCENE_JSON:-}"
+DATA="${DATA:-local}"
+
+# 어떤 파이썬으로 돌 것인가. run_eval.sh 와 같은 이유로 PATH 의 python3 를
+# 그냥 믿으면 안 된다 - GUI/cron 처럼 conda 가 활성화되지 않은 셸에서 부르면
+# /usr/bin/python3(3.8) 이 잡혀 샤드 8개가 list[str] 표기에서 전부 즉사하고,
+# 그런데도 병합/집계 단계는 임포트가 돼서 "정상 완료"로 끝나 버린다.
+pyok() {
+  [ -x "$1" ] || return 1
+  "$1" - >/dev/null 2>&1 <<'PYCHK'
+import sys, importlib.util as u
+assert sys.version_info >= (3, 9)           # list[str] 표기가 되는가
+for m in ("torch", "transformers", "cv2"):  # 파이프라인 의존성이 있는가
+    assert u.find_spec(m), m
+PYCHK
+}
+PYBIN="${PYBIN:-}"
+if [ -z "$PYBIN" ]; then
+  for cand in "$(command -v python3 || true)" /home/etri/miniconda3/bin/python3; do
+    if [ -n "$cand" ] && pyok "$cand"; then PYBIN="$cand"; break; fi
+  done
+fi
+if [ -z "$PYBIN" ] || ! pyok "$PYBIN"; then
+  echo "[error] 쓸 수 있는 파이썬이 없습니다 (python 3.9+ 와 torch 가 필요)." >&2
+  echo "        시도한 인터프리터   : ${PYBIN:-$(command -v python3 || echo 없음)}" >&2
+  echo "        conda activate base 후 다시 돌리거나 PYBIN=<경로> 로 지정하세요." >&2
+  exit 2
+fi
 
 usage() {
   cat <<'USAGE'
-Usage: bash run_video_C.sh [options]
+Usage: bash run_video_8b.sh [options]
+
+정답 라벨이 없는 데이터를 추론하고, 결과 분포를 aggregate_clip.log 에 남긴다.
+(라벨과 대조해 채점하려면 run_eval.sh 를 쓸 것)
 
 Options (환경변수로도 지정 가능 - 명령행이 우선):
+  --data SRC             프레임 소스 local|nas|경로 (기본 local)         [DATA]
+                         nas = NAS 청크 zip 을 직접 읽는다(압축 해제 불필요)
   --limit-clips N        처리할 클립 수 제한 (기본: 데이터셋 전체)     [LIMIT_CLIPS]
   --num-shards N         GPU/shard 개수 (기본 8)                       [NSHARDS]
   --scene-json PATH      카테고리 정의 (기본: config.py 의 SCENE_JSON)  [SCENE_JSON]
@@ -43,21 +83,27 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --use-egomotion-c      [대조군C] 헤더/hint 유지, 센서 수치만 제거          [EGO_ABLATION=c]
   --use-egomotion-d      [대조군D] hint 만 남기고 헤더/수치 제거             [EGO_ABLATION=d]
   --header-style v1|v2   자차 행동 블록 헤더 문구 (기본 v1)              [HEADER_STYLE]
-  --no-score-tiers        Safety/Rarity(4/5단계)를 프롬프트에서 통째로 끈다 [SCORE_TIERS=0]
+  --no-safety-tier        Safety Criticality(4단계)만 프롬프트에서 끈다  [SAFETY_TIER=0]
+  --no-rarity-tier        Rarity(5단계)만 프롬프트에서 끈다              [RARITY_TIER=0]
+  --no-score-tiers        위 둘을 한꺼번에 끄는 별칭                     [SCORE_TIERS=0]
   --no-video-input       프레임을 비디오가 아니라 낱장으로 넘긴다       [VIDEO_INPUT=0]
   --clip-fps F           초당 몇 장 뽑을지 (기본 1.0)                   [CLIP_FPS]
   --clip-max-frames N    클립당 최대 프레임 (기본 20)                   [CLIP_MAX_FRAMES]
   -h, --help             이 도움말
 
 Examples:
-  bash run_video_C.sh                       # 전체, 기본 설정
-  bash run_video_C.sh --limit-clips 50      # 시험
-  bash run_video_C.sh --no-viz              # CSV 만
+  bash run_video_8b.sh                          # 로컬 pav_sample 전체
+  bash run_video_8b.sh --data nas               # NAS 청크 전체 (라벨 없는 신규 데이터)
+  bash run_video_8b.sh --data nas --limit-clips 50   # 먼저 50개로 시험
+  bash run_video_8b.sh --data /mnt/nas/NVIDIA_DATASET/camera  # 경로 직접 지정
+  bash run_video_8b.sh --no-viz                 # CSV 만
 USAGE
 }
 
 while [ $# -gt 0 ]; do
   case "$1" in
+    --data=*)            DATA="${1#*=}" ;;
+    --data)              shift; DATA="${1:-local}" ;;
     --limit-clips=*)     LIMIT_CLIPS="${1#*=}" ;;
     --limit-clips)       shift; LIMIT_CLIPS="${1:-}" ;;
     --num-shards=*)      NSHARDS="${1#*=}" ;;
@@ -80,7 +126,9 @@ while [ $# -gt 0 ]; do
     --use-egomotion-d)   EGO_ABLATION=d ;;
     --header-style=*)    HEADER_STYLE="${1#*=}" ;;
     --header-style)      shift; HEADER_STYLE="${1:-v1}" ;;
-    --no-score-tiers)    SCORE_TIERS=0 ;;
+    --no-safety-tier)    SAFETY_TIER=0 ;;
+    --no-rarity-tier)    RARITY_TIER=0 ;;
+    --no-score-tiers)    SAFETY_TIER=0; RARITY_TIER=0 ;;
     --no-egomotion)      USE_EGOMOTION=0 ;;   # 옛 이름 - 이제 기본이 off 라 무의미하지만 받아준다
     --no-video-input)    VIDEO_INPUT=0 ;;
     --clip-fps=*)        CLIP_FPS="${1#*=}" ;;
@@ -104,15 +152,35 @@ if [ -n "$SCENE_JSON" ] && [ ! -f "$SCENE_JSON" ]; then
   exit 2
 fi
 
-TOTAL_CLIPS="${LIMIT_CLIPS:-$(ls pav_sample/camera/camera_front_wide_120fov/*.mp4 2>/dev/null | wc -l)}"
+# 클립 개수는 진행률 표시의 분모로만 쓴다. 로컬 경로를 직접 세면 --data nas
+# 일 때 0 이 나와 "클립 없음"으로 오판하므로, 실제 소스에 물어본다.
+# NAS 는 여기서 zip 인덱스를 만들며(첫 실행 ~80s) 그 캐시를 샤드 8개가
+# 나눠 쓴다 - 샤드들이 동시에 인덱싱을 시작하는 것을 피하는 효과도 있다.
+TOTAL_CLIPS="${LIMIT_CLIPS:-}"
+if [ -z "$TOTAL_CLIPS" ]; then
+  TOTAL_CLIPS="$("$PYBIN" - "$DATA" <<'PY'
+import sys
+try:
+    from clip_source import make_source
+    # 기준 뷰는 edge_case_mining 이 실제로 쓰는 것과 같아야 한다. 여기에
+    # 이름을 또 적어두면 뷰가 바뀔 때 진행률 분모만 조용히 어긋난다.
+    from edge_case_mining import FRONT_VIEWS
+    print(len(make_source(sys.argv[1]).uuids(FRONT_VIEWS[0])))
+except Exception as e:
+    print(f"[error] 클립 목록을 못 읽었습니다: {e}", file=sys.stderr)
+    print(0)
+PY
+)"
+fi
 if [ "$TOTAL_CLIPS" -eq 0 ]; then
-  echo "[error] no clips found under pav_sample/camera/camera_front_wide_120fov/" >&2
+  echo "[error] no clips found for --data $DATA" >&2
+  echo "        local 이면 pav_sample/camera/ 아래를, nas 면 청크 zip 을 확인하세요." >&2
   exit 2
 fi
 
 # 기본값은 edge_case_mining.py 를 단일 진실 공급원으로 두고, 여기서는
 # 지정했을 때만 넘긴다 (양쪽에 기본값을 두면 언젠가 어긋난다).
-OPTS="--clip-mode --single-view"
+OPTS="--clip-mode --single-view --data $DATA"
 [ -n "$SCENE_JSON" ] && OPTS="$OPTS --scene-json $SCENE_JSON"
 [ "${TIMELINE:-0}" = "1" ]      && OPTS="$OPTS --timeline"
 [ "${EGO_TRACK:-0}" = "1" ]     && OPTS="$OPTS --ego-track"
@@ -120,7 +188,10 @@ OPTS="--clip-mode --single-view"
 [ "${USE_EGOMOTION:-0}" = "1" ] && OPTS="$OPTS --use-egomotion"
 [ -n "${EGO_ABLATION:-}" ]      && OPTS="$OPTS --use-egomotion-${EGO_ABLATION}"
 [ -n "${HEADER_STYLE:-}" ]      && OPTS="$OPTS --header-style $HEADER_STYLE"
-[ "${SCORE_TIERS:-1}" = "0" ]   && OPTS="$OPTS --no-score-tiers"
+# SCORE_TIERS=0 은 옛 이름 - 둘 다 끄는 뜻으로 계속 받아준다.
+[ "${SCORE_TIERS:-1}" = "0" ]   && { SAFETY_TIER=0; RARITY_TIER=0; }
+[ "${SAFETY_TIER:-1}" = "0" ]   && OPTS="$OPTS --no-safety-tier"
+[ "${RARITY_TIER:-1}" = "0" ]   && OPTS="$OPTS --no-rarity-tier"
 [ "${VIDEO_INPUT:-1}" = "0" ]   && OPTS="$OPTS --clip-no-video-input"
 [ "${CLIP_VIZ:-1}" = "1" ]      && OPTS="$OPTS --clip-viz"
 [ "${VIZ_ALL:-0}" = "1" ]       && OPTS="$OPTS --clip-viz-all"
@@ -131,13 +202,15 @@ OPTS="--clip-mode --single-view"
 [ -n "${LIMIT_CLIPS:-}" ]       && OPTS="$OPTS --limit-clips $LIMIT_CLIPS"
 
 RUN_TS="$(date +%Y%m%d_%H%M%S)"
-RUN_DIR="results/${RUN_TS}_videoC"
+RUN_DIR="results/${RUN_TS}_video8b"
 mkdir -p "$RUN_DIR"
 
 {
   echo "[info] run dir     : $RUN_DIR"
+  echo "[info] data        : $DATA  (no ground-truth labels - 분포만 집계한다)"
   echo "[info] clips       : $TOTAL_CLIPS  ($NSHARDS shards, GPU 0-$((NSHARDS-1)))"
-  echo "[info] categories  : ${SCENE_JSON:-$(python3 -c 'import config; print(config.SCENE_JSON.name)') (config.py)}"
+  echo "[info] categories  : ${SCENE_JSON:-$("$PYBIN" -c 'import config; print(config.SCENE_JSON.name)') (config.py)}"
+  echo "[info] python      : $PYBIN"
   echo "[info] input       : clip mode, front-wide only, video input=${VIDEO_INPUT:-1}"
   echo "[info] egomotion   : ${USE_EGOMOTION:-0} (1=on, 0=off)"
   echo "[info] viz         : ${CLIP_VIZ:-1} (all=${VIZ_ALL:-0})"
@@ -148,7 +221,7 @@ mkdir -p "$RUN_DIR"
   pids=()
   for g in $(seq 0 $((NSHARDS-1))); do
     CUDA_VISIBLE_DEVICES=$g PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
-      nohup python3 -u edge_case_mining.py \
+      nohup "$PYBIN" -u edge_case_mining.py \
         --num-shards "$NSHARDS" --shard-id "$g" \
         $OPTS \
         --memo "${MEMO:-}" \
@@ -171,7 +244,7 @@ mkdir -p "$RUN_DIR"
       # 줄바꿈이 들어가면 한 클립이 CSV 여러 줄을 차지해(실측 115클립 ->
       # 460줄) 진행률이 총 개수를 넘어간다. CSV 규격대로 따옴표를 이해하는
       # 파서로 레코드 수를 센다.
-      [ -f "$f" ] && done_n=$((done_n + $(python3 -c "
+      [ -f "$f" ] && done_n=$((done_n + $("$PYBIN" -c "
 import csv,sys
 try:
     with open(sys.argv[1], newline='', encoding='utf-8') as fh:
@@ -192,10 +265,22 @@ except Exception:
   echo "[info] all shards done."
 
   # 샤드 CSV 를 clip_results_all.csv 로 합치고 원본은 지운다
-  python3 -u merge_shards.py --run-dir "$RUN_DIR"
+  "$PYBIN" -u merge_shards.py --run-dir "$RUN_DIR"
 
-  # 카테고리별 집계 (멀티라벨은 각 카테고리에 반영)
-  python3 -u aggregate_clip.py --run-dir "$RUN_DIR"
+  # 결과 분포 집계 -> <run-dir>/aggregate_clip.log
+  #   - Normal / Special 개수와 비율
+  #   - 카테고리별 개수, 전체 대비 비율, special 대비 비율
+  #   - safety/rarity 등급별 개수/비율과 평균/분산/중앙값
+  # 라벨이 없으니 evaluate_labels.py 는 돌리지 않는다 - 대조할 정답이 없다.
+  "$PYBIN" -u aggregate_clip.py --run-dir "$RUN_DIR"
 
   echo "[info] results saved in: ${RUN_DIR}/"
 } 2>&1 | tee "${RUN_DIR}/run.log"
+
+# tee 로 파이프하면 종료 코드가 tee 의 것(항상 0)이 된다. 그래서 샤드가
+# 전부 죽어도 GUI/cron 은 "정상 완료"로 표시한다. 결과 CSV 유무로 판정한다.
+if ! ls "${RUN_DIR}"/clip_results*.csv >/dev/null 2>&1; then
+  echo "[error] 결과 CSV 가 없습니다 - 샤드가 전부 실패했습니다." >&2
+  echo "        원인: ${RUN_DIR}/run_shard_0.log" >&2
+  exit 1
+fi
