@@ -246,7 +246,8 @@ def log_run_config(run_dir, log):
         f"traj={key.get('traj') or 'off'}  "
         f"header={key.get('header_style') or 'v1'}  "
         f"tiers=safety:{_tier_onoff(key, 'safety_tiers')}"
-        f"/rarity:{_tier_onoff(key, 'rarity_tiers')}")
+        f"/rarity:{_tier_onoff(key, 'rarity_tiers')}  "
+        f"difficulty={_onoff(key.get('difficulty'))}")
     return cfg
 
 

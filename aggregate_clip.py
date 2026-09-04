@@ -16,6 +16,10 @@ aggregate.py 와 판정 단위가 달라 파일을 나눴다:
      못 돌리므로, 모델 출력 자체의 분포를 보는 것이 여기서 유일한 점검
      수단이다. edge-case 만 따로 한 번 더 낸다 - normal 클립이 거의 전부
      1 이라 전체 평균에 섞으면 special 안에서의 분포가 묻힌다.
+  5) 주행 난이도 분포 - --difficulty 를 켠 실행에서만. 전체 난이도와 요인
+     4개(조도/강수/노면/대기가림)를 0~4 눈금으로 각각 집계하고, 마지막에
+     다섯 축을 나란히 놓은 요약표를 낸다. 등급과 달리 edge-case 여부와
+     무관한 축이라 EDGE-CASE 만 따로 내지는 않는다.
 
 결과는 화면과 <run_dir>/aggregate_clip.log 에 함께 기록한다.
 
@@ -35,6 +39,7 @@ import pandas as pd
 
 from config import SCENE_JSON as CONFIG_SCENE_JSON
 from constrained_tier import TIER_VALUES, tier_label
+from prompts import DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX
 
 ROOT = Path(__file__).resolve().parent
 # 기본값은 config.py 한 곳에서만 정한다. 다만 집계는 "이 실행이 실제로 쓴"
@@ -115,8 +120,12 @@ def tier_series(df, col):
     return out
 
 
-def tier_block(log, title, values, total):
-    """등급 한 축(safety/rarity)의 분포 - 값별 개수/비율과 평균/분산/중앙값.
+def dist_block(log, title, values, total, scale, labels=None,
+               note=""):
+    """점수 한 축의 분포 - 값별 개수/비율과 평균/분산/중앙값.
+
+    safety/rarity(1~4)와 주행 난이도 5축(0~4)이 같이 쓴다. 눈금이 다르므로
+    scale 로 받고, 라벨이 있는 축(Low/Moderate/...)만 labels 를 준다.
 
     라벨이 없는 데이터에서는 정답과 대조할 수 없으므로(evaluate_labels.py 의
     MAE/혼동행렬을 못 쓴다) 모델 출력 자체의 분포만 본다. 그래도 쓸모가
@@ -131,23 +140,26 @@ def tier_block(log, title, values, total):
     log("=" * 64)
     log(f"{title}  (model output distribution)")
     log("=" * 64)
+    if note:
+        log(f"  {note}")
     n = len(values)
     if not n:
-        log("  (no rows - 등급 칸이 비어 있다. 프롬프트에서 이 축을 껐거나"
+        log("  (no rows - 이 칸이 비어 있다. 프롬프트에서 이 축을 껐거나"
             " JSON parse 가 전부 실패한 경우다)")
         return
 
     counts = Counter(values)
-    log(f"{'TIER':<28}{'COUNT':>10}{'% RATED':>10}{'% ALL':>10}")
+    log(f"{'SCORE':<28}{'COUNT':>10}{'% RATED':>10}{'% ALL':>10}")
     log("-" * 64)
-    # taxonomy 에 정의된 등급은 0 건이어도 모두 찍는다 - 빠져 있으면
-    # "한 번도 안 나온 등급"과 "정의에 없는 등급"이 구분되지 않는다.
-    for v in TIER_VALUES:
+    # 눈금에 정의된 값은 0 건이어도 모두 찍는다 - 빠져 있으면 "한 번도 안
+    # 나온 점수"와 "눈금에 없는 점수"가 구분되지 않는다.
+    for v in scale:
         c = counts.get(v, 0)
-        log(f"{f'{v} = {tier_label(v)}':<28}{c:>10}{100*c/n:>9.1f}%"
+        name = f"{v} = {labels[v]}" if labels else str(v)
+        log(f"{name:<28}{c:>10}{100*c/n:>9.1f}%"
             f"{100*c/total:>9.1f}%")
     # 정의 밖의 값이 나오면 조용히 버리지 않는다 (파서가 샌 경우).
-    extra = sorted(set(counts) - set(TIER_VALUES))
+    extra = sorted(set(counts) - set(scale))
     if extra:
         log("-" * 64)
         for v in extra:
@@ -324,12 +336,50 @@ def main():
     # 본다. edge-case 만 따로 다시 내는 이유는 normal 클립이 거의 전부 1 이라
     # 전체 평균이 1 쪽으로 눌려 special 안에서의 분포가 안 보이기 때문이다.
     edge_df = df[labeled]
+    tier_labels = {v: tier_label(v) for v in TIER_VALUES}
     for col, title in (("safety_tier", "SAFETY CRITICALITY"),
                        ("rarity_tier", "RARITY")):
-        tier_block(log, f"{title} - ALL clips", tier_series(df, col), total)
+        dist_block(log, f"{title} - ALL clips", tier_series(df, col), total,
+                   TIER_VALUES, tier_labels)
         if n_edge:
-            tier_block(log, f"{title} - EDGE-CASE clips only",
-                       tier_series(edge_df, col), n_edge)
+            dist_block(log, f"{title} - EDGE-CASE clips only",
+                       tier_series(edge_df, col), n_edge,
+                       TIER_VALUES, tier_labels)
+
+    # --- 5) 주행 난이도 분포 ---
+    # 등급과 달리 edge-case 여부와 무관한 축이다 - 평범한 클립도 비가 오면
+    # 높다. 그래서 EDGE-CASE 만 따로 내지 않고 전체만 낸다. 대신 축이
+    # 다섯이라, 어느 요인이 전체 난이도를 끌어올리는지 나란히 놓고 본다.
+    diff_scale = list(range(DIFFICULTY_MIN, DIFFICULTY_MAX + 1))
+    diff_series = {k: tier_series(df, k) for k, _ in DIFFICULTY_AXES}
+    if any(diff_series.values()):
+        for key, name in DIFFICULTY_AXES:
+            dist_block(log, f"{name} ({key})", diff_series[key], total,
+                       diff_scale)
+
+        # 다섯 축 요약표. 위 표를 다섯 번 읽지 않고도 "무엇이 높은가"를
+        # 한눈에 보려는 것이다.
+        log("")
+        log("=" * 64)
+        log("DIFFICULTY SUMMARY  (all 5 axes side by side)")
+        log("=" * 64)
+        log(f"  {'AXIS':<26}{'N':>6}{'MEAN':>8}{'VAR':>8}{'MEDIAN':>8}"
+            f"{'MIN':>5}{'MAX':>5}")
+        log("  " + "-" * 62)
+        for key, name in DIFFICULTY_AXES:
+            v = sorted(diff_series[key])
+            if not v:
+                log(f"  {name:<26}{0:>6}{'-':>8}{'-':>8}{'-':>8}{'-':>5}{'-':>5}")
+                continue
+            m = len(v)
+            mean = sum(v) / m
+            var = sum((x - mean) ** 2 for x in v) / m
+            med = v[m // 2] if m % 2 else (v[m // 2 - 1] + v[m // 2]) / 2
+            log(f"  {name:<26}{m:>6}{mean:>8.3f}{var:>8.3f}{med:>8g}"
+                f"{v[0]:>5}{v[-1]:>5}")
+        log("  " + "-" * 62)
+        log(f"  scale {DIFFICULTY_MIN}-{DIFFICULTY_MAX}; factors are judged "
+            f"independently, so they need not sum to the overall rating.")
 
     log("")
     log(f"[saved] merged CSV -> {merged}  ({total} clips"

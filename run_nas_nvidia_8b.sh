@@ -2,13 +2,13 @@
 # 클립 단위 edge-case mining (Qwen3-8B 전용) - 비디오 입력 + 전방 1뷰.
 #
 # 정답 라벨이 없는 데이터를 그냥 훑는 용도다. 라벨이 있는 100클립만 골라
-# 채점까지 하려면 run_eval.sh 를, GPU 여러 장이 필요한 27B 는
-# run_video_27b.sh 를 쓸 것.
+# 채점까지 하려면 run_labeled_8b.sh 를, GPU 여러 장이 필요한 27B 는
+# run_nas_nvidia_27b.sh 를 쓸 것.
 #
 # run_all.sh 와 무엇이 다른가:
 #   run_all.sh       판정 단위 = (uuid, frame_idx). 클립당 10 timestamp x 2프레임
 #                    x 3뷰. Q1/Q2/Q3 프롬프트.
-#   run_video_8b.sh  판정 단위 = 클립 하나. 20초를 1fps 20장으로 훑어 비디오
+#   run_nas_nvidia_8b.sh  판정 단위 = 클립 하나. 20초를 1fps 20장으로 훑어 비디오
 #                    한 편으로 넣는다. nuReasoning 단계별 프롬프트.
 #
 # 클립을 8개 shard 로 나눠 GPU 0~7 에 배정한다. 각 프로세스가 자기 GPU
@@ -30,9 +30,10 @@ cd /home/etri/Jeongbin/Nvidia-VLM
 NSHARDS=8
 # 기본값은 config.py 가 단일 진실 공급원 - 미지정이면 플래그를 생략한다
 SCENE_JSON="${SCENE_JSON:-}"
-DATA="${DATA:-local}"
+# NAS 청크 zip 이 이 스크립트의 대상이다 - 기본을 nas 로 둔다.
+DATA="${DATA:-nas}"
 
-# 어떤 파이썬으로 돌 것인가. run_eval.sh 와 같은 이유로 PATH 의 python3 를
+# 어떤 파이썬으로 돌 것인가. run_labeled_8b.sh 와 같은 이유로 PATH 의 python3 를
 # 그냥 믿으면 안 된다 - GUI/cron 처럼 conda 가 활성화되지 않은 셸에서 부르면
 # /usr/bin/python3(3.8) 이 잡혀 샤드 8개가 list[str] 표기에서 전부 즉사하고,
 # 그런데도 병합/집계 단계는 임포트가 돼서 "정상 완료"로 끝나 버린다.
@@ -60,19 +61,22 @@ fi
 
 usage() {
   cat <<'USAGE'
-Usage: bash run_video_8b.sh [options]
+Usage: bash run_nas_nvidia_8b.sh [options]
 
 정답 라벨이 없는 데이터를 추론하고, 결과 분포를 aggregate_clip.log 에 남긴다.
-(라벨과 대조해 채점하려면 run_eval.sh 를 쓸 것)
+(라벨과 대조해 채점하려면 run_labeled_8b.sh 를 쓸 것)
 
 Options (환경변수로도 지정 가능 - 명령행이 우선):
-  --data SRC             프레임 소스 local|nas|경로 (기본 local)         [DATA]
+  --model ID             사용할 VLM (기본: edge_case_mining.py 의 8B)      [MODEL]
+  --data SRC             프레임 소스 local|nas|경로 (기본 nas)         [DATA]
                          nas = NAS 청크 zip 을 직접 읽는다(압축 해제 불필요)
   --limit-clips N        처리할 클립 수 제한 (기본: 데이터셋 전체)     [LIMIT_CLIPS]
   --num-shards N         GPU/shard 개수 (기본 8)                       [NSHARDS]
   --scene-json PATH      카테고리 정의 (기본: config.py 의 SCENE_JSON)  [SCENE_JSON]
   --no-viz               시각화 mp4 를 만들지 않는다                    [CLIP_VIZ=0]
   --viz-all              edge-case 가 아닌 클립까지 전부 시각화         [VIZ_ALL=1]
+  --viz-normal           Normal(카테고리 없음) 클립도 시각화            [VIZ_NORMAL=1]
+  --viz-special          Special(카테고리 있음) 클립을 시각화           [VIZ_SPECIAL=1]
   --viz-width N          시각화 영상 폭 (기본 1280, 0=원본)            [VIZ_WIDTH]
   --save-low             Safety/Rarity 가 둘 다 Low 인 클립도 시각화     [NOT_SAVE_LOW=0]
   --timeline             1단계를 시간순 서술로 (기본 off)            [TIMELINE=1]
@@ -86,17 +90,22 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --no-safety-tier        Safety Criticality(4단계)만 프롬프트에서 끈다  [SAFETY_TIER=0]
   --no-rarity-tier        Rarity(5단계)만 프롬프트에서 끈다              [RARITY_TIER=0]
   --no-score-tiers        위 둘을 한꺼번에 끄는 별칭                     [SCORE_TIERS=0]
+  --difficulty           주행 난이도 5축(전체+조도/강수/노면/대기가림)을
+                         0~4 로 함께 매긴다. 시각화 패널과
+                         aggregate_clip.log 분포에 실린다        [DIFFICULTY=1]
+  --viz-per-category N   카테고리마다 최초 N개 클립만 시각화한다. 폴더를
+                         score 대신 카테고리 이름으로 나눈다      [VIZ_PER_CAT]
   --no-video-input       프레임을 비디오가 아니라 낱장으로 넘긴다       [VIDEO_INPUT=0]
   --clip-fps F           초당 몇 장 뽑을지 (기본 1.0)                   [CLIP_FPS]
   --clip-max-frames N    클립당 최대 프레임 (기본 20)                   [CLIP_MAX_FRAMES]
   -h, --help             이 도움말
 
 Examples:
-  bash run_video_8b.sh                          # 로컬 pav_sample 전체
-  bash run_video_8b.sh --data nas               # NAS 청크 전체 (라벨 없는 신규 데이터)
-  bash run_video_8b.sh --data nas --limit-clips 50   # 먼저 50개로 시험
-  bash run_video_8b.sh --data /mnt/nas/NVIDIA_DATASET/camera  # 경로 직접 지정
-  bash run_video_8b.sh --no-viz                 # CSV 만
+  bash run_nas_nvidia_8b.sh                          # 로컬 pav_sample 전체
+  bash run_nas_nvidia_8b.sh --data nas               # NAS 청크 전체 (라벨 없는 신규 데이터)
+  bash run_nas_nvidia_8b.sh --data nas --limit-clips 50   # 먼저 50개로 시험
+  bash run_nas_nvidia_8b.sh --data /mnt/nas/NVIDIA_DATASET/camera  # 경로 직접 지정
+  bash run_nas_nvidia_8b.sh --no-viz                 # CSV 만
 USAGE
 }
 
@@ -106,12 +115,16 @@ while [ $# -gt 0 ]; do
     --data)              shift; DATA="${1:-local}" ;;
     --limit-clips=*)     LIMIT_CLIPS="${1#*=}" ;;
     --limit-clips)       shift; LIMIT_CLIPS="${1:-}" ;;
+    --model=*)           MODEL="${1#*=}" ;;
+    --model)             shift; MODEL="${1:-}" ;;
     --num-shards=*)      NSHARDS="${1#*=}" ;;
     --num-shards)        shift; NSHARDS="${1:-8}" ;;
     --scene-json=*)      SCENE_JSON="${1#*=}" ;;
     --scene-json)        shift; SCENE_JSON="${1:-}" ;;
     --no-viz)            CLIP_VIZ=0 ;;
     --viz-all)           VIZ_ALL=1 ;;
+    --viz-normal)        VIZ_NORMAL=1 ;;
+    --viz-special)       VIZ_SPECIAL=1 ;;
     --viz-width=*)       VIZ_WIDTH="${1#*=}" ;;
     --viz-width)         shift; VIZ_WIDTH="${1:-}" ;;
     --save-low)          NOT_SAVE_LOW=0 ;;
@@ -129,6 +142,9 @@ while [ $# -gt 0 ]; do
     --no-safety-tier)    SAFETY_TIER=0 ;;
     --no-rarity-tier)    RARITY_TIER=0 ;;
     --no-score-tiers)    SAFETY_TIER=0; RARITY_TIER=0 ;;
+    --difficulty)        DIFFICULTY=1 ;;
+    --viz-per-category=*) VIZ_PER_CAT="${1#*=}" ;;
+    --viz-per-category)  shift; VIZ_PER_CAT="${1:-}" ;;
     --no-egomotion)      USE_EGOMOTION=0 ;;   # 옛 이름 - 이제 기본이 off 라 무의미하지만 받아준다
     --no-video-input)    VIDEO_INPUT=0 ;;
     --clip-fps=*)        CLIP_FPS="${1#*=}" ;;
@@ -180,7 +196,16 @@ fi
 
 # 기본값은 edge_case_mining.py 를 단일 진실 공급원으로 두고, 여기서는
 # 지정했을 때만 넘긴다 (양쪽에 기본값을 두면 언젠가 어긋난다).
+# 이 스크립트는 GPU 1장 = 샤드 1개 구조라 GPU 여러 장에 걸쳐야 하는 27B 는
+# 못 돌린다. 조용히 8B 로 돌면 몇 시간 뒤에야 알게 되므로 여기서 막는다.
+case "${MODEL:-}" in
+  *27B*) echo "[error] $MODEL 은 GPU 여러 장이 필요합니다." >&2
+         echo "        bash run_nas_nvidia_27b.sh --model $MODEL 을 쓰세요." >&2
+         exit 2 ;;
+esac
+
 OPTS="--clip-mode --single-view --data $DATA"
+[ -n "${MODEL:-}" ] && OPTS="$OPTS --model $MODEL"
 [ -n "$SCENE_JSON" ] && OPTS="$OPTS --scene-json $SCENE_JSON"
 [ "${TIMELINE:-0}" = "1" ]      && OPTS="$OPTS --timeline"
 [ "${EGO_TRACK:-0}" = "1" ]     && OPTS="$OPTS --ego-track"
@@ -192,9 +217,16 @@ OPTS="--clip-mode --single-view --data $DATA"
 [ "${SCORE_TIERS:-1}" = "0" ]   && { SAFETY_TIER=0; RARITY_TIER=0; }
 [ "${SAFETY_TIER:-1}" = "0" ]   && OPTS="$OPTS --no-safety-tier"
 [ "${RARITY_TIER:-1}" = "0" ]   && OPTS="$OPTS --no-rarity-tier"
+[ "${DIFFICULTY:-0}" = "1" ]     && OPTS="$OPTS --difficulty"
+[ -n "${VIZ_PER_CAT:-}" ]        && OPTS="$OPTS --viz-per-category $VIZ_PER_CAT"
 [ "${VIDEO_INPUT:-1}" = "0" ]   && OPTS="$OPTS --clip-no-video-input"
+# --viz-per-category 는 그 자체가 "시각화하라"는 뜻이다 - 로컬 스크립트는
+# 시각화가 기본 off 라, 이걸 안 켜주면 아무것도 저장되지 않는다.
+[ -n "${VIZ_PER_CAT:-}" ] && CLIP_VIZ=1
 [ "${CLIP_VIZ:-1}" = "1" ]      && OPTS="$OPTS --clip-viz"
 [ "${VIZ_ALL:-0}" = "1" ]       && OPTS="$OPTS --clip-viz-all"
+[ "${VIZ_NORMAL:-0}" = "1" ]    && OPTS="$OPTS --viz-normal"
+[ "${VIZ_SPECIAL:-0}" = "1" ]   && OPTS="$OPTS --viz-special"
 [ -n "${VIZ_WIDTH:-}" ]         && OPTS="$OPTS --clip-viz-width $VIZ_WIDTH"
 [ "${NOT_SAVE_LOW:-1}" = "0" ]  && OPTS="$OPTS --not-save-low=0"
 [ -n "${CLIP_FPS:-}" ]          && OPTS="$OPTS --clip-fps $CLIP_FPS"

@@ -484,26 +484,33 @@ def search_clips(q: dict) -> dict:
 # ---------------------------------------------------------------------------
 # 추론 작업 실행
 # ---------------------------------------------------------------------------
+# 모델마다 두 갈래 스크립트를 든다.
+#   labeled : 로컬 pav_sample 의 라벨된 클립 -> 추론 + 채점
+#   nas     : NAS 청크 zip 전체         -> 추론만 (대조할 정답이 없다)
+# GUI 의 "로컬 추론&평가" / "NAS Nvidia 추론" 탭이 각각을 고른다.
 MODELS = {
     "Qwen/Qwen3-VL-8B-Instruct": {
-        "script": "run_eval.sh", "label": "Qwen3-VL-8B (8샤드 병렬, 빠름)",
+        "script": "run_labeled_8b.sh", "nas_script": "run_nas_nvidia_8b.sh",
+        "label": "Qwen3-VL-8B (8샤드 병렬, 빠름)",
     },
     "Qwen/Qwen3.8-27B": {
-        "script": "run_video_27b.sh", "label": "Qwen3.8-27B (GPU 3장, 느림)",
+        "script": "run_labeled_27b.sh", "nas_script": "run_nas_nvidia_27b.sh",
+        "label": "Qwen3.8-27B (GPU 3장, 느림)",
     },
     "Qwen/Qwen3-VL-32B-Instruct": {
-        "script": "run_eval.sh", "label": "Qwen3-VL-32B",
+        "script": "run_labeled_8b.sh", "nas_script": "run_nas_nvidia_8b.sh",
+        "label": "Qwen3-VL-32B",
     },
 }
 
 
 # 추론 스크립트를 어떤 파이썬으로 돌릴 것인가.
-#   run_eval.sh 안의 python3 는 PATH 를 따라간다. 이 GUI 를 mmdet3d(3.8) 처럼
+#   run_labeled_8b.sh 안의 python3 는 PATH 를 따라간다. 이 GUI 를 mmdet3d(3.8) 처럼
 #   엉뚱한 conda 환경에서 띄우면 그 PATH 가 자식에게 그대로 상속되고, 샤드
 #   8개가 전부 "'type' object is not subscriptable" 로 즉사한다
 #   (실측 20260831_132629_eval - 3시간 뒤에야 결과 0건인 걸 알게 된다).
 #   그래서 파이프라인 환경의 bin 을 PATH 맨 앞에 붙여 넘긴다.
-#   27B 는 run_video_27b.sh 가 자기 PYBIN(qwen38)을 못박아 쓰므로 영향 없다.
+#   27B 는 run_labeled_27b.sh 가 자기 PYBIN(qwen38)을 못박아 쓰므로 영향 없다.
 PIPELINE_BIN = "/home/etri/miniconda3/bin"
 
 
@@ -522,29 +529,45 @@ def build_command(opts: dict) -> list[str]:
     spec = MODELS.get(model)
     if spec is None:
         raise ValueError("모르는 모델: " + model)
-    script = spec["script"]
+    # mode: "labeled"(기본) 는 로컬 라벨 클립 추론+채점, "nas" 는 NAS 청크
+    # 전체를 훑는 마이닝. 스크립트가 갈리고 받는 인자도 다르다.
+    nas = opts.get("mode") == "nas"
+    script = spec["nas_script"] if nas else spec["script"]
     cmd = ["bash", script]
 
-    if script == "run_video_27b.sh":
-        cmd += ["--eval"]
+    is27 = "27b" in script
+    if is27:
         if opts.get("gpus"):
             cmd += ["--gpus", str(opts["gpus"])]
     elif opts.get("shards"):
         cmd += ["--num-shards", str(opts["shards"])]
-    # 두 스크립트 모두 --model 을 받는다. 안 넘기면 8B 기본값으로 조용히
+    # 네 스크립트 모두 --model 을 받는다. 안 넘기면 8B 기본값으로 조용히
     # 돌아버려서, 몇 시간 뒤 결과를 보고서야 다른 모델이었다는 걸 알게 된다.
     cmd += ["--model", model]
 
-    if opts.get("labels"):
+    # 라벨은 채점용이라 NAS 마이닝에는 없다(대조할 정답이 없다).
+    if not nas and opts.get("labels"):
         cmd += ["--labels", str(ROOT / opts["labels"])]
+    # 반대로 --limit-clips 는 마이닝 전용 - 라벨 클립은 uuid 로 흩어져 있어
+    # 앞에서 N개를 자를 수 없다.
+    if nas and opts.get("limit_clips"):
+        cmd += ["--limit-clips", str(opts["limit_clips"])]
     if opts.get("scene_json"):
         cmd += ["--scene-json", str(ROOT / opts["scene_json"])]
     if opts.get("use_egomotion"):
         cmd += ["--use-egomotion"]
     if opts.get("traj"):
         cmd += ["--traj", opts["traj"]]
-    if opts.get("viz"):
+    # 시각화 기본값이 스크립트마다 반대다: labeled_* 는 off(--viz 로 켬),
+    # nas_* 는 on(--no-viz 로 끔). 켤 때는 --viz-normal/--viz-special 로
+    # 어느 쪽이든 명시적으로 켜지고, 끌 때는 nas_* 에만 --no-viz 가 필요하다.
+    # 세 갈래다: 전부 생성 / 카테고리별 N개만 / 생성 안 함.
+    if opts.get("viz_per_category"):
+        cmd += ["--viz-per-category", str(opts["viz_per_category"])]
+    elif opts.get("viz"):
         cmd += ["--viz-normal", "--viz-special"]
+    elif nas:
+        cmd += ["--no-viz"]
     # 등급(4·5단계)을 프롬프트에서 빼는 스위치. 두 개를 다 끄면 스크립트에
     # --no-score-tiers 별칭이 있지만, 굳이 쓰지 않는다. run.log 에 남는 명령이
     # 어느 축을 껐는지 그대로 읽히는 편이 나중에 실행끼리 비교할 때 낫다.
@@ -552,10 +575,14 @@ def build_command(opts: dict) -> list[str]:
         cmd += ["--no-safety-tier"]
     if opts.get("no_rarity_tier"):
         cmd += ["--no-rarity-tier"]
-    # 프레임 소스. local 은 스크립트 기본값이라 굳이 안 넘긴다 - run.log 에
-    # 남는 명령이 짧을수록 실행끼리 비교하기 쉽다.
-    if opts.get("data") and opts["data"] != "local":
-        cmd += ["--data", opts["data"]]
+    # 난이도 5축은 등급과 별개 축이라 기본 off - 켤 때만 넘긴다.
+    if opts.get("difficulty"):
+        cmd += ["--difficulty"]
+    # 프레임 소스. 스크립트마다 기본값이 다르므로(labeled=local, nas=nas)
+    # 기본과 같을 때만 생략한다 - run.log 에 남는 명령이 짧을수록 낫다.
+    data = opts.get("data")
+    if data and data != ("nas" if nas else "local"):
+        cmd += ["--data", data]
     if opts.get("memo"):
         cmd += ["--memo", opts["memo"]]
     return cmd

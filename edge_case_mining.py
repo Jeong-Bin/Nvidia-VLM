@@ -49,6 +49,8 @@ from constrained_tier import (TIER_LABELS, TIER_VALUES, tier_label,
                               tier_menu, tier_score,
                               safety_rubric_text, rarity_rubric_text,
                               contrast_text)
+from prompts import (DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX,
+                     difficulty_block)
 
 ROOT = Path(__file__).resolve().parent
 CAMERA_DIR = ROOT / "pav_sample" / "camera"
@@ -637,7 +639,8 @@ def build_nureasoning_prompt(category_menu: str, sensor_facts: str = "",
                              force_behavior_hint: bool = False,
                              header_style: str = "v1",
                              safety_tiers: bool = True,
-                             rarity_tiers: bool = True) -> str:
+                             rarity_tiers: bool = True,
+                             difficulty: bool = False) -> str:
     """nuReasoning 6단계 CoT + 1~10 점수를 요구하는 프롬프트.
 
     --traj 로 궤적을 그려도 프롬프트에는 그 사실을 알리지 않는다. 알려주는
@@ -771,11 +774,13 @@ the CURRENT moment. Each group of three is synchronized camera views
     # 하거나 없는 safety_tier 를 지어낸다. 그래서 켜진 것부터 4, 5 로
     # 다시 매긴다.
     steps45 = ""
+    # 난이도 단계도 이 번호를 이어받으므로 조건 밖에 둔다 - 등급을 둘 다
+    # 끄고 난이도만 켜면 난이도가 4번이 되어야 한다.
+    step_no = 4
     if safety_tiers or rarity_tiers:
         n_on = int(safety_tiers) + int(rarity_tiers)
         # 머리말도 켜진 개수에 맞춘다 - 한 단계만 남았는데 "steps 4 and 5"
         # 라고 하면 없는 단계를 가리킨다.
-        step_no = 4
         head_ref = ("steps 4 and 5" if n_on == 2 else f"step {step_no}")
         parts = [f"""   For {head_ref}, rate the SITUATION, never the object by itself. The same
    object is routine or serious depending on what it is doing and where it is:
@@ -803,7 +808,22 @@ the CURRENT moment. Each group of three is synchronized camera views
    fits best:
 {rarity_rubric}
 """)
+            # 예전에는 rarity 가 마지막이라 올릴 필요가 없었지만, 이제
+            # 난이도 단계가 뒤에 붙어 이 번호를 이어받는다.
+            step_no += 1
         steps45 = "".join(parts)
+    # 난이도(--difficulty)는 등급 다음 단계로 붙는다. 등급과 성격이 다르다:
+    # 등급은 "이 클립이 얼마나 위험/희귀한가"(edge-case 여부에 달림)이고,
+    # 난이도는 "이 장면의 주행 조건이 얼마나 나쁜가"(평범한 클립도 비 오면
+    # 높다)라서, 서로 독립으로 매기게 두어야 한다. 그래서 앞 단계를
+    # 참조하는 문구를 넣지 않는다.
+    if difficulty:
+        steps45 += (f"{step_no}. Driving Difficulty: how hard the driving "
+                    f"CONDITIONS are, judged\n   independently of the "
+                    f"edge-case decision above - an ordinary clip in heavy "
+                    f"rain\n   still scores high, and a rare event on a "
+                    f"clear day does not.\n") + difficulty_block()
+        step_no += 1
     tier_fields = ""
     if safety_tiers:
         tier_fields += f''' "safety_tier": <integer {tier_min}-{tier_max}>,
@@ -813,6 +833,14 @@ the CURRENT moment. Each group of three is synchronized camera views
         tier_fields += f''' "rarity_tier": <integer {tier_min}-{tier_max}>,
  "rarity_reason": "<why that rarity rating>",
 '''
+    if difficulty:
+        # 요인을 먼저, 전체를 마지막에 - 프롬프트 본문의 순서와 같게 둔다.
+        # JSON 필드 순서가 곧 생성 순서라, 전체를 앞에 두면 요인을 세우기
+        # 전에 전체 점수를 찍게 되어 둘이 어긋난다.
+        for key, name in DIFFICULTY_AXES[1:] + DIFFICULTY_AXES[:1]:
+            tier_fields += (
+                f''' "{key}": <integer {DIFFICULTY_MIN}-{DIFFICULTY_MAX}>,\n'''
+                f''' "{key}_reason": "<one short sentence for {name}>",\n''')
     # 1단계를 시간순 서술로 할지(--timeline) 예전처럼 한 덩어리 요약으로 할지.
     #
     # 왜 분기가 필요한가: 20초 클립에 서로 다른 시점의 사건이 둘 이상 있을 때,
@@ -898,6 +926,31 @@ def _flatten_field(v) -> str:
     if isinstance(v, (list, tuple)):
         return " | ".join(p for p in (_flatten_field(x) for x in v) if p)
     return str(v).strip()
+
+
+def _coerce_difficulty(v) -> int | None:
+    """난이도 값을 0~4 정수로 만든다. 못 읽으면 None.
+
+    _coerce_tier 와 따로 두는 이유는 눈금이 다르기 때문이다 - 등급은 1~4,
+    난이도는 0~4 다. 0 을 흡수하지 못하면 "조건이 전혀 나쁘지 않다" 는
+    가장 흔한 답이 통째로 미기록으로 떨어진다.
+
+    난이도 필드는 constrained decoding 대상이 아니라(제약기가 TIER_VALUES
+    에 묶여 있다) 여기 오는 값이 "2 (moderate)" 나 "2/4" 처럼 지저분할 수
+    있다. 앞머리 정수만 떼어 쓰고, 범위 밖이면 버린다 - 클램프해서 0 이나
+    4 로 밀어 넣으면 분포가 양 끝에 가짜로 쌓인다.
+    """
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        n = int(round(v))
+        return n if DIFFICULTY_MIN <= n <= DIFFICULTY_MAX else None
+    if isinstance(v, str):
+        m = re.match(r"\s*(\d+)", v.strip())
+        if m:
+            n = int(m.group(1))
+            return n if DIFFICULTY_MIN <= n <= DIFFICULTY_MAX else None
+    return None
 
 
 def _coerce_tier(v) -> int | None:
@@ -1000,6 +1053,11 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
            "safety_tier": None, "rarity_tier": None,
            "safety_label": "Unknown", "rarity_label": "Unknown",
            "tier_score": None}
+    # 난이도 축은 --difficulty 를 껐으면 모델이 내지 않는다. 그래도 키는
+    # 항상 만들어 둔다 - 없으면 CSV 열 개수가 실행마다 달라져 병합이 깨진다.
+    for key, _ in DIFFICULTY_AXES:
+        out[key] = None
+        out[f"{key}_reason"] = ""
 
     m = re.search(r"\{.*\}", text, re.DOTALL)
     if not m:
@@ -1026,6 +1084,11 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
         # 사람이 읽는 서술은 reason 우선, 없으면 구 형식 문장을 쓴다.
         out[f"{kind}_assessment"] = reason or legacy
     out["tier_score"] = tier_score(out["safety_tier"], out["rarity_tier"])
+
+    # 난이도 5축. 값과 근거 문장을 따로 받는다.
+    for key, _ in DIFFICULTY_AXES:
+        out[key] = _coerce_difficulty(obj.get(key))
+        out[f"{key}_reason"] = _flatten_field(obj.get(f"{key}_reason", ""))
 
     raw_cats = obj.get("scenario_types", [])
     if isinstance(raw_cats, str):
@@ -1224,6 +1287,7 @@ def save_run_config(args, run_dir, n_views=1):
             "rarity_tiers": bool(args.rarity_tiers),
             "use_3dbbox": bool(args.use_obstacle),
             "constrain_tiers": bool(args.constrain_tiers),
+            "difficulty": bool(args.difficulty),
             "num_shards": args.num_shards,
         },
         # 위에 없는 옵션까지 전부. 값이 Path 등이면 문자열로 눕힌다.
@@ -1445,6 +1509,20 @@ if __name__ == "__main__":
                          "rarity_tier/rarity_label/rarity_reason 은 CSV 에서 "
                          "빈 값이 되고, tier_score 도 빈 값이 된다. 남은 "
                          "단계는 4번으로 다시 매겨진다.")
+    ap.add_argument("--viz-per-category", type=int, default=None,
+                    metavar="N",
+                    help="카테고리마다 최초 N개 클립만 시각화한다. 폴더를 "
+                         "score 가 아니라 카테고리 이름으로 나누고, 한 클립이 "
+                         "여러 카테고리를 받으면 해당 폴더 전부에 중복 저장한다 "
+                         "(<viz-dir>/<Category>/<uuid>/). Normal 클립은 대상이 "
+                         "아니다. 샤드마다 따로 세므로 8샤드면 최대 8N 개가 "
+                         "나온다.")
+    ap.add_argument("--difficulty", action="store_true",
+                    help="주행 난이도 5축(전체 + 조도/강수/노면/대기가림)을 "
+                         "0~4 로 함께 매긴다. prompts.py 의 눈금을 쓰며, "
+                         "값과 근거 문장이 CSV 열로 나가고 시각화 패널과 "
+                         "aggregate_clip.log 분포에 실린다. 기본 off - "
+                         "출력 토큰이 늘어 느려지므로 필요한 실행에서만 켠다.")
     ap.add_argument("--no-constrain-tiers", dest="constrain_tiers",
                     action="store_false",
                     help="등급(safety/rarity) 필드를 디코딩 단계에서 1/2/3 으로 "
@@ -1591,12 +1669,14 @@ if __name__ == "__main__":
                            want_margin=args.margin,
                            safety_tiers=args.safety_tiers,
                            rarity_tiers=args.rarity_tiers,
+                           difficulty=args.difficulty,
                            use_obstacle=args.use_obstacle,
                            single_view=args.single_view,
                            fps=args.clip_fps,
                            max_frames=args.clip_max_frames,
                            max_long_side=args.clip_long_side,
                            viz_dir=(args.viz_dir if args.clip_viz else None),
+                           viz_per_category=args.viz_per_category,
                            viz_only_edge=not args.clip_viz_all,
                            not_save_low=args.not_save_low,
                            gt_labels=_load_gt_labels(args.gt_labels),

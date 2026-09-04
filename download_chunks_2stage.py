@@ -24,7 +24,8 @@ from huggingface_hub.utils import HfHubHTTPError
 REPO = "nvidia/PhysicalAI-Autonomous-Vehicles"
 CAM = "camera_front_wide_120fov"
 REL_DIR = f"camera/{CAM}"
-NAS_DIR = Path("/mnt/nas/NVIDIA_DATASET")
+# 날짜 폴더로 스냅샷을 나눠 둔다 - 최신은 20260901.
+NAS_DIR = Path("/mnt/nas/NVIDIA_DATASET/20260901")
 STAGE_DIR = Path("/home/etri/Jeongbin/Nvidia-VLM/.stage")
 
 _print_lock = threading.Lock()
@@ -48,7 +49,7 @@ def verify(path):
 def flush_batch(batch):
     """배치를 NAS로 옮기고 로컬에서 지운다. 호출자가 락을 쥔다."""
     if not batch:
-        return 0
+        return 0, []
     dest = NAS_DIR / REL_DIR
     dest.mkdir(parents=True, exist_ok=True)
     gb = sum(p.stat().st_size for p in batch) / 2**30
@@ -59,18 +60,24 @@ def flush_batch(batch):
          "--remove-source-files", *[str(p) for p in batch], str(dest) + "/"],
         capture_output=True, text=True,
     )
+    # rsync 는 --remove-source-files 로 "전송에 성공한" 파일만 지운다.
+    # 그래서 실패해도 로컬에 남은 것이 곧 미전송분이다 - 그것만 돌려주면
+    # 다음 배치에 다시 실려 재시도된다(NAS 가 잠깐 끊겼을 때 이게 없으면
+    # 그 배치가 통째로 유실된다).
+    left = [p for p in batch if p.exists()]
     if r.returncode != 0:
         log(f"  !! rsync 실패 (rc={r.returncode}): {r.stderr[:300]}")
-        return 0
+        log(f"  !! 미전송 {len(left)}개는 다음 배치에서 재시도한다")
+        return len(batch) - len(left), left
     dt = time.time() - t0
     log(f"  -> 전송 완료 {gb*1024/dt:.0f} MB/s, 로컬 정리됨")
-    return len(batch)
+    return len(batch), []
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--start", type=int, default=363)
-    ap.add_argument("--end", type=int, default=999)
+    ap.add_argument("--end", type=int, default=3145)
     ap.add_argument("--workers", type=int, default=4,
                     help="동시 다운로드 수 (측정상 4가 최적, 6은 오히려 느림)")
     ap.add_argument("--batch", type=int, default=20,
@@ -126,15 +133,20 @@ def main():
                 f"({local.stat().st_size/2**30:.2f} GB) "
                 f"| {rate:.0f} chunk/h, 남은 시간 ~{eta:.1f}h")
             if len(state["batch"]) >= args.batch:
-                state["done"] += flush_batch(state["batch"])
-                state["batch"] = []
+                sent, left = flush_batch(state["batch"])
+                state["done"] += sent
+                state["batch"] = left
 
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
         list(ex.map(work, todo))
 
     with _batch_lock:
-        state["done"] += flush_batch(state["batch"])
-        state["batch"] = []
+        sent, left = flush_batch(state["batch"])
+        state["done"] += sent
+        state["batch"] = left
+        if left:
+            log(f"[warn] 끝까지 전송 못한 {len(left)}개가 .stage 에 남았다 - "
+                f"같은 명령을 다시 실행하면 이어서 처리된다")
 
     el = time.time() - t0
     log(f"\n완료: NAS 적재 {state['done']}개, 실패 {len(failed)}개, "

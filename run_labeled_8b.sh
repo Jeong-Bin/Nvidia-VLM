@@ -3,19 +3,22 @@
 #
 # run_video_C.sh 와 다른 점:
 #   run_video_C.sh  데이터셋 전체(또는 앞에서 N개)를 처리한다.
-#   run_eval.sh     라벨이 있는 클립만 골라 처리하고 evaluate_labels.py 까지 돌린다.
+#   run_labeled_8b.sh     라벨이 있는 클립만 골라 처리하고 evaluate_labels.py 까지 돌린다.
 #
 # 라벨된 클립은 uuid 로 흩어져 있어 --limit-clips 로는 뽑을 수 없다. 그래서
 # uuid 목록을 --only-uuids 파일로 넘겨 그 클립만 처리하게 한다.
 #
 # 결과: results/<YYYYMMDD_HHMMSS>_eval/
 #   clip_results_shard_N.csv   샤드별 추론 결과
-#   evaluation.log             4개 축 성능 리포트
+#   evaluation.log             4개 축 성능 리포트 (정답 대조)
+#   aggregate_clip.log         모델 출력 분포 (카테고리/등급/난이도)
 #   run.log                    전체 로그
 set -u
 cd /home/etri/Jeongbin/Nvidia-VLM
 
 NSHARDS=8
+# 로컬 pav_sample 이 대상이다. NAS 를 보려면 --data nas 로 명시한다.
+DATA="${DATA:-local}"
 
 # 어떤 파이썬으로 돌 것인가.
 #   PATH 의 python3 를 그냥 믿으면 안 된다. GUI(gui_server.py)나 cron 처럼
@@ -57,7 +60,7 @@ LABELS="${LABELS:-$("$PYBIN" -c 'import config; print(config.LABELS_JSON)')}"
 
 usage() {
   cat <<'USAGE'
-Usage: bash run_eval.sh [options]
+Usage: bash run_labeled_8b.sh [options]
 
 Options (환경변수로도 지정 가능 - 명령행이 우선):
   --labels PATH          정답 라벨 json (기본: config.py 의 LABELS_JSON)  [LABELS]
@@ -66,7 +69,7 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --model ID             사용할 VLM (기본: edge_case_mining.py 의 8B)      [MODEL]
   --data SRC             프레임 소스 local|nas|경로 (기본 local)          [DATA]
                          27B 는 GPU 여러 장이 필요해 여기서 못 돌린다 -
-                         run_video_27b.sh --eval 를 쓸 것.
+                         run_labeled_27b.sh 를 쓸 것.
   --viz                  시각화 mp4 도 만든다 (기본 안 만듦)          [CLIP_VIZ=1]
   --viz-normal           Normal 클립을 시각화 -> viz/normal/score_N/    [VIZ_NORMAL=1]
   --viz-special          Special 클립을 시각화 -> viz/special/score_N/  [VIZ_SPECIAL=1]
@@ -82,6 +85,11 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --no-safety-tier        Safety Criticality(4단계)만 프롬프트에서 끈다  [SAFETY_TIER=0]
   --no-rarity-tier        Rarity(5단계)만 프롬프트에서 끈다              [RARITY_TIER=0]
   --no-score-tiers        위 둘을 한꺼번에 끄는 별칭                     [SCORE_TIERS=0]
+  --difficulty           주행 난이도 5축(전체+조도/강수/노면/대기가림)을
+                         0~4 로 함께 매긴다. 시각화 패널과
+                         aggregate_clip.log 분포에 실린다        [DIFFICULTY=1]
+  --viz-per-category N   카테고리마다 최초 N개 클립만 시각화한다. 폴더를
+                         score 대신 카테고리 이름으로 나눈다      [VIZ_PER_CAT]
   --use-3dbbox           obstacle.offline 3D bbox 라벨을 프롬프트에 주입
                          (기본 off, Animal/Jaywalking/cyclist 과탐 경향 실측됨)  [USE_3DBBOX=1]
   --no-video-input       프레임을 비디오가 아니라 낱장으로 넘긴다     [VIDEO_INPUT=0]
@@ -91,12 +99,12 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   -h, --help             이 도움말
 
 Examples:
-  bash run_eval.sh                                  # 추론 + 채점
-  bash run_eval.sh --eval-only results/20260812_135056_videoC
-  bash run_eval.sh --viz-normal --viz-special   # 둘 다 시각화
-  bash run_eval.sh --viz-special                # special 만
-  bash run_eval.sh --use-3dbbox                 # 3D bbox 라벨도 프롬프트에 주입
-  bash run_eval.sh --clip-fps 2.0 --clip-max-frames 40
+  bash run_labeled_8b.sh                                  # 추론 + 채점
+  bash run_labeled_8b.sh --eval-only results/20260812_135056_videoC
+  bash run_labeled_8b.sh --viz-normal --viz-special   # 둘 다 시각화
+  bash run_labeled_8b.sh --viz-special                # special 만
+  bash run_labeled_8b.sh --use-3dbbox                 # 3D bbox 라벨도 프롬프트에 주입
+  bash run_labeled_8b.sh --clip-fps 2.0 --clip-max-frames 40
 USAGE
 }
 
@@ -130,6 +138,9 @@ while [ $# -gt 0 ]; do
     --no-safety-tier)    SAFETY_TIER=0 ;;
     --no-rarity-tier)    RARITY_TIER=0 ;;
     --no-score-tiers)    SAFETY_TIER=0; RARITY_TIER=0 ;;
+    --difficulty)        DIFFICULTY=1 ;;
+    --viz-per-category=*) VIZ_PER_CAT="${1#*=}" ;;
+    --viz-per-category)  shift; VIZ_PER_CAT="${1:-}" ;;
     --no-egomotion)      USE_EGOMOTION=0 ;;   # 옛 이름 - 이제 기본이 off 라 무의미하지만 받아준다
     --use-3dbbox)        USE_3DBBOX=1 ;;
     --no-video-input)    VIDEO_INPUT=0 ;;
@@ -153,7 +164,11 @@ done
 if [ -n "$EVAL_ONLY" ]; then
   [ -d "$EVAL_ONLY" ] || { echo "[error] no such dir: $EVAL_ONLY" >&2; exit 2; }
   "$PYBIN" -u evaluate_labels.py --run-dir "$EVAL_ONLY" --labels "$LABELS"
-  exit $?
+  rc=$?
+  # 채점과 분포는 짝이다 - 재채점 경로에서만 분포가 빠지면, 같은 폴더인데
+  # 어떤 경로로 만들었느냐에 따라 산출물이 달라진다.
+  "$PYBIN" -u aggregate_clip.py --run-dir "$EVAL_ONLY"
+  exit $rc
 fi
 
 if [ -n "$SCENE_JSON" ] && [ ! -f "$SCENE_JSON" ]; then
@@ -183,7 +198,7 @@ OPTS="--clip-mode --single-view --only-uuids $UUID_FILE"
 # 못 돌린다. 조용히 8B 로 돌면 몇 시간 뒤에야 알게 되므로 여기서 막는다.
 case "${MODEL:-}" in
   *27B*) echo "[error] $MODEL 은 GPU 여러 장이 필요합니다." >&2
-         echo "        bash run_video_27b.sh --eval --model $MODEL 을 쓰세요." >&2
+         echo "        bash run_labeled_27b.sh --model $MODEL 을 쓰세요." >&2
          exit 2 ;;
 esac
 [ -n "${MODEL:-}" ] && OPTS="$OPTS --model $MODEL"
@@ -201,8 +216,13 @@ esac
 [ "${SCORE_TIERS:-1}" = "0" ]   && { SAFETY_TIER=0; RARITY_TIER=0; }
 [ "${SAFETY_TIER:-1}" = "0" ]   && OPTS="$OPTS --no-safety-tier"
 [ "${RARITY_TIER:-1}" = "0" ]   && OPTS="$OPTS --no-rarity-tier"
+[ "${DIFFICULTY:-0}" = "1" ]     && OPTS="$OPTS --difficulty"
+[ -n "${VIZ_PER_CAT:-}" ]        && OPTS="$OPTS --viz-per-category $VIZ_PER_CAT"
 [ "${USE_3DBBOX:-0}" = "1" ]    && OPTS="$OPTS --use-3dbbox"
 [ "${VIDEO_INPUT:-1}" = "0" ]   && OPTS="$OPTS --clip-no-video-input"
+# --viz-per-category 는 그 자체가 "시각화하라"는 뜻이다 - 로컬 스크립트는
+# 시각화가 기본 off 라, 이걸 안 켜주면 아무것도 저장되지 않는다.
+[ -n "${VIZ_PER_CAT:-}" ] && CLIP_VIZ=1
 [ "${CLIP_VIZ:-0}" = "1" ]      && OPTS="$OPTS --clip-viz"
 # --viz-normal/--viz-special 은 각각 독립이고, 하나라도 주면 시각화가 켜진다.
 # 이 스크립트는 정답 라벨이 있는 클립만 돌리므로, 시각화할 때는 GT 를 항상
@@ -275,6 +295,13 @@ except Exception:
   echo
 
   "$PYBIN" -u evaluate_labels.py --run-dir "$RUN_DIR" --labels "$LABELS"
+  echo
+
+  # 정답과 대조하는 채점(evaluation.log)과 별개로, 모델 출력 자체의 분포도
+  # 남긴다(aggregate_clip.log). 둘은 답하는 질문이 다르다 - 채점은 "정답을
+  # 맞혔나", 분포는 "모델이 무엇을 얼마나 냈나"다. 난이도 5축은 정답 라벨이
+  # 없어 채점 대상이 아니므로, 분포를 보는 것이 유일한 확인 수단이다.
+  "$PYBIN" -u aggregate_clip.py --run-dir "$RUN_DIR"
 
   echo
   echo "[info] results saved in: ${RUN_DIR}/"

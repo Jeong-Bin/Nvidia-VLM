@@ -19,6 +19,8 @@ import zipfile
 from pathlib import Path
 
 CHUNK_GLOB = "*.chunk_*.zip"
+# NAS 스냅샷 경로. 날짜 폴더로 버전을 나눠 두었다 - 최신을 가리킨다.
+NAS_CAMERA_DIR = "/mnt/nas/NVIDIA_DATASET/20260901/camera"
 BUILD_WAIT_S = 900      # 남이 만드는 인덱스를 기다릴 최대 시간
 STALE_LOCK_S = 1800     # 이보다 오래된 락은 죽은 프로세스의 것으로 본다
 
@@ -289,7 +291,7 @@ def make_source(spec: str | None = None, *, root: Path | None = None):
     if spec in (None, "local"):
         return LocalSource(root / "pav_sample" / "camera")
     if spec == "nas":
-        return ZipSource(Path("/mnt/nas/NVIDIA_DATASET/camera"))
+        return ZipSource(Path(NAS_CAMERA_DIR))
     p = Path(spec)
     if not p.exists():
         raise FileNotFoundError(f"데이터 경로 없음: {p}")

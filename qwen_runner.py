@@ -23,6 +23,7 @@ AutoModelForImageTextToText / AutoProcessor 로 로드해 model_id 에 따라 �
 """
 import csv
 import json
+import re
 import shutil
 import time
 from collections import Counter
@@ -51,6 +52,7 @@ from obstacle import obstacle_summary, describe_obstacles, path_intrusion
 from visualize import render_scene_card
 from visualize_clip import render_clip_result, VIZ_WIDTH
 from constrained_tier import make_tier_processor, tier_label, score_dirname
+from prompts import DIFFICULTY_AXES
 
 
 # 27B(Qwen3.8, architectures=Qwen3_5ForConditionalGeneration)는 bf16 55.6GB /
@@ -81,6 +83,17 @@ MULTI_GPU_MODELS = ("Qwen/Qwen3.8-27B",)
 # 실수를 반복하게 된다). 8B(Qwen3-VL) 의 템플릿에는 이 인자가 아예 없어
 # 넘겨도 조용히 무시된다.
 THINKING_MODELS = ()
+
+
+def _safe_dirname(name: str) -> str:
+    """카테고리 이름을 폴더명으로 쓸 수 있게 다듬는다.
+
+    현재 분류 체계에는 경로에 위험한 문자가 없지만(공백만 있다), 체계는
+    사람이 손으로 고치는 json 이라 슬래시가 들어올 수 있다 - 그때 엉뚱한
+    상위 폴더에 쓰지 않도록 여기서 막는다.
+    """
+    out = re.sub(r'[/\\:*?"<>|]+', "_", str(name)).strip().strip(".")
+    return out or "unknown"
 
 
 def load_model(model_id: str):
@@ -121,6 +134,31 @@ def load_model(model_id: str):
 # 실측(20260811, 50클립): 256 으로 두면 12/50(24%)이 JSON 미완성으로 파싱
 # 실패했고, 잘린 위치는 모두 마지막 필드(rarity_assessment) 근처였다.
 NUR_MAX_NEW_TOKENS = 800
+
+# --difficulty 를 켜면 JSON 에 필드가 10개 늘어난다(5축 x 값+근거 문장).
+# 800 은 그 여유가 없다 - 위 실측에서 이미 마지막 필드 근처에서 잘렸고,
+# 난이도 필드는 그보다 더 뒤에 온다. 근거 문장 5개를 짧게 잡아도 약 200
+# 토큰이 더 필요하므로 그만큼 올린다. 난이도를 끈 실행의 예산은 건드리지
+# 않는다 - 예산이 바뀌면 기존 A/B 결과와 비교할 수 없게 된다.
+NUR_MAX_NEW_TOKENS_DIFFICULTY = 1100
+
+
+# 클립 모드 CSV 의 열. 헤더와 빈 행이 같은 정의를 봐야 어긋나지 않는다.
+CLIP_CSV_COLUMNS = [
+    "uuid", "n_frames", "verdict", "n_categories",
+    "categories", "parse_ok", "observation", "ego_behavior",
+    "unusual_elements", "safety_tier", "safety_label",
+    "safety_reason", "rarity_tier", "rarity_label", "rarity_reason",
+    "tier_score",
+    "ego_speed_kmh", "ego_motion", "ego_behavior_measured",
+    # 결정 마진 - 이 클립의 판정이 얼마나 아슬아슬했는지.
+    # margin_min 이 작을수록 의미 없는 프롬프트 섭동에도 뒤집힌다.
+    "margin_min", "margin_mean", "n_close_tokens",
+    # 난이도 5축. --difficulty 를 끈 실행에서는 전부 빈 칸이지만 열 자체는
+    # 항상 쓴다 - 열 구성이 실행마다 달라지면 샤드 병합과 실행 간 비교가
+    # 깨진다.
+    *[c for k, _ in DIFFICULTY_AXES for c in (k, f"{k}_reason")],
+]
 
 
 def _lp_list(proc):
@@ -449,7 +487,7 @@ def run_clip_inference(uuids, labels, category_menu,
                        gt_labels=None, timeline=False, ego_track=False,
                        ego_ablation=None, header_style="v1",
                        want_margin=False, safety_tiers=True, rarity_tiers=True,
-                       traj=None):
+                       difficulty=False, traj=None, viz_per_category=None):
     """클립 전체(20초)를 1fps 로 넣어 클립 단위로 판정한다.
 
     run_inference 와 판정 단위가 다르다 - 저쪽은 (uuid, frame_idx) 이고
@@ -510,6 +548,10 @@ def run_clip_inference(uuids, labels, category_menu,
              if tier_proc else "OFF"))
 
     cat_counts = Counter()
+    # --viz-per-category N: 카테고리마다 최초 N개 클립만 시각화한다.
+    # 폴더는 score 가 아니라 카테고리 이름으로 나누고, 한 클립이 여러
+    # 카테고리를 받으면 해당 폴더 전부에 중복 저장한다.
+    viz_cat_counts = Counter()
     n_parse_fail = n_viz = n_edge = 0
     viz_path = Path(viz_dir) if viz_dir else None
     if viz_path:
@@ -529,17 +571,7 @@ def run_clip_inference(uuids, labels, category_menu,
 
     with open(out_csv, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow([
-            "uuid", "n_frames", "verdict", "n_categories",
-            "categories", "parse_ok", "observation", "ego_behavior",
-            "unusual_elements", "safety_tier", "safety_label",
-            "safety_reason", "rarity_tier", "rarity_label", "rarity_reason",
-            "tier_score",
-            "ego_speed_kmh", "ego_motion", "ego_behavior_measured",
-            # 결정 마진 - 이 클립의 판정이 얼마나 아슬아슬했는지.
-            # margin_min 이 작을수록 의미 없는 프롬프트 섭동에도 뒤집힌다.
-            "margin_min", "margin_mean", "n_close_tokens",
-        ])
+        writer.writerow(CLIP_CSV_COLUMNS)
 
         pbar = tqdm(uuids, total=len(uuids), unit="clip", dynamic_ncols=True,
                     mininterval=1.0, smoothing=0.1)
@@ -549,10 +581,9 @@ def run_clip_inference(uuids, labels, category_menu,
                                       traj=traj)
             images = [im for _, _, im in clip["frames"]]
             if not images:
-                writer.writerow([uuid, 0, "Normal", 0, "", 0,
-                                 "(no frames)", "", "", "", "", "", "",
-                                 "", "", "", "", "", "",
-                                 "", "", ""])
+                # 빈 칸 개수를 손으로 세지 않는다 - 열이 늘 때마다 어긋난다.
+                row = [uuid, 0, "Normal", 0, "", 0, "(no frames)"]
+                writer.writerow(row + [""] * (len(CLIP_CSV_COLUMNS) - len(row)))
                 n_parse_fail += 1
                 continue
 
@@ -580,9 +611,12 @@ def run_clip_inference(uuids, labels, category_menu,
                 force_behavior_hint=(ego_ablation == "d"),
                 header_style=header_style,
                 safety_tiers=safety_tiers,
-                rarity_tiers=rarity_tiers)
+                rarity_tiers=rarity_tiers,
+                difficulty=difficulty)
             gen_out = _generate(model, processor, images, prompt,
-                                max_new_tokens=NUR_MAX_NEW_TOKENS,
+                                max_new_tokens=(NUR_MAX_NEW_TOKENS_DIFFICULTY
+                                                if difficulty
+                                                else NUR_MAX_NEW_TOKENS),
                                 as_video=video_input, video_fps=fps,
                                 logits_processor=tier_proc,
                                 want_margin=want_margin,
@@ -613,6 +647,10 @@ def run_clip_inference(uuids, labels, category_menu,
                 f"{margin['margin_min']:.4f}" if margin else "",
                 f"{margin['margin_mean']:.4f}" if margin else "",
                 margin["n_close"] if margin else "",
+                # 난이도: 못 읽은 축은 None 이라 빈 칸으로 나간다.
+                *[v for k, _ in DIFFICULTY_AXES
+                  for v in (result.get(k) if result.get(k) is not None else "",
+                            result.get(f"{k}_reason", ""))],
             ])
             f.flush()
             pbar.set_postfix_str(
@@ -634,26 +672,43 @@ def run_clip_inference(uuids, labels, category_menu,
             else:
                 want_viz = (viz_special if is_special else viz_normal) or False
 
+            # 카테고리별 N개 모드는 special 클립만, 아직 정원이 안 찬
+            # 카테고리에 한해 만든다.
+            targets = None
+            if viz_per_category:
+                targets = [c for c in cats
+                           if viz_cat_counts[c] < viz_per_category]
+                want_viz = bool(targets)
+
             if viz_path and want_viz:
-                # <viz_dir>/{normal,special}/score_<N>/<uuid>/ 로 나눈다.
-                # 점수는 safety+rarity 합계(2~8), 못 읽으면 score_unknown.
-                bucket = "special" if is_special else "normal"
-                score_dir = score_dirname(result.get("tier_score"))
-                out_dir = (viz_path / bucket / score_dir / uuid
-                           if (viz_normal is not None or viz_special is not None)
-                           else viz_path / score_dir / uuid)
-                render_clip_result(
-                    uuid, clip_path(views[0], uuid), result,
-                    out_dir, max_width=viz_width,
-                    gt=(gt_labels or {}).get(uuid),
-                    traj=traj, traj_view=views[0],
-                    extra={"ego_behavior_measured": behavior,
-                           "n_frames_seen": len(images),
-                           # 클립 요약이라 한 시점의 속도가 없다 - 구간 범위를 준다
-                           "ego_speed_kmh": (
-                               f"{ego['speed_min']:.0f}-{ego['speed_max']:.0f}"
-                               if ego else None)})
-                n_viz += 1
+                if targets is not None:
+                    # <viz_dir>/<Category>/<uuid>/ - 여러 카테고리면 전부에
+                    # 같은 클립을 넣는다(중복 저장이 의도된 동작).
+                    out_dirs = [viz_path / _safe_dirname(c) / uuid
+                                for c in targets]
+                else:
+                    # <viz_dir>/{normal,special}/score_<N>/<uuid>/ 로 나눈다.
+                    # 점수는 safety+rarity 합계(2~8), 못 읽으면 score_unknown.
+                    bucket = "special" if is_special else "normal"
+                    score_dir = score_dirname(result.get("tier_score"))
+                    out_dirs = [viz_path / bucket / score_dir / uuid
+                                if (viz_normal is not None or viz_special is not None)
+                                else viz_path / score_dir / uuid]
+                for out_dir in out_dirs:
+                    render_clip_result(
+                        uuid, clip_path(views[0], uuid), result,
+                        out_dir, max_width=viz_width,
+                        gt=(gt_labels or {}).get(uuid),
+                        traj=traj, traj_view=views[0],
+                        extra={"ego_behavior_measured": behavior,
+                               "n_frames_seen": len(images),
+                               # 클립 요약이라 한 시점의 속도가 없다 - 구간 범위를 준다
+                               "ego_speed_kmh": (
+                                   f"{ego['speed_min']:.0f}-{ego['speed_max']:.0f}"
+                                   if ego else None)})
+                    n_viz += 1
+                if targets is not None:
+                    viz_cat_counts.update(targets)
 
     dt = time.time() - t_start
     n = max(len(uuids), 1)

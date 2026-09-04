@@ -17,6 +17,8 @@ visualize.py(카드 한 장)와 나란히 두는 별도 경로다. 카드는 "�
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 import textwrap
 from pathlib import Path
 
@@ -25,6 +27,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from constrained_tier import tier_label
+from prompts import DIFFICULTY_AXES, DIFFICULTY_MAX
 
 # 하단 패널에 표시할 단계. (result 의 키, 화면에 쓸 제목) 순서가 곧 표시 순서다.
 PANEL_STEPS = [
@@ -116,6 +119,33 @@ def _wrap(text, width_chars):
     return lines
 
 
+def difficulty_lines(result: dict) -> list[str]:
+    """난이도 5축을 패널에 넣을 문자열 줄로 만든다.
+
+        DRIVING DIFFICULTY : (2 / 4) <근거 문장>
+        - Illumination: (1 / 4) <근거 문장>
+        ...
+
+    전체 난이도를 머리에, 요인 넷을 "- " 로 들여 붙인다 - 요인이 전체를
+    떠받치는 관계라 같은 높이로 나열하면 다섯 개가 병렬로 읽힌다.
+
+    축이 하나도 없으면(난이도를 끈 실행) 빈 리스트를 돌려주고, 호출부는
+    블록 자체를 만들지 않는다. 값이 없는 축만 "—" 로 남기지 않고 통째로
+    빼는 이유는, 켜지 않은 실행의 패널에 빈 표가 다섯 줄 붙는 것을 피하기
+    위해서다.
+    """
+    if all(result.get(k) is None for k, _ in DIFFICULTY_AXES):
+        return []
+    lines = []
+    for i, (key, name) in enumerate(DIFFICULTY_AXES):
+        v = result.get(key)
+        score = f"({v} / {DIFFICULTY_MAX})" if v is not None else "(— / %d)" % DIFFICULTY_MAX
+        why = (result.get(f"{key}_reason") or "").strip()
+        head = f"{name} : " if i == 0 else f"- {name}: "
+        lines.append(f"{head}{score}" + (f" {why}" if why else ""))
+    return lines
+
+
 def build_text_panel(result: dict, width: int, scale: float = 1.0) -> np.ndarray:
     """1~5단계 추론 내용을 담은 패널 이미지(RGB ndarray)를 만든다.
 
@@ -176,6 +206,22 @@ def build_text_panel(result: dict, width: int, scale: float = 1.0) -> np.ndarray
                            else "GT: —")
                 body = f"Pred: {body}" if body else "Pred: —"
         blocks.append((title, _wrap(body, width_chars), gt_line))
+
+    # 난이도는 등급 단계 다음에 자기 블록으로 붙는다. PANEL_STEPS 에 넣지
+    # 않는 이유는 형식이 다르기 때문이다 - 저쪽은 "제목 + 문단" 한 덩어리고,
+    # 이건 다섯 줄이 각자 점수를 달고 있어 줄 단위로 유지해야 한다.
+    diff = difficulty_lines(result)
+    if diff:
+        wrapped = []
+        for ln in diff:
+            # 이어지는 줄은 들여쓴다 - 안 그러면 다음 축의 머리줄과 구분이
+            # 안 되어 어느 점수의 근거인지 읽을 수 없다.
+            parts = textwrap.wrap(ln, width=width_chars,
+                                  subsequent_indent="    ") or [ln]
+            wrapped.extend(parts)
+        # 번호는 앞서 실제로 담긴 블록 수를 이어받는다 - 등급을 끈
+        # 실행에서는 4/5단계가 없으므로 "6." 이라고 쓰면 없는 단계를 센다.
+        blocks.append((f"{len(blocks) + 1}. Driving Difficulty", wrapped, None))
 
     # --- 높이 계산 ---
     h = pad
@@ -239,6 +285,41 @@ def build_text_panel(result: dict, width: int, scale: float = 1.0) -> np.ndarray
     return np.asarray(img)
 
 
+def _extract_to_temp(view: str, uuid: str):
+    """클립 소스에서 원본 mp4 바이트를 받아 임시 파일로 푼다. 실패하면 None.
+
+    NAS 실행 전용 갈래다. edge_case_mining.clip_open 이 zip 안의 구간을
+    파일처럼 열어주지만 cv2 는 그런 객체를 못 받으므로, 여기서 한 번
+    실제 파일로 떨어뜨린다. 부르는 쪽이 반드시 _cleanup_temp 로 지운다.
+    """
+    try:
+        from edge_case_mining import CLIP_SOURCE, clip_open
+    except ImportError:
+        return None
+    if CLIP_SOURCE is None:          # 로컬 실행이면 애초에 이 갈래를 안 탄다
+        return None
+    try:
+        fh = clip_open(view, uuid)
+        data = fh.read() if hasattr(fh, "read") else Path(str(fh)).read_bytes()
+        if hasattr(fh, "close"):
+            fh.close()
+        fd, name = tempfile.mkstemp(suffix=".mp4", prefix=f"viz_{uuid[:8]}_")
+        with os.fdopen(fd, "wb") as out:
+            out.write(data)
+        return Path(name)
+    except Exception:
+        # 시각화는 부가 산출물이다 - 여기서 실행을 세우지 않는다.
+        return None
+
+
+def _cleanup_temp(path):
+    if path:
+        try:
+            Path(path).unlink()
+        except OSError:
+            pass
+
+
 def render_clip_video(src_mp4, result: dict, out_path,
                       max_width: int | None = None,
                       fourcc: str = FOURCC,
@@ -258,9 +339,22 @@ def render_clip_video(src_mp4, result: dict, out_path,
 
     반환: 저장 경로. 원본을 못 열면 None.
     """
+    # cv2.VideoCapture 는 실제 파일 경로만 받는다. NAS 실행에서는 원본
+    # mp4 가 청크 zip 안에 있어 그 경로가 존재하지 않으므로, 열리지 않으면
+    # 소스에서 바이트를 받아 임시 파일로 풀어 놓고 그것을 연다.
+    # (zip 안의 mp4 는 무압축이라 복사 비용이 곧 읽기 비용이다.)
+    #
+    # 이 갈래가 없으면 NAS 실행은 result.json 만 남고 clip.mp4 가 조용히
+    # 빠진다 - 실측으로 그렇게 나왔다.
     src_mp4 = str(src_mp4)
+    tmp_path = None
     cap = cv2.VideoCapture(src_mp4)
+    if not cap.isOpened() and traj_uuid:
+        tmp_path = _extract_to_temp(traj_view, traj_uuid)
+        if tmp_path:
+            cap = cv2.VideoCapture(str(tmp_path))
     if not cap.isOpened():
+        _cleanup_temp(tmp_path)
         return None
 
     src_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -269,6 +363,7 @@ def render_clip_video(src_mp4, result: dict, out_path,
     n_total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 0
     if src_w <= 0 or src_h <= 0:
         cap.release()
+        _cleanup_temp(tmp_path)
         return None
 
     if max_width and src_w > max_width:
@@ -326,6 +421,7 @@ def render_clip_video(src_mp4, result: dict, out_path,
             n = _write_cv2(out_path, frames_iter(), out_w, total_h, fps, fourcc)
     finally:
         cap.release()
+        _cleanup_temp(tmp_path)
     return out_path if n else None
 
 
@@ -388,6 +484,13 @@ def save_clip_json(result: dict, out_path, extra: dict | None = None) -> Path:
         "tier_score": result.get("tier_score"),
         "parse_ok": bool(result.get("parse_ok", False)),
     }
+    # 난이도는 켠 실행에서만 넣는다 - 끈 실행의 json 에 전부 null 인 키가
+    # 열 개 붙으면 재집계할 때 "쟀는데 못 읽음"과 구분이 안 된다.
+    if any(result.get(k) is not None for k, _ in DIFFICULTY_AXES):
+        payload["difficulty"] = {
+            k: {"score": result.get(k), "max": DIFFICULTY_MAX,
+                "reason": result.get(f"{k}_reason", "")}
+            for k, _ in DIFFICULTY_AXES}
     if result.get("_gt") is not None:
         payload["ground_truth"] = result["_gt"]
     if extra:
