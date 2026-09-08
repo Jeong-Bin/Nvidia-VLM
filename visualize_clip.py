@@ -120,7 +120,7 @@ def _wrap(text, width_chars):
 
 
 def difficulty_lines(result: dict) -> list[str]:
-    """난이도 5축을 패널에 넣을 문자열 줄로 만든다.
+    """난이도 4축을 패널에 넣을 문자열 줄로 만든다.
 
         DRIVING DIFFICULTY : (2 / 4) <근거 문장>
         - Illumination: (1 / 4) <근거 문장>

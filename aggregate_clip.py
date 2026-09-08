@@ -6,7 +6,7 @@ aggregate.py 와 판정 단위가 달라 파일을 나눴다:
   aggregate_clip.py - uuid(클립) 하나가 한 행. Q3 도 점수도 없다.
 
 집계 내용:
-  1) 클립 개요 - EDGE-CASE(카테고리 1개 이상) / NORMAL
+  1) 클립 개요 - SPECIAL(카테고리 1개 이상) / NORMAL
   2) 카테고리별 클립 수와 비율. 멀티라벨이라 한 클립이 여러 카테고리에
      동시에 잡히면 그 카테고리 각각에 1 씩 반영한다 - 따라서 카테고리
      합계는 클립 수를 넘고 비율 합도 100% 를 넘을 수 있다.
@@ -19,7 +19,7 @@ aggregate.py 와 판정 단위가 달라 파일을 나눴다:
   5) 주행 난이도 분포 - --difficulty 를 켠 실행에서만. 전체 난이도와 요인
      4개(조도/강수/노면/대기가림)를 0~4 눈금으로 각각 집계하고, 마지막에
      다섯 축을 나란히 놓은 요약표를 낸다. 등급과 달리 edge-case 여부와
-     무관한 축이라 EDGE-CASE 만 따로 내지는 않는다.
+     무관한 축이라 SPECIAL 만 따로 내지는 않는다.
 
 결과는 화면과 <run_dir>/aggregate_clip.log 에 함께 기록한다.
 
@@ -75,11 +75,14 @@ def scene_json_for_run(run_dir):
 
 def latest_run_dir():
     """results/ 아래에서 클립 모드 CSV 를 가진 가장 최근 폴더."""
+    # 실행 폴더는 results/labeld/<ts> 처럼 한 겹 아래에도 있다(라벨/비라벨 분리).
+    # 옛 실행은 results/<ts> 에 그대로 있으므로 두 깊이를 모두 본다.
     cands = []
-    for d in (ROOT / "results").glob("*"):
-        if d.is_dir() and (list(d.glob("clip_results*.csv"))
-                           or list(d.glob("*clip*.csv"))):
-            cands.append(d)
+    for pat in ("*", "*/*"):
+        for d in (ROOT / "results").glob(pat):
+            if d.is_dir() and (list(d.glob("clip_results*.csv"))
+                               or list(d.glob("*clip*.csv"))):
+                cands.append(d)
     return max(cands, key=lambda p: p.stat().st_mtime) if cands else None
 
 
@@ -124,7 +127,7 @@ def dist_block(log, title, values, total, scale, labels=None,
                note=""):
     """점수 한 축의 분포 - 값별 개수/비율과 평균/분산/중앙값.
 
-    safety/rarity(1~4)와 주행 난이도 5축(0~4)이 같이 쓴다. 눈금이 다르므로
+    safety/rarity(1~4)와 주행 난이도 4축(0~4)이 같이 쓴다. 눈금이 다르므로
     scale 로 받고, 라벨이 있는 축(Low/Moderate/...)만 labels 를 준다.
 
     라벨이 없는 데이터에서는 정답과 대조할 수 없으므로(evaluate_labels.py 의
@@ -274,12 +277,12 @@ def main():
     log(f"{'WHAT':<40}{'COUNT':>10}{'%':>10}")
     log("-" * 64)
     log(f"{'total clips':<40}{total:>10}{100.0:>9.1f}%")
-    log(f"{'EDGE-CASE (>=1 category)':<40}{n_edge:>10}{pct(n_edge):>9.1f}%")
+    log(f"{'SPECIAL (>=1 category)':<40}{n_edge:>10}{pct(n_edge):>9.1f}%")
     log(f"{'NORMAL    (no category)':<40}{total-n_edge:>10}"
         f"{pct(total-n_edge):>9.1f}%")
     log("-" * 64)
     log(f"{'TOTAL':<40}{total:>10}{100.0:>9.1f}%")
-    log("(a clip with several categories counts once as EDGE-CASE)")
+    log("(a clip with several categories counts once as SPECIAL)")
 
     # --- 2) 카테고리 빈도 (멀티라벨: 클립 하나가 여러 곳에 반영된다) ---
     counts = Counter()
@@ -342,13 +345,13 @@ def main():
         dist_block(log, f"{title} - ALL clips", tier_series(df, col), total,
                    TIER_VALUES, tier_labels)
         if n_edge:
-            dist_block(log, f"{title} - EDGE-CASE clips only",
+            dist_block(log, f"{title} - SPECIAL clips only",
                        tier_series(edge_df, col), n_edge,
                        TIER_VALUES, tier_labels)
 
     # --- 5) 주행 난이도 분포 ---
     # 등급과 달리 edge-case 여부와 무관한 축이다 - 평범한 클립도 비가 오면
-    # 높다. 그래서 EDGE-CASE 만 따로 내지 않고 전체만 낸다. 대신 축이
+    # 높다. 그래서 SPECIAL 만 따로 내지 않고 전체만 낸다. 대신 축이
     # 다섯이라, 어느 요인이 전체 난이도를 끌어올리는지 나란히 놓고 본다.
     diff_scale = list(range(DIFFICULTY_MIN, DIFFICULTY_MAX + 1))
     diff_series = {k: tier_series(df, k) for k, _ in DIFFICULTY_AXES}

@@ -1,0 +1,1 @@
+sudo mount -t cifs //10.254.92.171/OPEN_DATASET /mnt/nas -o username=E2E_DATA,vers=3.0,uid=$(id -u),gid=$(id -g),cache=loose,nounix,serverino,iocharset=utf8

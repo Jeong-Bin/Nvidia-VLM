@@ -34,3 +34,6 @@ gui.log
 # 인덱스 캐시 (clip_source.py 가 로컬에서 다시 만든다)
 .clip_index.json
 *.clip_index.json.lock
+
+# 단일 클립 조회가 만드는 uuid 파일 (job id 로 쌓인다)
+gui/single/

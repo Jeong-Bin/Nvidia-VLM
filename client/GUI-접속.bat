@@ -68,8 +68,27 @@ if errorlevel 1 (
 )
 
 echo [2/3] 터널 여는 중  ^(로컬 %LPORT% -^> 서버 %RPORT%^)...
-start "" /min ssh -p %SSH_PORT% -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 ^
-  -L %LPORT%:127.0.0.1:%RPORT% %USER%@%SERVER%
+rem  터널은 창 없이 띄운다. 예전처럼 start 로 띄우면 창이 하나 더 생기고,
+rem  그 창이 이 배치가 끝난 뒤에도 남아 따로 닫아야 했다.
+set "PIDFILE=%TEMP%\edge_gui_tunnel_%LPORT%.pid"
+rem  창이 사라지면 감시자가 ssh 를 같이 죽이므로 X 로 닫아도 터널이 안 남는다.
+rem  감시 대상(이 창)의 PID 는 ps1 이 자기 부모를 따라 올라가 직접 찾는다 -
+rem  배치에서 구해 넘기려면 따옴표가 겹쳐 깨지기 쉽다.
+if not exist "%~dp0gui-tunnel.ps1" (
+  echo [오류] gui-tunnel.ps1 이 없습니다. 이 배치와 같은 폴더에 두세요.
+  pause
+  exit /b 1
+)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0gui-tunnel.ps1" ^
+  -SshPort %SSH_PORT% -LocalPort %LPORT% -RemotePort %RPORT% ^
+  -Target %USER%@%SERVER% -PidFile "%PIDFILE%" >nul
+if errorlevel 1 (
+  echo [경고] 감시 기능을 못 켰습니다 ^(PowerShell 정책^). 창 하나로 대신 엽니다.
+  echo        이 경우 창을 X 로 닫으면 터널이 남을 수 있습니다.
+  start "edge-case GUI tunnel" /min ssh -p %SSH_PORT% -N ^
+    -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 ^
+    -L %LPORT%:127.0.0.1:%RPORT% %USER%@%SERVER%
+)
 
 rem 터널이 열릴 때까지 잠깐 기다린다
 for /l %%i in (1,1,20) do (
@@ -86,11 +105,23 @@ start "" http://127.0.0.1:%LPORT%
 echo.
 echo   ============================================
 echo    접속됨: http://127.0.0.1:%LPORT%
-echo    이 창을 닫으면 터널이 끊깁니다.
 echo   ============================================
 echo.
-pause
+echo   이 창에서 아무 키나 누르면 터널을 끊고 전부 종료합니다.
+pause >nul
 
-rem 창을 닫을 때 이 배치가 띄운 터널만 정리한다
-taskkill /f /fi "WINDOWTITLE eq ssh*" >nul 2>nul
+call :killold
+echo [gui] 터널을 닫았습니다.
 endlocal
+exit /b 0
+
+:killold
+rem  이 배치가 띄운 터널만 PID 로 정확히 죽인다. WINDOWTITLE 로 찾으면
+rem  사용자가 따로 쓰던 ssh 세션까지 잡을 수 있어 위험하다.
+rem  창을 X 로 닫아 아래 정리가 실행되지 않았더라도, 다음 실행이 여기서
+rem  남은 터널을 치우므로 ssh 가 쌓이지 않는다.
+if exist "%PIDFILE%" (
+  for /f "usebackq delims=" %%p in ("%PIDFILE%") do taskkill /pid %%p /t /f >nul 2>nul
+  del "%PIDFILE%" >nul 2>nul
+)
+exit /b 0

@@ -94,7 +94,7 @@ def category_slug(category: str) -> str:
 # 동등한 후보로 취급한다 - is_normal 플래그로만 구분.
 # ---------------------------------------------------------------------------
 def load_labels(scene_json: Path):
-    """scene_category.json -> [{scenario, category, synonyms, prompt_templates, is_normal}, ...]"""
+    """scene_category.json -> [{scenario, category, templates, template_candidates, is_normal}, ...]"""
     data = json.loads(scene_json.read_text(encoding="utf-8"))
 
     labels = []
@@ -106,8 +106,8 @@ def load_labels(scene_json: Path):
                     {
                         "scenario": scenario_name,
                         "category": cat["name"],
-                        "synonyms": cat.get("synonyms", []),
-                        "prompt_templates": cat.get("prompt_templates", []),
+                        "templates": cat.get("templates", []),
+                        "template_candidates": cat.get("template_candidates", []),
                         # 이 카테고리가 "아닌" 경우. 긍정 예시만으로는 경계가
                         # 안 잡히는 카테고리에만 쓴다 (없으면 빈 리스트).
                         "excludes": cat.get("excludes", []),
@@ -120,29 +120,31 @@ def load_labels(scene_json: Path):
 def _examples_for(lab, example_source: str, num_examples: int | None = None):
     """카테고리 하나에서 예시로 쓸 문자열 리스트를 뽑는다.
 
-    example_source: "synonyms" (단순 객체/키워드 나열) 또는
-                     "prompt_templates" (유의미한 상황을 서술하는 문장).
+    example_source: "templates" (단순 객체/키워드 나열) 또는
+                     "template_candidates" (유의미한 상황을 서술하는 문장).
     num_examples: 앞에서부터 몇 개만 쓸지 (None 이면 전체).
-    synonyms 가 없는 카테고리(예: normal)는 example_source 와 무관하게
-    prompt_templates 로 대체한다.
+    templates 가 없는 카테고리(예: normal)는 example_source 와 무관하게
+    template_candidates 로 대체한다.
     """
-    if example_source == "synonyms" and lab["synonyms"]:
-        items = lab["synonyms"]
+    if example_source == "templates" and lab["templates"]:
+        items = lab["templates"]
     else:
-        items = lab["prompt_templates"]
+        items = lab["template_candidates"]
     return items[:num_examples] if num_examples else items
 
 
-def build_category_menu(labels, example_source: str = "synonyms",
-                        num_examples: int = 2):
+def build_category_menu(labels, example_source: str = "templates",
+                        num_examples: int | None = None):
     """프롬프트에 넣을 special 카테고리 목록.
 
     형식: `- Road Construction(roadwork, traffic cone)`
     카테고리명과 예시를 한 덩어리로 묶어 제시하므로, 모델이 별도의 매칭 단계
     없이 정확한 카테고리명으로 바로 답할 수 있다.
 
-    예시 개수는 2개가 기본. 카테고리당 예시를 전부 나열하면 판별이 경직되어
-    다양성이 떨어진다는 관찰(20260724)에 따라 소수만 노출한다.
+    templates 는 전부 노출하는 것이 기본이다. 예전에는 상위 2개만 썼는데
+    (전부 나열하면 판별이 경직된다는 20260724 관찰), scene_category_2.0
+    부터 templates 를 그 자체로 판별 기준이 되도록 다듬었으므로 잘라내지
+    않는다. 개수를 줄여 비교하고 싶으면 --num-examples 로 지정한다.
     normal 은 제외 - Q1(Normal/Special)이 그 역할을 하고, Q2 는 special
     카테고리만 나열하는 자리이기 때문.
     """
@@ -310,7 +312,10 @@ def list_scene_uuids(limit: int | None = None):
         uuids = CLIP_SOURCE.uuids(FRONT_VIEWS[0])
     else:
         d = CAMERA_DIR / FRONT_VIEWS[0]
-        uuids = sorted(p.name.split(".")[0] for p in d.glob("*.mp4"))
+        # set 으로 한 번 걸러 같은 uuid 를 두 번 돌리지 않는다. NAS 청크에는
+        # 원본 저장소의 중복 사본이 1,180건 있고(ZipSource 가 걸러낸다),
+        # 로컬도 재다운로드나 수동 복사로 같은 상황이 생길 수 있다.
+        uuids = sorted({p.name.split(".")[0] for p in d.glob("*.mp4")})
     if limit:
         uuids = uuids[:limit]
     return uuids
@@ -834,10 +839,8 @@ the CURRENT moment. Each group of three is synchronized camera views
  "rarity_reason": "<why that rarity rating>",
 '''
     if difficulty:
-        # 요인을 먼저, 전체를 마지막에 - 프롬프트 본문의 순서와 같게 둔다.
-        # JSON 필드 순서가 곧 생성 순서라, 전체를 앞에 두면 요인을 세우기
-        # 전에 전체 점수를 찍게 되어 둘이 어긋난다.
-        for key, name in DIFFICULTY_AXES[1:] + DIFFICULTY_AXES[:1]:
+        # 프롬프트 본문과 같은 순서. JSON 필드 순서가 곧 생성 순서다.
+        for key, name in DIFFICULTY_AXES:
             tier_fields += (
                 f''' "{key}": <integer {DIFFICULTY_MIN}-{DIFFICULTY_MAX}>,\n'''
                 f''' "{key}_reason": "<one short sentence for {name}>",\n''')
@@ -1085,7 +1088,7 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
         out[f"{kind}_assessment"] = reason or legacy
     out["tier_score"] = tier_score(out["safety_tier"], out["rarity_tier"])
 
-    # 난이도 5축. 값과 근거 문장을 따로 받는다.
+    # 난이도 4축. 값과 근거 문장을 따로 받는다.
     for key, _ in DIFFICULTY_AXES:
         out[key] = _coerce_difficulty(obj.get(key))
         out[f"{key}_reason"] = _flatten_field(obj.get(f"{key}_reason", ""))
@@ -1413,13 +1416,14 @@ if __name__ == "__main__":
                          "프롬프트에는 넣지 않고 결과만 CSV/JSON 에 남긴다 - "
                          "불일치 건이 검수 우선순위가 된다. --no-blocking 이면 "
                          "대조할 모델 답이 없으므로 기하 계산 결과만 기록한다.")
-    ap.add_argument("--example-source", choices=["synonyms", "prompt_templates"],
-                    default="synonyms",
-                    help="카테고리 예시 소스. synonyms(기본)는 짧은 키워드, "
-                         "prompt_templates 는 상황 서술 문장.")
-    ap.add_argument("--num-examples", type=int, default=2,
-                    help="카테고리당 프롬프트에 넣을 예시 개수 (기본 2). "
-                         "많이 넣을수록 프롬프트가 길어지고 판별이 경직될 수 있음.")
+    ap.add_argument("--example-source", choices=["templates", "template_candidates"],
+                    default="templates",
+                    help="카테고리 예시 소스. templates(기본)는 짧은 키워드, "
+                         "template_candidates 는 상황 서술 문장.")
+    ap.add_argument("--num-examples", type=int, default=None,
+                    help="카테고리당 프롬프트에 넣을 예시 개수. 기본은 제한 "
+                         "없음(templates 전부). 숫자를 주면 앞에서부터 그만큼만 "
+                         "쓴다 - 프롬프트를 줄여 비교할 때.")
     # --scene-json 과 --prompt-style 은 서로 직교한다. C 카테고리를 기존
     # Q1/Q2/Q3 로 돌려보는 것도, B 카테고리를 nuReasoning 으로 돌려보는 것도
     # 각각 유효한 비교라 하나로 묶지 않는다.
@@ -1518,7 +1522,7 @@ if __name__ == "__main__":
                          "아니다. 샤드마다 따로 세므로 8샤드면 최대 8N 개가 "
                          "나온다.")
     ap.add_argument("--difficulty", action="store_true",
-                    help="주행 난이도 5축(전체 + 조도/강수/노면/대기가림)을 "
+                    help="주행 난이도 4축(조도/강수/노면/대기가림)을 "
                          "0~4 로 함께 매긴다. prompts.py 의 눈금을 쓰며, "
                          "값과 근거 문장이 CSV 열로 나가고 시각화 패널과 "
                          "aggregate_clip.log 분포에 실린다. 기본 off - "
@@ -1599,7 +1603,7 @@ if __name__ == "__main__":
     print(f"[info] prompt style: {args.prompt_style}"
           + (" (edge-case presence only, no difficulty score)"
              if args.prompt_style == "nureasoning" else ""))
-    print(f"[info] category menu: {args.num_examples} example(s) per category "
+    print(f"[info] category menu: {args.num_examples or 'all'} example(s) per category "
           f"from {args.example_source}")
     _ego_state = ("ON" if args.use_egomotion
                   else f"ABLATION-{args.ego_ablation.upper()}"
@@ -1615,22 +1619,38 @@ if __name__ == "__main__":
           f"({'front-wide only' if args.single_view else 'front 3-view'})"
           f" -> {2 * len(_views)} images per unit")
 
-    uuids = list_scene_uuids(args.limit_clips)
-
     # 특정 클립만 처리 (검증용). 라벨된 uuid 는 데이터셋 전체에 흩어져 있어서
     # --limit-clips 로는 못 뽑는다. 목록에 있지만 데이터셋에 없는 uuid 는
     # 조용히 빠지면 원인을 못 찾으므로 개수를 알린다.
+    #
+    # 목록을 먼저 처리한다. list_scene_uuids() 는 NAS zip 에서 전체 인덱스
+    # (3145개 zip, ~1시간)를 만드는데, uuid 를 이미 아는 마당에 그걸 기다릴
+    # 이유가 없다. locate_uuid 로 하나씩 직접 찾고, 전부 찾으면 전체 인덱스는
+    # 건너뛴다. 하나라도 못 찾을 때만 원래 경로로 내려가 전체와 대조한다
+    # (그래야 "데이터셋에 없음" 과 "아직 인덱싱 안 됨" 이 구분된다).
     if args.only_uuids:
         wanted = [l.strip() for l in
                   Path(args.only_uuids).read_text(encoding="utf-8").splitlines()
                   if l.strip()]
-        have = set(uuids)
-        uuids = [u for u in wanted if u in have]
+        found, missing = [], []
+        if CLIP_SOURCE is not None and hasattr(CLIP_SOURCE, "locate_uuid"):
+            for u in wanted:
+                (found if CLIP_SOURCE.locate_uuid(FRONT_VIEWS[0], u)
+                 else missing).append(u)
+        else:
+            missing = list(wanted)
+
+        if missing:
+            have = set(list_scene_uuids(args.limit_clips))
+            found = [u for u in wanted if u in have or u in found]
+        uuids = found
         n_missing = len(wanted) - len(uuids)
         print(f"[info] --only-uuids: {len(uuids)}/{len(wanted)} found"
               + (f"  ({n_missing} not in dataset)" if n_missing else ""))
         if not uuids:
             raise SystemExit("[error] none of the requested uuids exist")
+    else:
+        uuids = list_scene_uuids(args.limit_clips)
 
     # 클립 모드는 판정 단위가 uuid 하나라 아래의 frame-unit 경로를 타지 않는다.
     if args.clip_mode:

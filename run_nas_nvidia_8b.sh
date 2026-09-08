@@ -71,6 +71,7 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --data SRC             프레임 소스 local|nas|경로 (기본 nas)         [DATA]
                          nas = NAS 청크 zip 을 직접 읽는다(압축 해제 불필요)
   --limit-clips N        처리할 클립 수 제한 (기본: 데이터셋 전체)     [LIMIT_CLIPS]
+  --only-uuids FILE      이 파일에 적힌 uuid 만 처리 (한 줄에 하나)    [ONLY_UUIDS]
   --num-shards N         GPU/shard 개수 (기본 8)                       [NSHARDS]
   --scene-json PATH      카테고리 정의 (기본: config.py 의 SCENE_JSON)  [SCENE_JSON]
   --no-viz               시각화 mp4 를 만들지 않는다                    [CLIP_VIZ=0]
@@ -90,7 +91,7 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --no-safety-tier        Safety Criticality(4단계)만 프롬프트에서 끈다  [SAFETY_TIER=0]
   --no-rarity-tier        Rarity(5단계)만 프롬프트에서 끈다              [RARITY_TIER=0]
   --no-score-tiers        위 둘을 한꺼번에 끄는 별칭                     [SCORE_TIERS=0]
-  --difficulty           주행 난이도 5축(전체+조도/강수/노면/대기가림)을
+  --difficulty           주행 난이도 4축(조도/강수/노면/대기가림)을
                          0~4 로 함께 매긴다. 시각화 패널과
                          aggregate_clip.log 분포에 실린다        [DIFFICULTY=1]
   --viz-per-category N   카테고리마다 최초 N개 클립만 시각화한다. 폴더를
@@ -115,6 +116,8 @@ while [ $# -gt 0 ]; do
     --data)              shift; DATA="${1:-local}" ;;
     --limit-clips=*)     LIMIT_CLIPS="${1#*=}" ;;
     --limit-clips)       shift; LIMIT_CLIPS="${1:-}" ;;
+    --only-uuids=*)      ONLY_UUIDS="${1#*=}" ;;
+    --only-uuids)        shift; ONLY_UUIDS="${1:-}" ;;
     --model=*)           MODEL="${1#*=}" ;;
     --model)             shift; MODEL="${1:-}" ;;
     --num-shards=*)      NSHARDS="${1#*=}" ;;
@@ -232,9 +235,12 @@ OPTS="--clip-mode --single-view --data $DATA"
 [ -n "${CLIP_FPS:-}" ]          && OPTS="$OPTS --clip-fps $CLIP_FPS"
 [ -n "${CLIP_MAX_FRAMES:-}" ]   && OPTS="$OPTS --clip-max-frames $CLIP_MAX_FRAMES"
 [ -n "${LIMIT_CLIPS:-}" ]       && OPTS="$OPTS --limit-clips $LIMIT_CLIPS"
+# 특정 uuid 만 돌린다(GUI 단일 클립 조회). 전체 인덱스를 안 만들고 그 클립이
+# 든 zip 만 찾아 열므로, NAS 에서도 몇 초~30초 안에 시작한다.
+[ -n "${ONLY_UUIDS:-}" ]        && OPTS="$OPTS --only-uuids $ONLY_UUIDS"
 
 RUN_TS="$(date +%Y%m%d_%H%M%S)"
-RUN_DIR="results/${RUN_TS}_video8b"
+RUN_DIR="results/unlabeled/${RUN_TS}_video8b"
 mkdir -p "$RUN_DIR"
 
 {

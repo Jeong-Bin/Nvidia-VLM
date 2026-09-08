@@ -32,7 +32,7 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --no-blocking             Q3(경로 차단) 질문 자체를 끈다                    [ASK_BLOCKING=0]
   --single-view[=0|1]       front-wide 카메라만 사용 (이미지 6장 -> 2장)      [SINGLE_VIEW]
   --limit-clips N           처리할 클립 수 제한 (기본: 데이터셋 전체)         [LIMIT_CLIPS]
-  --example-source S        synonyms | prompt_templates                       [EXAMPLE_SOURCE]
+  --example-source S        templates | template_candidates                       [EXAMPLE_SOURCE]
   --num-examples N          카테고리당 예시 개수                              [NUM_EXAMPLES]
   --scene-json PATH         카테고리 정의 JSON (기본 scene_category_B.json)   [SCENE_JSON]
   --prompt-style S          qa(기본) | nureasoning (6단계 CoT + 1~10 점수)    [PROMPT_STYLE]
@@ -118,7 +118,7 @@ mkdir -p "$RUN_DIR"
 {
   echo "[info] run dir: $RUN_DIR"
   echo "[info] total units: $TOTAL_UNITS ($TOTAL_CLIPS clips x $TIMESTAMPS_PER_CLIP timestamps), $NSHARDS shards"
-  echo "[info] caption opts: ${CAPTION_OPTS:-<edge_case_mining.py defaults: synonyms x1>}"
+  echo "[info] caption opts: ${CAPTION_OPTS:-<edge_case_mining.py defaults: templates x1>}"
   echo "[info] sensor facts: egomotion=${USE_EGOMOTION:-0} obstacle=${USE_OBSTACLE:-0} (1=on, 0=off)"
   echo "[info] 3D path check: ${CHECK_PATH:-0} (1=on, 0=off)"
   echo "[info] Q3 blocking question: ${ASK_BLOCKING:-1} (1=on, 0=off)"

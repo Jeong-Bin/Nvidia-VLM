@@ -6,9 +6,11 @@
 <title>Edge-Case Mining Console</title>
 <style>
 :root{
-  --bg:#0f1115; --panel:#171a21; --panel2:#1d2129; --line:#2a2f3a;
+  --bg:#0f1115; --panel:#171a21; --panel2:#1d2129; --line:#2a2f3a; --delimiter:#a7a7a7;
   --fg:#e6e9ef; --muted:#9aa4b2; --accent:#5b9cff; --accent2:#b3541e;
   --ok:#3fb950; --bad:#f85149; --warn:#d29922;
+  /* 가운데 정렬하는 탭들의 최대 폭. 이 값 하나로 네 탭이 같이 움직인다. */
+  --page-max:1500px;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
@@ -26,7 +28,8 @@ textarea{width:100%;resize:vertical;font-family:ui-monospace,Menlo,Consolas,mono
 .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
 header{display:flex;align-items:center;gap:14px;padding:10px 16px;
   background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
-nav{display:flex;gap:4px}
+nav{display:flex;gap:4px;align-items:center}
+.navsep{color:var(--delimiter);user-select:none;padding:0 2px}
 nav button{background:none;border:1px solid transparent}
 nav button.on{background:var(--panel2);border-color:var(--line);color:var(--accent)}
 main{padding:14px 16px 40px}
@@ -35,10 +38,113 @@ main{padding:14px 16px 40px}
 .row>label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted)}
     /* 체크박스는 상자 오른쪽에 글자가 오도록 - 세로 쌓기가 기본이라 예외 */
     .row>label.chk{flex-direction:row;align-items:center;gap:5px}
+/* --- NAS 집계 화면 --- */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.tile .k{color:var(--muted);font-size:11px;letter-spacing:.02em}
+.tile .v{font-size:22px;font-weight:650;margin-top:2px}
+.tile .s{color:var(--muted);font-size:11px;margin-top:1px}
+.bars{display:flex;flex-direction:column;gap:5px}
+/* 라벨 | 막대 | 개수 | 비율. 개수와 비율을 한 문자열로 붙여 놓으면 자릿수가
+   들쭉날쭉해 눈이 값을 못 따라간다 - 칸을 나누고 사이를 확실히 띄운다. */
+/* 라벨과 숫자 칸은 최소폭만 주고 나머지를 막대가 먹는다. 숫자 칸을 고정폭
+   (72px)으로 두면 좁은 칸(4열 격자)에서 합이 칸 너비를 넘어 글자가 박스를
+   뚫고 나온다 - minmax(...,auto) 로 줄어들 수 있게 한다. */
+.barrow{display:grid;
+  grid-template-columns:minmax(48px,140px) minmax(24px,1fr) minmax(38px,auto) minmax(38px,auto);
+  gap:12px;align-items:center;font-size:12px;min-width:0}
+.barrow>*{min-width:0}
+.barrow .lbl{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bartrack{background:var(--panel2);border-radius:4px;height:14px;overflow:hidden}
+.barfill{height:100%;background:var(--accent);border-radius:4px;min-width:2px}
+.barrow .num,.barrow .pctv{font-variant-numeric:tabular-nums;text-align:right}
+.barrow .num{color:var(--fg)}
+.barrow .pctv{color:var(--muted)}
+.barhead{color:var(--muted);font-size:11px;padding-bottom:2px;
+  border-bottom:1px solid var(--line);margin-bottom:4px}
+.barhead .num,.barhead .pctv{color:var(--muted)}
+/* 패널 아래 통계 한 줄은 좁은 칸에서 접히도록 - 안 그러면 박스를 뚫는다. */
+.chartpanel p.muted{overflow-wrap:anywhere;line-height:1.5}
+.chartpanel h2{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 막대 패널은 폭이 넓어질수록 라벨과 숫자가 멀어져 읽기 나빠진다.
+   그래프가 필요한 만큼만 두고 나머지는 여백으로 남긴다. */
+.chartpanel{max-width:760px}
+.axisgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+/* 카테고리 빈도(넓게) | Safety·Rarity(1열) */
+.aggcols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;align-items:start}
+/* 난이도 4축 요약 표. 예전에는 오른쪽에 종합 난이도 칸이 있었다.
+   align-items 를 stretch(기본)로 두고 패널을 100% 높이로 늘려야
+   내용이 짧은 쪽도 같은 높이가 된다. */
+.diffrow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.diffrow>.panel{height:100%;display:flex;flex-direction:column}
+/* 남는 세로 공간은 표/막대가 먹는다. 왼쪽은 .scroll(표), 오른쪽은 .bars.
+   둘 중 하나만 지정하면 짧은 쪽 아래에 빈 공백이 남는다. */
+.diffrow>.panel>.scroll,.diffrow>.panel>.bars{flex:1 1 auto}
+/* 막대가 늘어난 높이를 고르게 나눠 갖도록 */
+.diffrow>.panel>.bars{justify-content:space-between}
+/* 카테고리 빈도 표: 시나리오 | 카테고리 | 막대 | 개수 | 비율 */
+.catrow{display:grid;
+  grid-template-columns:minmax(70px,132px) minmax(70px,150px) minmax(24px,1fr)
+    minmax(38px,auto) minmax(38px,auto);
+  gap:12px;align-items:center;font-size:12px;min-width:0;padding:2px 0}
+.catrow>*{min-width:0}
+.catrow .scenv,.catrow .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.catrow .scenv{color:var(--muted)}
+.catrow .lbl{color:var(--fg)}
+.catrow .num,.catrow .pctv{font-variant-numeric:tabular-nums;text-align:right}
+.catrow .num{color:var(--fg)}
+.catrow .pctv{color:var(--muted)}
+.cathead{color:var(--muted);font-size:11px;padding-bottom:3px;
+  border-bottom:1px solid var(--line);margin-bottom:5px}
+.cathead .num,.cathead .pctv{color:var(--muted)}
+.sortable{cursor:pointer;user-select:none}
+.sortable:hover{color:var(--fg)}
+.sarrow{margin-left:3px;font-size:9px;color:var(--accent)}
+/* 점수 범위 입력: 라벨 [최소] ~ [최대] 를 한 줄로 */
+.row>label.rng{flex-direction:row;align-items:center;gap:6px}
+label.rng input[type=number]{width:52px;text-align:center}
+/* 팝업의 난이도 4축 근거: 축 이름 | 점수 | 근거 문장 */
+.dgrid{display:flex;flex-direction:column;gap:6px}
+.drow{display:grid;grid-template-columns:minmax(60px,110px) 28px 1fr;
+  gap:10px;align-items:start;font-size:12px}
+.drow>*{min-width:0}
+.dlbl{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dscore{font-variant-numeric:tabular-nums;text-align:right;font-weight:650}
+.dwhy{color:var(--fg);overflow-wrap:anywhere;line-height:1.5}
+/* Safety | Rarity - 오른쪽 칸을 다시 둘로 */
+.tiercols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;
+  align-items:start}
+.tiercols>*{min-width:0}
+/* 조도·강수·노면·대기 가림 4열 */
+.axisgrid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media(max-width:1100px){
+  .aggcols,.diffrow,.tiercols{grid-template-columns:1fr}
+  .axisgrid4{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+.aggcols>div,.diffrow>*,.axisgrid4>*{min-width:0}
+/* 격자/2단 안에서는 칸 자체가 이미 좁다 - 여기서 또 자르면 빈 틈만 생긴다. */
+.axisgrid .chartpanel,.split .chartpanel,
+.aggcols .chartpanel,.diffrow .chartpanel,.axisgrid4 .chartpanel,
+.tiercols .chartpanel{max-width:none}
+.panel{min-width:0}
+.bars{min-width:0}
+/* Safety/Rarity 2단 묶음도 화면 끝까지 늘어나지 않게 한다. */
+/* 아래 탭들은 박스를 --page-max 로 묶어 화면 가운데에 놓고 좌우를 여백으로
+   남긴다. 섹션 전체에 걸어야 한다 - 안쪽 결과 영역에만 걸면 그 위의 조작
+   패널만 화면 끝까지 늘어난다. */
+#tab-eval,#tab-search,#tab-label,#tab-agg{
+  max-width:var(--page-max);margin-left:auto;margin-right:auto}
+.scen{margin:30px 0 4px;color:var(--accent);font-size:12px;font-weight:600}
+.scen:first-of-type{margin-top:2px}
 .grid{display:grid;gap:12px}
 .hide{display:none!important}
 table{border-collapse:collapse;width:100%;font-size:12px}
 th,td{padding:4px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+/* 카테고리 칸은 태그가 여러 개 붙어 한 줄로 두면 표 전체가 옆으로 늘어난다.
+   폭을 묶고 태그 단위로 접히게 한다(태그 안 글자는 자르지 않는다). */
+td.cats{white-space:normal;max-width:260px;min-width:120px}
+td.cats .tag{margin:1px 2px 1px 0}
 th{color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--panel);z-index:1}
 tbody tr:hover{background:var(--panel2)}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
@@ -72,12 +178,18 @@ video{width:100%;background:#000;border-radius:6px}
 <header>
   <h1>Edge-Case Mining Console</h1>
   <nav>
-    <button data-tab="eval" class="on">평가 결과</button>
-    <button data-tab="search">씬 검색</button>
-    <button data-tab="label">라벨 편집</button>
     <button data-tab="scene">카테고리 정의</button>
-    <button data-tab="run">로컬 추론&amp;평가</button>
-    <button data-tab="nas">NAS Nvidia 추론</button>
+    <span class="navsep">|</span>
+    <button data-tab="run">라벨 샘플 추론&amp;평가</button>
+    <button data-tab="eval" class="on">라벨 평가 결과</button>
+    <button data-tab="search">라벨 씬 검색</button>
+    <button data-tab="label">라벨 편집</button>
+    <span class="navsep">|</span>
+    <button data-tab="nas">NAS 전체 추론</button>
+    <button data-tab="agg">NAS 전체 추론 결과</button>
+    <button data-tab="nsearch">NAS 전체 씬 검색</button>
+    <span class="navsep">|</span>
+    <button data-tab="single">단일 클립 추론</button>
   </nav>
   <span id="hdr" class="muted" style="margin-left:auto"></span>
 </header>
@@ -87,7 +199,7 @@ video{width:100%;background:#000;border-radius:6px}
 <section id="tab-eval">
   <div class="panel">
     <div class="row">
-      <label>실행(run)
+      <label>평과 결과
         <select id="ev-run" style="min-width:340px"></select></label>
       <label>정답 라벨
         <select id="ev-labels"></select></label>
@@ -123,7 +235,7 @@ video{width:100%;background:#000;border-radius:6px}
       </div>
       <div class="scroll"><table>
         <thead><tr><th>uuid</th><th>GT 카테고리</th><th>예측 카테고리</th>
-          <th class="num">GT S/R</th><th class="num">예측 S/R</th><th>동작</th></tr></thead>
+          <th class="num">GT S/R</th><th class="num">예측 S/R</th><th>시각화</th></tr></thead>
         <tbody id="ev-list"></tbody></table></div>
     </div>
   </div>
@@ -133,6 +245,8 @@ video{width:100%;background:#000;border-radius:6px}
 <section id="tab-search" class="hide">
   <div class="panel">
     <div class="row">
+      <button class="primary" id="s-go">검색</button>
+      <button id="s-clear">초기화</button>
       <label>정답 라벨<select id="s-labels"></select></label>
       <label>대조할 실행(선택)<select id="s-run" style="min-width:280px"></select></label>
       <label>uuid 포함<input type="text" id="s-uuid" placeholder="앞 8자리 등" size="16"></label>
@@ -146,18 +260,24 @@ video{width:100%;background:#000;border-radius:6px}
       </select></label>
     </div>
     <div class="row" style="margin-top:10px">
-      <label>Safety 최소<input type="number" id="s-smin" value="1" min="1" max="4" size="2"></label>
-      <label>Safety 최대<input type="number" id="s-smax" value="4" min="1" max="4" size="2"></label>
-      <label>Rarity 최소<input type="number" id="s-rmin" value="1" min="1" max="4" size="2"></label>
-      <label>Rarity 최대<input type="number" id="s-rmax" value="4" min="1" max="4" size="2"></label>
+      <label class="rng">Safety
+        <input type="number" id="s-smin" value="1" min="1" max="4">
+        <span class="muted">~</span>
+        <input type="number" id="s-smax" value="4" min="1" max="4"></label>
+      <label class="rng">Rarity
+        <input type="number" id="s-rmin" value="1" min="1" max="4">
+        <span class="muted">~</span>
+        <input type="number" id="s-rmax" value="4" min="1" max="4"></label>
+    </div>
+    <div class="row" style="margin-top:10px" id="s-diffrow"
+         title="난이도는 정답 라벨에 없는 값이라 선택한 실행의 예측에서 가져옵니다"></div>
+    <div class="row" style="margin-top:10px;align-items:flex-start">
       <label>카테고리 조건<select id="s-catmode">
         <option value="any">하나라도 포함</option><option value="all">모두 포함</option>
         <option value="none">모두 제외</option></select></label>
-      <button class="primary" id="s-go">검색</button>
-      <button id="s-clear">초기화</button>
+      <div style="flex:1"><span class="muted">카테고리 선택:</span>
+        <div id="s-cats" style="margin-top:4px"></div></div>
     </div>
-    <div style="margin-top:10px"><span class="muted">카테고리 선택:</span>
-      <div id="s-cats" style="margin-top:4px"></div></div>
   </div>
   <div class="panel">
     <div class="row" style="margin-bottom:8px">
@@ -166,7 +286,7 @@ video{width:100%;background:#000;border-radius:6px}
     </div>
     <div class="scroll"><table>
       <thead><tr><th>uuid</th><th>GT 카테고리</th><th>예측</th><th class="num">S</th>
-        <th class="num">R</th><th>note</th><th>동작</th></tr></thead>
+        <th class="num">R</th><th>note</th><th>시각화</th></tr></thead>
       <tbody id="s-rows"></tbody></table></div>
   </div>
 </section>
@@ -222,13 +342,13 @@ video{width:100%;background:#000;border-radius:6px}
     </div>
     <p class="muted" style="margin:8px 0 0">
       카테고리 <b>이름</b>은 프롬프트 메뉴와 정답 라벨이 문자열로 맞춰 쓰는 키입니다.
-      이름을 바꾸면 기존 라벨이 매칭되지 않으니, 이름 변경은 라벨도 함께 고칠 각오가 있을 때만 하세요.</p>
+      이름을 바꾸면 기존 라벨이 매칭되지 않으니 함께 수정해야 합니다.</p>
   </div>
   <div class="split">
     <div class="panel">
       <h2>카테고리 목록</h2>
       <div class="scroll"><table>
-        <thead><tr><th>시나리오</th><th>이름</th><th class="num">동의어</th><th class="num">템플릿</th></tr></thead>
+        <thead><tr><th>시나리오</th><th>이름</th><th class="num">Templates</th></tr></thead>
         <tbody id="c-rows"></tbody></table></div>
     </div>
     <div class="panel">
@@ -237,17 +357,17 @@ video{width:100%;background:#000;border-radius:6px}
         <label>시나리오<input type="text" id="c-scenario" size="20" value="Dynamic object"></label>
         <label>이름<input type="text" id="c-name" size="24"></label>
       </div>
-      <h3>동의어 — 프롬프트 메뉴에 실제로 들어가는 예시 (한 줄에 하나)</h3>
+      <h3>Templates — 프롬프트 메뉴에 실제로 들어가는 예시 (한 줄에 하나)</h3>
       <textarea id="c-syn" rows="4"></textarea>
-      <h3 style="margin-top:8px">prompt_templates_candidates (한 줄에 하나)</h3>
+      <h3 style="margin-top:8px">Template Candidates (한 줄에 하나)</h3>
       <textarea id="c-tpl" rows="6"></textarea>
       <div class="row" style="margin-top:10px">
         <button class="primary" id="c-save">저장</button>
         <button class="danger" id="c-del">삭제</button>
       </div>
       <p class="muted" style="margin-top:8px">
-        기본 실행은 동의어 2개만 프롬프트에 넣습니다(<span class="mono">--example-source synonyms
-        --num-examples 2</span>). 템플릿은 프롬프트에 들어가지 않습니다.</p>
+        기본 실행은 templates의 모든 값을 프롬프트에 넣습니다. 상위 N개만 사용할 때는 플래그를 다음과 같이 수정해야 합니다. <span class="mono">--example-source templates
+        --num-examples 2</span>.</p>
     </div>
   </div>
 </section>
@@ -276,12 +396,12 @@ video{width:100%;background:#000;border-radius:6px}
         데이터<select id="r-data">
         <option value="local">local (pav_sample)</option>
         <option value="nas">nas (NAS 청크 zip)</option></select></label>
-      <label class="chk" title="프롬프트 4) Safety Criticality 항목을 통째로 뺀다">
-        <input type="checkbox" id="r-nosafety"> Safety 등급 끄기</label>
-      <label class="chk" title="프롬프트 5) Rarity 항목을 통째로 뺀다">
-        <input type="checkbox" id="r-norarity"> Rarity 등급 끄기</label>
-      <label class="chk" title="주행 난이도 5축(전체+조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
-        <input type="checkbox" id="r-difficulty"> 난이도 5축 켜기</label>
+      <label class="chk" title="프롬프트 4) Safety Criticality 항목을 물어본다. 끄면 통째로 뺀다.">
+        <input type="checkbox" id="r-safety" checked> Safety 등급 켜기</label>
+      <label class="chk" title="프롬프트 5) Rarity 항목을 물어본다. 끄면 통째로 뺀다.">
+        <input type="checkbox" id="r-rarity" checked> Rarity 등급 켜기</label>
+      <label class="chk" title="주행 난이도 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
+        <input type="checkbox" id="r-difficulty" checked> 난이도 4축 켜기</label>
       <label id="r-gpuwrap" class="hide">GPU<input type="text" id="r-gpus" value="0,1,2" size="8"></label>
       <label id="r-shardwrap">샤드 수<input type="number" id="r-shards" value="8" min="1" max="8" size="2"></label>
       <label>메모<input type="text" id="r-memo" size="26" placeholder="이 실행이 무엇을 시험하는지"></label>
@@ -298,7 +418,124 @@ video{width:100%;background:#000;border-radius:6px}
   </div>
 </section>
 
-<!-- ============ 6. NAS Nvidia 추론 ============ -->
+<!-- ============ 6. NAS 전체 추론 ============ -->
+<section id="tab-agg" class="hide">
+  <div class="panel">
+    <h2>NAS 전체 추론 결과</h2>
+    <p class="muted" style="margin:0 0 10px">
+      NAS 마이닝 실행의 집계입니다. 정답 라벨이 없으므로 P/R/F1 대신 모델이
+      내놓은 분포를 봅니다. 수치는 <span class="mono">clip_results*.csv</span>
+      에서 직접 계산합니다.</p>
+    <div class="row">
+      <label>실행<select id="ag-run" style="min-width:340px"></select></label>
+      <button class="primary" id="ag-load">불러오기</button>
+      <span id="ag-status" class="muted"></span>
+    </div>
+  </div>
+  <div id="ag-body"></div>
+</section>
+
+<section id="tab-nsearch" class="hide">
+  <div class="panel">
+    <p class="muted" style="margin:0 0 10px">
+      NAS 마이닝 결과를 모델 예측 기준으로 검색합니다. 대조할 정답이 없으므로
+      TP/FP 구분은 없고, 행을 누르면 NAS 원본 영상을 바로 재생합니다
+      (시각화 오버레이는 없습니다).</p>
+    <div class="row">
+      <button class="primary" id="ns-go">검색</button>
+      <button id="ns-clear">초기화</button>
+      <label>실행<select id="ns-run" style="min-width:320px"></select></label>
+      <label>uuid 포함<input type="text" id="ns-uuid" placeholder="앞 8자리 등" size="16"></label>
+      <label title="observation / ego_behavior / 근거 텍스트를 훑습니다">
+        본문 포함<input type="text" id="ns-text" size="16" placeholder="예: pedestrian"></label>
+      <label>Special 여부<select id="ns-special">
+        <option value="">전체</option><option value="special">Special만</option>
+        <option value="normal">Normal만</option></select></label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label class="rng">Safety
+        <input type="number" id="ns-smin" value="1" min="1" max="4">
+        <span class="muted">~</span>
+        <input type="number" id="ns-smax" value="4" min="1" max="4"></label>
+      <label class="rng">Rarity
+        <input type="number" id="ns-rmin" value="1" min="1" max="4">
+        <span class="muted">~</span>
+        <input type="number" id="ns-rmax" value="4" min="1" max="4"></label>
+    </div>
+    <div class="row" style="margin-top:10px" id="ns-diffrow"></div>
+    <div class="row" style="margin-top:10px;align-items:flex-start">
+      <label>카테고리 조건<select id="ns-catmode">
+        <option value="any">하나라도 포함</option><option value="all">모두 포함</option>
+        <option value="none">모두 제외</option></select></label>
+      <div style="flex:1"><span class="muted">카테고리 선택:</span>
+        <div id="ns-cats" style="margin-top:4px"></div></div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="row" style="margin-bottom:8px">
+      <b id="ns-count" class="muted"></b>
+      <button id="ns-csv" style="margin-left:auto">CSV로 저장</button>
+    </div>
+    <div class="scroll"><table>
+      <thead><tr><th>uuid</th><th>예측 카테고리</th><th class="num">S</th>
+        <th class="num">R</th><th class="num">난이도</th><th>observation</th>
+        <th>영상</th></tr></thead>
+      <tbody id="ns-rows"></tbody></table></div>
+  </div>
+</section>
+
+<section id="tab-single" class="hide">
+  <div class="panel">
+    <h2>단일 클립 추론</h2>
+    <p class="muted" style="margin:0 0 10px">
+      uuid 를 아는 클립 하나만 추론해 시각화를 바로 봅니다.
+      모델 로딩 포함 대략 2~4분 걸립니다.</p>
+    <div class="row">
+      <label style="flex:1">클립 uuid
+        <input id="sg-uuid" style="width:100%;font-family:ui-monospace,monospace"
+               placeholder="예: 007efbf6-bcd7-4fc1-b32e-2e779642a154"></label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label>모델<select id="sg-model" style="min-width:280px"></select></label>
+      <label>분류 체계<select id="sg-scene"></select></label>
+      <label title="클립을 어디서 읽을지. nas = NAS 청크 zip, local = pav_sample">
+        데이터 소스<select id="sg-data">
+          <option value="nas">nas (청크 zip)</option>
+          <option value="local">local (pav_sample)</option>
+        </select></label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label>궤적 오버레이<select id="sg-traj">
+        <option value="">사용 안 함</option><option value="center">center</option>
+        <option value="width">width</option></select></label>
+      <label>egomotion<select id="sg-ego">
+        <option value="1">사용</option><option value="0">사용 안 함</option></select></label>
+      <label class="chk" title="프롬프트 4) Safety Criticality 항목을 물어본다. 끄면 통째로 뺀다.">
+        <input type="checkbox" id="sg-safety" checked> Safety 등급 켜기</label>
+      <label class="chk" title="프롬프트 5) Rarity 항목을 물어본다. 끄면 통째로 뺀다.">
+        <input type="checkbox" id="sg-rarity" checked> Rarity 등급 켜기</label>
+      <label class="chk" title="주행 난이도 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
+        <input type="checkbox" id="sg-difficulty" checked> 난이도 4축 켜기</label>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button id="sg-go" class="primary">이 클립 추론</button>
+      <span id="sg-state" class="muted"></span>
+    </div>
+    <pre id="sg-cmd" class="muted"
+         style="margin-top:10px;white-space:pre-wrap;font-size:12px"></pre>
+  </div>
+
+  <div class="panel hide" id="sg-progress">
+    <h2>진행</h2>
+    <pre id="sg-log" style="max-height:320px;overflow:auto;font-size:12px"></pre>
+  </div>
+
+  <div class="panel hide" id="sg-result">
+    <h2>결과</h2>
+    <div id="sg-body"></div>
+  </div>
+</section>
+
 <section id="tab-nas" class="hide">
   <div class="panel">
     <h2>새 추론 (NAS)</h2>
@@ -308,7 +545,7 @@ video{width:100%;background:#000;border-radius:6px}
     <div class="row">
       <label>모델<select id="n-model" style="min-width:280px"></select></label>
       <label>분류 체계<select id="n-scene"></select></label>
-      <label title="비워두면 데이터셋 전체(98,039 클립)를 훑습니다">
+      <label id="n-limitwrap" title="비워두면 데이터셋 전체를 훑습니다">
         클립 수 제한<input type="number" id="n-limit" min="1" size="6"
           placeholder="전체"></label>
     </div>
@@ -327,12 +564,12 @@ video{width:100%;background:#000;border-radius:6px}
         데이터<select id="n-data">
         <option value="nas">nas (NAS 청크 zip)</option>
         <option value="local">local (pav_sample)</option></select></label>
-      <label class="chk" title="프롬프트 4) Safety Criticality 항목을 통째로 뺀다">
-        <input type="checkbox" id="n-nosafety"> Safety 등급 끄기</label>
-      <label class="chk" title="프롬프트 5) Rarity 항목을 통째로 뺀다">
-        <input type="checkbox" id="n-norarity"> Rarity 등급 끄기</label>
-      <label class="chk" title="주행 난이도 5축(전체+조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
-        <input type="checkbox" id="n-difficulty"> 난이도 5축 켜기</label>
+      <label class="chk" title="프롬프트 4) Safety Criticality 항목을 물어본다. 끄면 통째로 뺀다.">
+        <input type="checkbox" id="n-safety" checked> Safety 등급 켜기</label>
+      <label class="chk" title="프롬프트 5) Rarity 항목을 물어본다. 끄면 통째로 뺀다.">
+        <input type="checkbox" id="n-rarity" checked> Rarity 등급 켜기</label>
+      <label class="chk" title="주행 난이도 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
+        <input type="checkbox" id="n-difficulty" checked> 난이도 4축 켜기</label>
       <label id="n-gpuwrap" class="hide">GPU<input type="text" id="n-gpus" value="0,1,2" size="8"></label>
       <label id="n-shardwrap">샤드 수<input type="number" id="n-shards" value="8" min="1" max="8" size="2"></label>
       <label>메모<input type="text" id="n-memo" size="26" placeholder="이 실행이 무엇을 시험하는지"></label>
@@ -376,31 +613,67 @@ function opts(sel, arr, val) {
   if (val) sel.value = val;
 }
 
-/* ---------- 탭 ---------- */
-$$('nav button').forEach(b => b.onclick = () => {
-  $$('nav button').forEach(x => x.classList.toggle('on', x === b));
+/* ---------- 탭 ----------
+   어느 탭이었는지는 새로고침을 넘겨 기억한다. 상태가 DOM 에만 있으면
+   F5 를 누를 때마다 처음 탭으로 튕겨 나간다. localStorage 를 쓰는 이유는
+   이게 이 브라우저에만 남으면 되는 값이고, 서버에 둘 만한 것이 아니기
+   때문이다(사람마다 보던 탭이 다르다). */
+const TAB_KEY = 'edgegui.tab';
+
+function showTab(name, opt) {
+  const btn = $$('nav button').find(b => b.dataset.tab === name);
+  if (!btn) return false;
+  $$('nav button').forEach(x => x.classList.toggle('on', x === btn));
   $$('main > section').forEach(s =>
-    s.classList.toggle('hide', s.id !== 'tab-' + b.dataset.tab));
-  if (b.dataset.tab === 'run' || b.dataset.tab === 'nas') refreshJobs();
-});
+    s.classList.toggle('hide', s.id !== 'tab-' + name));
+  if (name === 'run' || name === 'nas') refreshJobs();
+  if (!opt || opt.remember !== false) {
+    // 사생활 보호 모드처럼 저장이 막힌 브라우저에서도 탭 전환 자체는
+    // 계속 되어야 하므로 실패를 삼킨다.
+    try { localStorage.setItem(TAB_KEY, name); } catch (e) {}
+  }
+  return true;
+}
+
+$$('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+
+function restoreTab() {
+  let saved = null;
+  try { saved = localStorage.getItem(TAB_KEY); } catch (e) {}
+  // 저장된 탭이 사라졌거나(이름 변경) 값이 없으면 현재 표시 중인 탭을 둔다.
+  if (saved) showTab(saved, { remember: false });
+}
 
 /* ---------- 부팅 ---------- */
 async function boot() {
   BOOT = await api('/api/bootstrap');
-  const runs = BOOT.runs.filter(r => r.has_results)
+  // 평가 결과 / 씬 검색은 채점된 실행(labeld/)만 다룬다. NAS 마이닝
+  // (unlabeled/)은 대조할 정답이 없어 P/R/F1 이 나오지 않으므로, 목록에
+  // 섞이면 고르는 즉시 빈 표가 뜬다.
+  const runs = BOOT.runs.filter(r => r.has_results && r.kind === 'labeled')
     .map(r => [r.name, r.name + (r.memo ? '  — ' + r.memo : '')]);
   opts($('#ev-run'), runs);
   opts($('#s-run'), [['', '(선택 안 함)'], ...runs]);
+  // NAS 집계 / NAS 씬 검색은 반대로 unlabeled/ 실행만 다룬다.
+  const nasRuns = BOOT.runs.filter(r => r.kind === 'unlabeled')
+    .map(r => [r.name, r.name + (r.memo ? '  — ' + r.memo : '')]);
+  opts($('#ag-run'), nasRuns);
+  opts($('#ns-run'), nasRuns);
+  // 난이도 필터 입력칸은 축 목록에서 만든다 - 축이 늘면 여기만 고치면 된다.
+  $('#s-diffrow').insertAdjacentHTML('beforeend', diffInputs('s'));
+  $('#ns-diffrow').insertAdjacentHTML('beforeend', diffInputs('ns'));
   for (const s of ['#ev-labels', '#s-labels', '#l-file', '#r-labels'])
     opts($(s), BOOT.labels, BOOT.default_labels);
-  for (const s of ['#c-file', '#r-scene', '#n-scene'])
+  for (const s of ['#c-file', '#r-scene', '#n-scene', '#sg-scene'])
     opts($(s), BOOT.scenes, BOOT.default_scene);
-  for (const s of ['#r-model', '#n-model'])
+  for (const s of ['#r-model', '#n-model', '#sg-model'])
     opts($(s), BOOT.models.map(m => [m.id, m.label]));
   $('#hdr').textContent = `${BOOT.runs.length}개 실행 · 라벨 ${BOOT.labels.length}종`;
   await loadTax();
   onModelChange();
   onNasModelChange();
+  if (BOOT.nas_clips)
+    $('#n-limitwrap').title = `비워두면 데이터셋 전체(${nasClipsText()})를 훑습니다`;
   refreshJobs();
 }
 async function loadTax(scene) {
@@ -409,7 +682,8 @@ async function loadTax(scene) {
   const html = TAX.map(c =>
     `<span class="pill" data-cat="${esc(c.name)}">${esc(c.name)}</span>`).join(' ');
   $('#s-cats').innerHTML = html; $('#l-cats').innerHTML = html;
-  $$('#s-cats .pill,#l-cats .pill').forEach(p =>
+  $('#ns-cats').innerHTML = html;
+  $$('#s-cats .pill,#l-cats .pill,#ns-cats .pill').forEach(p =>
     p.onclick = () => p.classList.toggle('on'));
 }
 
@@ -486,8 +760,8 @@ function renderCatList() {
       const td = $(`#ev-list [data-fill="${u}"]`); if (!td) return;
       const g = d.truth || {}, p = d.pred || {};
       td.outerHTML =
-        `<td>${(g.categories || []).map(x => `<span class="tag">${esc(x)}</span>`).join('') || '<span class="muted">없음</span>'}</td>
-         <td>${(p.categories || []).map(x => `<span class="tag ${(g.categories || []).includes(x) ? 'tp' : 'fp'}">${esc(x)}</span>`).join('') || '<span class="muted">없음</span>'}</td>
+        `<td class="cats">${(g.categories || []).map(x => `<span class="tag">${esc(x)}</span>`).join('') || '<span class="muted">없음</span>'}</td>
+         <td class="cats">${(p.categories || []).map(x => `<span class="tag ${(g.categories || []).includes(x) ? 'tp' : 'fp'}">${esc(x)}</span>`).join('') || '<span class="muted">없음</span>'}</td>
          <td class="num">${g.safety ?? '-'}/${g.rarity ?? '-'}</td>
          <td class="num">${p.safety ?? '-'}/${p.rarity ?? '-'}</td>`;
     } catch (e) {}
@@ -561,6 +835,9 @@ function searchQuery() {
     rarity_min: $('#s-rmin').value, rarity_max: $('#s-rmax').value,
     special: $('#s-special').value, only: $('#s-only').value,
   });
+  // 난이도는 값이 있을 때만 붙인다. 빈 값을 보내면 서버가 0 으로 읽어
+  // 걸지도 않은 조건이 걸린다.
+  for (const [k, v] of Object.entries(diffQuery('s'))) q.set(k, v);
   return q.toString();
 }
 let SROWS = [];
@@ -571,8 +848,8 @@ $('#s-go').onclick = async () => {
     $('#s-count').textContent = `${j.total}개 중 ${j.rows.length}개 표시`;
     $('#s-rows').innerHTML = j.rows.map(r => `
       <tr><td class="mono">${esc(r.uuid.slice(0, 18))}…</td>
-        <td>${r.categories.map(x => `<span class="tag">${esc(x)}</span>`).join('') || '<span class="muted">-</span>'}</td>
-        <td>${r.pred_categories ? r.pred_categories.map(x =>
+        <td class="cats">${r.categories.map(x => `<span class="tag">${esc(x)}</span>`).join('') || '<span class="muted">-</span>'}</td>
+        <td class="cats">${r.pred_categories ? r.pred_categories.map(x =>
           `<span class="tag ${r.categories.includes(x) ? 'tp' : 'fp'}">${esc(x)}</span>`).join('') || '<span class="muted">없음</span>' : ''}</td>
         <td class="num">${r.safety}</td><td class="num">${r.rarity}</td>
         <td class="muted">${esc((r.note || '').slice(0, 30))}</td>
@@ -586,6 +863,7 @@ $('#s-clear').onclick = () => {
   $('#s-smin').value = 1; $('#s-smax').value = 4;
   $('#s-rmin').value = 1; $('#s-rmax').value = 4;
   $('#s-special').value = ''; $('#s-only').value = '';
+  clearDiff('s');
   $$('#s-cats .pill').forEach(p => p.classList.remove('on'));
 };
 $('#s-csv').onclick = () => {
@@ -659,15 +937,14 @@ $('#c-load').onclick = async () => {
     const j = await api('/api/taxonomy?scene=' + encodeURIComponent($('#c-file').value));
     $('#c-rows').innerHTML = j.categories.map((c, i) => `
       <tr data-i="${i}" style="cursor:pointer"><td class="muted">${esc(c.scenario)}</td>
-        <td>${esc(c.name)}</td><td class="num">${c.synonyms.length}</td>
-        <td class="num">${c.templates.length}</td></tr>`).join('');
+        <td>${esc(c.name)}</td><td class="num">${c.templates.length}</td></tr>`).join('');
     $$('#c-rows tr').forEach(tr => tr.onclick = () => {
       const c = j.categories[+tr.dataset.i];
       CEDIT = c.name;
       $('#c-edit-title').textContent = '편집: ' + c.name;
       $('#c-scenario').value = c.scenario; $('#c-name').value = c.name;
-      $('#c-syn').value = c.synonyms.join('\n');
-      $('#c-tpl').value = c.templates.join('\n');
+      $('#c-syn').value = c.templates.join('\n');
+      $('#c-tpl').value = c.template_candidates.join('\n');
     });
     $('#c-status').textContent = `${j.categories.length}개 카테고리`;
   } catch (e) { toast(e.message); }
@@ -688,8 +965,8 @@ $('#c-save').onclick = async () => {
       body: JSON.stringify({
         scene: $('#c-file').value, scenario: $('#c-scenario').value.trim(),
         name, old_name: CEDIT,
-        synonyms: $('#c-syn').value.split('\n').map(s => s.trim()).filter(Boolean),
-        templates: $('#c-tpl').value.split('\n').map(s => s.trim()).filter(Boolean),
+        templates: $('#c-syn').value.split('\n').map(s => s.trim()).filter(Boolean),
+        template_candidates: $('#c-tpl').value.split('\n').map(s => s.trim()).filter(Boolean),
       })
     });
     toast('저장했습니다'); CEDIT = name;
@@ -735,19 +1012,26 @@ function previewCmd() {
   if (rv === '1') parts.push('--viz-normal --viz-special');
   else if (rv === 'cat') parts.push('--viz-per-category ' + ($('#r-vpc').value || 5));
   if ($('#r-data').value !== 'local') parts.push('--data ' + $('#r-data').value);
-  if ($('#r-nosafety').checked) parts.push('--no-safety-tier');
-  if ($('#r-norarity').checked) parts.push('--no-rarity-tier');
+  if (!$('#r-safety').checked) parts.push('--no-safety-tier');
+  if (!$('#r-rarity').checked) parts.push('--no-rarity-tier');
   if ($('#r-difficulty').checked) parts.push('--difficulty');
   if ($('#r-memo').value) parts.push(`--memo "${$('#r-memo').value}"`);
   $('#r-cmd').textContent = '$ ' + parts.join(' ');
 }
 ['#r-model', '#r-labels', '#r-scene', '#r-traj', '#r-ego', '#r-viz', '#r-data',
- '#r-vpc', '#r-nosafety', '#r-norarity', '#r-difficulty', '#r-gpus', '#r-shards', '#r-memo'].forEach(s => {
+ '#r-vpc', '#r-safety', '#r-rarity', '#r-difficulty', '#r-gpus', '#r-shards', '#r-memo'].forEach(s => {
   $(s).addEventListener('input', previewCmd); $(s).addEventListener('change', previewCmd);
 });
 $('#r-model').addEventListener('change', onModelChange);
 
-/* ---------- 6. NAS Nvidia 추론 ---------- */
+/* ---------- 6. NAS 전체 추론 ---------- */
+function nasClipsText() {
+  // 서버가 clip_source 인덱스 캐시에서 읽어 온 실제 클립 수. 캐시가 없으면
+  // 숫자 없이 "전체"라고만 쓴다 - 낡은 수를 박아두면 데이터가 늘 때마다
+  // 조용히 틀린 안내를 하게 된다(실제로 98,039 로 굳어 있었다).
+  const n = BOOT && BOOT.nas_clips;
+  return n ? n.toLocaleString() + ' 클립' : '전체';
+}
 function onNasModelChange() {
   const is27 = $('#n-model').value.includes('27B');
   $('#n-gpuwrap').classList.toggle('hide', !is27);
@@ -772,21 +1056,21 @@ function previewNasCmd() {
   else parts.push('--no-viz');
   // 이 스크립트들의 기본이 nas 다 - 다를 때만 적는다.
   if ($('#n-data').value !== 'nas') parts.push('--data ' + $('#n-data').value);
-  if ($('#n-nosafety').checked) parts.push('--no-safety-tier');
-  if ($('#n-norarity').checked) parts.push('--no-rarity-tier');
+  if (!$('#n-safety').checked) parts.push('--no-safety-tier');
+  if (!$('#n-rarity').checked) parts.push('--no-rarity-tier');
   if ($('#n-difficulty').checked) parts.push('--difficulty');
   if ($('#n-memo').value) parts.push(`--memo "${$('#n-memo').value}"`);
   $('#n-cmd').textContent = '$ ' + parts.join(' ');
 }
 ['#n-model', '#n-scene', '#n-limit', '#n-traj', '#n-ego', '#n-viz', '#n-data',
- '#n-vpc', '#n-nosafety', '#n-norarity', '#n-difficulty', '#n-gpus', '#n-shards', '#n-memo'].forEach(s => {
+ '#n-vpc', '#n-safety', '#n-rarity', '#n-difficulty', '#n-gpus', '#n-shards', '#n-memo'].forEach(s => {
   $(s).addEventListener('input', previewNasCmd); $(s).addEventListener('change', previewNasCmd);
 });
 $('#n-model').addEventListener('change', onNasModelChange);
 $('#n-go').onclick = async () => {
   const n = $('#n-limit').value;
   if (!confirm(n ? `${n}개 클립을 추론할까요?`
-                 : '전체 데이터셋(98,039 클립)을 추론할까요? 매우 오래 걸립니다.')) return;
+                 : `전체 데이터셋(${nasClipsText()})을 추론할까요? 매우 오래 걸립니다.`)) return;
   try {
     await api('/api/job', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -798,8 +1082,8 @@ $('#n-go').onclick = async () => {
         use_egomotion: $('#n-ego').value === '1', viz: $('#n-viz').value === '1',
         viz_per_category: $('#n-viz').value === 'cat' ? (+$('#n-vpc').value || 5) : null,
         data: $('#n-data').value,
-        no_safety_tier: $('#n-nosafety').checked,
-        no_rarity_tier: $('#n-norarity').checked,
+        no_safety_tier: !$('#n-safety').checked,
+        no_rarity_tier: !$('#n-rarity').checked,
         difficulty: $('#n-difficulty').checked,
         gpus: $('#n-gpus').value, shards: +$('#n-shards').value,
         memo: $('#n-memo').value,
@@ -819,8 +1103,8 @@ $('#r-go').onclick = async () => {
         use_egomotion: $('#r-ego').value === '1', viz: $('#r-viz').value === '1',
         viz_per_category: $('#r-viz').value === 'cat' ? (+$('#r-vpc').value || 5) : null,
         data: $('#r-data').value,
-        no_safety_tier: $('#r-nosafety').checked,
-        no_rarity_tier: $('#r-norarity').checked,
+        no_safety_tier: !$('#r-safety').checked,
+        no_rarity_tier: !$('#r-rarity').checked,
         difficulty: $('#r-difficulty').checked,
         gpus: $('#r-gpus').value, shards: +$('#r-shards').value,
         memo: $('#r-memo').value,
@@ -829,6 +1113,489 @@ $('#r-go').onclick = async () => {
     toast('시작했습니다'); refreshJobs();
   } catch (e) { toast(e.message); }
 };
+/* ---------- 6. 단일 클립 추론 ----------
+   uuid 하나만 돌려 시각화를 본다. 백엔드가 --only-uuids 로 넘기고,
+   샤드는 1개로 못박는다(8개면 7개가 놀면서 GPU 만 문다).
+   NAS zip 에서도 전체 인덱스를 안 만들고 그 클립이 든 zip 만 찾는다. */
+let SG_JOB = null, SG_TIMER = null;
+
+function sgOpts() {
+  return {
+    mode: $('#sg-data').value === 'local' ? 'labeled' : 'nas',
+    single_uuid: $('#sg-uuid').value.trim(),
+    model: $('#sg-model').value, scene_json: $('#sg-scene').value,
+    data: $('#sg-data').value, traj: $('#sg-traj').value,
+    use_egomotion: $('#sg-ego').value === '1',
+    no_safety_tier: !$('#sg-safety').checked,
+    no_rarity_tier: !$('#sg-rarity').checked,
+    difficulty: $('#sg-difficulty').checked,
+  };
+}
+
+$('#sg-go').onclick = async () => {
+  const u = $('#sg-uuid').value.trim();
+  if (!u) return toast('uuid 를 입력하세요');
+  if (SG_JOB) return toast('이미 실행 중입니다');
+  try {
+    const j = await api('/api/job', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sgOpts()),
+    });
+    SG_JOB = j.id;
+    $('#sg-progress').classList.remove('hide');
+    $('#sg-result').classList.add('hide');
+    $('#sg-state').textContent = '실행 중… (모델 로딩 포함 2~4분)';
+    $('#sg-log').textContent = '';
+    sgPoll();
+  } catch (e) { toast(e.message); }
+};
+
+function sgPoll() {
+  clearTimeout(SG_TIMER);
+  SG_TIMER = setTimeout(async () => {
+    if (!SG_JOB) return;
+    try {
+      const j = await api('/api/jobs');
+      const job = j.jobs.find(x => x.id === SG_JOB);
+      if (!job) { SG_JOB = null; return; }
+      $('#sg-log').textContent = (job.tail || []).join('\n');
+      $('#sg-log').scrollTop = $('#sg-log').scrollHeight;
+      if (job.status === 'running') { sgPoll(); return; }
+      // 끝났다. 성공이면 시각화를 띄운다.
+      SG_JOB = null;
+      if (job.status === 'done') {
+        $('#sg-state').textContent = '완료';
+        await sgShow($('#sg-uuid').value.trim(), job.run_dir);
+      } else {
+        $('#sg-state').textContent = job.status;
+        toast('추론 실패 - 로그를 확인하세요');
+      }
+    } catch (e) { SG_JOB = null; $('#sg-state').textContent = e.message; }
+  }, 3000);
+}
+
+async function sgShow(uuid, runDir) {
+  // 클립 상세는 openClip 이 이미 모달로 그린다. 같은 마크업을 여기서 다시
+  // 만들면 둘이 갈라지므로 그대로 재사용하고, 패널에는 링크만 남긴다.
+  $('#sg-result').classList.remove('hide');
+  $('#sg-body').innerHTML =
+    `<div class="row"><b class="mono">${esc(uuid)}</b>
+       <button class="primary" id="sg-open">시각화 열기</button>
+       ${runDir ? `<span class="muted">→ ${esc(runDir)}</span>` : ''}</div>`;
+  $('#sg-open').onclick = () => openClip(uuid, runDir || '');
+  $('#sg-open').click();   // 끝나면 바로 띄운다
+}
+
+['#sg-uuid', '#sg-model', '#sg-scene', '#sg-data', '#sg-traj', '#sg-ego',
+ '#sg-safety', '#sg-rarity', '#sg-difficulty'].forEach(sel => {
+  const el = $(sel); if (!el) return;
+  el.addEventListener('input', sgPreview); el.addEventListener('change', sgPreview);
+});
+function sgPreview() {
+  const o = sgOpts();
+  if (!o.single_uuid) { $('#sg-cmd').textContent = ''; return; }
+  // 백엔드 build_command 와 같은 뜻을 사람이 읽을 수 있게만 보여준다.
+  const nas = o.mode === 'nas';
+  const parts = [nas ? 'run_nas_nvidia_8b.sh' : 'run_labeled_8b.sh',
+                 nas ? '--num-shards 1' : '--num-shards 1',
+                 '--model ' + o.model, '--viz-normal --viz-special'];
+  if (o.scene_json) parts.push('--scene-json ' + o.scene_json);
+  if (o.traj) parts.push('--traj ' + o.traj);
+  if (o.use_egomotion) parts.push('--use-egomotion');
+  if (o.no_safety_tier) parts.push('--no-safety-tier');
+  if (o.no_rarity_tier) parts.push('--no-rarity-tier');
+  if (o.difficulty) parts.push('--difficulty');
+  parts.push('--only-uuids <' + o.single_uuid + '>');
+  $('#sg-cmd').textContent = '$ bash ' + parts.join(' ');
+}
+
+/* ---------- 7. NAS 전체 추론 결과 ----------
+   aggregate_clip.log 와 같은 항목을 보여주되, 수치는 CSV 에서 다시 계산한
+   /api/aggregate 를 쓴다. 고정폭 텍스트를 파싱하면 서식이 조금만 바뀌어도
+   깨지기 때문이다. */
+const SCORE_LABEL = { 1: 'Low', 2: 'Moderate', 3: 'High', 4: 'Extreme' };
+
+/* 카테고리 빈도 표 - 시나리오/카테고리/개수를 기준으로 정렬한다.
+   시나리오는 같은 값이 여러 줄이라 그것만으로는 순서가 정해지지 않는다.
+   그래서 시나리오로 정렬할 때는 카테고리를 2순위로 자동 적용한다. */
+let AGG_CATS = [];
+let AGG_SORT = { key: 'clips', dir: 'desc' };
+
+function catRows() {
+  const rows = AGG_CATS.slice();
+  const k = AGG_SORT.key, sign = AGG_SORT.dir === 'asc' ? 1 : -1;
+  const byName = (x, y) => x.name.localeCompare(y.name, 'en');
+  rows.sort((x, y) => {
+    if (k === 'scenario') {
+      const c = x.scenario.localeCompare(y.scenario, 'ko');
+      return c ? c * sign : byName(x, y);   // 2순위는 항상 오름차순 이름
+    }
+    if (k === 'name') return byName(x, y) * sign;
+    // 개수/비율은 같은 순서다(비율 = 개수/전체). 동점이면 이름으로 가른다.
+    return (x.clips - y.clips) * sign || byName(x, y);
+  });
+
+  const max = Math.max(1, ...AGG_CATS.map(x => x.clips));
+  const arrow = key => AGG_SORT.key === key
+    ? `<span class="sarrow">${AGG_SORT.dir === 'asc' ? '▲' : '▼'}</span>` : '';
+  const head = `<div class="catrow cathead">
+      <span class="sortable" data-sort="scenario">상위 시나리오${arrow('scenario')}</span>
+      <span class="sortable" data-sort="name">카테고리${arrow('name')}</span>
+      <span></span>
+      <span class="num sortable" data-sort="clips">개수${arrow('clips')}</span>
+      <span class="pctv sortable" data-sort="clips">비율${arrow('clips')}</span>
+    </div>`;
+  return head + rows.map(x => `
+    <div class="catrow">
+      <span class="scenv" title="${esc(x.scenario)}">${esc(x.scenario)}</span>
+      <span class="lbl" title="${esc(x.name)}">${esc(x.name)}</span>
+      <span class="bartrack"><span class="barfill" style="width:${
+        (x.clips / max * 100).toFixed(1)}%"></span></span>
+      <span class="num">${x.clips.toLocaleString()}</span>
+      <span class="pctv">${x.pct_all.toFixed(1)}%</span>
+    </div>`).join('');
+}
+
+function bindCatSort() {
+  $$('#ag-cats .sortable').forEach(el => el.onclick = () => {
+    const key = el.dataset.sort;
+    if (AGG_SORT.key === key) {
+      AGG_SORT.dir = AGG_SORT.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+      // 이름은 가나다순, 숫자는 큰 값부터가 첫 클릭의 자연스러운 기대값이다.
+      AGG_SORT = { key, dir: key === 'clips' ? 'desc' : 'asc' };
+    }
+    $('#ag-cats').innerHTML = catRows();
+    bindCatSort();
+  });
+}
+
+function bars(items, opt) {
+  // items: [{label, value, num, pct}] - value 로 막대를 그리고, 오른쪽에
+  // 개수(num)와 비율(pct)을 각각 다른 칸에 놓는다.
+  const o = opt || {};
+  const max = o.max != null ? o.max : Math.max(1, ...items.map(i => i.value));
+  const head = `<div class="barrow barhead">
+      <span class="lbl">${esc(o.headLabel || '')}</span><span></span>
+      <span class="num">${esc(o.headNum || '개수')}</span>
+      <span class="pctv">${esc(o.headPct || '비율')}</span>
+    </div>`;
+  return `<div class="bars">` + head + items.map(i => `
+    <div class="barrow">
+      <span class="lbl" title="${esc(i.label)}">${esc(i.label)}</span>
+      <span class="bartrack"><span class="barfill" style="width:${
+        max ? (i.value / max * 100).toFixed(1) : 0}%${
+        i.color ? ';background:' + i.color : ''}"></span></span>
+      <span class="num">${esc(i.num)}</span>
+      <span class="pctv">${esc(i.pct)}</span>
+    </div>`).join('') + `</div>`;
+}
+
+function distBody(d, labels) {
+  // 패널 껍데기 없이 막대 + 통계 한 줄만. 한 패널 안에 분포를 여러 개
+  // 넣을 때 쓴다(Safety 패널에 '전체'와 'SPECIAL only' 두 벌).
+  if (!d || !d.n) return `<p class="muted">해당 값을 매긴 클립이 없습니다.</p>`;
+  const items = d.counts.map(c => ({
+    label: labels ? `${c.score} = ${labels[c.score] || ''}` : String(c.score),
+    value: c.count,
+    num: c.count.toLocaleString(),
+    pct: c.pct.toFixed(1) + '%',
+  }));
+  return bars(items) + `
+    <p class="muted" style="margin:8px 0 0">
+      n ${d.n.toLocaleString()} · 평균 <b>${d.mean.toFixed(2)}</b> · 분산 ${d.var.toFixed(2)}
+      · 중앙값 ${d.median} · 범위 ${d.min}–${d.max}</p>`;
+}
+
+function distPanel(title, d, lo, hi, labels) {
+  return `<div class="panel chartpanel">
+    <h2>${esc(title)}</h2>
+    ${distBody(d, labels)}
+  </div>`;
+}
+
+function tierPanel(title, t, labels) {
+  // 한 지표(Safety 또는 Rarity)의 두 갈래를 소제목으로 나눠 1열로 쌓는다.
+  return `<div class="panel chartpanel">
+    <h2>${esc(title)}</h2>
+    <div class="scen">전체 클립</div>
+    ${distBody(t.all, labels)}
+    <div class="scen">SPECIAL only</div>
+    ${distBody(t.edge, labels)}
+  </div>`;
+}
+
+function renderAgg(a) {
+  const c = a.clips;
+  const tiles = `<div class="panel"><h2>클립</h2><div class="tiles">
+    <div class="tile"><div class="k">전체 클립</div><div class="v">${c.total.toLocaleString()}</div></div>
+    <div class="tile"><div class="k">SPECIAL</div>
+      <div class="v" style="color:var(--warn)">${c.edge.toLocaleString()}</div>
+      <div class="s">${c.edge_pct.toFixed(1)}% of all</div></div>
+    <div class="tile"><div class="k">NORMAL</div>
+      <div class="v" style="color:var(--muted)">${c.normal.toLocaleString()}</div>
+      <div class="s">${(100 - c.edge_pct).toFixed(1)}% of all</div></div>
+    <div class="tile"><div class="k">라벨 출현 수</div><div class="v">${a.occurrences.toLocaleString()}</div>
+      <div class="s">edge-case 클립당 ${a.avg_per_edge.toFixed(2)}개</div></div>
+    <div class="tile"><div class="k">파싱 성공</div><div class="v">${a.parse_ok.toLocaleString()}</div>
+      <div class="s">${c.total ? (a.parse_ok / c.total * 100).toFixed(1) : '0.0'}%</div></div>
+  </div>
+  <div style="margin-top:12px">${bars([
+    { label: 'SPECIAL', value: c.edge, num: c.edge.toLocaleString(),
+      pct: c.edge_pct.toFixed(1) + '%', color: 'var(--warn)' },
+    { label: 'NORMAL', value: c.normal, num: c.normal.toLocaleString(),
+      pct: (100 - c.edge_pct).toFixed(1) + '%', color: 'var(--muted)' },
+  ], { max: c.total })}</div></div>`;
+
+  // 카테고리 빈도 - 시나리오를 소제목이 아니라 행의 첫 칸으로 둔다.
+  // 정렬을 걸면 시나리오가 섞이므로 묶음 소제목으로는 표현할 수 없다.
+  AGG_CATS = a.categories;
+  const catHtml = catRows();
+  const perClip = a.per_clip.length
+    ? `<p class="muted" style="margin:10px 0 0">클립당 카테고리 수 — ` +
+      a.per_clip.map(x => `${x.k}개: <b>${x.n}</b>`).join(' · ') + `</p>`
+    : '';
+  const cats = `<div class="panel chartpanel"><h2>카테고리 빈도</h2>
+    <p class="muted" style="margin:0 0 6px">
+      멀티라벨이라 합이 100%를 넘을 수 있습니다. % 는 전체 클립 대비입니다.</p>
+    <div id="ag-cats">${catHtml}</div>${perClip}</div>`;
+
+  // 오른쪽 칸을 다시 둘로: Safety | Rarity. 각 박스 안에 '전체 클립' 과
+  // 'SPECIAL only' 를 소제목으로 나눠 1열로 쌓는다.
+  const tierHtml = `<div class="tiercols">
+    ${tierPanel('Safety Criticality', a.tiers.safety, SCORE_LABEL)}
+    ${tierPanel('Rarity', a.tiers.rarity, SCORE_LABEL)}
+  </div>`;
+
+  // 왼쪽 카테고리 빈도 / 오른쪽 Safety·Rarity.
+  const mid = `<div class="aggcols">
+    <div>${cats}</div>
+    <div>${tierHtml}</div>
+  </div>`;
+
+  // 난이도 4축(조도·강수·노면·대기가림). 종합 난이도는 더 이상 모델에게
+  // 묻지 않는다 - 요인과 따로 매기면 서로 모순된 값이 나왔다.
+  const rated = a.difficulty.filter(d => d.n);
+  const factors = rated;
+
+  const diffTable = rated.length ? `<div class="panel"><h2>난이도 4축 요약</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>축</th><th class="num">N</th><th class="num">평균</th>
+        <th class="num">분산</th><th class="num">중앙값</th>
+        <th class="num">최소</th><th class="num">최대</th></tr></thead>
+      <tbody>${rated.map(d => `<tr><td>${esc(d.label)}</td>
+        <td class="num">${d.n.toLocaleString()}</td><td class="num">${d.mean.toFixed(3)}</td>
+        <td class="num">${d.var.toFixed(3)}</td><td class="num">${d.median}</td>
+        <td class="num">${d.min}</td><td class="num">${d.max}</td></tr>`).join('')}
+      </tbody></table></div>
+    <p class="muted" style="margin:8px 0 0">
+      0–4 척도. 네 축은 각각 독립적으로 매깁니다.</p>
+  </div>` : '';
+
+  const diffTop = rated.length ? `<div style="margin-top:12px">${diffTable}</div>` : '';
+
+  const diffAxes = factors.length ? `<div class="axisgrid4" style="margin-top:12px">
+    ${factors.map(d => distPanel(d.label, d, 0, 4, null)).join('')}</div>` : '';
+
+  const cfg = a.config || {};
+  const meta = `<div class="panel"><h2>실행 정보</h2>
+    <p class="muted" style="margin:0">
+      <span class="mono">${esc(a.run)}</span>
+      ${cfg.model ? ' · ' + esc(cfg.model) : ''}
+      ${cfg.scene_json ? ' · ' + esc(String(cfg.scene_json).split('/').pop()) : ''}
+      ${cfg.memo ? ' — ' + esc(cfg.memo) : ''}</p>
+    ${a.has_log ? `<div class="row" style="margin-top:8px">
+      <button id="ag-raw">원본 aggregate_clip.log 보기</button></div>` : ''}
+  </div>`;
+
+  return meta + '<div style="height:12px"></div>' + tiles +
+    '<div style="height:12px"></div>' + mid +
+    diffTop + diffAxes;
+}
+
+$('#ag-load').onclick = async () => {
+  const name = $('#ag-run').value;
+  if (!name) return toast('실행을 선택하세요');
+  $('#ag-status').textContent = '불러오는 중…';
+  try {
+    const a = await api('/api/aggregate?name=' + encodeURIComponent(name));
+    if (a.error) { $('#ag-status').textContent = a.error; $('#ag-body').innerHTML = ''; return; }
+    $('#ag-body').innerHTML = renderAgg(a);
+    bindCatSort();
+    $('#ag-status').textContent = `${a.clips.total.toLocaleString()}개 클립`;
+    const raw = $('#ag-raw');
+    if (raw) raw.onclick = async () => {
+      try {
+        const r = await api('/api/aggregate_log?name=' + encodeURIComponent(name));
+        showModal(`<h2 class="mono">${esc(name)}/aggregate_clip.log</h2>
+          <pre style="max-height:70vh;overflow:auto;font-size:12px">${esc(r.text)}</pre>`);
+      } catch (e) { toast(e.message); }
+    };
+  } catch (e) {
+    $('#ag-status').textContent = e.message;
+    $('#ag-body').innerHTML = '';
+  }
+};
+
+/* ---------- 8. NAS 전체 씬 검색 ----------
+   라벨 검색과 구조는 같지만 대조할 정답이 없다. 모델이 낸 예측 자체를
+   조건으로 걸고, 결과는 NAS 원본 영상을 /clip/<uuid> 로 바로 재생한다.
+   (시각화 mp4 를 30만 클립에 대해 만들어 둘 수는 없다) */
+const DIFF_AXES_UI = [
+  ['illumination', '조도'],
+  ['precipitation', '강수'],
+  ['road_surface', '노면'],
+  ['atmospheric_obscurants', '대기가림'],
+];
+
+function diffInputs(prefix) {
+  // 축마다 최소~최대 한 쌍. 비워두면 그 축은 조건에서 빠진다.
+  // Safety/Rarity 줄과 같은 .rng 모양을 써서 두 줄이 나란히 읽히게 한다.
+  return DIFF_AXES_UI.map(([k, label]) => `
+    <label class="rng" title="${esc(k)} — 비워두면 이 축은 거르지 않습니다">${esc(label)}
+      <input type="number" id="${prefix}-${k}-min" min="0" max="4" placeholder="0">
+      <span class="muted">~</span>
+      <input type="number" id="${prefix}-${k}-max" min="0" max="4" placeholder="4">
+    </label>`).join('');
+}
+
+function diffQuery(prefix) {
+  const q = {};
+  for (const [k] of DIFF_AXES_UI) {
+    const lo = $(`#${prefix}-${k}-min`).value.trim();
+    const hi = $(`#${prefix}-${k}-max`).value.trim();
+    if (lo !== '') q[k + '_min'] = +lo;
+    if (hi !== '') q[k + '_max'] = +hi;
+  }
+  return q;
+}
+
+function clearDiff(prefix) {
+  for (const [k] of DIFF_AXES_UI) {
+    $(`#${prefix}-${k}-min`).value = '';
+    $(`#${prefix}-${k}-max`).value = '';
+  }
+}
+
+function diffCell(d) {
+  if (!d) return '<span class="muted">-</span>';
+  const v = DIFF_AXES_UI.map(([k]) => d[k] == null ? '·' : d[k]).join('/');
+  return `<span class="mono" title="종합/조도/강수/노면/대기가림">${esc(v)}</span>`;
+}
+
+let NS = { rows: [], run: '' };
+
+async function nasSearch() {
+  const run = $('#ns-run').value;
+  if (!run) return toast('실행을 선택하세요');
+  const cats = $$('#ns-cats .pill.on').map(p => p.dataset.cat).join('|');
+  const q = Object.assign({
+    run, uuid: $('#ns-uuid').value.trim(), text: $('#ns-text').value.trim(),
+    special: $('#ns-special').value, categories: cats,
+    cat_mode: $('#ns-catmode').value,
+    safety_min: $('#ns-smin').value, safety_max: $('#ns-smax').value,
+    rarity_min: $('#ns-rmin').value, rarity_max: $('#ns-rmax').value,
+    limit: 500,
+  }, diffQuery('ns'));
+  const qs = Object.entries(q).filter(([, v]) => v !== '' && v != null)
+    .map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+  $('#ns-count').textContent = '검색 중…';
+  try {
+    const j = await api('/api/nas_search?' + qs);
+    if (j.error) { $('#ns-count').textContent = j.error; $('#ns-rows').innerHTML = ''; return; }
+    NS = { rows: j.rows, run };
+    $('#ns-count').textContent =
+      `${j.total.toLocaleString()}건 중 ${j.rows.length.toLocaleString()}건 표시`
+      + (j.has_difficulty ? '' : '  (이 실행에는 난이도 값이 없습니다)');
+    $('#ns-rows').innerHTML = j.rows.map((r, i) => `
+      <tr data-i="${i}">
+        <td class="mono">${esc(r.uuid.slice(0, 8))}</td>
+        <td class="cats">${(r.categories || []).map(c => `<span class="tag">${esc(c)}</span>`).join('')
+             || '<span class="muted">없음</span>'}</td>
+        <td class="num">${r.safety ?? '-'}</td>
+        <td class="num">${r.rarity ?? '-'}</td>
+        <td class="num">${diffCell(r.difficulty)}</td>
+        <td class="muted">${esc((r.observation || '').slice(0, 70))}</td>
+        <td><button data-open="${i}">열기</button></td>
+      </tr>`).join('');
+    // 행 어디를 눌러도([열기] 버튼 포함) 같은 팝업을 연다.
+    $$('#ns-rows tr').forEach(tr =>
+      tr.onclick = () => nasOpen(+tr.dataset.i));
+  } catch (e) {
+    $('#ns-count').textContent = e.message; $('#ns-rows').innerHTML = '';
+  }
+}
+
+function nasOpen(i) {
+  const r = NS.rows[i];
+  if (!r) return;
+  const fields = [
+    ['observation', r.observation], ['ego_behavior', r.ego_behavior],
+    ['unusual_elements', r.unusual_elements],
+    ['safety 근거', r.safety_reason], ['rarity 근거', r.rarity_reason],
+  ].filter(([, v]) => (v || '').trim());
+  const dv = k => (r.difficulty && r.difficulty[k] != null) ? r.difficulty[k] : null;
+  const diff = DIFF_AXES_UI.map(([k, label]) =>
+    `${esc(label)} <b>${dv(k) ?? '-'}</b>`).join(' · ');
+  // 난이도는 축마다 근거가 따로 있다. 점수만 보면 왜 그 값인지 알 수 없어
+  // 검토가 안 되므로 축별로 점수와 근거를 나란히 적는다.
+  const dreason = DIFF_AXES_UI.map(([k, label]) => {
+    const why = ((r.difficulty_reason || {})[k] || '').trim();
+    if (dv(k) == null && !why) return '';
+    return `<div class="drow">
+      <span class="dlbl">${esc(label)}</span>
+      <span class="dscore">${dv(k) ?? '-'}</span>
+      <span class="dwhy">${why ? esc(why) : '<span class="muted">근거 없음</span>'}</span>
+    </div>`;
+  }).join('');
+  showModal(`
+    <h2 class="mono">${esc(r.uuid)}</h2>
+    <video controls autoplay src="/clip/${encodeURIComponent(r.uuid)}"></video>
+    <div class="row" style="margin:8px 0 12px">
+      <a class="pill" href="/clip/${encodeURIComponent(r.uuid)}" download>영상 다운로드</a>
+      <span class="muted">NAS 원본 (시각화 오버레이 없음)</span>
+    </div>
+    <p>${(r.categories || []).map(c => `<span class="tag">${esc(c)}</span>`).join('')
+        || '<span class="muted">카테고리 없음</span>'}</p>
+    <p class="muted">Safety <b>${r.safety ?? '-'}</b> · Rarity <b>${r.rarity ?? '-'}</b>
+      · 난이도 ${diff}</p>
+    ${fields.map(([k, v]) =>
+      `<h3 style="margin:10px 0 2px">${esc(k)}</h3>
+       <p style="margin:0">${esc(v)}</p>`).join('')}
+    ${dreason ? `<h3 style="margin:12px 0 4px">난이도 4축 근거</h3>
+      <div class="dgrid">${dreason}</div>` : ''}
+  `);
+}
+
+$('#ns-go').onclick = nasSearch;
+$('#ns-clear').onclick = () => {
+  ['#ns-uuid', '#ns-text'].forEach(x => $(x).value = '');
+  $('#ns-special').value = ''; $('#ns-catmode').value = 'any';
+  $('#ns-smin').value = 1; $('#ns-smax').value = 4;
+  $('#ns-rmin').value = 1; $('#ns-rmax').value = 4;
+  clearDiff('ns');
+  $$('#ns-cats .pill').forEach(p => p.classList.remove('on'));
+  $('#ns-rows').innerHTML = ''; $('#ns-count').textContent = '';
+};
+$('#ns-csv').onclick = () => {
+  if (!NS.rows.length) return toast('검색 결과가 없습니다');
+  const head = ['uuid', 'categories', 'safety', 'rarity',
+    ...DIFF_AXES_UI.flatMap(([k]) => [k, k + '_reason']), 'observation'];
+  const body = NS.rows.map(r => [
+    r.uuid, (r.categories || []).join('|'), r.safety ?? '', r.rarity ?? '',
+    ...DIFF_AXES_UI.flatMap(([k]) => [
+      (r.difficulty && r.difficulty[k] != null) ? r.difficulty[k] : '',
+      ((r.difficulty_reason || {})[k] || '').replace(/"/g, '""'),
+    ]),
+    (r.observation || '').replace(/"/g, '""'),
+  ]);
+  const csv = [head, ...body].map(row =>
+    row.map(v => `"${String(v)}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' }));
+  a.download = 'nas_search_result.csv'; a.click();
+};
+
 async function refreshJobs() {
   try {
     const j = await api('/api/jobs');
@@ -888,6 +1655,9 @@ setInterval(() => {
       !$('#tab-nas').classList.contains('hide')) refreshJobs();
 }, 5000);
 
+// 탭 복원은 boot() 앞에 둔다. bootstrap 응답을 기다리면 그동안 엉뚱한 탭이
+// 보이고, 초기화가 실패하면 아예 복원되지 않는다.
+restoreTab();
 boot().catch(e => toast('초기화 실패: ' + e.message, 8000));
 </script>
 </body>

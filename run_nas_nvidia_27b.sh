@@ -57,6 +57,7 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --model ID               모델 (기본 Qwen/Qwen3.8-27B)                   [MODEL]
   --data SRC               프레임 소스 local|nas|경로 (기본 nas)          [DATA]
   --limit-clips N          처리할 클립 수 제한 (기본: 데이터셋 전체)     [LIMIT_CLIPS]
+  --only-uuids FILE        이 파일에 적힌 uuid 만 처리 (한 줄에 하나)    [ONLY_UUIDS]
   --scene-json PATH        카테고리 정의 (기본: config.py 의 SCENE_JSON) [SCENE_JSON]
   --no-viz                 시각화 mp4 를 만들지 않는다                   [CLIP_VIZ=0]
   --viz-all                edge-case 가 아닌 클립까지 전부 시각화        [VIZ_ALL=1]
@@ -67,7 +68,7 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --no-safety-tier         Safety Criticality(4단계)만 프롬프트에서 끈다 [SAFETY_TIER=0]
   --no-rarity-tier         Rarity(5단계)만 프롬프트에서 끈다             [RARITY_TIER=0]
   --no-score-tiers         위 둘을 한꺼번에 끄는 별칭                    [SCORE_TIERS=0]
-  --difficulty             주행 난이도 5축을 0~4 로 함께 매긴다         [DIFFICULTY=1]
+  --difficulty             주행 난이도 4축을 0~4 로 함께 매긴다         [DIFFICULTY=1]
   --viz-per-category N     카테고리마다 최초 N개 클립만 시각화           [VIZ_PER_CAT]
   --clip-fps F              초당 몇 장 뽑을지 (기본 edge_case_mining.py) [CLIP_FPS]
   --clip-max-frames N       클립당 최대 프레임                          [CLIP_MAX_FRAMES]
@@ -98,6 +99,8 @@ while [ $# -gt 0 ]; do
     --model)                shift; MODEL="${1:-}" ;;
     --limit-clips=*)       LIMIT_CLIPS="${1#*=}" ;;
     --limit-clips)          shift; LIMIT_CLIPS="${1:-}" ;;
+    --only-uuids=*)        ONLY_UUIDS="${1#*=}" ;;
+    --only-uuids)          shift; ONLY_UUIDS="${1:-}" ;;
     --scene-json=*)         SCENE_JSON="${1#*=}" ;;
     --scene-json)            shift; SCENE_JSON="${1:-}" ;;
     --no-viz)               CLIP_VIZ=0 ;;
@@ -152,6 +155,12 @@ if [ "${EVAL_MODE:-0}" = "1" ] && [ -n "${LIMIT_CLIPS:-}" ]; then
   echo "[error] --eval 과 --limit-clips 는 함께 쓸 수 없습니다 (라벨 클립 전체가 대상)" >&2
   exit 2
 fi
+# --eval 은 라벨된 uuid 로 자기 --only-uuids 를 만든다. 둘 다 주면 같은 플래그가
+# 두 번 붙어 뒤엣것만 먹는다 - 조용히 엉뚱한 대상을 도는 대신 여기서 막는다.
+if [ "${EVAL_MODE:-0}" = "1" ] && [ -n "${ONLY_UUIDS:-}" ]; then
+  echo "[error] --eval 과 --only-uuids 는 함께 쓸 수 없습니다" >&2
+  exit 2
+fi
 
 # 추론을 건너뛰고 기존 결과만 채점하는 경로 (run_labeled_8b.sh 와 동일)
 if [ -n "${EVAL_ONLY:-}" ]; then
@@ -164,9 +173,9 @@ fi
 
 RUN_TS="$(date +%Y%m%d_%H%M%S)"
 if [ "${EVAL_MODE:-0}" = "1" ]; then
-  RUN_DIR="results/${RUN_TS}_video27b_eval"
+  RUN_DIR="results/labeld/${RUN_TS}_video27b_eval"
 else
-  RUN_DIR="results/${RUN_TS}_video27b"
+  RUN_DIR="results/unlabeled/${RUN_TS}_video27b"
 fi
 mkdir -p "$RUN_DIR"
 
@@ -191,6 +200,10 @@ OPTS="--clip-mode --single-view --num-shards 1 --shard-id 0 --model $MODEL"
 [ -n "${CLIP_FPS:-}" ]          && OPTS="$OPTS --clip-fps $CLIP_FPS"
 [ -n "${CLIP_MAX_FRAMES:-}" ]   && OPTS="$OPTS --clip-max-frames $CLIP_MAX_FRAMES"
 [ -n "${LIMIT_CLIPS:-}" ]       && OPTS="$OPTS --limit-clips $LIMIT_CLIPS"
+# 특정 uuid 만 돌린다(GUI 단일 클립 조회). 전체 인덱스를 안 만들고 그 클립이
+# 든 zip 만 찾아 열므로, NAS 에서도 몇 초~30초 안에 시작한다.
+# --eval 은 자기 UUID_FILE 을 따로 만들어 쓰므로 아래에서 충돌을 막는다.
+[ -n "${ONLY_UUIDS:-}" ]        && OPTS="$OPTS --only-uuids $ONLY_UUIDS"
 
 # --eval: run_labeled_8b.sh 와 같은 방식 - 라벨된 uuid 만 --only-uuids 로 골라
 # 처리하고, 시각화가 켜져 있으면 GT 도 함께 넘겨 패널에 GT/Pred 를 나란히

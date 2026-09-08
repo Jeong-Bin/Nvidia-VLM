@@ -85,7 +85,7 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --no-safety-tier        Safety Criticality(4단계)만 프롬프트에서 끈다  [SAFETY_TIER=0]
   --no-rarity-tier        Rarity(5단계)만 프롬프트에서 끈다              [RARITY_TIER=0]
   --no-score-tiers        위 둘을 한꺼번에 끄는 별칭                     [SCORE_TIERS=0]
-  --difficulty           주행 난이도 5축(전체+조도/강수/노면/대기가림)을
+  --difficulty           주행 난이도 4축(조도/강수/노면/대기가림)을
                          0~4 로 함께 매긴다. 시각화 패널과
                          aggregate_clip.log 분포에 실린다        [DIFFICULTY=1]
   --viz-per-category N   카테고리마다 최초 N개 클립만 시각화한다. 폴더를
@@ -113,6 +113,8 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --labels=*)          LABELS="${1#*=}" ;;
     --labels)            shift; LABELS="${1:-}" ;;
+    --only-uuids=*)      ONLY_UUIDS="${1#*=}" ;;
+    --only-uuids)        shift; ONLY_UUIDS="${1:-}" ;;
     --scene-json=*)      SCENE_JSON="${1#*=}" ;;
     --scene-json)        shift; SCENE_JSON="${1:-}" ;;
     --num-shards=*)      NSHARDS="${1#*=}" ;;
@@ -176,10 +178,15 @@ if [ -n "$SCENE_JSON" ] && [ ! -f "$SCENE_JSON" ]; then
 fi
 
 RUN_TS="$(date +%Y%m%d_%H%M%S)"
-RUN_DIR="results/${RUN_TS}_eval"
+RUN_DIR="results/labeld/${RUN_TS}_eval"
 mkdir -p "$RUN_DIR"
 
 # 라벨된 uuid 만 뽑아 파일로 넘긴다 (한 줄에 하나)
+# GUI 단일 클립 조회는 uuid 파일을 직접 넘긴다 - 그때는 라벨 전체를 뽑지 않는다.
+if [ -n "${ONLY_UUIDS:-}" ]; then
+  UUID_FILE="$ONLY_UUIDS"
+  echo "[info] --only-uuids: $UUID_FILE ($(wc -l < "$UUID_FILE") uuid)"
+else
 UUID_FILE="${RUN_DIR}/eval_uuids.txt"
 "$PYBIN" - "$LABELS" "$UUID_FILE" <<'PY'
 import json, sys
@@ -190,6 +197,7 @@ with open(sys.argv[2], "w", encoding="utf-8") as f:
         f.write(u + "\n")
 print(f"[info] {len(clips)} labelled uuids -> {sys.argv[2]}")
 PY
+fi
 
 TOTAL_CLIPS="$(wc -l < "$UUID_FILE")"
 
@@ -299,7 +307,7 @@ except Exception:
 
   # 정답과 대조하는 채점(evaluation.log)과 별개로, 모델 출력 자체의 분포도
   # 남긴다(aggregate_clip.log). 둘은 답하는 질문이 다르다 - 채점은 "정답을
-  # 맞혔나", 분포는 "모델이 무엇을 얼마나 냈나"다. 난이도 5축은 정답 라벨이
+  # 맞혔나", 분포는 "모델이 무엇을 얼마나 냈나"다. 난이도 4축은 정답 라벨이
   # 없어 채점 대상이 아니므로, 분포를 보는 것이 유일한 확인 수단이다.
   "$PYBIN" -u aggregate_clip.py --run-dir "$RUN_DIR"
 

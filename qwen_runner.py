@@ -135,7 +135,7 @@ def load_model(model_id: str):
 # 실패했고, 잘린 위치는 모두 마지막 필드(rarity_assessment) 근처였다.
 NUR_MAX_NEW_TOKENS = 800
 
-# --difficulty 를 켜면 JSON 에 필드가 10개 늘어난다(5축 x 값+근거 문장).
+# --difficulty 를 켜면 JSON 에 필드가 8개 늘어난다(4축 x 값+근거 문장).
 # 800 은 그 여유가 없다 - 위 실측에서 이미 마지막 필드 근처에서 잘렸고,
 # 난이도 필드는 그보다 더 뒤에 온다. 근거 문장 5개를 짧게 잡아도 약 200
 # 토큰이 더 필요하므로 그만큼 올린다. 난이도를 끈 실행의 예산은 건드리지
@@ -154,7 +154,7 @@ CLIP_CSV_COLUMNS = [
     # 결정 마진 - 이 클립의 판정이 얼마나 아슬아슬했는지.
     # margin_min 이 작을수록 의미 없는 프롬프트 섭동에도 뒤집힌다.
     "margin_min", "margin_mean", "n_close_tokens",
-    # 난이도 5축. --difficulty 를 끈 실행에서는 전부 빈 칸이지만 열 자체는
+    # 난이도 4축. --difficulty 를 끈 실행에서는 전부 빈 칸이지만 열 자체는
     # 항상 쓴다 - 열 구성이 실행마다 달라지면 샤드 병합과 실행 간 비교가
     # 깨진다.
     *[c for k, _ in DIFFICULTY_AXES for c in (k, f"{k}_reason")],
@@ -716,7 +716,7 @@ def run_clip_inference(uuids, labels, category_menu,
           f"({dt/n:.1f} s/clip)")
     if n_parse_fail:
         print(f"[warn] JSON parse failed on {n_parse_fail} clips")
-    print(f"[clip] EDGE-CASE (>=1 category): {n_edge}/{n} ({100*n_edge/n:.1f}%)")
+    print(f"[clip] SPECIAL (>=1 category): {n_edge}/{n} ({100*n_edge/n:.1f}%)")
     print(f"[clip] NORMAL   (no category)  : {n-n_edge}/{n} "
           f"({100*(n-n_edge)/n:.1f}%)")
     print("[clip] categories:")

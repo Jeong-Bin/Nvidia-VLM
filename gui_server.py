@@ -72,12 +72,32 @@ def list_label_files() -> list[str]:
     return sorted(p.name for p in ROOT.glob("test_label_*.json"))
 
 
+def is_v2_scene(path: Path) -> bool:
+    """2.0 스키마인가 - special.scenarios[].categories[] 에 templates 키가 있나.
+
+    1.x 는 같은 자리에 synonyms/prompt_templates(_candidates) 를 쓴다. 그 파일을
+    GUI 에서 열면 모든 값이 0/빈칸으로 보이고, 저장하면 2.0 필드로 덮어써
+    원본을 망가뜨린다. 그래서 목록 단계에서 걸러낸다. 파일명(2.0/1.5)이 아니라
+    내용을 보는 이유는, 이름 규칙이 바뀌어도(3.0, _E 등) 계속 맞기 때문이다.
+    """
+    try:
+        d = json.loads(path.read_text(encoding="utf-8"))
+        for scen in d.get("special", {}).get("scenarios", []):
+            for cat in scen.get("categories", []):
+                return "templates" in cat
+    except (json.JSONDecodeError, OSError, AttributeError):
+        pass
+    return False
+
+
 def list_scene_files() -> list[str]:
-    return sorted(p.name for p in ROOT.glob("scene_category_*.json"))
+    """편집 가능한(2.0 스키마) 분류 체계 파일만."""
+    return sorted(p.name for p in ROOT.glob("scene_category_*.json")
+                  if is_v2_scene(p))
 
 
 def taxonomy_categories(scene_path: Path) -> list[dict]:
-    """[{scenario, name, synonyms, templates}] - 프롬프트 메뉴와 같은 순서."""
+    """[{scenario, name, templates, template_candidates}] - 프롬프트 메뉴와 같은 순서."""
     scene = json.loads(Path(scene_path).read_text(encoding="utf-8"))
     out = []
     for scen in scene.get("special", {}).get("scenarios", []):
@@ -85,16 +105,194 @@ def taxonomy_categories(scene_path: Path) -> list[dict]:
             out.append({
                 "scenario": scen["name"],
                 "name": cat["name"],
-                "synonyms": cat.get("synonyms", []),
-                "templates": cat.get("prompt_templates_candidates", []),
+                "templates": cat.get("templates", []),
+                "template_candidates": cat.get("template_candidates", []),
             })
     return out
 
 
+# 실행 결과는 성격에 따라 나눠 담는다.
+#   labeld/    - 라벨된 로컬 클립 추론 + 채점 (평가 결과가 있다)
+#   unlabeled/ - NAS 데이터 마이닝 (대조할 정답이 없어 채점 불가)
+# 평가/검색 탭은 채점된 실행만 골라야 하므로 이 구분이 필요하다.
+LABELED_DIR = "labeld"
+UNLABELED_DIR = "unlabeled"
+
+
+def run_kind(rel: str) -> str:
+    """실행 이름(RESULTS 기준 상대경로)이 어느 갈래인지. 옛 평면 구조는 이름으로 본다."""
+    head = rel.split("/")[0]
+    if head in (LABELED_DIR, UNLABELED_DIR):
+        return "labeled" if head == LABELED_DIR else "unlabeled"
+    # 분리 이전 실행: _eval 로 끝나면 채점된 것이다(run_labeled_*.sh 규칙).
+    return "labeled" if "_eval" in rel else "unlabeled"
+
+
+# 난이도 4축 - aggregate_clip.log 의 DIFFICULTY SUMMARY 와 같은 순서/이름.
+# 종합 난이도(driving_difficulty)는 뺐다 - 요인과 따로 매기면 모델이 둘을
+# 무관하게 찍어 모순된 값이 나왔다(prompts.py 의 DIFFICULTY_AXES 주석).
+DIFF_AXES = [
+    ("illumination", "조도 (illumination)"),
+    ("precipitation", "강수 (precipitation)"),
+    ("road_surface", "노면 (road_surface)"),
+    ("atmospheric_obscurants", "대기 가림 (atmospheric_obscurants)"),
+]
+
+
+def _dist(vals: list[int], lo: int, hi: int) -> dict:
+    """점수 분포 + 요약 통계. aggregate_clip.log 의 표 하나에 해당한다."""
+    counts = {k: 0 for k in range(lo, hi + 1)}
+    for v in vals:
+        if v in counts:
+            counts[v] += 1
+    n = len(vals)
+    out = {"n": n, "counts": [{"score": k, "count": counts[k],
+                               "pct": (counts[k] / n * 100) if n else 0.0}
+                              for k in range(lo, hi + 1)]}
+    if n:
+        srt = sorted(vals)
+        mean = sum(vals) / n
+        out.update({
+            "mean": mean,
+            "var": sum((x - mean) ** 2 for x in vals) / n,
+            "median": srt[n // 2] if n % 2 else (srt[n // 2 - 1] + srt[n // 2]) / 2,
+            "min": srt[0], "max": srt[-1],
+        })
+    return out
+
+
+def aggregate_run(run_dir: Path) -> dict:
+    """NAS 마이닝 실행의 집계.
+
+    aggregate_clip.log 를 파싱하지 않고 clip_results*.csv 에서 직접 센다.
+    로그는 사람이 읽으라고 만든 고정폭 텍스트라 서식이 조금만 바뀌어도
+    파서가 깨진다. 같은 수치를 원본에서 다시 계산하는 편이 안전하다.
+    """
+    files = sorted(glob.glob(str(run_dir / "clip_results*.csv")))
+    if not files:
+        return {"error": f"no clip_results*.csv in {run_dir.name}"}
+
+    import csv as _csv
+    rows, seen = [], set()
+    for f in files:
+        with open(f, encoding="utf-8", newline="") as fh:
+            for r in _csv.DictReader(fh):
+                u = (r.get("uuid") or "").strip()
+                if u and u not in seen:
+                    seen.add(u)
+                    rows.append(r)
+
+    def as_int(v):
+        try:
+            return int(float(v))
+        except (TypeError, ValueError):
+            return None
+
+    total = len(rows)
+    cat_of = []
+    for r in rows:
+        raw = (r.get("categories") or "").strip()
+        cat_of.append([c for c in raw.split("|") if c.strip()] if raw else [])
+    edge = sum(1 for c in cat_of if c)
+
+    # 카테고리 빈도 - 분류 체계 순서를 유지해 0건도 남긴다(있는데 0인 것과
+    # 아예 정의에 없는 것은 다르다).
+    # 실행에 기록된 분류 체계를 쓰되, 그 파일이 사라졌으면(이름이 바뀌거나
+    # 지워진 옛 실행) 현재 기본값으로 대신한다. 없으면 시나리오 묶음이 전부
+    # "(분류 체계 밖)" 으로 빠져 표가 쓸모없어진다.
+    scene_json = run_config_of(run_dir).get("key", {}).get("scene_json")
+    sp = None
+    if scene_json:
+        sp = Path(scene_json)
+        if not sp.is_absolute():
+            sp = ROOT / sp
+    if sp is None or not sp.exists():
+        sp = Path(config.SCENE_JSON)
+    tax = taxonomy_categories(sp) if sp.exists() else []
+    order = [(c["scenario"], c["name"]) for c in tax]
+    seen_names = {n for _, n in order}
+    for cats in cat_of:
+        for c in cats:
+            if c not in seen_names:
+                seen_names.add(c)
+                order.append(("(분류 체계 밖)", c))
+
+    freq = []
+    for scen, name in order:
+        n = sum(1 for cats in cat_of if name in cats)
+        freq.append({"scenario": scen, "name": name, "clips": n,
+                     "pct_all": (n / total * 100) if total else 0.0,
+                     "pct_edge": (n / edge * 100) if edge else 0.0})
+    occurrences = sum(len(c) for c in cat_of)
+
+    # 클립당 카테고리 개수 분포
+    per_clip = {}
+    for cats in cat_of:
+        if cats:
+            per_clip[len(cats)] = per_clip.get(len(cats), 0) + 1
+
+    tiers = {}
+    for key in ("safety_tier", "rarity_tier"):
+        allv = [v for v in (as_int(r.get(key)) for r in rows) if v is not None]
+        edgev = [v for v, cats in ((as_int(r.get(key)), c)
+                                   for r, c in zip(rows, cat_of)) if v is not None and cats]
+        tiers[key.replace("_tier", "")] = {"all": _dist(allv, 1, 4),
+                                           "edge": _dist(edgev, 1, 4)}
+
+    diff = []
+    for key, label in DIFF_AXES:
+        vals = [v for v in (as_int(r.get(key)) for r in rows) if v is not None]
+        d = _dist(vals, 0, 4)
+        d.update({"key": key, "label": label})
+        diff.append(d)
+
+    parse_ok = sum(1 for r in rows
+                   if str(r.get("parse_ok", "")).strip().lower() in ("true", "1", "yes"))
+    cfg = run_config_of(run_dir).get("key", {})
+    return {
+        "run": rel_run_name(run_dir),
+        "clips": {"total": total, "edge": edge, "normal": total - edge,
+                  "edge_pct": (edge / total * 100) if total else 0.0},
+        "categories": freq,
+        "occurrences": occurrences,
+        "avg_per_edge": (occurrences / edge) if edge else 0.0,
+        "per_clip": [{"k": k, "n": per_clip[k]} for k in sorted(per_clip)],
+        "tiers": tiers,
+        "difficulty": diff,
+        "parse_ok": parse_ok,
+        "config": cfg,
+        "has_log": (run_dir / "aggregate_clip.log").exists(),
+    }
+
+
 def run_dirs() -> list[Path]:
+    """실행 폴더들. labeld/ · unlabeled/ 아래 한 겹과, 분리 이전의 평면 폴더 모두.
+
+    반환값을 RESULTS 기준 상대경로로 쓰는 곳이 많아(=드롭다운 값) 경로는
+    그대로 두고, 이름만 rel_run_name() 으로 만든다.
+    """
     if not RESULTS.exists():
         return []
-    return sorted((d for d in RESULTS.iterdir() if d.is_dir()), reverse=True)
+    out = []
+    for d in RESULTS.iterdir():
+        if not d.is_dir():
+            continue
+        if d.name in (LABELED_DIR, UNLABELED_DIR):
+            out.extend(x for x in d.iterdir() if x.is_dir())
+        else:
+            out.append(d)
+    # 폴더명이 아니라 실행 시각(폴더 이름 앞의 타임스탬프)으로 정렬한다.
+    # 상대경로로 정렬하면 labeld/* 와 unlabeled/* 가 갈래별로 뭉쳐서, 최근
+    # 실행이 목록 위에 오지 않는다.
+    return sorted(out, key=lambda p: (p.name, rel_run_name(p)), reverse=True)
+
+
+def rel_run_name(d: Path) -> str:
+    """RESULTS 기준 상대경로 - 'labeld/20260821_110448_eval' 처럼."""
+    try:
+        return d.relative_to(RESULTS).as_posix()
+    except ValueError:
+        return d.name
 
 
 def run_config_of(d: Path) -> dict:
@@ -374,8 +572,8 @@ def upsert_category(scene_name: str, scenario: str, cat: dict,
 
     entry = {
         "name": cat["name"],
-        "synonyms": cat.get("synonyms", []),
-        "prompt_templates_candidates": cat.get("templates", []),
+        "templates": cat.get("templates", []),
+        "template_candidates": cat.get("template_candidates", []),
     }
     look = old_name or cat["name"]
     for s in scenarios:
@@ -408,6 +606,142 @@ def delete_category(scene_name: str, name: str) -> bool:
 # ---------------------------------------------------------------------------
 # 씬 검색
 # ---------------------------------------------------------------------------
+# 난이도 4축 - 검색 필터가 쓰는 키 목록. aggregate 쪽 DIFF_AXES 와 같은 순서.
+DIFF_KEYS = [k for k, _ in DIFF_AXES]
+
+
+def load_pred_rows(run_dir: Path) -> dict:
+    """실행 CSV -> {uuid: {...}}. 난이도 4축과 근거 텍스트까지 들고 온다.
+
+    EV.load_results 는 채점에 필요한 categories/safety/rarity 만 준다.
+    씬 검색은 난이도로도 거르고 팝업에 근거를 보여줘야 해서 원본 행이
+    통째로 필요하다.
+    """
+    files = sorted(glob.glob(str(run_dir / "clip_results*.csv")))
+    if not files:
+        return {}
+    import csv as _csv
+    out = {}
+    for f in files:
+        with open(f, encoding="utf-8", newline="") as fh:
+            for r in _csv.DictReader(fh):
+                u = (r.get("uuid") or "").strip()
+                if not u or u in out:
+                    continue
+                raw = (r.get("categories") or "").strip()
+                out[u] = {
+                    "uuid": u,
+                    "categories": [c for c in raw.split("|") if c.strip()],
+                    "safety": _as_int(r.get("safety_tier")),
+                    "rarity": _as_int(r.get("rarity_tier")),
+                    "difficulty": {k: _as_int(r.get(k)) for k in DIFF_KEYS},
+                    # 축마다 근거 문장이 따로 있다(<축>_reason). 점수만 보면
+                    # 왜 그렇게 매겼는지 알 수 없어 검토가 안 된다.
+                    "difficulty_reason": {
+                        k: r.get(k + "_reason", "") for k in DIFF_KEYS},
+                    "observation": r.get("observation", ""),
+                    "ego_behavior": r.get("ego_behavior", ""),
+                    "unusual_elements": r.get("unusual_elements", ""),
+                    "safety_reason": r.get("safety_reason", ""),
+                    "rarity_reason": r.get("rarity_reason", ""),
+                    "verdict": r.get("verdict", ""),
+                }
+    return out
+
+
+def _as_int(v):
+    try:
+        return int(float(v))
+    except (TypeError, ValueError):
+        return None
+
+
+def _diff_ok(d: dict, q: dict) -> bool:
+    """난이도 4축 범위 필터.
+
+    조건을 건 축에 값이 없는 클립은 뺀다. 통과시키면 "종합 난이도 3 이상"
+    같은 조건에 값 없는 클립이 전부 딸려 나와(실측 163,084 중 136,060개가
+    난이도 미기록) 필터가 고장난 것처럼 보인다. 조건을 걸지 않은 축은
+    당연히 아무것도 거르지 않으므로, 옛 실행이라고 결과가 0건이 되지는
+    않는다.
+    """
+    for k in DIFF_KEYS:
+        lo, hi = q.get(k + "_min"), q.get(k + "_max")
+        if lo is None and hi is None:
+            continue
+        v = (d or {}).get(k)
+        if v is None:
+            return False
+        if lo is not None and v < int(lo):
+            return False
+        if hi is not None and v > int(hi):
+            return False
+    return True
+
+
+def search_nas_clips(q: dict) -> dict:
+    """NAS 마이닝 실행(unlabeled/)의 예측 자체를 검색한다.
+
+    라벨 검색과 달리 대조할 정답이 없다. 그래서 모델이 낸 카테고리·점수·
+    난이도를 그대로 조건으로 쓴다.
+    """
+    run = (q.get("run") or "").strip()
+    if not run:
+        return {"error": "실행을 선택하세요", "total": 0, "rows": []}
+    d = RESULTS / run
+    if not d.exists():
+        return {"error": f"no such run: {run}", "total": 0, "rows": []}
+    preds = load_pred_rows(d)
+    if not preds:
+        return {"error": f"no clip_results*.csv in {run}", "total": 0, "rows": []}
+
+    uuid_q = (q.get("uuid") or "").strip().lower()
+    text_q = (q.get("text") or "").strip().lower()
+    cats = [c for c in (q.get("categories") or "").split("|") if c]
+    cat_mode = q.get("cat_mode", "any")
+    smin, smax = int(q.get("safety_min", 1)), int(q.get("safety_max", 4))
+    rmin, rmax = int(q.get("rarity_min", 1)), int(q.get("rarity_max", 4))
+    special = q.get("special", "")
+
+    rows = []
+    for u, r in preds.items():
+        if uuid_q and uuid_q not in u.lower():
+            continue
+        pc = set(r["categories"])
+        if cats:
+            hit = set(cats) & pc
+            if cat_mode == "any" and not hit:
+                continue
+            if cat_mode == "all" and not set(cats) <= pc:
+                continue
+            if cat_mode == "none" and hit:
+                continue
+        if special == "special" and not pc:
+            continue
+        if special == "normal" and pc:
+            continue
+        # 점수가 없는 클립(파싱 실패 등)은 범위 조건을 좁혔을 때만 뺀다.
+        if r["safety"] is not None and not (smin <= r["safety"] <= smax):
+            continue
+        if r["rarity"] is not None and not (rmin <= r["rarity"] <= rmax):
+            continue
+        if not _diff_ok(r["difficulty"], q):
+            continue
+        if text_q and text_q not in " ".join([
+                r["observation"], r["ego_behavior"], r["unusual_elements"],
+                r["safety_reason"], r["rarity_reason"]]).lower():
+            continue
+        rows.append(r)
+
+    rows.sort(key=lambda r: (-(r["safety"] or 0), -(r["rarity"] or 0), r["uuid"]))
+    total = len(rows)
+    limit = int(q.get("limit", 500))
+    return {"total": total, "rows": rows[:limit], "run": run,
+            "has_difficulty": any(
+                v is not None for r in list(preds.values())[:50]
+                for v in r["difficulty"].values())}
+
+
 def search_clips(q: dict) -> dict:
     """라벨 기준 검색. uuid / 카테고리 / safety / rarity 필터.
 
@@ -418,11 +752,13 @@ def search_clips(q: dict) -> dict:
     truth, _, _ = EV.load_labels(ROOT / labels_name)
 
     run = q.get("run")
-    pred = {}
+    pred, pred_rows = {}, {}
     if run:
         d = RESULTS / run
         if d.exists():
             pred = EV.load_results(d)
+            # 난이도는 정답 라벨에 없는 값이라 실행 CSV 에서 가져온다.
+            pred_rows = load_pred_rows(d)
 
     uuid_q = (q.get("uuid") or "").strip().lower()
     cats = [c for c in (q.get("categories") or "").split("|") if c]
@@ -432,6 +768,10 @@ def search_clips(q: dict) -> dict:
     special = q.get("special", "")               # "" | special | normal
     note_q = (q.get("note") or "").strip().lower()
     only = q.get("only", "")                     # "" | tp | fp | fn (run 필요)
+    # 난이도 필터는 예측값 기준이다. 실행을 안 골랐으면 적용할 수 없으므로
+    # 조용히 무시한다 - 조건을 걸었는데 전부 탈락하는 것보다 낫다.
+    want_diff = any(q.get(k + "_min") is not None or q.get(k + "_max") is not None
+                    for k in DIFF_KEYS)
 
     rows = []
     for u, t in truth.items():
@@ -457,8 +797,14 @@ def search_clips(q: dict) -> dict:
         if note_q and note_q not in (t.get("note") or "").lower():
             continue
 
+        if want_diff and pred_rows:
+            if not _diff_ok((pred_rows.get(u) or {}).get("difficulty"), q):
+                continue
+
         row = {"uuid": u, "categories": sorted(tc), "safety": t["safety"],
                "rarity": t["rarity"], "note": t.get("note", "")}
+        if u in pred_rows:
+            row["difficulty"] = pred_rows[u]["difficulty"]
         if u in pred:
             pc = pred[u]["categories"]
             row["pred_categories"] = sorted(pc)
@@ -478,7 +824,10 @@ def search_clips(q: dict) -> dict:
     rows.sort(key=lambda r: (-r["safety"], -r["rarity"], r["uuid"]))
     total = len(rows)
     limit = int(q.get("limit", 500))
-    return {"total": total, "rows": rows[:limit], "labels": labels_name}
+    return {"total": total, "rows": rows[:limit], "labels": labels_name,
+            "has_difficulty": any(
+                v is not None for r in list(pred_rows.values())[:50]
+                for v in r["difficulty"].values())}
 
 
 # ---------------------------------------------------------------------------
@@ -487,7 +836,26 @@ def search_clips(q: dict) -> dict:
 # 모델마다 두 갈래 스크립트를 든다.
 #   labeled : 로컬 pav_sample 의 라벨된 클립 -> 추론 + 채점
 #   nas     : NAS 청크 zip 전체         -> 추론만 (대조할 정답이 없다)
-# GUI 의 "로컬 추론&평가" / "NAS Nvidia 추론" 탭이 각각을 고른다.
+# GUI 의 "로컬 샘플 추론&평가" / "NAS 전체 추론" 탭이 각각을 고른다.
+def nas_clip_count():
+    """NAS 청크에 든 고유 클립 수. 모르면 None.
+
+    clip_source 가 만들어 둔 인덱스 캐시만 읽는다 - 여기서 인덱스를 새로
+    만들면 GUI 부팅이 몇 분씩 멈춘다. 캐시가 없으면 화면에서 숫자를 빼고
+    "전체"라고만 쓴다.
+    """
+    try:
+        from clip_source import NAS_CAMERA_DIR
+        cache = Path(NAS_CAMERA_DIR) / ".clip_index.json"
+        if not cache.exists():
+            return None
+        blob = json.loads(cache.read_text())
+        idx = blob.get("index") if isinstance(blob, dict) else blob
+        return len(idx) if idx else None
+    except (OSError, ValueError, ImportError):
+        return None
+
+
 MODELS = {
     "Qwen/Qwen3-VL-8B-Instruct": {
         "script": "run_labeled_8b.sh", "nas_script": "run_nas_nvidia_8b.sh",
@@ -524,7 +892,20 @@ def job_env() -> dict:
     return env
 
 
-def build_command(opts: dict) -> list[str]:
+# 단일 클립 조회로 만든 uuid 목록을 두는 곳. run 폴더가 생기기 전에 써야
+# 하므로(스크립트가 만든다) gui/ 아래에 job id 로 남긴다.
+SINGLE_DIR = GUI_DIR / "single"
+
+
+def write_uuid_file(uuid: str, jid: str) -> Path:
+    """--only-uuids 에 넘길 한 줄짜리 파일을 만든다."""
+    SINGLE_DIR.mkdir(parents=True, exist_ok=True)
+    p = SINGLE_DIR / f"{jid}.txt"
+    p.write_text(uuid.strip() + "\n", encoding="utf-8")
+    return p
+
+
+def build_command(opts: dict, jid: str = "adhoc") -> list[str]:
     model = opts.get("model", "Qwen/Qwen3-VL-8B-Instruct")
     spec = MODELS.get(model)
     if spec is None:
@@ -535,10 +916,19 @@ def build_command(opts: dict) -> list[str]:
     script = spec["nas_script"] if nas else spec["script"]
     cmd = ["bash", script]
 
+    # 단일 클립 조회: uuid 하나만 돌려 시각화를 바로 본다.
+    # 샤드를 8개로 두면 7개는 할 일이 없는데도 모델을 올리느라 GPU 를 물고
+    # 몇 분을 버린다 - 1개로 못박는다. 시각화는 이 기능의 목적이므로 강제.
+    single = (opts.get("single_uuid") or "").strip()
+
     is27 = "27b" in script
     if is27:
         if opts.get("gpus"):
-            cmd += ["--gpus", str(opts["gpus"])]
+            cmd += ["--gpus", "1" if single else str(opts["gpus"])]
+        elif single:
+            cmd += ["--gpus", "1"]
+    elif single:
+        cmd += ["--num-shards", "1"]
     elif opts.get("shards"):
         cmd += ["--num-shards", str(opts["shards"])]
     # 네 스크립트 모두 --model 을 받는다. 안 넘기면 8B 기본값으로 조용히
@@ -550,7 +940,7 @@ def build_command(opts: dict) -> list[str]:
         cmd += ["--labels", str(ROOT / opts["labels"])]
     # 반대로 --limit-clips 는 마이닝 전용 - 라벨 클립은 uuid 로 흩어져 있어
     # 앞에서 N개를 자를 수 없다.
-    if nas and opts.get("limit_clips"):
+    if nas and opts.get("limit_clips") and not single:
         cmd += ["--limit-clips", str(opts["limit_clips"])]
     if opts.get("scene_json"):
         cmd += ["--scene-json", str(ROOT / opts["scene_json"])]
@@ -562,7 +952,9 @@ def build_command(opts: dict) -> list[str]:
     # nas_* 는 on(--no-viz 로 끔). 켤 때는 --viz-normal/--viz-special 로
     # 어느 쪽이든 명시적으로 켜지고, 끌 때는 nas_* 에만 --no-viz 가 필요하다.
     # 세 갈래다: 전부 생성 / 카테고리별 N개만 / 생성 안 함.
-    if opts.get("viz_per_category"):
+    if single:
+        cmd += ["--viz-normal", "--viz-special"]
+    elif opts.get("viz_per_category"):
         cmd += ["--viz-per-category", str(opts["viz_per_category"])]
     elif opts.get("viz"):
         cmd += ["--viz-normal", "--viz-special"]
@@ -575,7 +967,7 @@ def build_command(opts: dict) -> list[str]:
         cmd += ["--no-safety-tier"]
     if opts.get("no_rarity_tier"):
         cmd += ["--no-rarity-tier"]
-    # 난이도 5축은 등급과 별개 축이라 기본 off - 켤 때만 넘긴다.
+    # 난이도 4축은 등급과 별개 축이라 기본 off - 켤 때만 넘긴다.
     if opts.get("difficulty"):
         cmd += ["--difficulty"]
     # 프레임 소스. 스크립트마다 기본값이 다르므로(labeled=local, nas=nas)
@@ -585,12 +977,15 @@ def build_command(opts: dict) -> list[str]:
         cmd += ["--data", data]
     if opts.get("memo"):
         cmd += ["--memo", opts["memo"]]
+    # 맨 뒤에 붙인다 - run.log 한 줄에서 "어느 클립이었나" 가 눈에 띄게.
+    if single:
+        cmd += ["--only-uuids", str(write_uuid_file(single, jid))]
     return cmd
 
 
 def start_job(opts: dict) -> dict:
-    cmd = build_command(opts)
     jid = datetime.now().strftime("%Y%m%d_%H%M%S")
+    cmd = build_command(opts, jid)
     log_path = ROOT / "gui" / "jobs" / f"{jid}.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     fh = open(log_path, "w", encoding="utf-8")
@@ -600,7 +995,9 @@ def start_job(opts: dict) -> dict:
                             stderr=subprocess.STDOUT, env=job_env(),
                             start_new_session=True)
     job = {"id": jid, "cmd": cmd, "pid": proc.pid, "log": str(log_path),
-           "started": time.time(), "status": "running", "opts": opts}
+           "started": time.time(), "status": "running", "opts": opts,
+           # 단일 클립 조회면 프런트가 끝난 뒤 이 uuid 로 시각화를 찾는다.
+           "single_uuid": (opts.get("single_uuid") or "").strip() or None}
     with JOBS_LOCK:
         JOBS[jid] = dict(job, _proc=proc)
     return job
@@ -630,7 +1027,14 @@ def job_view(j: dict) -> dict:
         # 이 작업이 만든 결과 폴더를 찾아 링크해준다
         mm = re.search(r"run dir\s*:\s*(\S+)", txt)
         if mm:
-            out["run_dir"] = Path(mm.group(1)).name
+            # 로그의 "results/labeld/<ts>_eval" 에서 RESULTS 아래 상대경로를
+            # 그대로 남긴다. .name 만 쓰면 labeld/ 가 떨어져 나가 프런트가
+            # RESULTS/<이름> 으로 찾을 때 없는 경로가 된다.
+            rd = Path(mm.group(1))
+            try:
+                out["run_dir"] = rd.resolve().relative_to(RESULTS.resolve()).as_posix()
+            except ValueError:
+                out["run_dir"] = rd.name
     except OSError:
         out["tail"] = []
     return out
@@ -775,14 +1179,30 @@ class Handler(BaseHTTPRequestHandler):
                 "default_labels": Path(config.LABELS_JSON).name,
                 "default_scene": Path(config.SCENE_JSON).name,
                 "models": [{"id": k, **v} for k, v in MODELS.items()],
+                "nas_clips": nas_clip_count(),
                 "runs": [{
-                    "name": d.name,
+                    "name": rel_run_name(d),
+                    "kind": run_kind(rel_run_name(d)),
                     "mtime": d.stat().st_mtime,
                     "has_results": bool(glob.glob(str(d / "clip_results*.csv"))),
                     "memo": run_config_of(d).get("key", {}).get("memo", ""),
                     "model": run_config_of(d).get("key", {}).get("model", ""),
                 } for d in run_dirs()],
             })
+
+        if p == "/api/aggregate":
+            d = RESULTS / q.get("name", "")
+            if not d.exists():
+                return self._err("no such run", 404)
+            return self._json(aggregate_run(d))
+
+        if p == "/api/aggregate_log":
+            d = RESULTS / q.get("name", "")
+            lp = d / "aggregate_clip.log"
+            if not lp.exists():
+                return self._err("no aggregate_clip.log", 404)
+            return self._json({"text": lp.read_text(encoding="utf-8",
+                                                    errors="replace")})
 
         if p == "/api/run":
             d = RESULTS / q.get("name", "")
@@ -802,6 +1222,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if p == "/api/search":
             return self._json(search_clips(q))
+
+        if p == "/api/nas_search":
+            return self._json(search_nas_clips(q))
 
         if p == "/api/taxonomy":
             name = q.get("scene") or Path(config.SCENE_JSON).name
@@ -859,8 +1282,8 @@ class Handler(BaseHTTPRequestHandler):
             if b.get("delete"):
                 return self._json({"deleted": delete_category(scene, b["name"])})
             cat = {"name": (b.get("name") or "").strip(),
-                   "synonyms": b.get("synonyms", []),
-                   "templates": b.get("templates", [])}
+                   "templates": b.get("templates", []),
+                   "template_candidates": b.get("template_candidates", [])}
             if not cat["name"]:
                 return self._err("카테고리 이름이 비었습니다")
             return self._json({"saved": upsert_category(

@@ -53,7 +53,10 @@ def scene_json_for_run(run_dir):
 
 
 def latest_run_dir():
-    candidates = sorted((ROOT / "results").glob("[0-9]" * 8 + "_" + "[0-9]" * 6))
+    # results/labeld/<ts>, results/unlabeled/<ts> 처럼 한 겹 아래도 본다.
+    stamp = "[0-9]" * 8 + "_" + "[0-9]" * 6
+    candidates = sorted((ROOT / "results").glob(stamp)
+                        + list((ROOT / "results").glob("*/" + stamp)))
     return candidates[-1] if candidates else None
 
 

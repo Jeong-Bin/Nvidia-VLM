@@ -13,6 +13,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import struct
 import time
 import zipfile
@@ -23,6 +24,12 @@ CHUNK_GLOB = "*.chunk_*.zip"
 NAS_CAMERA_DIR = "/mnt/nas/NVIDIA_DATASET/20260901/camera"
 BUILD_WAIT_S = 900      # 남이 만드는 인덱스를 기다릴 최대 시간
 STALE_LOCK_S = 1800     # 이보다 오래된 락은 죽은 프로세스의 것으로 본다
+
+
+def _chunk_no(path) -> int:
+    """파일명에서 청크 번호를 뽑는다. 못 읽으면 -1(맨 앞으로)."""
+    m = re.search(r"chunk_(\d+)", Path(path).name)
+    return int(m.group(1)) if m else -1
 
 
 class _ZipSlice(io.RawIOBase):
@@ -102,6 +109,10 @@ class LocalSource:
         d = self.camera_dir / view
         return sorted(p.name.split(".")[0] for p in d.glob("*.mp4"))
 
+    def locate_uuid(self, view: str, uuid: str) -> bool:
+        """uuid 하나가 있는지만 본다. 로컬은 stat 한 번이라 exists 와 같다."""
+        return self.exists(view, uuid)
+
 
 class ZipSource:
     """NAS 처럼 청크 zip 안에 mp4 가 들어 있는 경우.
@@ -150,9 +161,19 @@ class ZipSource:
         for view_dir in sorted(self.camera_dir.iterdir()):
             if not view_dir.is_dir():
                 continue
-            for zp in sorted(view_dir.glob(CHUNK_GLOB)):
-                jobs.append((view_dir.name, zp))
+            # 청크 번호 오름차순. 파일명 정렬로도 같은 순서가 나오지만,
+            # 자리수가 다른 이름이 섞이면 어긋난다 - 중복 해소가 이 순서에
+            # 달려 있으므로(아래 idx 주석) 숫자로 못박는다.
+            jobs += [(view_dir.name, zp)
+                     for zp in sorted(view_dir.glob(CHUNK_GLOB),
+                                      key=_chunk_no)]
 
+        # uuid -> 위치. 같은 uuid 가 여러 청크에 들어 있는 경우가 있어
+        # (원본 저장소에 1,180건의 중복 사본이 있다 - 바이트 단위로 동일)
+        # 뒤에 스캔한 것이 앞을 덮어쓴다. 청크 번호 오름차순으로 훑으므로
+        # 항상 "가장 높은 번호"가 남고, 이는 clip_index.parquet 이 정본으로
+        # 지정한 쪽과 일치한다(1,180건 전부 확인). 덕분에 추론 대상 목록에
+        # 같은 클립이 두 번 들어가지 않는다.
         idx = {}
         if not jobs:
             return idx
@@ -277,6 +298,46 @@ class ZipSource:
     def uuids(self, view: str):
         pre = f"{view}/"
         return sorted(k[len(pre):] for k in self.index if k.startswith(pre))
+
+    def locate_uuid(self, view: str, uuid: str) -> bool:
+        """uuid 하나를 인덱스 없이 찾아 _idx 에 심는다 (찾으면 True).
+
+        단일 클립 조회 때문에 전체 인덱스(3145 zip, ~1시간)를 만들 수는 없다.
+        uuid 를 이미 아는 경우엔 zip 을 하나씩 열어 중앙 디렉터리만 보고
+        찾는 즉시 멈추면 된다 - 평균 절반만 보므로 실측 30초 안쪽이고,
+        캐시가 이미 유효하면 그것부터 쓰므로 즉시 끝난다.
+
+        찾은 항목만 self._idx 에 넣어 두면 open_video/size_of 가 그대로
+        동작한다. 전체 인덱스인 척하지 않는 게 중요하다 - uuids() 는
+        여전히 index 프로퍼티를 타서 정상적으로 전체를 만든다.
+        """
+        key = f"{view}/{uuid}"
+        if self._idx is not None and key in self._idx:
+            return True
+
+        # 유효한 캐시가 있으면 그게 가장 빠르다.
+        try:
+            if self.cache.exists():
+                blob = json.loads(self.cache.read_text())
+                if (isinstance(blob, dict)
+                        and blob.get("fingerprint") == self._fingerprint()
+                        and key in blob.get("index", {})):
+                    self._idx = blob["index"]
+                    return True
+        except (json.JSONDecodeError, OSError):
+            pass
+
+        vd = self.camera_dir / view
+        if not vd.is_dir():
+            return False
+        for zp in sorted(vd.glob(CHUNK_GLOB)):
+            for k, v in self._scan_one((view, zp)):
+                if k == key:
+                    if self._idx is None:
+                        self._idx = {}
+                    self._idx[k] = v
+                    return True
+        return False
 
 
 def make_source(spec: str | None = None, *, root: Path | None = None):

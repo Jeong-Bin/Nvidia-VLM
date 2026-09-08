@@ -48,7 +48,7 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --no-safety-tier         Safety Criticality(4단계)만 프롬프트에서 끈다 [SAFETY_TIER=0]
   --no-rarity-tier         Rarity(5단계)만 프롬프트에서 끈다             [RARITY_TIER=0]
   --no-score-tiers         위 둘을 한꺼번에 끄는 별칭                    [SCORE_TIERS=0]
-  --difficulty             주행 난이도 5축을 0~4 로 함께 매긴다         [DIFFICULTY=1]
+  --difficulty             주행 난이도 4축을 0~4 로 함께 매긴다         [DIFFICULTY=1]
   --viz-per-category N     카테고리마다 최초 N개 클립만 시각화           [VIZ_PER_CAT]
   --clip-fps F              초당 몇 장 뽑을지 (기본 edge_case_mining.py) [CLIP_FPS]
   --clip-max-frames N       클립당 최대 프레임                          [CLIP_MAX_FRAMES]
@@ -59,7 +59,7 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   -h, --help                이 도움말
 
 Examples:
-  bash run_labeled_27b.sh --difficulty           # 난이도 5축도 함께
+  bash run_labeled_27b.sh --difficulty           # 난이도 4축도 함께
   bash run_nas_nvidia_27b.sh --gpus 0,1,2,3           # 여유있게 4장에 나눠 올림
   bash run_labeled_27b.sh --use-egomotion        # 라벨 클립 평가
   bash run_labeled_27b.sh --eval-only results/20260824_..._video27b_eval
@@ -99,6 +99,8 @@ while [ $# -gt 0 ]; do
     --memo)                    shift; MEMO="${1:-}" ;;
     --labels=*)                LABELS="${1#*=}" ;;
     --labels)                  shift; LABELS="${1:-}" ;;
+    --only-uuids=*)      ONLY_UUIDS="${1#*=}" ;;
+    --only-uuids)        shift; ONLY_UUIDS="${1:-}" ;;
     --eval-only=*)              EVAL_ONLY="${1#*=}" ;;
     --eval-only)                 shift; EVAL_ONLY="${1:-}" ;;
     -h|--help)               usage; exit 0 ;;
@@ -141,7 +143,7 @@ if [ -n "${EVAL_ONLY:-}" ]; then
 fi
 
 RUN_TS="$(date +%Y%m%d_%H%M%S)"
-RUN_DIR="results/${RUN_TS}_labeled27b"
+RUN_DIR="results/labeld/${RUN_TS}_labeled27b"
 mkdir -p "$RUN_DIR"
 
 OPTS="--clip-mode --single-view --num-shards 1 --shard-id 0 --model $MODEL"
@@ -174,7 +176,12 @@ if [ "${EVAL_MODE:-0}" = "1" ]; then
   LABELS="${LABELS:-$("$PYBIN" -c 'import config; print(config.LABELS_JSON)')}"
   [ -f "$LABELS" ] || { echo "[error] labels not found: $LABELS" >&2; exit 2; }
 
-  UUID_FILE="${RUN_DIR}/eval_uuids.txt"
+  # GUI 단일 클립 조회는 uuid 파일을 직접 넘긴다 - 그때는 라벨 전체를 뽑지 않는다.
+if [ -n "${ONLY_UUIDS:-}" ]; then
+  UUID_FILE="$ONLY_UUIDS"
+  echo "[info] --only-uuids: $UUID_FILE ($(wc -l < "$UUID_FILE") uuid)"
+else
+UUID_FILE="${RUN_DIR}/eval_uuids.txt"
   "$PYBIN" - "$LABELS" "$UUID_FILE" <<'PY'
 import json, sys
 labels = json.load(open(sys.argv[1], encoding="utf-8"))
@@ -184,6 +191,7 @@ with open(sys.argv[2], "w", encoding="utf-8") as f:
         f.write(u + "\n")
 print(f"[info] {len(clips)} labelled uuids -> {sys.argv[2]}")
 PY
+fi
   TOTAL_CLIPS="$(wc -l < "$UUID_FILE")"
   OPTS="$OPTS --only-uuids $UUID_FILE"
   if [ "${VIZ_NORMAL:-0}" = "1" ] || [ "${VIZ_SPECIAL:-0}" = "1" ] \
