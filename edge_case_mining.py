@@ -792,6 +792,10 @@ the CURRENT moment. Each group of three is synchronized camera views
 {contrasts}
    So "there is an animal" or "there is a pedestrian" tells you nothing on its
    own - look at what it is doing relative to the ego-vehicle's path.
+   These ratings are INDEPENDENT of weather, lighting, or road/atmospheric
+   conditions - rain, nighttime, fog, or a wet road do not by themselves raise
+   either rating. Rate what actually happened in the scene, not how hard the
+   conditions were to drive in.
 """]
         if safety_tiers:
             parts.append(f"""{step_no}. Safety Criticality: how close this came to needing emergency action.
@@ -934,9 +938,10 @@ def _flatten_field(v) -> str:
 def _coerce_difficulty(v) -> int | None:
     """난이도 값을 0~4 정수로 만든다. 못 읽으면 None.
 
-    _coerce_tier 와 따로 두는 이유는 눈금이 다르기 때문이다 - 등급은 1~4,
-    난이도는 0~4 다. 0 을 흡수하지 못하면 "조건이 전혀 나쁘지 않다" 는
-    가장 흔한 답이 통째로 미기록으로 떨어진다.
+    _coerce_tier 와 따로 두는 이유는 폴백 대상이 다르기 때문이다 - 난이도는
+    constrained decoding 대상이 아니라서 "Low"/"Moderate" 같은 문자열
+    라벨로 나올 일이 없고, 숫자만 뽑으면 된다. 0 을 흡수하지 못하면
+    "조건이 전혀 나쁘지 않다" 는 가장 흔한 답이 통째로 미기록으로 떨어진다.
 
     난이도 필드는 constrained decoding 대상이 아니라(제약기가 TIER_VALUES
     에 묶여 있다) 여기 오는 값이 "2 (moderate)" 나 "2/4" 처럼 지저분할 수
@@ -957,11 +962,11 @@ def _coerce_difficulty(v) -> int | None:
 
 
 def _coerce_tier(v) -> int | None:
-    """모델이 낸 등급 값을 1/2/3 정수로 만든다. 못 읽으면 None.
+    """모델이 낸 등급 값을 TIER_VALUES(0~4) 정수로 만든다. 못 읽으면 None.
 
-    constrained decoding 을 켜면 여기 오는 값은 이미 1/2/3 이다. 다만
-    제약을 끈 실행이나 예전 형식("Low"/"Moderate"/"High" 문자열)도 있어서
-    문자열 폴백을 남긴다.
+    constrained decoding 을 켜면 여기 오는 값은 이미 TIER_VALUES 안에 있다.
+    다만 제약을 끈 실행이나 예전 형식("Low"/"Moderate"/"High" 문자열)도
+    있어서 문자열 폴백을 남긴다.
     """
     if isinstance(v, bool):          # True/False 가 int 로 새는 것 방지
         return None
@@ -973,9 +978,10 @@ def _coerce_tier(v) -> int | None:
         if not t:
             return None
         # "2", "2 (Moderate)", "Moderate" 모두 흡수
-        m = re.match(r"\s*([1-3])\b", t)
+        m = re.match(r"\s*(\d+)\b", t)
         if m:
-            return int(m.group(1))
+            n = int(m.group(1))
+            return n if n in TIER_LABELS else None
         label = _extract_tier(t)
         for k, name in TIER_LABELS.items():
             if name == label:

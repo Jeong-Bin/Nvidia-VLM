@@ -9,8 +9,8 @@
     "00ce9071-ecee-45f8-acc9-9267a7814af7": {
       "categories": [],
       "influenced_ego": false,
-      "safety_criticality": 1,
-      "rarity": 1,
+      "safety_criticality": 0,
+      "rarity": 0,
       "weather": [],
       "is_night": false,
       "difficulty": {
@@ -24,8 +24,8 @@
     "1ab5a557-0374-4db3-99ae-dc28595f7520": {
       "categories": [],
       "influenced_ego": false,
-      "safety_criticality": 1,
-      "rarity": 1,
+      "safety_criticality": 0,
+      "rarity": 0,
       "weather": [],
       "is_night": false,
       "difficulty": {

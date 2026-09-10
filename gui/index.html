@@ -261,13 +261,13 @@ video{width:100%;background:#000;border-radius:6px}
     </div>
     <div class="row" style="margin-top:10px">
       <label class="rng">Safety
-        <input type="number" id="s-smin" value="1" min="1" max="4">
+        <input type="number" id="s-smin" value="0" min="0" max="4">
         <span class="muted">~</span>
-        <input type="number" id="s-smax" value="4" min="1" max="4"></label>
+        <input type="number" id="s-smax" value="4" min="0" max="4"></label>
       <label class="rng">Rarity
-        <input type="number" id="s-rmin" value="1" min="1" max="4">
+        <input type="number" id="s-rmin" value="0" min="0" max="4">
         <span class="muted">~</span>
-        <input type="number" id="s-rmax" value="4" min="1" max="4"></label>
+        <input type="number" id="s-rmax" value="4" min="0" max="4"></label>
     </div>
     <div class="row" style="margin-top:10px" id="s-diffrow"
          title="난이도는 정답 라벨에 없는 값이라 선택한 실행의 예측에서 가져옵니다"></div>
@@ -310,8 +310,8 @@ video{width:100%;background:#000;border-radius:6px}
     <div class="panel">
       <h2>라벨 값</h2>
       <div class="row" style="margin-bottom:10px">
-        <label>Safety(1-4)<input type="number" id="l-safety" min="1" max="4" value="1" size="2"></label>
-        <label>Rarity(1-4)<input type="number" id="l-rarity" min="1" max="4" value="1" size="2"></label>
+        <label>Safety(0-4)<input type="number" id="l-safety" min="0" max="4" value="0" size="2"></label>
+        <label>Rarity(0-4)<input type="number" id="l-rarity" min="0" max="4" value="0" size="2"></label>
         <label>자차 영향<select id="l-infl">
           <option value="false">false</option><option value="true">true</option></select></label>
         <label>야간<select id="l-night">
@@ -454,13 +454,13 @@ video{width:100%;background:#000;border-radius:6px}
     </div>
     <div class="row" style="margin-top:10px">
       <label class="rng">Safety
-        <input type="number" id="ns-smin" value="1" min="1" max="4">
+        <input type="number" id="ns-smin" value="0" min="0" max="4">
         <span class="muted">~</span>
-        <input type="number" id="ns-smax" value="4" min="1" max="4"></label>
+        <input type="number" id="ns-smax" value="4" min="0" max="4"></label>
       <label class="rng">Rarity
-        <input type="number" id="ns-rmin" value="1" min="1" max="4">
+        <input type="number" id="ns-rmin" value="0" min="0" max="4">
         <span class="muted">~</span>
-        <input type="number" id="ns-rmax" value="4" min="1" max="4"></label>
+        <input type="number" id="ns-rmax" value="4" min="0" max="4"></label>
     </div>
     <div class="row" style="margin-top:10px" id="ns-diffrow"></div>
     <div class="row" style="margin-top:10px;align-items:flex-start">
@@ -860,8 +860,8 @@ $('#s-go').onclick = async () => {
 };
 $('#s-clear').onclick = () => {
   $('#s-uuid').value = ''; $('#s-note').value = '';
-  $('#s-smin').value = 1; $('#s-smax').value = 4;
-  $('#s-rmin').value = 1; $('#s-rmax').value = 4;
+  $('#s-smin').value = 0; $('#s-smax').value = 4;
+  $('#s-rmin').value = 0; $('#s-rmax').value = 4;
   $('#s-special').value = ''; $('#s-only').value = '';
   clearDiff('s');
   $$('#s-cats .pill').forEach(p => p.classList.remove('on'));
@@ -886,8 +886,8 @@ $('#l-load').onclick = async () => {
     const d = await api(`/api/clip?uuid=${u}&labels=${encodeURIComponent($('#l-file').value)}`);
     const t = d.truth;
     $('#l-status').textContent = t ? '기존 라벨을 불러왔습니다' : '새 라벨입니다(저장 시 추가)';
-    $('#l-safety').value = t?.safety ?? 1;
-    $('#l-rarity').value = t?.rarity ?? 1;
+    $('#l-safety').value = t?.safety ?? 0;
+    $('#l-rarity').value = t?.rarity ?? 0;
     $('#l-note').value = t?.note ?? '';
     $$('#l-cats .pill').forEach(p =>
       p.classList.toggle('on', (t?.categories || []).includes(p.dataset.cat)));
@@ -1213,7 +1213,7 @@ function sgPreview() {
    aggregate_clip.log 와 같은 항목을 보여주되, 수치는 CSV 에서 다시 계산한
    /api/aggregate 를 쓴다. 고정폭 텍스트를 파싱하면 서식이 조금만 바뀌어도
    깨지기 때문이다. */
-const SCORE_LABEL = { 1: 'Low', 2: 'Moderate', 3: 'High', 4: 'Extreme' };
+const SCORE_LABEL = { 0: 'None', 1: 'Low', 2: 'Moderate', 3: 'High', 4: 'Extreme' };
 
 /* 카테고리 빈도 표 - 시나리오/카테고리/개수를 기준으로 정렬한다.
    시나리오는 같은 값이 여러 줄이라 그것만으로는 순서가 정해지지 않는다.
@@ -1571,8 +1571,8 @@ $('#ns-go').onclick = nasSearch;
 $('#ns-clear').onclick = () => {
   ['#ns-uuid', '#ns-text'].forEach(x => $(x).value = '');
   $('#ns-special').value = ''; $('#ns-catmode').value = 'any';
-  $('#ns-smin').value = 1; $('#ns-smax').value = 4;
-  $('#ns-rmin').value = 1; $('#ns-rmax').value = 4;
+  $('#ns-smin').value = 0; $('#ns-smax').value = 4;
+  $('#ns-rmin').value = 0; $('#ns-rmax').value = 4;
   clearDiff('ns');
   $$('#ns-cats .pill').forEach(p => p.classList.remove('on'));
   $('#ns-rows').innerHTML = ''; $('#ns-count').textContent = '';

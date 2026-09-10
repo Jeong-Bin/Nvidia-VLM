@@ -127,8 +127,8 @@ def dist_block(log, title, values, total, scale, labels=None,
                note=""):
     """점수 한 축의 분포 - 값별 개수/비율과 평균/분산/중앙값.
 
-    safety/rarity(1~4)와 주행 난이도 4축(0~4)이 같이 쓴다. 눈금이 다르므로
-    scale 로 받고, 라벨이 있는 축(Low/Moderate/...)만 labels 를 준다.
+    safety/rarity(0~4)와 주행 난이도 4축(0~4)이 같이 쓴다. 눈금이 같아졌지만
+    여전히 scale 로 받고, 라벨이 있는 축(None/Low/Moderate/...)만 labels 를 준다.
 
     라벨이 없는 데이터에서는 정답과 대조할 수 없으므로(evaluate_labels.py 의
     MAE/혼동행렬을 못 쓴다) 모델 출력 자체의 분포만 본다. 그래도 쓸모가

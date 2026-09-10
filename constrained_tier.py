@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""JSON 출력에서 등급 필드를 정수 1/2/3 으로만 나오게 강제한다.
+"""JSON 출력에서 등급 필드를 정수 0~4 로만 나오게 강제한다.
 
 배경 - 왜 이게 필요한가:
   프롬프트로 'Low, Moderate, High 중 하나만 써라'라고 지시해도 모델이
@@ -20,7 +20,7 @@
 
 동작 방식:
   생성된 토큰열 끝이 `"safety_tier":` 같은 마커와 일치하면, 그 다음부터
-  숫자가 나올 때까지 공백만 허용하고 숫자 자리에서는 {1,2,3} 으로 막는다.
+  숫자가 나올 때까지 공백만 허용하고 숫자 자리에서는 TIER_VALUES(0~4) 로 막는다.
   모델이 JSON 을 `"x": 1` 로 쓸지 `"x":1` 로 쓸지 미리 알 수 없으므로
   공백 허용 단계를 반드시 둬야 한다(실측: ': 1' 은 ['Ġ','1'] 2토큰,
   ':1' 은 ['1'] 1토큰).
@@ -41,8 +41,13 @@ from functools import lru_cache
 # 모델이 3 을 "최악"으로 취급해 아끼고 2 로 몰린다(실측 20260813: 정답 3인
 # 20건 중 18건을 2로 예측). 위에 더 극단적인 칸을 두면 3 이 "최악"이 아니라
 # "심각한 편"이 되어 쓰기 쉬워진다. 4 를 실제로 찾는 것은 목표가 아니다.
-TIER_LABELS = {1: "Low", 2: "Moderate", 3: "High", 4: "Extreme"}
-TIER_VALUES = tuple(sorted(TIER_LABELS))          # (1, 2, 3, 4)
+#
+# 0 은 "위협 요소가 아예 없다/전혀 특이하지 않다"를 1(Low)과 분리하기 위해
+# 추가했다 - 1 은 "요소는 있지만 쉽게 처리됨"이고 0 은 "그런 요소 자체가
+# 없음"이라 서로 다른 사실을 가리킨다. 이 둘을 합쳐두면 정상 주행 클립과
+# 경미한 요소가 있는 클립이 같은 칸에 몰려 변별력이 없어진다.
+TIER_LABELS = {0: "None", 1: "Low", 2: "Moderate", 3: "High", 4: "Extreme"}
+TIER_VALUES = tuple(sorted(TIER_LABELS))          # (0, 1, 2, 3, 4)
 
 # 강제 대상 필드. JSON 키 이름 그대로 쓴다.
 TIER_FIELDS = ("safety_tier", "rarity_tier")
@@ -54,7 +59,7 @@ MAX_GAP_TOKENS = 3
 
 
 def tier_label(value) -> str:
-    """1/2/3 -> "Low"/"Moderate"/"High". 알 수 없으면 "Unknown"."""
+    """0/1/2/3/4 -> "None"/"Low"/"Moderate"/"High"/"Extreme". 알 수 없으면 "Unknown"."""
     try:
         return TIER_LABELS[int(value)]
     except (TypeError, ValueError, KeyError):
@@ -81,11 +86,19 @@ def tier_menu() -> str:
 # 참이라 변별력이 없다. 그래서 형용사 대신 관찰 가능한 기준으로 다시 쓴다:
 #   safety -> 자차가 실제로 무엇을 했는가 (조정 없음 / 여유 있는 조정 / 급한 회피)
 #   rarity -> 1000개 클립 중 몇 개에 나오는가 (구체적 척도를 줘야 3이 쓰인다)
+#
+# safety/rarity 는 난이도(illumination/precipitation/road_surface/
+# atmospheric_obscurants)와 독립이다 - 비가 오거나 야간이라는 사실 자체는
+# 등급을 올리는 근거가 아니다. 실제로 자차가 무엇을 했는지, 그 요소가 얼마나
+# 드문지가 기준이다. 이 지시는 프롬프트 본문에도 명시한다
+# (build_nureasoning_prompt 의 steps45 조립부 참고).
 SAFETY_RUBRIC = {
-    1: "The ego-vehicle could keep driving normally. Whatever was there "
-       "stayed clear of its path, or was far enough away to ignore.",
-    2: "The ego-vehicle had to give way - slow, yield, wait, or steer around "
-       "something - but with plenty of time and space to do it.",
+    0: "It is a scene of peaceful driving, with no elements on the road that threaten safety.",
+    1: "There are factors that could affect the ego-vehicle's driving, but it can handle the situation with "
+       "relative ease—without needing to change lanes or decelerate—or the objects are completely clear of "
+       "the ego-vehicle's driving path.",
+    2: "The ego-vehicle had to give way - slow, yield, wait, or steer around something "
+       "- but with plenty of time and space to do it.",
     3: "The ego-vehicle had to act urgently, or a small mistake by anyone "
        "would have caused a collision: hard braking, evasive steering, or "
        "something entering its path at close range.",
@@ -95,19 +108,21 @@ SAFETY_RUBRIC = {
 }
 
 RARITY_RUBRIC = {
-    1: "It is a monotonous scene typical of everyday driving.",
-    2: "Not on every drive, but these are situations you might frequently "
-       "encounter—such as roadwork that has minimal impact on the roadway, "
-       "pedestrians hurriedly crossing the street, traffic controllers directing "
-       "traffic, driving onto an unpaved surface or other.",
-    3: "While not everyday occurrences, these are critical edge cases "
-       "that autonomous vehicles must not overlook: wild animals, "
-       "unpredictable movements of pedestrians or vehicles, "
-       "lane configuration changes due to construction, "
-       "and complex traffic conditions arising from various situations.",
-    4: "This is a highly rare situation that would never be encountered "
-       "on ordinary roads—such as objects a car has likely never seen before "
-       "or highly unusual road conditions.",
+    0: "It is a monotonous scene typical of everyday driving.",
+    1: "These are elements you can frequently see while driving. "
+       "For example, pedestrians or cyclists crossing a crosswalk, or traffic cones guiding the lanes.",
+    2: "These are elements or situations occasionally encountered while driving. "
+       "For example, jaywalkers crossing outside of crosswalks, "
+       "cyclists in dangerously close proximity to the ego-vehicle "
+       "or lanes completely altered due to construction.",
+    3: "These are critical edge cases that autonomous vehicles must not overlook. "
+       "It can happen on the road on very rare occasions. "
+       "For example, a person wearing a mascot costume, wildlife crossing the road, "
+       "a fallen tree blocking the road, traffic accidents and fire, or a road completely submerged by the flood.",
+    4: "This is a rare situation—the kind one might not see even once in a lifetime. "
+       "For example, a plane making an emergency landing on the road, "
+       "a road destroyed by a natural disaster, "
+       "or the very moment a major traffic accident occurs.",
 }
 
 # 등급은 "무엇이 있는가"가 아니라 "그것이 무엇을 하는가"로 갈린다.
@@ -151,7 +166,7 @@ def rarity_rubric_text() -> str:
     return _fmt_rubric(RARITY_RUBRIC)
 
 
-# 시각화 폴더를 나누는 점수 = safety + rarity. 둘 다 1~4 이므로 2~8.
+# 시각화 폴더를 나누는 점수 = safety + rarity. 둘 다 0~4 이므로 0~8.
 # 이건 nuReasoning 의 1~10 난이도 점수와 다르다 - 그건 "얼마나 가치 있는
 # 롱테일인가"를 모델이 직접 매기게 한 것이고(우리는 폐기했다), 이건 이미
 # 받아둔 두 등급을 검수 편의를 위해 더한 것뿐이다. 모델에게 묻지 않는다.

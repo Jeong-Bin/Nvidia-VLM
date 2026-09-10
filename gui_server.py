@@ -41,6 +41,7 @@ from pathlib import Path
 
 import config
 import evaluate_labels as EV
+from constrained_tier import TIER_VALUES
 
 ROOT = Path(__file__).resolve().parent
 RESULTS = ROOT / "results"
@@ -236,8 +237,9 @@ def aggregate_run(run_dir: Path) -> dict:
         allv = [v for v in (as_int(r.get(key)) for r in rows) if v is not None]
         edgev = [v for v, cats in ((as_int(r.get(key)), c)
                                    for r, c in zip(rows, cat_of)) if v is not None and cats]
-        tiers[key.replace("_tier", "")] = {"all": _dist(allv, 1, 4),
-                                           "edge": _dist(edgev, 1, 4)}
+        tiers[key.replace("_tier", "")] = {
+            "all": _dist(allv, min(TIER_VALUES), max(TIER_VALUES)),
+            "edge": _dist(edgev, min(TIER_VALUES), max(TIER_VALUES))}
 
     diff = []
     for key, label in DIFF_AXES:
@@ -519,7 +521,8 @@ def upsert_label(file_name: str, uuid: str, patch: dict) -> dict:
     data = read_labels_file(file_name)
     clips = data.setdefault("clips", {})
     cur = clips.get(uuid, {"categories": [], "influenced_ego": False,
-                           "safety_criticality": 1, "rarity": 1,
+                           "safety_criticality": min(TIER_VALUES),
+                           "rarity": min(TIER_VALUES),
                            "weather": [], "is_night": False, "note": ""})
     for k in LABEL_FIELDS:
         if k in patch:
@@ -699,8 +702,10 @@ def search_nas_clips(q: dict) -> dict:
     text_q = (q.get("text") or "").strip().lower()
     cats = [c for c in (q.get("categories") or "").split("|") if c]
     cat_mode = q.get("cat_mode", "any")
-    smin, smax = int(q.get("safety_min", 1)), int(q.get("safety_max", 4))
-    rmin, rmax = int(q.get("rarity_min", 1)), int(q.get("rarity_max", 4))
+    smin = int(q.get("safety_min", min(TIER_VALUES)))
+    smax = int(q.get("safety_max", max(TIER_VALUES)))
+    rmin = int(q.get("rarity_min", min(TIER_VALUES)))
+    rmax = int(q.get("rarity_max", max(TIER_VALUES)))
     special = q.get("special", "")
 
     rows = []
@@ -763,8 +768,10 @@ def search_clips(q: dict) -> dict:
     uuid_q = (q.get("uuid") or "").strip().lower()
     cats = [c for c in (q.get("categories") or "").split("|") if c]
     cat_mode = q.get("cat_mode", "any")          # any | all | none
-    smin, smax = int(q.get("safety_min", 1)), int(q.get("safety_max", 4))
-    rmin, rmax = int(q.get("rarity_min", 1)), int(q.get("rarity_max", 4))
+    smin = int(q.get("safety_min", min(TIER_VALUES)))
+    smax = int(q.get("safety_max", max(TIER_VALUES)))
+    rmin = int(q.get("rarity_min", min(TIER_VALUES)))
+    rmax = int(q.get("rarity_max", max(TIER_VALUES)))
     special = q.get("special", "")               # "" | special | normal
     note_q = (q.get("note") or "").strip().lower()
     only = q.get("only", "")                     # "" | tp | fp | fn (run 필요)
