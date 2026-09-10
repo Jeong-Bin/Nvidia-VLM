@@ -139,6 +139,16 @@ label.rng input[type=number]{width:52px;text-align:center}
 .scen:first-of-type{margin-top:2px}
 .grid{display:grid;gap:12px}
 .hide{display:none!important}
+/* NAS 마운트 경고 배너. 서버가 대신 mount 하지 않는 이유는 gui_server.py 의
+   nas_mount_command() 주석 참고 - 비밀번호/ sudo 권한을 GUI 에 넘기게 된다. */
+#nasbar{max-width:var(--page-max);margin:0 auto 12px;padding:10px 12px;
+  border:1px solid var(--warn);border-radius:8px;background:var(--panel)}
+#nasbar b{color:var(--warn)}
+.nasmsg{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;font-size:12px}
+.nascmd{display:flex;gap:8px;align-items:center;margin-top:8px}
+.nascmd code{flex:1;min-width:0;overflow-x:auto;white-space:pre;
+  background:var(--panel2);border:1px solid var(--line);border-radius:6px;
+  padding:6px 8px;font-size:11px}
 table{border-collapse:collapse;width:100%;font-size:12px}
 th,td{padding:4px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
 /* 카테고리 칸은 태그가 여러 개 붙어 한 줄로 두면 표 전체가 옆으로 늘어난다.
@@ -194,6 +204,18 @@ video{width:100%;background:#000;border-radius:6px}
   <span id="hdr" class="muted" style="margin-left:auto"></span>
 </header>
 <main>
+<div id="nasbar" class="hide">
+  <div class="nasmsg">
+    <b>NAS 연결 없음</b>
+    <span class="muted" id="nasreason"></span>
+    <span class="muted">— NAS 영상 재생과 새 마이닝 실행이 되지 않습니다.
+      아래 명령을 "etri@10.254.92.108" 서버 터미널에 붙여넣어 다시 연결하세요.</span>
+  </div>
+  <div class="nascmd"><code id="nascmd"></code>
+    <button id="nascopy">복사</button>
+    <button id="nasrecheck">다시 확인</button>
+  </div>
+</div>
 
 <!-- ============ 1. 평가 결과 ============ -->
 <section id="tab-eval">
@@ -643,6 +665,44 @@ function restoreTab() {
   // 저장된 탭이 사라졌거나(이름 변경) 값이 없으면 현재 표시 중인 탭을 둔다.
   if (saved) showTab(saved, { remember: false });
 }
+
+/* ---------- NAS 마운트 상태 ----------
+   서버 재부팅이면 마운트가 풀린다(fstab 에 없다). 그때 영상만 조용히
+   안 나오면 원인을 못 찾으므로 배너로 알리고 명령을 그대로 보여준다.
+   서버가 대신 mount 하지는 않는다 - 그러려면 NAS 비밀번호를 파일에 두거나
+   sudo 를 NOPASSWD 로 풀어야 하는데, 이 GUI 는 인증이 없어서 포트에 닿는
+   누구나 그 권한을 쓰게 된다. */
+async function checkNas(opt) {
+  try {
+    const j = await api('/api/nas_status');
+    // --data local 로 띄웠으면 NAS 가 없어도 정상이다.
+    const show = j.needed && !j.ok;
+    $('#nasbar').classList.toggle('hide', !show);
+    if (show) {
+      $('#nasreason').textContent = `(${j.path} — ${j.reason})`;
+      $('#nascmd').textContent = j.command;
+    }
+    if (opt && opt.toast) toast(j.ok ? 'NAS 연결됨' : 'NAS 아직 연결 안 됨');
+    return j.ok;
+  } catch (e) { return false; }
+}
+
+$('#nascopy').onclick = async () => {
+  const cmd = $('#nascmd').textContent;
+  try {
+    await navigator.clipboard.writeText(cmd);
+    toast('복사했습니다');
+  } catch (e) {
+    // http:// 로 접속하면 clipboard API 가 막힌다 - 그때는 직접 고르게 둔다.
+    const r = document.createRange();
+    r.selectNodeContents($('#nascmd'));
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    toast('Ctrl+C 로 복사하세요');
+  }
+};
+$('#nasrecheck').onclick = async () => {
+  if (await checkNas({ toast: true })) location.reload();
+};
 
 /* ---------- 부팅 ---------- */
 async function boot() {
@@ -1658,6 +1718,9 @@ setInterval(() => {
 // 탭 복원은 boot() 앞에 둔다. bootstrap 응답을 기다리면 그동안 엉뚱한 탭이
 // 보이고, 초기화가 실패하면 아예 복원되지 않는다.
 restoreTab();
+checkNas();
+// 사람이 터미널에서 마운트하면 배너가 알아서 사라지도록 가끔 다시 본다.
+setInterval(checkNas, 30000);
 boot().catch(e => toast('초기화 실패: ' + e.message, 8000));
 </script>
 </body>

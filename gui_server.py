@@ -844,6 +844,45 @@ def search_clips(q: dict) -> dict:
 #   labeled : 로컬 pav_sample 의 라벨된 클립 -> 추론 + 채점
 #   nas     : NAS 청크 zip 전체         -> 추론만 (대조할 정답이 없다)
 # GUI 의 "로컬 샘플 추론&평가" / "NAS 전체 추론" 탭이 각각을 고른다.
+# NAS 마운트 명령. 서버가 대신 실행하지는 않는다 - 그러려면 NAS 비밀번호를
+# 파일에 두거나 sudo 를 NOPASSWD 로 풀어야 하는데, 이 GUI 는 인증이 없어서
+# 포트에 닿는 누구나 그 권한을 쓰게 된다. 명령만 보여주고 실행은 사람이 한다.
+NAS_SHARE = "//10.254.92.171/OPEN_DATASET"
+NAS_MOUNT = "/mnt/nas"
+NAS_USER = "E2E_DATA"
+
+
+def nas_mount_command() -> str:
+    return (f"sudo mount -t cifs {NAS_SHARE} {NAS_MOUNT} "
+            f"-o username={NAS_USER},vers=3.0,uid=$(id -u),gid=$(id -g),"
+            "cache=loose,nounix,serverino,iocharset=utf8")
+
+
+def nas_status() -> dict:
+    """NAS 가 실제로 읽히는지. 마운트 여부만 보면 안 된다 - 마운트가 남아
+    있는데 서버가 죽어 I/O 만 막히는 상태도 있다. 그래서 디렉터리를 한 번
+    열어 본다.
+    """
+    from clip_source import NAS_CAMERA_DIR
+    d = Path(NAS_CAMERA_DIR)
+    ok, reason = False, ""
+    try:
+        ok = d.is_dir() and any(d.iterdir())
+        if not ok:
+            reason = "마운트되어 있지 않거나 비어 있습니다"
+    except OSError as e:
+        reason = f"{type(e).__name__}: {e}"
+    return {
+        "ok": ok,
+        "reason": reason,
+        "path": str(d),
+        "command": nas_mount_command(),
+        # 이 GUI 가 NAS 를 쓰도록 떠 있는가(--data nas). local 이면 NAS 가
+        # 없어도 정상이므로 경고를 띄우지 않는다.
+        "needed": CLIP_SOURCE is not None and getattr(CLIP_SOURCE, "kind", "") == "zip",
+    }
+
+
 def nas_clip_count():
     """NAS 청크에 든 고유 클립 수. 모르면 None.
 
@@ -1178,6 +1217,9 @@ class Handler(BaseHTTPRequestHandler):
     def _get(self, p, q):
         if p in ("/", "/index.html"):
             return self._send_file(GUI_DIR / "index.html")
+
+        if p == "/api/nas_status":
+            return self._json(nas_status())
 
         if p == "/api/bootstrap":
             return self._json({
