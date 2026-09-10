@@ -83,8 +83,7 @@ ATMOSPHERIC_OBSCURANTS_PROMPT = (
     "Rate the ATMOSPHERIC OBSCURANTS difficulty on an integer scale from 0 to 4:\n"
     "  0 = clear, long sight line\n"
     "  1 = slight haze\n"
-    
-    "  2 = moderate fog/haze/spray; distant objects blurred\n"4
+    "  2 = moderate fog/haze/spray; distant objects blurred\n"
     
     "  3 = dense fog/spray; only the near field visible\n"
     
@@ -161,13 +160,13 @@ DIFFICULTY_SCALES = {
             폭우 / 폭설 / 눈보라; 시야가 극도로 제한됨
     "road_surface": (
         "   0 = dry\n"
-        "   1 = damp, no standing water\n"
-            축축함, 고인 물 없음
-        "   2 = clearly wet and reflective; light spray\n"
-            확연히 젖어 있고 빛을 반사함; 가벼운 분무
-        "   3 = standing water, puddles, slush, or partial snow cover\n"
-            고인 물, 물웅덩이, 질척이는 눈(슬러시) 또는 부분적으로 덮인 눈
-        "   4 = snow-covered, icy, or flooded; lane markings obscured"),
+        "   1 = damp, no standing water, snow only off the roadway\n"
+            축축함, 고인 물 없음, 도로 밖에만 눈 차도는 깨끗
+        "   2 = clearly wet and reflective; light spray; or thin snow cover with wheel tracks worn through\n"
+            확연히 젖어 있고 빛을 반사함; 가벼운 분무, 도로에 눈이 얇게 깔려 있으나 차선 표시는 여전히 식별 가능함
+        "   3 = standing water, puddles, slush, or snow covers most of the roadway or the lane markings are faint\n"
+            고인 물, 물웅덩이, 질척이는 눈(슬러시) 또는 도로 대부분이 눈으로 덮여 있거나 차선 희미함
+        "   4 = deep snow-covered, icy, or flooded; lane markings obscured"),
             눈이나 얼음으로 덮여 있거나 침수됨, 차선 표시가 가려짐
     "atmospheric_obscurants": (
         "   0 = clear, long sight line\n"

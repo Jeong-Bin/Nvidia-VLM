@@ -27,8 +27,8 @@ ILLUMINATION_PROMPT = (
     "readable but dimmer\n"
     "  3 = night with partial or intermittent lighting; large dark regions, "
     "reliance on headlights\n"
-    "  4 = near-total darkness (unlit road) where much of the scene is not "
-    "resolvable\n"
+    "  4 = only the vehicle's headlights providing illumination,\n"
+    "      near-total darkness (unlit road) where much of the scene is not resolvable\n"
     "Judge ONLY illumination / ambient light, not weather or road condition.\n"
     "Answer with the single difficulty integer on the first line, then one short "
     "sentence justifying it."
@@ -56,10 +56,10 @@ ROAD_SURFACE_PROMPT = (
     "for an autonomous vehicle, based on this front-facing camera image.\n"
     "Rate the ROAD SURFACE difficulty on an integer scale from 0 to 4:\n"
     "  0 = dry\n"
-    "  1 = damp, no standing water\n"
-    "  2 = clearly wet and reflective; light spray\n"
-    "  3 = standing water, puddles, slush, or partial snow cover\n"
-    "  4 = snow-covered, icy, or flooded; lane markings obscured\n"
+    "  1 = damp, no standing water, or snow only off the roadway\n"
+    "  2 = clearly wet and reflective; light spray; or thin snow on the roadway but lane markings still discernible\n"
+    "  3 = standing water, puddles, slush, or snow covers most of the roadway or the lane markings are faint\n"
+    "  4 = deep snow-covered, icy, or flooded; lane markings entirely obscured\n"
     "Judge ONLY the state of the road surface, not the falling weather or sky.\n"
     "Answer with the single difficulty integer on the first line, then one short "
     "sentence justifying it."
@@ -134,8 +134,8 @@ DIFFICULTY_SCALES = {
         "       lighting; readable but dimmer\n"
         "   3 = night with partial or intermittent lighting; large dark\n"
         "       regions, reliance on headlights\n"
-        "   4 = near-total darkness (unlit road) where much of the scene is\n"
-        "       not resolvable"),
+        "   4 = only the vehicle's headlights providing illumination,\n"
+        "       near-total darkness (unlit road) where much of the scene is not resolvable\n"),
     "precipitation": (
         "   0 = none / clear\n"
         "   1 = drizzle or very light rain; occasional drops on lens\n"
@@ -144,10 +144,10 @@ DIFFICULTY_SCALES = {
         "   4 = downpour / heavy snow / blizzard; visibility severely reduced"),
     "road_surface": (
         "   0 = dry\n"
-        "   1 = damp, no standing water\n"
-        "   2 = clearly wet and reflective; light spray\n"
-        "   3 = standing water, puddles, slush, or partial snow cover\n"
-        "   4 = snow-covered, icy, or flooded; lane markings obscured"),
+        "   1 = damp, no standing water, or snow only off the roadway\n"
+        "   2 = clearly wet and reflective; light spray; or thin snow on the roadway but lane markings still discernible\n"
+        "   3 = standing water, puddles, slush, or snow covers most of the roadway or the lane markings are faint\n"
+        "   4 = deep snow-covered, icy, or flooded; lane markings entirely obscured"),
     "atmospheric_obscurants": (
         "   0 = clear, long sight line\n"
         "   1 = slight haze\n"
