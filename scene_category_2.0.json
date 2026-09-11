@@ -264,7 +264,9 @@
             "name": "Traffic Accident",
             "templates": [
               "A traffic accident has occurred up ahead",
-              "Fire occurred due to a car accident"
+              "Fire occurred due to a car accident",
+              "The ego-vehicle is on the verge of a collision",
+              "Note: simply a high density of vehicles should not be misclassified as a traffic accident"
             ],
             "template_candidates": [
               "Traffic completely gridlocked across the intersection",
@@ -309,10 +311,12 @@
             ]
           },
           {
-            "name": "Obstacle",
+            "name": "Obstacle on Road",
             "templates": [
               "Unknown object is blocking the vehicle",
-              "Debris scattered on the road"
+              "Debris scattered on the road",
+              "Raised barrier blocking the road",
+              "Puddle on the lane"
             ],
             "template_candidates": [
               "An unknown object blocking the road",

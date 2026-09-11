@@ -139,6 +139,10 @@ label.rng input[type=number]{width:52px;text-align:center}
 .scen:first-of-type{margin-top:2px}
 .grid{display:grid;gap:12px}
 .hide{display:none!important}
+/* 마지막으로 연 행. 배경만 바꾸면 얼룩처럼 보여서, 왼쪽에 선을 하나 세워
+   어느 행이었는지 훑어볼 때 바로 집히게 한다. */
+tr.seen>td{background:var(--panel2)}
+tr.seen>td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 /* NAS 마운트 경고 배너. 서버가 대신 mount 하지 않는 이유는 gui_server.py 의
    nas_mount_command() 주석 참고 - 비밀번호/ sudo 권한을 GUI 에 넘기게 된다. */
 #nasbar{max-width:var(--page-max);margin:0 auto 12px;padding:10px 12px;
@@ -267,8 +271,6 @@ video{width:100%;background:#000;border-radius:6px}
 <section id="tab-search" class="hide">
   <div class="panel">
     <div class="row">
-      <button class="primary" id="s-go">검색</button>
-      <button id="s-clear">초기화</button>
       <label>정답 라벨<select id="s-labels"></select></label>
       <label>대조할 실행(선택)<select id="s-run" style="min-width:280px"></select></label>
       <label>uuid 포함<input type="text" id="s-uuid" placeholder="앞 8자리 등" size="16"></label>
@@ -276,6 +278,8 @@ video{width:100%;background:#000;border-radius:6px}
       <label>Special 여부<select id="s-special">
         <option value="">전체</option><option value="special">Special만</option>
         <option value="normal">Normal만</option></select></label>
+      <button class="primary" id="s-go">검색</button>
+      <button id="s-clear">초기화</button>
       <label>오류 유형(실행 필요)<select id="s-only">
         <option value="">전체</option><option value="fp">FP 있는 클립</option>
         <option value="fn">FN 있는 클립</option><option value="tp">TP 있는 클립</option>
@@ -464,8 +468,6 @@ video{width:100%;background:#000;border-radius:6px}
       TP/FP 구분은 없고, 행을 누르면 NAS 원본 영상을 바로 재생합니다
       (시각화 오버레이는 없습니다).</p>
     <div class="row">
-      <button class="primary" id="ns-go">검색</button>
-      <button id="ns-clear">초기화</button>
       <label>실행<select id="ns-run" style="min-width:320px"></select></label>
       <label>uuid 포함<input type="text" id="ns-uuid" placeholder="앞 8자리 등" size="16"></label>
       <label title="observation / ego_behavior / 근거 텍스트를 훑습니다">
@@ -473,6 +475,8 @@ video{width:100%;background:#000;border-radius:6px}
       <label>Special 여부<select id="ns-special">
         <option value="">전체</option><option value="special">Special만</option>
         <option value="normal">Normal만</option></select></label>
+      <button class="primary" id="ns-go">검색</button>
+      <button id="ns-clear">초기화</button>
     </div>
     <div class="row" style="margin-top:10px">
       <label class="rng">Safety
@@ -664,6 +668,14 @@ function restoreTab() {
   try { saved = localStorage.getItem(TAB_KEY); } catch (e) {}
   // 저장된 탭이 사라졌거나(이름 변경) 값이 없으면 현재 표시 중인 탭을 둔다.
   if (saved) showTab(saved, { remember: false });
+}
+
+/* 마지막으로 연 행 표시. 검색 결과가 길면 팝업을 닫았을 때 어디까지 봤는지
+   잃어버린다. 표 하나에 한 행만 남기므로 같은 표의 이전 표시는 지운다. */
+function markSeen(tbodySel, tr) {
+  if (!tr) return;
+  $$(`${tbodySel} tr.seen`).forEach(x => x.classList.remove('seen'));
+  tr.classList.add('seen');
 }
 
 /* ---------- NAS 마운트 상태 ----------
@@ -914,8 +926,10 @@ $('#s-go').onclick = async () => {
         <td class="num">${r.safety}</td><td class="num">${r.rarity}</td>
         <td class="muted">${esc((r.note || '').slice(0, 30))}</td>
         <td><button data-clip="${esc(r.uuid)}">열기</button></td></tr>`).join('');
-    $$('#s-rows [data-clip]').forEach(b =>
-      b.onclick = () => openClip(b.dataset.clip, $('#s-run').value));
+    $$('#s-rows [data-clip]').forEach(b => b.onclick = () => {
+      markSeen('#s-rows', b.closest('tr'));
+      openClip(b.dataset.clip, $('#s-run').value);
+    });
   } catch (e) { toast(e.message); }
 };
 $('#s-clear').onclick = () => {
@@ -1579,8 +1593,10 @@ async function nasSearch() {
         <td><button data-open="${i}">열기</button></td>
       </tr>`).join('');
     // 행 어디를 눌러도([열기] 버튼 포함) 같은 팝업을 연다.
-    $$('#ns-rows tr').forEach(tr =>
-      tr.onclick = () => nasOpen(+tr.dataset.i));
+    $$('#ns-rows tr').forEach(tr => tr.onclick = () => {
+      markSeen('#ns-rows', tr);
+      nasOpen(+tr.dataset.i);
+    });
   } catch (e) {
     $('#ns-count').textContent = e.message; $('#ns-rows').innerHTML = '';
   }

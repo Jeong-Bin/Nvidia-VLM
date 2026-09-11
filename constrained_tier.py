@@ -94,9 +94,9 @@ def tier_menu() -> str:
 # (build_nureasoning_prompt 의 steps45 조립부 참고).
 SAFETY_RUBRIC = {
     0: "It is a scene of peaceful driving, with no elements on the road that threaten safety.",
-    1: "There are factors that could affect the ego-vehicle's driving, but it can handle the situation with "
-       "relative ease—without needing to change lanes or decelerate—or the objects are completely clear of "
-       "the ego-vehicle's driving path.",
+    1: "There are objects requiring the ego-vehicle's attention on the road, "
+       "but they are located away from the vehicle's driving path or are sufficiently distant, "
+       "so neither deceleration nor a change in steering is necessary.",
     2: "The ego-vehicle had to give way - slow, yield, wait, or steer around something "
        "- but with plenty of time and space to do it.",
     3: "The ego-vehicle had to act urgently, or a small mistake by anyone "
@@ -108,7 +108,8 @@ SAFETY_RUBRIC = {
 }
 
 RARITY_RUBRIC = {
-    0: "It is a monotonous scene typical of everyday driving.",
+    0: "It is a monotonous scene typical of everyday driving. "
+       "Nothing out of the ordinary is visible, apart from the usual vehicles, pedestrians on the sidewalk, or empty roads.",
     1: "These are elements you can frequently see while driving. "
        "For example, pedestrians or cyclists crossing a crosswalk, or traffic cones guiding the lanes.",
     2: "These are elements or situations occasionally encountered while driving. "
@@ -118,7 +119,7 @@ RARITY_RUBRIC = {
     3: "These are critical edge cases that autonomous vehicles must not overlook. "
        "It can happen on the road on very rare occasions. "
        "For example, a person wearing a mascot costume, wildlife crossing the road, "
-       "a fallen tree blocking the road, traffic accidents and fire, or a road completely submerged by the flood.",
+       "a fallen tree blocking the road, traffic accidents or fire, or a road completely submerged by the flood.",
     4: "This is a rare situation—the kind one might not see even once in a lifetime. "
        "For example, a plane making an emergency landing on the road, "
        "a road destroyed by a natural disaster, "
