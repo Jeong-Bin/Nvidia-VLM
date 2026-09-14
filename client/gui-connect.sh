@@ -40,17 +40,33 @@ while port_busy "$LPORT"; do
 done
 
 echo "[1/3] 서버의 GUI 확인 / 기동..."
-# 이미 떠 있으면 그대로 두고, 없을 때만 띄운다. 로그는 서버의 gui.log.
-ssh -p "${SSH_PORT}" -o ConnectTimeout=10 "${USER_NAME}@${SERVER}" bash -s <<EOF
-cd "${REMOTE_DIR}" || exit 1
-if pgrep -f 'gui_server\.py' >/dev/null; then
-  echo "  - 이미 실행 중"
-else
-  nohup python3 gui_server.py --port ${RPORT} --data ${DATA} >> gui.log 2>&1 &
-  sleep 2
-  echo "  - 새로 시작함 (로그: ${REMOTE_DIR}/gui.log)"
+# 진단은 서버의 gui-doctor.sh 한 곳에 모아 두고 양쪽 클라이언트가 같이 쓴다.
+# 여기서 직접 pgrep 으로 판정하지 않는 이유는 doctor 안에 적어 두었다.
+# ssh 접속 자체가 실패한 경우와 doctor 가 FAIL 을 돌려준 경우를 구분한다.
+# set -e 가 걸려 있으므로 || 로 받아 실패해도 아래 안내를 찍을 수 있게 한다.
+# 이걸 안 하면 ssh 실패 순간 스크립트가 조용히 죽어, 정작 원인을 알려주는
+# 메시지가 실행되지 않는다.
+DOCTOR_OUT="$(ssh -p "${SSH_PORT}" -o ConnectTimeout=10 "${USER_NAME}@${SERVER}" \
+  "bash ${REMOTE_DIR}/client/gui-doctor.sh '${REMOTE_DIR}' '${RPORT}' '${DATA}'" 2>&1)" \
+  && SSH_RC=0 || SSH_RC=$?
+echo "$DOCTOR_OUT" | grep -v '^STATUS='
+
+if [ $SSH_RC -ne 0 ]; then
+  echo
+  echo "[오류] 서버에 접속하지 못했습니다 (${USER_NAME}@${SERVER}:${SSH_PORT})."
+  echo "  확인할 것:"
+  echo "   1) VPN / 사내망에 연결돼 있습니까?"
+  echo "   2) 서버가 켜져 있습니까?   ping ${SERVER}"
+  echo "   3) SSH 키가 등록돼 있습니까?  ssh -p ${SSH_PORT} ${USER_NAME}@${SERVER}"
+  echo "   (이 서버의 sshd 포트는 22 가 아니라 ${SSH_PORT} 입니다)"
+  exit 1
 fi
-EOF
+
+if echo "$DOCTOR_OUT" | grep -q '^STATUS=FAIL'; then
+  echo
+  echo "[중단] GUI 를 띄우지 못해 브라우저를 열지 않습니다. 위 내용을 확인하세요."
+  exit 1
+fi
 
 echo "[2/3] 터널 여는 중 (로컬 ${LPORT} -> 서버 ${RPORT})..."
 ssh -p "${SSH_PORT}" -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 \

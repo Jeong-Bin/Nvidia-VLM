@@ -26,10 +26,12 @@ set "RPORT=8000"
 set "LPORT=8000"
 set "DATA=local"
 
-rem --- 인자로 덮어쓰기: GUI-접속.bat <서버IP> <로컬포트> <ssh포트> ---
+rem --- 인자로 덮어쓰기: GUI-접속.bat <서버IP> <로컬포트> <ssh포트> <서버포트> ---
+rem  4번째(서버포트)는 서버의 8000 을 다른 프로그램이 점유했을 때 쓴다.
 if not "%~1"=="" set "SERVER=%~1"
 if not "%~2"=="" set "LPORT=%~2"
 if not "%~3"=="" set "SSH_PORT=%~3"
+if not "%~4"=="" set "RPORT=%~4"
 
 echo.
 echo   서버   : %USER%@%SERVER%  ^(ssh 포트 %SSH_PORT%^)
@@ -56,13 +58,35 @@ if not errorlevel 1 (
 )
 
 echo [1/3] 서버의 GUI 확인 / 기동...
-rem  이미 떠 있으면 그대로 두고, 없을 때만 nohup 으로 띄운다.
-rem  로그는 서버의 gui.log 에 쌓인다.
-ssh -p %SSH_PORT% -o ConnectTimeout=10 %USER%@%SERVER% ^
-  "cd %REMOTE_DIR% && if pgrep -f 'gui_server.py' >/dev/null; then echo '  - 이미 실행 중'; else nohup python3 gui_server.py --port %RPORT% --data %DATA% >> gui.log 2>&1 & sleep 2; echo '  - 새로 시작함 (로그: %REMOTE_DIR%/gui.log)'; fi"
-if errorlevel 1 (
+rem  진단은 서버의 client/gui-doctor.sh 가 전담한다. 예전에는 여기에
+rem  pgrep 조건문을 인라인으로 박아 뒀는데, 그 패턴이 ssh 자기 자신에게도
+rem  걸려 GUI 가 죽어 있어도 "이미 실행 중" 이라고 보고했다. 게다가 배치에서
+rem  따옴표가 겹치면 조건문이 쉽게 깨진다. 원격 스크립트 한 줄 호출로 바꾼다.
+rem  결과는 STATUS= 줄로 받는다.
+set "GUISTATUS="
+for /f "usebackq tokens=* delims=" %%L in (`
+  ssh -p %SSH_PORT% -o ConnectTimeout=10 %USER%@%SERVER% "bash %REMOTE_DIR%/client/gui-doctor.sh '%REMOTE_DIR%' '%RPORT%' '%DATA%' 2>&1"
+`) do (
+  echo %%L | findstr /b /c:"STATUS=" >nul && (set "GUISTATUS=%%L") || (echo %%L)
+)
+
+if not defined GUISTATUS (
   echo.
-  echo [오류] 서버 접속 실패. VPN/사내망 연결과 SSH 키를 확인하세요.
+  echo [오류] 서버에 접속하지 못했습니다 ^(%USER%@%SERVER% 포트 %SSH_PORT%^).
+  echo   확인할 것:
+  echo    1^) VPN / 사내망에 연결돼 있습니까?
+  echo    2^) 서버가 켜져 있습니까?    ping %SERVER%
+  echo    3^) SSH 키가 등록돼 있습니까?  ssh -p %SSH_PORT% %USER%@%SERVER%
+  echo    ^(이 서버의 sshd 포트는 22 가 아니라 %SSH_PORT% 입니다^)
+  echo.
+  pause
+  exit /b 1
+)
+
+if "%GUISTATUS%"=="STATUS=FAIL" (
+  echo.
+  echo [중단] GUI 를 띄우지 못해 브라우저를 열지 않습니다. 위 내용을 확인하세요.
+  echo.
   pause
   exit /b 1
 )

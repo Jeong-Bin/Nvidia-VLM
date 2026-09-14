@@ -1,9 +1,9 @@
 {
   "_meta": {
     "labeled_by": "JeongbinHong",
-    "date": "2026-08-12",
-    "source_run": "results/20260812_135056_videoC",
-    "guide": "categories: scene_category_C.json 이름 그대로. 없으면 []"
+    "date": "2026-09-14",
+    "source_run": "",
+    "guide": ""
   },
   "clips": {
     "00ce9071-ecee-45f8-acc9-9267a7814af7": {
@@ -44,7 +44,7 @@
       ],
       "difficulty": {
         "illumination": 1,
-        "precipitation": 1,
+        "precipitation": 2,
         "road_surface": 2,
         "atmospheric_obscurants": 0
       },
@@ -369,7 +369,7 @@
       "rarity": 1,
       "weather": [],
       "difficulty": {
-        "illumination": 0,
+        "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
         "atmospheric_obscurants": 0
@@ -798,7 +798,7 @@
         "road_surface": 0,
         "atmospheric_obscurants": 0
       },
-      "note": "다리 아래, 정면 느린 트럭(Stationary Vehicle Obstruction 또는 Obstacle로 판단할 수도?)"
+      "note": "다리 아래, 정면 느린 트럭(Vehicles narrowing the lane 또는 Obstacle로 판단할 수도?)"
     },
     "dc84dd80-5155-4af4-9264-c8f141120e74": {
       "categories": [],
@@ -954,9 +954,9 @@
       ],
       "difficulty": {
         "illumination": 2,
-        "precipitation": 3,
+        "precipitation": 2,
         "road_surface": 2,
-        "atmospheric_obscurants": 2
+        "atmospheric_obscurants": 3
       },
       "note": ""
     },
@@ -1304,7 +1304,7 @@
         "illumination": 1,
         "precipitation": 1,
         "road_surface": 2,
-        "atmospheric_obscurants": 1
+        "atmospheric_obscurants": 2
       },
       "note": ""
     },
@@ -1447,52 +1447,88 @@
     "db4bbc52-252c-4767-80ec-31480b6ab2d2": {
       "categories": [],
       "influenced_ego": false,
-      "safety_criticality": 1,
-      "rarity": 1,
+      "safety_criticality": 0,
+      "rarity": 0,
       "weather": [],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "db2c5fbe-1903-4b8e-8df3-a7d02cff1893": {
       "categories": [],
       "influenced_ego": false,
-      "safety_criticality": 1,
-      "rarity": 1,
+      "safety_criticality": 0,
+      "rarity": 0,
       "weather": [],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "daa2f43c-d32a-438b-9a1a-58a2f1d3106c": {
       "categories": [],
       "influenced_ego": false,
-      "safety_criticality": 1,
-      "rarity": 1,
+      "safety_criticality": 0,
+      "rarity": 0,
       "weather": [],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "da221591-bd5a-46e3-a68f-537886db641e": {
       "categories": [],
       "influenced_ego": false,
-      "safety_criticality": 1,
-      "rarity": 1,
+      "safety_criticality": 0,
+      "rarity": 0,
       "weather": [],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "da28084a-9224-4cae-8f99-a518b984fcdd": {
       "categories": [
         "Pedestrian on Road",
-        "Stationary Vehicle Obstruction"
+        "Vehicles narrowing the lane"
       ],
       "influenced_ego": true,
       "safety_criticality": 2,
-      "rarity": 2,
+      "rarity": 1,
       "weather": [],
+      "difficulty": {
+        "illumination": 2,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "da122d23-9fa6-4b81-9a3a-bd5a74e87c9e": {
       "categories": [],
       "influenced_ego": false,
-      "safety_criticality": 1,
-      "rarity": 1,
+      "safety_criticality": 0,
+      "rarity": 0,
       "weather": [],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "d4190223-c9fd-4671-a0f1-cc7424171971": {
@@ -1501,16 +1537,28 @@
       "safety_criticality": 1,
       "rarity": 1,
       "weather": [],
+      "difficulty": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "d3323549-763d-4809-a728-ef9e8eb65f90": {
       "categories": [
-        "Stationary Vehicle Obstruction"
+        "Vehicles narrowing the lane"
       ],
       "influenced_ego": true,
       "safety_criticality": 2,
-      "rarity": 2,
+      "rarity": 1,
       "weather": [],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "d1695972-f72c-4ef2-bb22-a496775339c3": {
@@ -1521,6 +1569,12 @@
       "safety_criticality": 2,
       "rarity": 2,
       "weather": [],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "d43da341-f39f-45d1-a9fe-a62ac2c9af4a": {
@@ -1529,24 +1583,42 @@
       ],
       "influenced_ego": true,
       "safety_criticality": 2,
-      "rarity": 2,
+      "rarity": 1,
       "weather": [],
-      "note": "강아지 animal 나올 수도 있음"
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
     },
     "d30658ba-8a7c-4e0c-b5a0-9bd7f84d7734": {
       "categories": [],
       "influenced_ego": false,
-      "safety_criticality": 1,
-      "rarity": 1,
+      "safety_criticality": 0,
+      "rarity": 0,
       "weather": [],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "d12352ce-3b24-4212-b59a-1909f19463b4": {
       "categories": [],
       "influenced_ego": false,
-      "safety_criticality": 1,
-      "rarity": 1,
+      "safety_criticality": 0,
+      "rarity": 0,
       "weather": [],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "d9521c51-3da1-4503-86d0-4d668cabf028": {
@@ -1561,28 +1633,46 @@
       "categories": [
         "Pedestrian on Road"
       ],
-      "influenced_ego": true,
-      "safety_criticality": 2,
-      "rarity": 2,
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 0,
       "weather": [],
+      "difficulty": {
+        "illumination": 2,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "d4148fa7-0a35-4f83-a5dd-4cf702578927": {
       "categories": [],
       "influenced_ego": false,
-      "safety_criticality": 1,
-      "rarity": 1,
+      "safety_criticality": 0,
+      "rarity": 0,
       "weather": [],
+      "difficulty": {
+        "illumination": 2,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "d3c54942-9af0-49c3-a125-81960d6a16f8": {
       "categories": [],
       "influenced_ego": false,
-      "safety_criticality": 1,
-      "rarity": 1,
+      "safety_criticality": 0,
+      "rarity": 0,
       "weather": [
         "rain"
       ],
+      "difficulty": {
+        "illumination": 1,
+        "precipitation": 3,
+        "road_surface": 2,
+        "atmospheric_obscurants": 1
+      },
       "note": ""
     },
     "d8f30197-6403-4a0b-a815-0fdc0534b77e": {
@@ -1591,9 +1681,15 @@
         "Tram"
       ],
       "influenced_ego": true,
-      "safety_criticality": 2,
-      "rarity": 2,
+      "safety_criticality": 1,
+      "rarity": 1,
       "weather": [],
+      "difficulty": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "d1248bb6-a02a-49a1-9018-6e85159ca9e1": {
@@ -1602,8 +1698,14 @@
       ],
       "influenced_ego": true,
       "safety_criticality": 2,
-      "rarity": 2,
+      "rarity": 1,
       "weather": [],
+      "difficulty": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": "바닥 차선 대신 포인트 마커(Cat's eye, Stud)? Obstacle on Road로 인지할 수 있음"
     },
     "ca440ae0-2e49-4858-a8e8-57abd28e6962": {
@@ -1614,22 +1716,40 @@
       "safety_criticality": 2,
       "rarity": 2,
       "weather": [],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "d963eb97-d0fb-4980-be7b-69c66c5794c5": {
       "categories": [],
       "influenced_ego": false,
-      "safety_criticality": 1,
-      "rarity": 1,
+      "safety_criticality": 0,
+      "rarity": 0,
       "weather": [],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": "바닥 차선 대신 포인트 마커(Cat's eye, Stud)? Obstacle on Road로 인지할 수 있음"
     },
     "d28e64a7-dece-454e-950e-449435ad5796": {
       "categories": [],
       "influenced_ego": false,
-      "safety_criticality": 1,
-      "rarity": 1,
+      "safety_criticality": 0,
+      "rarity": 0,
       "weather": [],
+      "difficulty": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": "트럭 짐 칸 오토바이"
     },
     "d912b7d2-1071-4467-9227-28c951485bc0": {
@@ -1640,6 +1760,12 @@
       "safety_criticality": 1,
       "rarity": 2,
       "weather": [],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "d95ddbc1-8472-47a7-8ede-51ea2321697b": {
@@ -1650,6 +1776,12 @@
       "safety_criticality": 2,
       "rarity": 2,
       "weather": [],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "d7e1e945-81e5-4efe-9979-5562d199ccbf": {
@@ -1659,8 +1791,14 @@
       ],
       "influenced_ego": true,
       "safety_criticality": 2,
-      "rarity": 2,
+      "rarity": 1,
       "weather": [],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "d5eef248-a953-4647-9680-3a16f4cfd642": {
@@ -1668,9 +1806,15 @@
         "Cyclist on Road"
       ],
       "influenced_ego": true,
-      "safety_criticality": 2,
+      "safety_criticality": 1,
       "rarity": 2,
       "weather": [],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "d1a173e1-9653-4af0-abfe-7b95cfe76276": {
@@ -1683,6 +1827,12 @@
       "safety_criticality": 2,
       "rarity": 2,
       "weather": [],
+      "difficulty": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "d0f850c9-3c68-4a20-8163-6da96f2edc38": {
@@ -1693,6 +1843,12 @@
       "safety_criticality": 2,
       "rarity": 2,
       "weather": [],
+      "difficulty": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "d0a0cbf0-bcc2-4c72-9a54-f542dc99f560": {
@@ -1701,48 +1857,78 @@
       ],
       "influenced_ego": true,
       "safety_criticality": 2,
-      "rarity": 2,
+      "rarity": 1,
       "weather": [],
-      "note": "강아지 animal 나올 수도 있음"
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
     },
     "ceb52996-af8c-4953-8962-a3cb2ddb986f": {
       "categories": [],
       "influenced_ego": false,
-      "safety_criticality": 1,
-      "rarity": 1,
+      "safety_criticality": 0,
+      "rarity": 0,
       "weather": [
         "snow"
       ],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 1,
+        "atmospheric_obscurants": 0
+      },
       "note": ""
     },
     "cd43c62f-fd9f-4064-abb3-bfd926f39a65": {
       "categories": [],
       "influenced_ego": false,
-      "safety_criticality": 1,
-      "rarity": 1,
+      "safety_criticality": 0,
+      "rarity": 0,
       "weather": [
         "rain"
       ],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 2,
+        "road_surface": 1,
+        "atmospheric_obscurants": 1
+      },
       "note": ""
     },
     "cd0d9929-989a-4116-9ae1-27f0f27938a6": {
       "categories": [],
       "influenced_ego": false,
-      "safety_criticality": 1,
-      "rarity": 1,
+      "safety_criticality": 0,
+      "rarity": 0,
       "weather": [
         "rain"
       ],
+      "difficulty": {
+        "illumination": 1,
+        "precipitation": 2,
+        "road_surface": 2,
+        "atmospheric_obscurants": 1
+      },
       "note": ""
     },
     "cccc6b04-884d-4a4e-991a-0a0d500bbf74": {
       "categories": [],
       "influenced_ego": false,
-      "safety_criticality": 1,
-      "rarity": 1,
+      "safety_criticality": 0,
+      "rarity": 0,
       "weather": [
         "fog"
       ],
+      "difficulty": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 2
+      },
       "note": ""
     },
     "c74801b3-d02e-4d09-b53a-c5f5b71107cc": {
@@ -1841,7 +2027,7 @@
     },
     "c03477b0-117c-4202-b6ff-5fb9d2de65fd": {
       "categories": [
-        "Stationary Vehicle Obstruction"
+        "Vehicles narrowing the lane"
       ],
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2182,7 +2368,7 @@
     },
     "56c703f3-2274-4740-8000-85ff1cad21b7": {
       "categories": [
-        "Stationary Vehicle Obstruction"
+        "Vehicles narrowing the lane"
       ],
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -2354,7 +2540,7 @@
       "categories": [
         "Animal on Road",
         "Cyclist on Road",
-        "Stationary Vehicle Obstruction"
+        "Vehicles narrowing the lane"
       ],
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2468,7 +2654,7 @@
     "b30fbc40-aa45-4553-b121-229ecf8c3947": {
       "categories": [
         "Road Construction",
-        "Stationary Vehicle Obstruction"
+        "Vehicles narrowing the lane"
       ],
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2603,7 +2789,7 @@
     },
     "845eec10-71f0-473e-ae4c-155baf2c30d0": {
       "categories": [
-        "Stationary Vehicle Obstruction",
+        "Vehicles narrowing the lane",
         "Cyclist on Road"
       ],
       "influenced_ego": true,
@@ -2636,7 +2822,7 @@
     },
     "fa6c3c98-6f54-431f-8ac8-1fcee7cc6261": {
       "categories": [
-        "Stationary Vehicle Obstruction"
+        "Vehicles narrowing the lane"
       ],
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2669,7 +2855,7 @@
     "1503c87e-5429-4311-b9b3-acfa438bd382": {
       "categories": [
         "Tram",
-        "Stationary Vehicle Obstruction",
+        "Vehicles narrowing the lane",
         "Pedestrian on Road"
       ],
       "influenced_ego": true,
@@ -2777,9 +2963,9 @@
       ],
       "difficulty": {
         "illumination": 1,
-        "precipitation": 1,
+        "precipitation": 2,
         "road_surface": 1,
-        "atmospheric_obscurants": 2
+        "atmospheric_obscurants": 3
       },
       "note": ""
     },
@@ -3108,7 +3294,7 @@
         "snow"
       ],
       "difficulty": {
-        "illumination": 3,
+        "illumination": 2,
         "precipitation": 0,
         "road_surface": 4,
         "atmospheric_obscurants": 0
@@ -3126,7 +3312,7 @@
         "snow"
       ],
       "difficulty": {
-        "illumination": 3,
+        "illumination": 1,
         "precipitation": 0,
         "road_surface": 4,
         "atmospheric_obscurants": 0
@@ -3143,9 +3329,9 @@
       ],
       "difficulty": {
         "illumination": 3,
-        "precipitation": 3,
+        "precipitation": 4,
         "road_surface": 1,
-        "atmospheric_obscurants": 3
+        "atmospheric_obscurants": 4
       },
       "note": "카메라에 눈 붙어서 완전 가림"
     },
@@ -3195,7 +3381,7 @@
         "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
-        "atmospheric_obscurants": 4
+        "atmospheric_obscurants": 3
       },
       "note": ""
     },
@@ -3257,10 +3443,10 @@
         "rain"
       ],
       "difficulty": {
-        "illumination": 3,
+        "illumination": 2,
         "precipitation": 4,
         "road_surface": 3,
-        "atmospheric_obscurants": 2
+        "atmospheric_obscurants": 3
       },
       "note": ""
     },
@@ -3276,7 +3462,7 @@
         "illumination": 2,
         "precipitation": 2,
         "road_surface": 2,
-        "atmospheric_obscurants": 0
+        "atmospheric_obscurants": 1
       },
       "note": ""
     },
@@ -3285,7 +3471,7 @@
         "Pedestrian on Road", "Traffic Accident"
       ],
       "influenced_ego": true,
-      "safety_criticality": 3,
+      "safety_criticality": 4,
       "rarity": 3,
       "weather": [
         "rain"
@@ -3303,7 +3489,7 @@
         "Pedestrian on Road", "Traffic Accident"
       ],
       "influenced_ego": true,
-      "safety_criticality": 3,
+      "safety_criticality": 4,
       "rarity": 3,
       "weather": [
         "rain"
@@ -3355,7 +3541,7 @@
       "difficulty": {
         "illumination": 0,
         "precipitation": 0,
-        "road_surface": 0,
+        "road_surface": 1,
         "atmospheric_obscurants": 0
       },
       "note": ""
@@ -3371,7 +3557,7 @@
       "difficulty": {
         "illumination": 2,
         "precipitation": 0,
-        "road_surface": 0,
+        "road_surface": 1,
         "atmospheric_obscurants": 0
       },
       "note": ""
@@ -3387,7 +3573,7 @@
       "difficulty": {
         "illumination": 0,
         "precipitation": 0,
-        "road_surface": 0,
+        "road_surface": 1,
         "atmospheric_obscurants": 0
       },
       "note": ""
@@ -3403,7 +3589,7 @@
       "difficulty": {
         "illumination": 4,
         "precipitation": 0,
-        "road_surface": 0,
+        "road_surface": 1,
         "atmospheric_obscurants": 0
       },
       "note": ""
@@ -3436,7 +3622,7 @@
       "difficulty": {
         "illumination": 0,
         "precipitation": 0,
-        "road_surface": 0,
+        "road_surface": 1,
         "atmospheric_obscurants": 0
       },
       "note": "Unpaved road 아니지만 길이 흙으로 더러워져서 그렇게 보일 수 있음"
@@ -3530,10 +3716,10 @@
       "difficulty": {
         "illumination": 1,
         "precipitation": 0,
-        "road_surface": 1,
+        "road_surface": 2,
         "atmospheric_obscurants": 0
       },
-      "note": "물웅덩이"
+      "note": "웅덩이"
     },
     "00c359b2-5f68-41c2-b0d7-94d9e071037b": {
       "categories": [
@@ -3553,7 +3739,7 @@
     },
     "054c8dba-2f98-4d80-aaae-41bacc76db05": {
       "categories": [
-        "Traffic Accident", "Stationary Vehicle Obstruction"
+        "Traffic Accident"
       ],
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3585,7 +3771,7 @@
     },
     "0809db09-d475-46a9-9276-68acb32ea2a0": {
       "categories": [
-        "Animal on Road"
+        "Pedestrian on Road", "Animal on Road"
       ],
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3610,7 +3796,7 @@
       "difficulty": {
         "illumination": 0,
         "precipitation": 0,
-        "road_surface": 0,
+        "road_surface": 1,
         "atmospheric_obscurants": 0
       },
       "note": ""
@@ -3652,7 +3838,7 @@
         "Animal on Road", "Cyclist on Road"
       ],
       "influenced_ego": true,
-      "safety_criticality": 0,
+      "safety_criticality": 2,
       "rarity": 3,
       "weather": [],
       "difficulty": {
@@ -3678,6 +3864,6 @@
         "atmospheric_obscurants": 0
       },
       "note": "⚠️사고 위험 영상"
-    },
+    }
   }
 }

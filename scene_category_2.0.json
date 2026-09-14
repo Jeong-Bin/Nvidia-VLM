@@ -129,9 +129,9 @@
             ]
           },
           {
-            "name": "Stationary Vehicle Obstruction",
+            "name": "Vehicles narrowing the lane",
             "templates": [
-              "A stopped car blocking the lane",
+              "The ego-vehicle must make a slight evasive maneuver due to a car parked on the side",
               "A parked truck narrowing the lane"
             ],
             "template_candidates": [
@@ -148,7 +148,8 @@
               "a stalled vehicle in the roadway",
               "a bus stopped in the lane",
               "a car with its door opening into traffic",
-              "on the side of the road"
+              "on the side of the road",
+              "A stopped car blocking the lane"
             ]
           },
           {

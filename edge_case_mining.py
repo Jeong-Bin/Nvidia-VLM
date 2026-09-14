@@ -787,8 +787,8 @@ the CURRENT moment. Each group of three is synchronized camera views
         # 머리말도 켜진 개수에 맞춘다 - 한 단계만 남았는데 "steps 4 and 5"
         # 라고 하면 없는 단계를 가리킨다.
         head_ref = ("steps 4 and 5" if n_on == 2 else f"step {step_no}")
-        parts = [f"""   For {head_ref}, rate the SITUATION, never the object by itself. The same
-   object is routine or serious depending on what it is doing and where it is:
+        parts = [f"""   For {head_ref}, rate what each element is DOING, never its name alone. The
+   same object is routine or serious depending on what it is doing and where it is:
 {contrasts}
    So "there is an animal" or "there is a pedestrian" tells you nothing on its
    own - look at what it is doing relative to the ego-vehicle's path.
@@ -796,6 +796,13 @@ the CURRENT moment. Each group of three is synchronized camera views
    conditions - rain, nighttime, fog, or a wet road do not by themselves raise
    either rating. Rate what actually happened in the scene, not how hard the
    conditions were to drive in.
+   When the scene contains SEVERAL elements, rate each one separately and then
+   report the HIGHEST of those ratings - never an average, and never an overall
+   impression of the scene. One serious element decides the rating on its own,
+   no matter how many ordinary things surround it. Example: roadworks off to the
+   side, away from the ego-vehicle's path, next to a pedestrian stepping into
+   the lane directly ahead - the roadworks are low on both scales, the
+   pedestrian is high, so the scene takes the pedestrian's ratings.
 """]
         if safety_tiers:
             parts.append(f"""{step_no}. Safety Criticality: how close this came to needing emergency action.

@@ -136,6 +136,13 @@ RARITY_RUBRIC = {
 #
 # rubric 에 객체 목록을 주면 그 목록을 외우므로, 대신 "같은 객체 x 다른
 # 행동 = 다른 등급" 대비쌍을 준다.
+#
+# 요소가 여럿이면 최댓값을 쓴다(프롬프트 steps45 헤더에 명시). rubric 문장이
+# 전부 단수 주어라 그냥 두면 모델이 장면을 하나로 뭉뚱그려 평균을 낸다 -
+# 실측(20260904, 27,024클립): 특이요소가 1개든 3개든 rarity 평균이 2.00 으로
+# 고정이고, safety 는 요소 3개 그룹이 오히려 낮았다(2개 1.53 -> 3개 1.36).
+# 최댓값 규칙이 작동하면 요소가 늘수록 상한을 칠 확률이 올라가 평균이
+# 올라가야 하므로, 이 고정은 평균내기의 흔적이다.
 CONTRAST_EXAMPLES = [
     ("a pedestrian using a crosswalk with the signal",
      "a pedestrian stepping into the lane from between parked cars"),
