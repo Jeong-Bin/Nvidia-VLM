@@ -141,9 +141,9 @@ DIFFICULTY_SCALES = {
         "   0 = full daylight, evenly lit, scene clearly readable everywhere\n"
             환한 대낮, 고른 조명, 화면 전체가 명확하게 식별됨
         "   1 = overcast or flat daylight; reduced contrast but full visibility or partial shading caused by an overpass\n"
-            흐리거나 평이한 자연광; 대비는 낮지만 시야는 온전히 확보됨    
-        "   2 = twilight (dusk/dawn) or well-lit night with dense street lighting; readable but dimmer\n"
-            황혼(해 질 녘/동틀 녘) 또는 가로등이 촘촘하여 조명이 밝은 야간(식별은 가능하나 다소 어두움)
+            흐리거나 평이한 자연광; 대비는 낮지만 시야는 온전히 확보됨, 고가도로 그늘
+        "   2 = twilight (dusk/dawn) or well-lit night with dense street lighting; readable but dimmer, or strong contrast caused by backlighting\n"
+            황혼(해 질 녘/동틀 녘) 또는 가로등이 촘촘하여 조명이 밝은 야간(식별은 가능하나 다소 어두움), 터널, 강한 대비
         "   3 = night with partial or intermittent lighting; large dark regions, reliance on headlights\n"
             부분적 또는 간헐적 조명이 있는 야간; 넓고 어두운 구역, 전조등 의존
         "   4 = near-total darkness (unlit road) where much of the scene is not resolvable"),

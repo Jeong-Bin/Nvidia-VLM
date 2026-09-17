@@ -132,7 +132,8 @@
             "name": "Vehicles narrowing the lane",
             "templates": [
               "The ego-vehicle must make a slight evasive maneuver due to a car parked on the side",
-              "A parked truck narrowing the lane"
+              "A parked truck narrowing the lane",
+              "A vehicle in the oncoming lane crossed the center line"
             ],
             "template_candidates": [
               "A stopped vehicle blocking the driving lane",

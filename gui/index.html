@@ -139,6 +139,21 @@ label.rng input[type=number]{width:52px;text-align:center}
 .scen:first-of-type{margin-top:2px}
 .grid{display:grid;gap:12px}
 .hide{display:none!important}
+/* GT | Pred 를 완전히 두 단으로 나눈다. 줄마다 선을 긋는 대신 오른쪽 단의
+   왼쪽 테두리 하나로 세 줄에 걸쳐 끊기지 않는 직선을 만든다. */
+.gtpred{display:grid;grid-template-columns:max-content max-content;
+  gap:0 16px;align-items:start}
+.gpcol{min-width:0}
+.gtpred>.gpcol+.gpcol{border-left:1px solid var(--line);padding-left:16px}
+.gpcol>.row{margin-top:8px}
+.sidelbl{display:inline-block;font-size:11px;font-weight:650;letter-spacing:.03em;
+  color:var(--ok);border:1px solid var(--ok);border-radius:4px;padding:1px 6px}
+.sidelbl.pred{color:var(--accent);border-color:var(--accent)}
+@media(max-width:1100px){
+  .gtpred{grid-template-columns:1fr}
+  .gtpred>.gpcol+.gpcol{border-left:0;padding-left:0;margin-top:12px;
+    border-top:1px solid var(--line);padding-top:10px}
+}
 /* 마지막으로 연 행. 배경만 바꾸면 얼룩처럼 보여서, 왼쪽에 선을 하나 세워
    어느 행이었는지 훑어볼 때 바로 집히게 한다. */
 tr.seen>td{background:var(--panel2)}
@@ -285,18 +300,39 @@ video{width:100%;background:#000;border-radius:6px}
         <option value="fn">FN 있는 클립</option><option value="tp">TP 있는 클립</option>
       </select></label>
     </div>
-    <div class="row" style="margin-top:10px">
-      <label class="rng">Safety
-        <input type="number" id="s-smin" value="0" min="0" max="4">
-        <span class="muted">~</span>
-        <input type="number" id="s-smax" value="4" min="0" max="4"></label>
-      <label class="rng">Rarity
-        <input type="number" id="s-rmin" value="0" min="0" max="4">
-        <span class="muted">~</span>
-        <input type="number" id="s-rmax" value="4" min="0" max="4"></label>
+    <!-- GT | Pred 를 두 단으로 나눈다. 단마다 제목 1개, 그 아래 같은 순서로
+         점수/난이도 줄이 들어간다. 가운데 선은 단 전체에 하나로 이어진다. -->
+    <div class="gtpred" style="margin-top:10px"
+         title="왼쪽은 정답 라벨 기준, 오른쪽은 선택한 실행의 예측 기준입니다">
+      <div class="gpcol">
+        <div class="sidelbl">GT</div>
+        <div class="row">
+          <label class="rng">Safety
+            <input type="number" id="s-smin" value="0" min="0" max="4">
+            <span class="muted">~</span>
+            <input type="number" id="s-smax" value="4" min="0" max="4"></label>
+          <label class="rng">Rarity
+            <input type="number" id="s-rmin" value="0" min="0" max="4">
+            <span class="muted">~</span>
+            <input type="number" id="s-rmax" value="4" min="0" max="4"></label>
+        </div>
+        <div class="row" id="s-diffrow"></div>
+      </div>
+      <div class="gpcol">
+        <div class="sidelbl pred">Pred</div>
+        <div class="row">
+          <label class="rng">Safety
+            <input type="number" id="s-psmin" min="0" max="4" placeholder="0">
+            <span class="muted">~</span>
+            <input type="number" id="s-psmax" min="0" max="4" placeholder="4"></label>
+          <label class="rng">Rarity
+            <input type="number" id="s-prmin" min="0" max="4" placeholder="0">
+            <span class="muted">~</span>
+            <input type="number" id="s-prmax" min="0" max="4" placeholder="4"></label>
+        </div>
+        <div class="row" id="sp-diffrow"></div>
+      </div>
     </div>
-    <div class="row" style="margin-top:10px" id="s-diffrow"
-         title="난이도는 정답 라벨에 없는 값이라 선택한 실행의 예측에서 가져옵니다"></div>
     <div class="row" style="margin-top:10px;align-items:flex-start">
       <label>카테고리 조건<select id="s-catmode">
         <option value="any">하나라도 포함</option><option value="all">모두 포함</option>
@@ -732,7 +768,9 @@ async function boot() {
   opts($('#ag-run'), nasRuns);
   opts($('#ns-run'), nasRuns);
   // 난이도 필터 입력칸은 축 목록에서 만든다 - 축이 늘면 여기만 고치면 된다.
+  // 라벨 씬 검색은 GT / 예측이 각자 단을 가진다 - 난이도도 단별로 채운다.
   $('#s-diffrow').insertAdjacentHTML('beforeend', diffInputs('s'));
+  $('#sp-diffrow').insertAdjacentHTML('beforeend', diffInputs('sp'));
   $('#ns-diffrow').insertAdjacentHTML('beforeend', diffInputs('ns'));
   for (const s of ['#ev-labels', '#s-labels', '#l-file', '#r-labels'])
     opts($(s), BOOT.labels, BOOT.default_labels);
@@ -908,8 +946,17 @@ function searchQuery() {
     special: $('#s-special').value, only: $('#s-only').value,
   });
   // 난이도는 값이 있을 때만 붙인다. 빈 값을 보내면 서버가 0 으로 읽어
-  // 걸지도 않은 조건이 걸린다.
-  for (const [k, v] of Object.entries(diffQuery('s'))) q.set(k, v);
+  // 걸지도 않은 조건이 걸린다. GT 는 gt_, 예측은 pred_ 접두사로 보낸다.
+  for (const [k, v] of Object.entries(diffQuery('s', 'gt_'))) q.set(k, v);
+  for (const [k, v] of Object.entries(diffQuery('sp', 'pred_'))) q.set(k, v);
+  // 예측 점수 범위도 비어 있으면 아예 보내지 않는다.
+  for (const [id, key] of [['#s-psmin', 'pred_safety_min'],
+                           ['#s-psmax', 'pred_safety_max'],
+                           ['#s-prmin', 'pred_rarity_min'],
+                           ['#s-prmax', 'pred_rarity_max']]) {
+    const v = $(id).value.trim();
+    if (v !== '') q.set(key, v);
+  }
   return q.toString();
 }
 let SROWS = [];
@@ -937,7 +984,8 @@ $('#s-clear').onclick = () => {
   $('#s-smin').value = 0; $('#s-smax').value = 4;
   $('#s-rmin').value = 0; $('#s-rmax').value = 4;
   $('#s-special').value = ''; $('#s-only').value = '';
-  clearDiff('s');
+  clearDiff('s'); clearDiff('sp');
+  ['#s-psmin', '#s-psmax', '#s-prmin', '#s-prmax'].forEach(x => $(x).value = '');
   $$('#s-cats .pill').forEach(p => p.classList.remove('on'));
 };
 $('#s-csv').onclick = () => {
@@ -1533,21 +1581,26 @@ function diffInputs(prefix) {
     </label>`).join('');
 }
 
-function diffQuery(prefix) {
+function diffQuery(prefix, keyPrefix) {
+  // keyPrefix 는 서버가 GT/예측 중 어느 쪽 조건으로 읽을지 정한다
+  // (gt_illumination_min / pred_illumination_min). 라벨 씬 검색만 두 벌을 쓴다.
+  const kp = keyPrefix || '';
   const q = {};
   for (const [k] of DIFF_AXES_UI) {
-    const lo = $(`#${prefix}-${k}-min`).value.trim();
-    const hi = $(`#${prefix}-${k}-max`).value.trim();
-    if (lo !== '') q[k + '_min'] = +lo;
-    if (hi !== '') q[k + '_max'] = +hi;
+    const lo = $(`#${prefix}-${k}-min`);
+    const hi = $(`#${prefix}-${k}-max`);
+    if (lo && lo.value.trim() !== '') q[kp + k + '_min'] = +lo.value;
+    if (hi && hi.value.trim() !== '') q[kp + k + '_max'] = +hi.value;
   }
   return q;
 }
 
 function clearDiff(prefix) {
   for (const [k] of DIFF_AXES_UI) {
-    $(`#${prefix}-${k}-min`).value = '';
-    $(`#${prefix}-${k}-max`).value = '';
+    for (const b of ['min', 'max']) {
+      const el = $(`#${prefix}-${k}-${b}`);
+      if (el) el.value = '';
+    }
   }
 }
 

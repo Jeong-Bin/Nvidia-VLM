@@ -747,6 +747,55 @@ def search_nas_clips(q: dict) -> dict:
                 for v in r["difficulty"].values())}
 
 
+def gt_difficulty(labels_path: Path) -> dict:
+    """{uuid: {축: 점수}} - 정답 라벨의 난이도.
+
+    EV.load_labels 는 채점에 쓰는 필드만 돌려주고 difficulty 는 버린다.
+    그 함수는 CLI 채점도 같이 쓰므로 반환값을 늘리는 대신 여기서 따로 읽는다.
+    라벨마다 축이 다 채워져 있지는 않다(실측 286개 중 208개).
+    """
+    try:
+        data = json.loads(Path(labels_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    clips = data.get("clips", data)
+    out = {}
+    for uuid, v in clips.items():
+        if uuid.startswith("_") or not isinstance(v, dict):
+            continue
+        d = v.get("difficulty")
+        if isinstance(d, dict):
+            out[uuid] = {k: _as_int(d.get(k)) for k in DIFF_KEYS}
+    return out
+
+
+def _range_ok(v, lo, hi) -> bool:
+    """값이 [lo, hi] 안인가. 조건이 없으면 통과, 값이 없으면 탈락.
+
+    조건을 건 항목에 값이 없는 클립을 통과시키면 "조도 3 이상" 같은 조건에
+    미기록 클립이 전부 딸려 나와 필터가 고장난 것처럼 보인다(_diff_ok 와
+    같은 규칙).
+    """
+    if lo is None and hi is None:
+        return True
+    if v is None:
+        return False
+    if lo is not None and v < int(lo):
+        return False
+    if hi is not None and v > int(hi):
+        return False
+    return True
+
+
+def _diff_ok_prefixed(d: dict, q: dict, prefix: str) -> bool:
+    """난이도 5축 범위 필터 - GT(gt_) / 예측(pred_) 를 접두사로 가른다."""
+    for k in DIFF_KEYS:
+        if not _range_ok((d or {}).get(k),
+                         q.get(f"{prefix}{k}_min"), q.get(f"{prefix}{k}_max")):
+            return False
+    return True
+
+
 def search_clips(q: dict) -> dict:
     """라벨 기준 검색. uuid / 카테고리 / safety / rarity 필터.
 
@@ -768,17 +817,25 @@ def search_clips(q: dict) -> dict:
     uuid_q = (q.get("uuid") or "").strip().lower()
     cats = [c for c in (q.get("categories") or "").split("|") if c]
     cat_mode = q.get("cat_mode", "any")          # any | all | none
-    smin = int(q.get("safety_min", min(TIER_VALUES)))
-    smax = int(q.get("safety_max", max(TIER_VALUES)))
-    rmin = int(q.get("rarity_min", min(TIER_VALUES)))
-    rmax = int(q.get("rarity_max", max(TIER_VALUES)))
     special = q.get("special", "")               # "" | special | normal
     note_q = (q.get("note") or "").strip().lower()
     only = q.get("only", "")                     # "" | tp | fp | fn (run 필요)
-    # 난이도 필터는 예측값 기준이다. 실행을 안 골랐으면 적용할 수 없으므로
-    # 조용히 무시한다 - 조건을 걸었는데 전부 탈락하는 것보다 낫다.
-    want_diff = any(q.get(k + "_min") is not None or q.get(k + "_max") is not None
-                    for k in DIFF_KEYS)
+
+    # 점수/난이도는 GT 와 예측을 따로 건다. 접두사 없는 키(safety_min 등)는
+    # GT 로 읽는다 - 이 이름으로 저장해 둔 북마크나 옛 링크가 계속 같은 뜻을
+    # 갖게 하려는 것이다.
+    gt_smin = q.get("safety_min", q.get("gt_safety_min"))
+    gt_smax = q.get("safety_max", q.get("gt_safety_max"))
+    gt_rmin = q.get("rarity_min", q.get("gt_rarity_min"))
+    gt_rmax = q.get("rarity_max", q.get("gt_rarity_max"))
+    gt_diff = gt_difficulty(ROOT / labels_name)
+
+    # 예측 기준 조건이 하나라도 걸렸나. 실행을 안 골랐으면 대조할 예측이
+    # 없으므로 조용히 무시한다 - 조건을 걸었는데 전부 탈락하는 것보다 낫다.
+    pred_keys = ["pred_safety_min", "pred_safety_max",
+                 "pred_rarity_min", "pred_rarity_max"]
+    pred_keys += [f"pred_{k}_{b}" for k in DIFF_KEYS for b in ("min", "max")]
+    want_pred = any(q.get(k) is not None for k in pred_keys)
 
     rows = []
     for u, t in truth.items():
@@ -793,9 +850,11 @@ def search_clips(q: dict) -> dict:
                 continue
             if cat_mode == "none" and hit:
                 continue
-        if not (smin <= t["safety"] <= smax):
+        if not _range_ok(t["safety"], gt_smin, gt_smax):
             continue
-        if not (rmin <= t["rarity"] <= rmax):
+        if not _range_ok(t["rarity"], gt_rmin, gt_rmax):
+            continue
+        if not _diff_ok_prefixed(gt_diff.get(u), q, "gt_"):
             continue
         if special == "special" and not tc:
             continue
@@ -804,12 +863,20 @@ def search_clips(q: dict) -> dict:
         if note_q and note_q not in (t.get("note") or "").lower():
             continue
 
-        if want_diff and pred_rows:
-            if not _diff_ok((pred_rows.get(u) or {}).get("difficulty"), q):
+        if want_pred and pred_rows:
+            pr = pred_rows.get(u) or {}
+            if not _diff_ok_prefixed(pr.get("difficulty"), q, "pred_"):
+                continue
+            if not _range_ok(pr.get("safety"),
+                             q.get("pred_safety_min"), q.get("pred_safety_max")):
+                continue
+            if not _range_ok(pr.get("rarity"),
+                             q.get("pred_rarity_min"), q.get("pred_rarity_max")):
                 continue
 
         row = {"uuid": u, "categories": sorted(tc), "safety": t["safety"],
-               "rarity": t["rarity"], "note": t.get("note", "")}
+               "rarity": t["rarity"], "note": t.get("note", ""),
+               "gt_difficulty": gt_diff.get(u)}
         if u in pred_rows:
             row["difficulty"] = pred_rows[u]["difficulty"]
         if u in pred:
@@ -834,7 +901,8 @@ def search_clips(q: dict) -> dict:
     return {"total": total, "rows": rows[:limit], "labels": labels_name,
             "has_difficulty": any(
                 v is not None for r in list(pred_rows.values())[:50]
-                for v in r["difficulty"].values())}
+                for v in r["difficulty"].values()),
+            "has_gt_difficulty": bool(gt_diff)}
 
 
 # ---------------------------------------------------------------------------

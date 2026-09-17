@@ -22,13 +22,13 @@ ILLUMINATION_PROMPT = (
     "camera image.\n"
     "Rate the ILLUMINATION difficulty on an integer scale from 0 to 4:\n"
     "  0 = full daylight, evenly lit, scene clearly readable everywhere\n"
-    "  1 = overcast or flat daylight; reduced contrast but full visibility, or partial shading caused by an overpass\n"
+    "  1 = overcast or flat daylight; reduced contrast but full visibility, or a brief moment shading caused by an overpass\n"
     "  2 = twilight (dusk/dawn) or well-lit night with dense street lighting; "
-    "readable but dimmer, or tunnel\n"
+    "readable but dimmer, or tunnel, or strong contrast caused by backlighting\n"
     "  3 = night with partial or intermittent lighting; large dark regions, "
     "reliance on headlights\n"
     "  4 = only the vehicle's headlights providing illumination,\n"
-    "      near-total darkness (unlit road) where much of the scene is not resolvable\n"
+    "near-total darkness (unlit road) where much of the scene is not resolvable\n"
     "Judge ONLY illumination / ambient light, not weather or road condition.\n"
     "Answer with the single difficulty integer on the first line, then one short "
     "sentence justifying it."
@@ -129,13 +129,10 @@ DIFFICULTY_SCALES = {
         "   4 = very hard (severe adverse conditions / very complex)"),
     "illumination": (
         "   0 = full daylight, evenly lit, scene clearly readable everywhere\n"
-        "   1 = overcast or flat daylight; reduced contrast but full visibility, or partial shading caused by an overpass\n"
-        "   2 = twilight (dusk/dawn) or well-lit night with dense street\n"
-        "       lighting; readable but dimmer, or tunnel\n"
-        "   3 = night with partial or intermittent lighting; large dark\n"
-        "       regions, reliance on headlights\n"
-        "   4 = only the vehicle's headlights providing illumination,\n"
-        "       near-total darkness (unlit road) where much of the scene is not resolvable\n"),
+        "   1 = overcast or flat daylight; reduced contrast but full visibility, or a brief moment shading caused by an overpass\n"
+        "   2 = twilight (dusk/dawn) or well-lit night with dense street lighting; readable but dimmer, or tunnel, or strong contrast caused by backlighting\n"
+        "   3 = night with partial or intermittent lighting; large dark regions, reliance on headlights\n"
+        "   4 = only the vehicle's headlights providing illumination, near-total darkness (unlit road) where much of the scene is not resolvable\n"),
     "precipitation": (
         "   0 = none / clear\n"
         "   1 = drizzle or very light rain; occasional drops on lens\n"

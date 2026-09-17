@@ -99,31 +99,31 @@ SAFETY_RUBRIC = {
        "so neither deceleration nor a change in steering is necessary.",
     2: "The ego-vehicle had to give way - slow, yield, wait, or steer around something "
        "- but with plenty of time and space to do it.",
-    3: "The ego-vehicle had to act urgently, or a small mistake by anyone "
-       "would have caused a collision: hard braking, evasive steering, or "
-       "something entering its path at close range.",
-    4: "This is a highly dangerous situation. A collision is either imminent or has already occurred. "
-       "Urgent evasive action or emergency braking is required, "
-       "yet there is no guarantee that such measures will prevent the accident."
+    3: "An object suddenly appeared, the ego-vehicle took emergency actions "
+       "such as hard braking and evasive steering. "
+       "This is a situation that arises more suddenly compared to the two-point criterion.",
+    4: "A collision occurred between the ego-vehicle and another object. "
+       "UThe moment of the accident was captured on camera."
+       
 }
 
 RARITY_RUBRIC = {
     0: "It is a monotonous scene typical of everyday driving. "
        "Nothing out of the ordinary is visible, apart from the usual vehicles, pedestrians on the sidewalk, or empty roads.",
     1: "These are elements you can frequently see while driving. "
-       "For example, pedestrians or cyclists crossing a crosswalk, or traffic cones guiding the lanes.",
+       "For example, pedestrians or cyclists crossing a crosswalk.",
     2: "These are elements or situations occasionally encountered while driving. "
        "For example, jaywalkers crossing outside of crosswalks, "
        "cyclists in dangerously close proximity to the ego-vehicle "
-       "or lanes completely altered due to construction.",
-    3: "These are critical edge cases that autonomous vehicles must not overlook. "
-       "It can happen on the road on very rare occasions. "
+       "or there are traffic cones but they do not affect ego-vehicle's driving.",
+    3: "These are critical edge cases that can rarely occur on the road."
        "For example, a person wearing a mascot costume, wildlife crossing the road, "
-       "a fallen tree blocking the road, traffic accidents or fire, or a road completely submerged by the flood.",
-    4: "This is a rare situation—the kind one might not see even once in a lifetime. "
-       "For example, a plane making an emergency landing on the road, "
-       "a road destroyed by a natural disaster, "
-       "or the very moment a major traffic accident occurs.",
+       "a fallen tree blocking the road, an accident that has already occurred, a road completely submerged by the flood, "
+       "or construction work and traffic cones have completely altered the ego-vehicle's driving path.",
+    4: "This is a super rare situation—the kind one might not see even once in a lifetime. "
+       "For example, a road destroyed by a natural disaster, "
+       "the very moment a major traffic accident occurs. "
+       "Furthermore, various exceptional situations that do not fit the context of a road environment.",
 }
 
 # 등급은 "무엇이 있는가"가 아니라 "그것이 무엇을 하는가"로 갈린다.
