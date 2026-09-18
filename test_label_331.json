@@ -559,7 +559,7 @@
       "rarity": 0,
       "weather": [],
       "difficulty": {
-        "illumination": 2,
+        "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
         "atmospheric_obscurants": 0
@@ -954,7 +954,7 @@
       ],
       "difficulty": {
         "illumination": 2,
-        "precipitation": 2,
+        "precipitation": 3,
         "road_surface": 2,
         "atmospheric_obscurants": 3
       },
@@ -1182,7 +1182,7 @@
       ],
       "influenced_ego": false,
       "safety_criticality": 1,
-      "rarity": 0,
+      "rarity": 1,
       "weather": [],
       "difficulty": {
         "illumination": 0,
@@ -1640,11 +1640,11 @@
         "Pedestrian on Road"
       ],
       "influenced_ego": false,
-      "safety_criticality": 1,
-      "rarity": 0,
+      "safety_criticality": 2,
+      "rarity": 1,
       "weather": [],
       "difficulty": {
-        "illumination": 2,
+        "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
         "atmospheric_obscurants": 0
@@ -1995,7 +1995,7 @@
         "rain"
       ],
       "difficulty": {
-        "illumination": 2,
+        "illumination": 1,
         "precipitation": 2,
         "road_surface": 2,
         "atmospheric_obscurants": 2
@@ -3226,7 +3226,7 @@
         "Unpaved road"
       ],
       "influenced_ego": true,
-      "safety_criticality": 0,
+      "safety_criticality": 1,
       "rarity": 2,
       "weather": [],
       "difficulty": {
@@ -3675,8 +3675,8 @@
       "categories": [
         "Unpaved road"
       ],
-      "influenced_ego": false,
-      "safety_criticality": 0,
+      "influenced_ego": true,
+      "safety_criticality": 2,
       "rarity": 3,
       "weather": [
         "snow"
@@ -3699,7 +3699,7 @@
       ],
       "difficulty": {
         "illumination": 3,
-        "precipitation": 4,
+        "precipitation": 3,
         "road_surface": 3,
         "atmospheric_obscurants": 2
       },
@@ -3733,7 +3733,7 @@
       ],
       "difficulty": {
         "illumination": 3,
-        "precipitation": 4,
+        "precipitation": 3,
         "road_surface": 3,
         "atmospheric_obscurants": 2
       },
@@ -3864,7 +3864,7 @@
         "snow"
       ],
       "difficulty": {
-        "illumination": 2,
+        "illumination": 3,
         "precipitation": 2,
         "road_surface": 4,
         "atmospheric_obscurants": 1
@@ -3875,9 +3875,9 @@
       "categories": [
         "Unpaved road"
       ],
-      "influenced_ego": false,
-      "safety_criticality": 0,
-      "rarity": 0,
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
       "weather": [
         "snow"
       ],
@@ -3911,9 +3911,9 @@
       "categories": [
         "Unpaved road"
       ],
-      "influenced_ego": false,
-      "safety_criticality": 0,
-      "rarity": 1,
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
       "weather": [
         "snow"
       ],
@@ -4039,7 +4039,6 @@
       },
       "note": ""
     },
-
     "02bb4b61-ed4c-478d-9496-61c30c9ab8c0": {
       "categories": [],
       "influenced_ego": false,
@@ -4141,7 +4140,7 @@
         "Unpaved road"
       ],
       "influenced_ego": false,
-      "safety_criticality": 0,
+      "safety_criticality": 1,
       "rarity": 1,
       "weather": [],
       "difficulty": {
@@ -4157,7 +4156,7 @@
         "Unpaved road"
       ],
       "influenced_ego": false,
-      "safety_criticality": 0,
+      "safety_criticality": 1,
       "rarity": 1,
       "weather": [],
       "difficulty": {
@@ -4254,7 +4253,7 @@
         "Obstacle on Road"
       ],
       "influenced_ego": false,
-      "safety_criticality": 0,
+      "safety_criticality": 1,
       "rarity": 1,
       "weather": [],
       "difficulty": {
@@ -4316,7 +4315,7 @@
         "Unpaved road"
       ],
       "influenced_ego": true,
-      "safety_criticality": 0,
+      "safety_criticality": 1,
       "rarity": 1,
       "weather": [],
       "difficulty": {
@@ -4332,7 +4331,7 @@
         "Cyclist on Road"
       ],
       "influenced_ego": false,
-      "safety_criticality": 0,
+      "safety_criticality": 1,
       "rarity": 1,
       "weather": [],
       "difficulty": {
@@ -4412,11 +4411,11 @@
         "Animal on Road"
       ],
       "influenced_ego": false,
-      "safety_criticality": 0,
+      "safety_criticality": 1,
       "rarity": 3,
       "weather": [],
       "difficulty": {
-        "illumination": 2,
+        "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
         "atmospheric_obscurants": 0
@@ -4448,7 +4447,7 @@
       "rarity": 3,
       "weather": [],
       "difficulty": {
-        "illumination": 2,
+        "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
         "atmospheric_obscurants": 0
@@ -4470,6 +4469,402 @@
         "atmospheric_obscurants": 0
       },
       "note": "⚠️사고 위험 영상"
+    },
+    "1554319e-7ca1-452a-9894-1f3efdb4e08d": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 0,
+      "rarity": 0,
+      "weather": [
+        "rain"
+      ],
+      "difficulty": {
+        "illumination": 3,
+        "precipitation": 3,
+        "road_surface": 2,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "166757d1-179f-4b3d-9d7b-416a1e44a2e0": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 0,
+      "rarity": 0,
+      "weather": [
+        "snow"],
+      "difficulty": {
+        "illumination": 2,
+        "precipitation": 3,
+        "road_surface": 4,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "15dcb06f-6b0a-42f1-9d67-5b4557872f93": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 0,
+      "rarity": 0,
+      "weather": [
+        "rain"
+      ],
+      "difficulty": {
+        "illumination": 2,
+        "precipitation": 3,
+        "road_surface": 2,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "14e3c07c-9c6f-4128-a8a5-310dfb072e6e": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 0,
+      "rarity": 0,
+      "weather": [
+        "rain"
+      ],
+      "difficulty": {
+        "illumination": 2,
+        "precipitation": 3,
+        "road_surface": 2,
+        "atmospheric_obscurants": 1
+      },
+      "note": ""
+    },
+    "08982c9f-00aa-4719-9a5d-3aa392ca3364": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 0,
+      "rarity": 1,
+      "weather": [],
+      "difficulty": {
+        "illumination": 2,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": "Tunnel"
+    },
+    "08902e32-1f71-4fa4-ba39-de1015823751": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 0,
+      "rarity": 0,
+      "weather": [],
+      "difficulty": {
+        "illumination": 3,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 2
+      },
+      "note": ""
+    },
+    "092d0d57-be65-419a-9fd5-d8b264fd7b27": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 0,
+      "rarity": 0,
+      "weather": [],
+      "difficulty": {
+        "illumination": 4,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "09e43bda-21f2-4f68-af81-5c8aff7898c4": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 0,
+      "rarity": 0,
+      "weather": [],
+      "difficulty": {
+        "illumination": 3,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "00c18025-9669-4c47-9ff3-f1350da9126b": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 1,
+      "weather": [
+        "rain"
+      ],
+      "difficulty": {
+        "illumination": 1,
+        "precipitation": 1,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "01c26389-10e4-4a3c-8181-805e92fd0b96": {
+      "categories": [
+        "Road Construction",
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [
+        "snow"
+      ],
+      "difficulty": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 1,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "02b7e809-c894-4327-8b53-20f4ac2a2b02": {
+      "categories": [
+        "Pedestrian on Road"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [
+        "snow"
+      ],
+      "difficulty": {
+        "illumination": 2,
+        "precipitation": 1,
+        "road_surface": 3,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "02fd6a8f-db9c-423e-beb6-37729e7e6af2": {
+      "categories": [
+        "Road Construction",
+        "Manual Traffic Control"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "difficulty": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "004bfe84-cf53-494b-9ba3-2beaefab5499": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 0,
+      "rarity": 0,
+      "weather": [
+        "snow"
+      ],
+      "difficulty": {
+        "illumination": 2,
+        "precipitation": 1,
+        "road_surface": 2,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "0102b9de-e10f-4cea-a803-bd6f887c2e62": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 0,
+      "rarity": 0,
+      "weather": [
+        "rain"
+      ],
+      "difficulty": {
+        "illumination": 2,
+        "precipitation": 1,
+        "road_surface": 1,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "022ff7db-cfc8-49ad-99a2-a36b17674a97": {
+      "categories": [
+        "Railroad",
+        "Obstacle on Road"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "00ec0866-3003-40e3-be44-ba40808d1c81": {
+      "categories": [
+        "Railroad"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "difficulty": {
+        "illumination": 2,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "03df69af-130a-4ae0-b7cf-07493ccc4cd4": {
+      "categories": [
+        "Railroad",
+        "Tram"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "difficulty": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "04ae8889-5c90-47e3-95f9-8370d079e97d": {
+      "categories": [
+        "Railroad"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "difficulty": {
+        "illumination": 3,
+        "precipitation": 3,
+        "road_surface": 3,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "04f021a5-08fc-45ff-a757-d74d75db4184": {
+      "categories": [
+        "Railroad"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "difficulty": {
+        "illumination": 4,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "05357b27-5b6b-446e-9a91-94fe5147e082": {
+      "categories": [
+        "Railroad"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "difficulty": {
+        "illumination": 3,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "07422e60-d828-4483-af55-ea397d5f70fa": {
+      "categories": [
+        "Railroad",
+        "Tram"
+      ],
+      "influenced_ego": true,
+      "safety_criticality": 2,
+      "rarity": 2,
+      "weather": [],
+      "difficulty": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "048ea8f1-8781-4acb-90ca-d91bf888a25d": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 0,
+      "rarity": 0,
+      "weather": [],
+      "difficulty": {
+        "illumination": 4,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "04b9bd2d-b7d7-4c84-b2ed-0177419b5fb9": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 0,
+      "rarity": 0,
+      "weather": [],
+      "difficulty": {
+        "illumination": 4,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "04d1b9d4-7455-49b8-b7d0-1f68784db02f": {
+      "categories": [
+        "Emergency Vehicle"
+      ],
+      "influenced_ego": false,
+      "safety_criticality": 1,
+      "rarity": 1,
+      "weather": [],
+      "difficulty": {
+        "illumination": 2,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "0ac7a5c0-b604-4613-85bb-4d9ea43ef9f0": {
+      "categories": [],
+      "influenced_ego": false,
+      "safety_criticality": 0,
+      "rarity": 0,
+      "weather": [],
+      "difficulty": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": "중장비 실은 트럭"
     }
   }
 }

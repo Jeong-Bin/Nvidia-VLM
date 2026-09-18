@@ -142,21 +142,21 @@ DIFFICULTY_SCALES = {
             환한 대낮, 고른 조명, 화면 전체가 명확하게 식별됨
         "   1 = overcast or flat daylight; reduced contrast but full visibility or partial shading caused by an overpass\n"
             흐리거나 평이한 자연광; 대비는 낮지만 시야는 온전히 확보됨, 고가도로 그늘
-        "   2 = twilight (dusk/dawn) or well-lit night with dense street lighting; readable but dimmer, or strong contrast caused by backlighting\n"
+        "   2 = twilight (dusk/dawn) or well-lit night with dense street lighting or city Lights; readable but dimmer, or strong contrast caused by backlighting\n"
             황혼(해 질 녘/동틀 녘) 또는 가로등이 촘촘하여 조명이 밝은 야간(식별은 가능하나 다소 어두움), 터널, 강한 대비
-        "   3 = night with partial or intermittent lighting; large dark regions, reliance on headlights\n"
+        "   3 = night with partial, intermittent lighting, dim street lights; large dark regions, reliance on headlights\n"
             부분적 또는 간헐적 조명이 있는 야간; 넓고 어두운 구역, 전조등 의존
         "   4 = near-total darkness (unlit road) where much of the scene is not resolvable"),
             장면의 상당 부분을 식별할 수 없는, 거의 완전한 어둠(조명이 없는 도로)
     "precipitation": (
         "   0 = none / clear\n"
-        "   1 = drizzle or very light rain; occasional drops on lens\n"
+        "   1 = drizzle or very light rain or snowfall; occasional drops on lens\n"
             이슬비 또는 아주 약한 비; 간헐적으로 렌즈에 떨어지는 빗방울
-        "   2 = steady moderate rain, or light snow falling, or raindrops partially obscuring the camera\n"
+        "   2 = moderate rain or snowfall, raindrops or snow partially obscuring the camera\n"
             꾸준히 내리는 적당한 비 또는 가벼운 눈, 빗방울이 카메라를 부분적으로 가림
-        "   3 = heavy rain or moderate snowfall that visibly cuts sight distance, or raindrops largely obscuring the camera\n"
-            시야를 눈에 띄게 제한하는 폭우 또는 적당한 강설, 빗방울이 카메라를 대부분 가림
-        "   4 = downpour / heavy snow / blizzard; visibility severely reduced"),
+        "   3 = heavy rain or snowfall, raindrops or snow largely obscuring the camera\n"
+            시야를 눈에 띄게 제한하는 폭우 또는 강설, 빗방울이 카메라를 대부분 가림
+        "   4 = visibility is severely restricted because the camera is completely covered by raindrops or snow."),
             폭우 / 폭설 / 눈보라; 시야가 극도로 제한됨
     "road_surface": (
         "   0 = dry\n"

@@ -23,12 +23,9 @@ ILLUMINATION_PROMPT = (
     "Rate the ILLUMINATION difficulty on an integer scale from 0 to 4:\n"
     "  0 = full daylight, evenly lit, scene clearly readable everywhere\n"
     "  1 = overcast or flat daylight; reduced contrast but full visibility, or a brief moment shading caused by an overpass\n"
-    "  2 = twilight (dusk/dawn) or well-lit night with dense street lighting; "
-    "readable but dimmer, or tunnel, or strong contrast caused by backlighting\n"
-    "  3 = night with partial or intermittent lighting; large dark regions, "
-    "reliance on headlights\n"
-    "  4 = only the vehicle's headlights providing illumination,\n"
-    "near-total darkness (unlit road) where much of the scene is not resolvable\n"
+    "  2 = twilight (dusk/dawn) or well-lit night with dense street lighting or city Lights, or tunnel, or strong contrast caused by backlighting\n"
+    "  3 = night with partial or dim street lights, or the street lights make the road visible but the surrounding areas are dark\n"
+    "  4 = only the ego-vehicle's headlights illuminate the road, or near-total darkness (unlit road) where much of the scene is not resolvable\n"
     "Judge ONLY illumination / ambient light, not weather or road condition.\n"
     "Answer with the single difficulty integer on the first line, then one short "
     "sentence justifying it."
@@ -41,10 +38,10 @@ PRECIPITATION_PROMPT = (
     "image.\n"
     "Rate the PRECIPITATION difficulty on an integer scale from 0 to 4:\n"
     "  0 = none / clear\n"
-    "  1 = drizzle or very light rain; occasional drops on lens\n"
-    "  2 = steady moderate rain, or light snow falling, or raindrops partially obscuring the camera\n"
-    "  3 = heavy rain or moderate snowfall that visibly cuts sight distance, or raindrops largely obscuring the camera\n"
-    "  4 = downpour / heavy snow / blizzard; visibility severely reduced\n"
+    "  1 = drizzle or very light rain or snowfall; occasional drops on lens\n"
+    "  2 = moderate rain or snowfall, raindrops or snow partially obscuring the camera\n"
+    "  3 = heavy rain or snowfall, raindrops or snow largely obscuring the camera\n"
+    "  4 = visibility is severely restricted because the camera is completely covered by raindrops or snow\n"
     "Judge ONLY falling precipitation, not ambient light, road surface, or fog.\n"
     "Answer with the single difficulty integer on the first line, then one short "
     "sentence justifying it."
@@ -130,15 +127,15 @@ DIFFICULTY_SCALES = {
     "illumination": (
         "   0 = full daylight, evenly lit, scene clearly readable everywhere\n"
         "   1 = overcast or flat daylight; reduced contrast but full visibility, or a brief moment shading caused by an overpass\n"
-        "   2 = twilight (dusk/dawn) or well-lit night with dense street lighting; readable but dimmer, or tunnel, or strong contrast caused by backlighting\n"
-        "   3 = night with partial or intermittent lighting; large dark regions, reliance on headlights\n"
-        "   4 = only the vehicle's headlights providing illumination, near-total darkness (unlit road) where much of the scene is not resolvable\n"),
+        "   2 = twilight (dusk/dawn) or well-lit night with dense street lighting or city Lights, or tunnel, or strong contrast caused by backlighting\n"
+        "   3 = night with partial or dim street lights, or the street lights make the road visible but the surrounding areas are dark\n"
+        "   4 = only the ego-vehicle's headlights illuminate the road, or near-total darkness (unlit road) where much of the scene is not resolvable"),
     "precipitation": (
         "   0 = none / clear\n"
-        "   1 = drizzle or very light rain; occasional drops on lens\n"
-        "   2 = steady moderate rain, or light snow falling or raindrops partially obscuring the camera\n"
-        "   3 = heavy rain or moderate snowfall that visibly cuts sight distance, or raindrops largely obscuring the camera\n"
-        "   4 = downpour / heavy snow / blizzard; visibility severely reduced"),
+        "   1 = drizzle or very light rain or snowfall; occasional drops on lens\n"
+        "   2 = moderate rain or snowfall, raindrops or snow partially obscuring the camera\n"
+        "   3 = heavy rain or snowfall, raindrops or snow largely obscuring the camera\n"
+        "   4 = visibility is severely restricted because the camera is completely covered by raindrops or snow"),
     "road_surface": (
         "   0 = dry\n"
         "   1 = damp, no standing water, or snow only off the roadway, unpaved or dusty road\n"
