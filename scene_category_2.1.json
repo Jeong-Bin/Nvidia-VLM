@@ -1,26 +1,12 @@
 {
   "_meta": {
-    "base": "scene_category_B.json",
-    "note": [
-      "B + 4 categories adapted from the nuReasoning long-tail taxonomy (Fig. S1). Emergency Vehicle was already present in B and is unchanged. The added categories are behaviour-triggering types (how other road users / traffic controls act) rather than the environment types that B already covers.",
-      "제거 클래스: Cyclist, Traffic Control Anomaly, Toll Gate, Tunnel, Narrow Road",
-      "추가 클래스: Tram, Railroad"
+    "Dynamic object": [
+      "Manual Traffic Control", "Emergency Vehicle", "Vehicles narrowing the lane", 
+      "Animal on Road", "Pedestrian on Road", "Cyclist on Road", "Tram"
     ],
-    "added": [
-      "Abnormal Vehicle Behavior",
-      "Stationary Vehicle Obstruction",
-      "Unusual Traffic Pattern"
-    ],
-    "nureasoning_map": {
-      "abnormal_vehicle_behavior": "Abnormal Vehicle Behavior",
-      "stationary_vehicle_obstruction": "Stationary Vehicle Obstruction",
-      "unusual_traffic_pattern": "Unusual Traffic Pattern",
-      "emergency_vehicle": "Emergency Vehicle (already in B)",
-      "work_zone_or_roadwork": "Road Construction (already in B)",
-      "animal_on_road": "Animal (already in B)",
-      "vulnerable_road_user": "Jaywalking (already in B)",
-      "road_obstacle_or_debris": "Obstacle (already in B)"
-    }
+    "Driving environment": [
+      "Road Construction", "Traffic Accident", "Unpaved road", "Railroad", "Obstacle on Road"
+    ]
   },
   "normal": {
     "scenarios": [
@@ -129,10 +115,11 @@
             ]
           },
           {
-            "name": "Stationary Vehicle Obstruction",
+            "name": "Vehicles narrowing the lane",
             "templates": [
-              "A stopped car blocking the lane",
-              "A parked truck narrowing the lane"
+              "The ego-vehicle must make a slight evasive maneuver due to a car parked on the side",
+              "A parked truck narrowing the lane",
+              "A vehicle in the oncoming lane crossed the center line"
             ],
             "template_candidates": [
               "A stopped vehicle blocking the driving lane",
@@ -148,7 +135,8 @@
               "a stalled vehicle in the roadway",
               "a bus stopped in the lane",
               "a car with its door opening into traffic",
-              "on the side of the road"
+              "on the side of the road",
+              "A stopped car blocking the lane"
             ]
           },
           {
