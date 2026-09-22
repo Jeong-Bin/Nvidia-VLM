@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """사람이 만든 정답 라벨(test_label.json)과 모델 결과를 대조해 성능을 잰다.
 
-네 축을 따로 본다 - 하나로 뭉치면 무엇이 문제인지 안 보인다:
+축을 따로 본다 - 하나로 뭉치면 무엇이 문제인지 안 보인다.
+
+목표 지표 (이 셋으로 파이프라인의 좋고 나쁨을 판단한다):
 
   1) VERDICT     Normal/Special 이진 판정. categories 가 비었는가로 파생되며,
                  파이프라인의 판정 규칙과 정확히 같다.
@@ -10,13 +12,20 @@
                  정답이 [Jaywalking] 인데 모델이 4개를 다 찍어도 1.0 이 되어,
                  "전부 찍기"가 최적 전략이 되어버린다. F1 은 precision 을
                  함께 보므로 그 문제가 없다.
-  3) SAFETY      0~4 정수. MSE + 정확일치 + 혼동행렬.
-  4) RARITY      동일.
-  5) DIFFICULTY  주행 조건 4축(조도/강수/노면/대기가림). 각 축을 3/4 번과
+  5) DIFFICULTY  주행 조건 4축(조도/강수/노면/대기가림). 목표 지표와
                  같은 방식으로 채점한다. 등급과 달리 edge-case 여부와 무관한
                  축이라(평범한 클립도 비가 오면 높다) SPECIAL 만 따로 내지
                  않고 전체만 내며, 대신 4축 요약표를 붙여 어느 축이 틀리는지
                  나란히 본다.
+
+보조 축 (채점 대상이 아니다 - 참고용으로만 찍는다):
+
+  참고) SAFETY / RARITY   0~4 정수. 이 값을 맞히는 것은 목표가 아니다.
+                 켜 두는 이유는 3단계(요소 나열)를 채우게 만들기 때문이다 -
+                 자세한 실측 근거는 아래 '참고) SAFETY, RARITY' 섹션의
+                 주석에 적어 두었다. 이 수치가 나쁘다고 파이프라인이
+                 실패한 것이 아니며, 이 수치를 올리려고 rubric 을 손대는
+                 것도 목표가 아니다.
 
 유병률 보정:
   정답 표본은 normal:special = 50:50 이지만 실제 데이터는 약 81:19 다.
@@ -26,9 +35,11 @@
   precision 을 다시 계산해 함께 보여준다.
 
 기준선(baseline):
-  등급은 "항상 2" 로 찍어도 MSE 가 꽤 낮게 나온다(실측 safety=2 가 73%).
+  정수 축은 "항상 최빈값" 으로 찍어도 MSE 가 꽤 낮게 나온다(실측: 난이도
+  4축은 정답의 45~87% 가 0점이라 전부 0 으로 찍어도 그럴듯해 보인다).
   그래서 최빈값 예측의 MSE 를 함께 내고, 모델이 그걸 이기는지 본다.
-  이기지 못하면 모델이 등급을 실제로 판단하는 것이 아니다.
+  이기지 못하면 모델이 그 축을 실제로 판단하는 것이 아니다.
+  이 비교가 실제로 중요한 곳은 목표 지표인 5) DIFFICULTY 다.
 
 Usage:
   python evaluate_labels.py --run-dir results/20260812_135056_videoC
@@ -564,13 +575,37 @@ def main():
             f"{ctp:>5}{cfp:>5}{cfn:>5}")
     write_category_lists(run_dir, per_cat, log)
 
-    # ---------------- 3/4) SAFETY, RARITY ----------------
-    for key, title in (("safety", "3) SAFETY CRITICALITY"),
-                       ("rarity", "4) RARITY")):
+    # ---------------- 참고) SAFETY, RARITY ----------------
+    # 이 두 축은 이 파이프라인이 최종적으로 예측하려는 값이 아니다. 목표는
+    # VERDICT / CATEGORIES / DRIVING DIFFICULTY 이고, 등급은 그것들을 돕는
+    # 보조 장치로 켜 둔다.
+    #
+    # 왜 끄지 않고 켜 두는가 (실측 20260921, 333클립, 조건 동일):
+    #   등급 on  -> VERDICT F1 77.5% / GT=special 인데 3단계가 빈 클립 41건
+    #   등급 off -> VERDICT F1 73.0% / 같은 항목 52건
+    #   등급 on + 난이도 on -> VERDICT F1 80.0% (최고)
+    # 등급 단계가 있으면 모델이 3단계에 요소를 적어 두고 등급을 붙인다
+    # (실측: 3단계에 low/moderate/high 를 스스로 단 클립이 on 169건 vs
+    # off 12건). 그 서술이 곧 카테고리가 되므로 - 3단계가 비면 카테고리도
+    # 비는 비율이 99% - 등급을 빼면 탐지가 같이 무너진다. 특히 "자차에
+    # 영향은 없지만 존재하는 요소"(보도 위 보행자 등)가 통째로 사라진다.
+    #
+    # 그래서 값 자체는 채점 대상이 아니다. 아래 표는 참고용으로만 남긴다 -
+    # 이 숫자가 나쁘다고 해서 파이프라인이 실패한 것이 아니며, 이 숫자를
+    # 올리려고 rubric 을 손대는 것은 목표가 아니다.
+    log("")
+    log("=" * 68)
+    log("참고) SAFETY / RARITY - 보조 축, 채점 대상 아님")
+    log("=" * 68)
+    log("  이 두 축은 예측 목표가 아니라 3단계(요소 나열)를 채우게 하려고")
+    log("  켜 두는 보조 장치다. 목표 지표는 1) VERDICT, 2) CATEGORIES,")
+    log("  5) DRIVING DIFFICULTY 이며, 아래 수치는 참고용이다.")
+    for key, title in (("safety", "참고-1) SAFETY CRITICALITY"),
+                       ("rarity", "참고-2) RARITY")):
         log("")
-        log("=" * 68)
-        log(f"{title}  ({min(TIER_VALUES)}-{max(TIER_VALUES)})")
-        log("=" * 68)
+        log("-" * 68)
+        log(f"{title}  ({min(TIER_VALUES)}-{max(TIER_VALUES)})   [보조 축]")
+        log("-" * 68)
         pairs_all = [(labels[u][key], results[u][key]) for u in common
                      if results[u][key] is not None]
         log(" ALL clips")

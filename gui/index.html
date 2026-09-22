@@ -466,9 +466,9 @@ video{width:100%;background:#000;border-radius:6px}
         데이터<select id="r-data">
         <option value="local">local (pav_sample)</option>
         <option value="nas">nas (NAS 청크 zip)</option></select></label>
-      <label class="chk" title="프롬프트 4) Safety Criticality 항목을 물어본다. 끄면 통째로 뺀다.">
+      <label class="chk" title="프롬프트 4) Safety Criticality 항목을 물어본다. 값 자체는 채점 대상이 아니지만(보조 축), 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
         <input type="checkbox" id="r-safety" checked> Safety 등급 켜기</label>
-      <label class="chk" title="프롬프트 5) Rarity 항목을 물어본다. 끄면 통째로 뺀다.">
+      <label class="chk" title="프롬프트 5) Rarity 항목을 물어본다. 값 자체는 채점 대상이 아니지만(보조 축), 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
         <input type="checkbox" id="r-rarity" checked> Rarity 등급 켜기</label>
       <label class="chk" title="주행 난이도 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
         <input type="checkbox" id="r-difficulty" checked> 난이도 4축 켜기</label>
@@ -582,9 +582,9 @@ video{width:100%;background:#000;border-radius:6px}
         <option value="width">width</option></select></label>
       <label>egomotion<select id="sg-ego">
         <option value="1">사용</option><option value="0">사용 안 함</option></select></label>
-      <label class="chk" title="프롬프트 4) Safety Criticality 항목을 물어본다. 끄면 통째로 뺀다.">
+      <label class="chk" title="프롬프트 4) Safety Criticality 항목을 물어본다. 값 자체는 채점 대상이 아니지만(보조 축), 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
         <input type="checkbox" id="sg-safety" checked> Safety 등급 켜기</label>
-      <label class="chk" title="프롬프트 5) Rarity 항목을 물어본다. 끄면 통째로 뺀다.">
+      <label class="chk" title="프롬프트 5) Rarity 항목을 물어본다. 값 자체는 채점 대상이 아니지만(보조 축), 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
         <input type="checkbox" id="sg-rarity" checked> Rarity 등급 켜기</label>
       <label class="chk" title="주행 난이도 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
         <input type="checkbox" id="sg-difficulty" checked> 난이도 4축 켜기</label>
@@ -638,9 +638,9 @@ video{width:100%;background:#000;border-radius:6px}
         데이터<select id="n-data">
         <option value="nas">nas (NAS 청크 zip)</option>
         <option value="local">local (pav_sample)</option></select></label>
-      <label class="chk" title="프롬프트 4) Safety Criticality 항목을 물어본다. 끄면 통째로 뺀다.">
+      <label class="chk" title="프롬프트 4) Safety Criticality 항목을 물어본다. 값 자체는 채점 대상이 아니지만(보조 축), 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
         <input type="checkbox" id="n-safety" checked> Safety 등급 켜기</label>
-      <label class="chk" title="프롬프트 5) Rarity 항목을 물어본다. 끄면 통째로 뺀다.">
+      <label class="chk" title="프롬프트 5) Rarity 항목을 물어본다. 값 자체는 채점 대상이 아니지만(보조 축), 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
         <input type="checkbox" id="n-rarity" checked> Rarity 등급 켜기</label>
       <label class="chk" title="주행 난이도 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
         <input type="checkbox" id="n-difficulty" checked> 난이도 4축 켜기</label>
@@ -841,7 +841,7 @@ function renderEval() {
     `라벨 ${EV.n_labels}개 중 ${EV.n_matched}개 채점` +
     (EV.n_missing ? ` · <span style="color:var(--warn)">결과에 없는 라벨 ${EV.n_missing}개</span>` : '') +
     ` · GT special ${v.n_special_truth} / normal ${v.n_normal_truth}<br>` +
-    `${tier('safety')} · ${tier('rarity')}`;
+    `<span class="muted">보조 축(채점 대상 아님): ${tier('safety')} · ${tier('rarity')}</span>`;
   const c = EV.config || {};
   $('#ev-cfg').innerHTML = `<span class="mono">${esc(c.model || '')}</span>` +
     (c.use_egomotion ? ' · egomotion' : '') + (c.traj ? ' · traj=' + esc(c.traj) : '') +
