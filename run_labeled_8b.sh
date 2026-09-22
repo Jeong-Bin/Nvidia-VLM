@@ -34,7 +34,12 @@ pyok() {
   "$1" - >/dev/null 2>&1 <<'PYCHK'
 import sys, importlib.util as u
 assert sys.version_info >= (3, 9)           # list[str] 표기가 되는가
-for m in ("torch", "transformers", "cv2"):  # 파이프라인 의존성이 있는가
+# 파이프라인 의존성이 있는가. av 를 빼먹으면 안 된다 - 20260831 사고와
+# 똑같은 모양으로 20260918_200000 / 20260919_010000 이 또 죽었다.
+# nvidia-vlm 환경은 torch/transformers/cv2 를 다 갖고 있어 이 검사를
+# 통과했지만 av 가 없어서, 샤드 8개가 edge_case_mining.py 의 import av
+# 에서 전멸했다. 여기 목록은 실제 import 되는 것과 맞춰 둔다.
+for m in ("torch", "transformers", "cv2", "av", "pandas", "numpy", "PIL", "tqdm"):
     assert u.find_spec(m), m
 PYCHK
 }
@@ -88,6 +93,9 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --difficulty           주행 난이도 4축(조도/강수/노면/대기가림)을
                          0~4 로 함께 매긴다. 시각화 패널과
                          aggregate_clip.log 분포에 실린다        [DIFFICULTY=1]
+  --difficulty-only      난이도 4축만 추론한다. edge-case 탐지와 등급을
+                         모두 빼고 프롬프트를 난이도 전용으로 바꾼다
+                         (--difficulty 를 자동으로 켠다)      [DIFFICULTY_ONLY=1]
   --viz-per-category N   카테고리마다 최초 N개 클립만 시각화한다. 폴더를
                          score 대신 카테고리 이름으로 나눈다      [VIZ_PER_CAT]
   --use-3dbbox           obstacle.offline 3D bbox 라벨을 프롬프트에 주입
@@ -141,6 +149,7 @@ while [ $# -gt 0 ]; do
     --no-rarity-tier)    RARITY_TIER=0 ;;
     --no-score-tiers)    SAFETY_TIER=0; RARITY_TIER=0 ;;
     --difficulty)        DIFFICULTY=1 ;;
+    --difficulty-only)   DIFFICULTY_ONLY=1 ;;
     --viz-per-category=*) VIZ_PER_CAT="${1#*=}" ;;
     --viz-per-category)  shift; VIZ_PER_CAT="${1:-}" ;;
     --no-egomotion)      USE_EGOMOTION=0 ;;   # 옛 이름 - 이제 기본이 off 라 무의미하지만 받아준다
@@ -225,6 +234,7 @@ esac
 [ "${SAFETY_TIER:-1}" = "0" ]   && OPTS="$OPTS --no-safety-tier"
 [ "${RARITY_TIER:-1}" = "0" ]   && OPTS="$OPTS --no-rarity-tier"
 [ "${DIFFICULTY:-0}" = "1" ]     && OPTS="$OPTS --difficulty"
+[ "${DIFFICULTY_ONLY:-0}" = "1" ] && OPTS="$OPTS --difficulty-only"
 [ -n "${VIZ_PER_CAT:-}" ]        && OPTS="$OPTS --viz-per-category $VIZ_PER_CAT"
 [ "${USE_3DBBOX:-0}" = "1" ]    && OPTS="$OPTS --use-3dbbox"
 [ "${VIDEO_INPUT:-1}" = "0" ]   && OPTS="$OPTS --clip-no-video-input"

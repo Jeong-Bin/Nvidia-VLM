@@ -10,8 +10,13 @@
                  정답이 [Jaywalking] 인데 모델이 4개를 다 찍어도 1.0 이 되어,
                  "전부 찍기"가 최적 전략이 되어버린다. F1 은 precision 을
                  함께 보므로 그 문제가 없다.
-  3) SAFETY      0~4 정수. MAE + 정확일치 + 혼동행렬.
+  3) SAFETY      0~4 정수. MSE + 정확일치 + 혼동행렬.
   4) RARITY      동일.
+  5) DIFFICULTY  주행 조건 4축(조도/강수/노면/대기가림). 각 축을 3/4 번과
+                 같은 방식으로 채점한다. 등급과 달리 edge-case 여부와 무관한
+                 축이라(평범한 클립도 비가 오면 높다) SPECIAL 만 따로 내지
+                 않고 전체만 내며, 대신 4축 요약표를 붙여 어느 축이 틀리는지
+                 나란히 본다.
 
 유병률 보정:
   정답 표본은 normal:special = 50:50 이지만 실제 데이터는 약 81:19 다.
@@ -21,8 +26,8 @@
   precision 을 다시 계산해 함께 보여준다.
 
 기준선(baseline):
-  등급은 "항상 2" 로 찍어도 MAE 가 꽤 낮게 나온다(실측 safety=2 가 73%).
-  그래서 최빈값 예측의 MAE 를 함께 내고, 모델이 그걸 이기는지 본다.
+  등급은 "항상 2" 로 찍어도 MSE 가 꽤 낮게 나온다(실측 safety=2 가 73%).
+  그래서 최빈값 예측의 MSE 를 함께 내고, 모델이 그걸 이기는지 본다.
   이기지 못하면 모델이 등급을 실제로 판단하는 것이 아니다.
 
 Usage:
@@ -39,6 +44,11 @@ import pandas as pd
 
 from config import SCENE_JSON as CONFIG_SCENE_JSON, LABELS_JSON
 from constrained_tier import TIER_VALUES
+from prompts import DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX
+
+# 난이도 축의 눈금. 등급(TIER_VALUES)과 따로 두는 이유는 두 척도가 서로
+# 독립으로 바뀔 수 있어서다 - 한쪽을 고칠 때 다른 쪽이 조용히 따라가면 안 된다.
+DIFFICULTY_VALUES = tuple(range(DIFFICULTY_MIN, DIFFICULTY_MAX + 1))
 
 ROOT = Path(__file__).resolve().parent
 # 기본값은 config.py 한 곳에서만 정한다 - 여기서 따로 들고 있다가 예전에
@@ -51,11 +61,15 @@ DEFAULT_PREVALENCE = 375 / 1998
 
 
 def load_labels(path: Path):
-    """정답 라벨 -> {uuid: {categories, safety, rarity, note}}.
+    """정답 라벨 -> {uuid: {categories, safety, rarity, note, <난이도 4축>}}.
 
     safety 키는 'safety_criticality' 가 정식이지만 손으로 쓰다 보면
     'safty_criticality' 오타가 섞인다(실측 7/100). 조용히 0 으로 처리하면
     점수가 왜곡되므로 둘 다 받아들이고, 아예 없으면 그 클립을 건너뛴다.
+
+    난이도는 없어도 건너뛰지 않는다 - 예전 라벨 파일에는 difficulty 키가
+    아예 없고, 그것 때문에 클립을 빼면 1~4 번 채점의 표본까지 조용히 줄어든다.
+    없는 축은 None 으로 두고 5) 섹션에서만 제외한다.
     """
     data = json.loads(path.read_text(encoding="utf-8"))
     clips = data.get("clips", data)
@@ -66,17 +80,23 @@ def load_labels(path: Path):
         if s is None or r is None:
             skipped.append(uuid)
             continue
-        out[uuid] = {
+        rec = {
             "categories": set(v.get("categories") or []),
             "safety": int(s),
             "rarity": int(r),
             "note": v.get("note", ""),
         }
+        # 난이도는 {"difficulty": {...}} 중첩이 정식이지만, 손으로 만든
+        # 파일에는 최상위에 평평하게 적힌 것도 있어 둘 다 받는다.
+        diff = v.get("difficulty") or {}
+        for key, _ in DIFFICULTY_AXES:
+            rec[key] = _int_or_none(diff.get(key, v.get(key)))
+        out[uuid] = rec
     return out, data.get("_meta", {}), skipped
 
 
 def load_results(run_dir: Path):
-    """모델 결과 CSV(샤드 병합) -> {uuid: {categories, safety, rarity}}."""
+    """모델 결과 CSV(샤드 병합) -> {uuid: {categories, safety, rarity, <난이도>}}."""
     files = sorted(glob.glob(str(run_dir / "clip_results*.csv")))
     if not files:
         return {}
@@ -86,11 +106,15 @@ def load_results(run_dir: Path):
     for _, r in df.iterrows():
         cats = r.get("categories")
         cats = set(str(cats).split("|")) if isinstance(cats, str) and cats.strip() else set()
-        out[str(r["uuid"])] = {
+        rec = {
             "categories": cats,
             "safety": _int_or_none(r.get("safety_tier")),
             "rarity": _int_or_none(r.get("rarity_tier")),
         }
+        # --difficulty 를 끈 실행에는 이 칸이 아예 없거나 빈 값이다.
+        for key, _name in DIFFICULTY_AXES:
+            rec[key] = _int_or_none(r.get(key))
+        out[str(r["uuid"])] = rec
     return out
 
 
@@ -125,40 +149,62 @@ def confusion(pairs, values=None):
     표가 따라 넓어지도록 한 곳만 보게 한다.
     행 합계를 같이 내는 이유는 "정답 3인 20건 중 몇 건을 2로 봤나" 같은
     질문이 이 표를 읽는 주된 목적이라, 분모가 옆에 있어야 바로 읽히기 때문.
+
+    Acc 는 그 행의 재현율(대각선/행 합계)이다. 전체 정확도 한 줄로는
+    "어느 등급을 못 맞히는가"가 안 보인다 - 정답이 한 등급에 쏠려 있으면
+    그 등급만 맞혀도 전체 수치가 좋게 나오기 때문이다(실측: 난이도 4축은
+    정답의 45~87%가 0점). 행별로 나눠 두면 쏠린 등급과 희소한 등급의
+    성능이 갈라져 보인다. 행 합계가 0 이면(그 등급의 정답이 없으면)
+    비율을 낼 수 없으므로 '-' 로 둔다.
     """
     if values is None:
         values = TIER_VALUES
     c = Counter(pairs)
     w = 9                                    # 열 너비
     head = "       " + "".join(f"{'pred'+str(v):>{w}}" for v in values)
-    lines = [head + f"{'total':>{w}}"]
+    lines = [head + f"{'total':>{w}}" + f"{'Acc':>{w}}"]
     for t in values:
         row = "".join(f"{c.get((t, p), 0):>{w}}" for p in values)
         total = sum(c.get((t, p), 0) for p in values)
-        lines.append(f"  true{t}{row}{total:>{w}}")
+        acc = f"{c.get((t, t), 0) / total * 100:.1f}%" if total else "-"
+        lines.append(f"  true{t}{row}{total:>{w}}{acc:>{w}}")
     return "\n".join(lines)
 
 
-def tier_block(name, pairs, log):
-    """등급 한 축(safety/rarity)의 MAE / 정확일치 / 혼동행렬 / 기준선."""
+def tier_block(name, pairs, log, values=None):
+    """한 축(safety/rarity/난이도)의 MSE / 정확일치 / 혼동행렬 / 기준선.
+
+    values 로 눈금을 넘기면 혼동행렬이 그 폭으로 그려진다. 안 주면 등급
+    눈금(TIER_VALUES)을 쓴다 - 난이도는 DIFFICULTY_VALUES 를 넘긴다.
+
+    MAE 대신 MSE 를 쓰는 이유: 오차 하나가 클수록 벌점을 더 준다 - 등급을
+    1칸 틀리는 것과 3칸 틀리는 것(예: 정답 0인데 3으로 예측)은 안전/희귀도
+    판단에서 심각도가 다른데 MAE 는 그 차이를 선형으로만 반영한다(1 vs 3).
+    MSE 는 제곱이라 그 차이를 더 크게 반영한다(1 vs 9).
+    """
     if not pairs:
         log(f"  (no comparable rows)")
         return
     n = len(pairs)
-    mae = sum(abs(t - p) for t, p in pairs) / n
+    mse = sum((t - p) ** 2 for t, p in pairs) / n
     exact = sum(t == p for t, p in pairs) / n
-    # 기준선: 정답에서 가장 흔한 등급으로 전부 찍었을 때
+    # 기준선: 정답에서 가장 흔한 등급으로 전부 찍었을 때.
+    # baseline 값 자체는 MSE 로 바꿔도 최빈값(mode) 그대로 쓴다 - "항상 같은
+    # 값을 찍는 가장 단순한 전략을 이기는가"라는 비교 취지를 유지하기
+    # 위해서다. MSE 를 엄밀히 최소화하는 값은 평균이지만, 이산 등급에서
+    # 평균은 "항상 2.3 을 찍는다"처럼 존재하지 않는 값이 되어 baseline 의
+    # 직관("가장 흔한 답을 그냥 찍으면 어떻게 되는가")과 어긋난다.
     mode = Counter(t for t, _ in pairs).most_common(1)[0][0]
-    base_mae = sum(abs(t - mode) for t, _ in pairs) / n
+    base_mse = sum((t - mode) ** 2 for t, _ in pairs) / n
     base_exact = sum(t == mode for t, _ in pairs) / n
 
     log(f"  n              : {n}")
-    log(f"  MAE            : {mae:.3f}      baseline(always {mode}): {base_mae:.3f}"
-        f"   {'BEATS' if mae < base_mae else 'DOES NOT BEAT'} baseline")
+    log(f"  MSE            : {mse:.3f}      baseline(always {mode}): {base_mse:.3f}"
+        f"   {'BEATS' if mse < base_mse else 'DOES NOT BEAT'} baseline")
     log(f"  exact match    : {exact:6.1%}    baseline: {base_exact:6.1%}")
     log(f"  within +-1     : {sum(abs(t-p)<=1 for t,p in pairs)/n:6.1%}")
     log("")
-    log(confusion(pairs))
+    log(confusion(pairs, values))
 
 
 def write_category_lists(run_dir, per_cat, log):
@@ -536,6 +582,49 @@ def main():
             log(" SPECIAL clips only  (normal clips are almost all 1, which"
                 " inflates the scores above)")
             tier_block(key, pairs_sp, log)
+
+    # ---------------- 5) DIFFICULTY ----------------
+    # 등급과 달리 edge-case 여부와 무관한 축이라(평범한 클립도 비가 오면
+    # 높다) SPECIAL 만 따로 내지 않는다. 대신 4축을 나란히 놓은 요약표를
+    # 붙인다 - 축마다 표를 다시 읽지 않고 "어느 축이 틀리는가"를 보려는 것.
+    diff_pairs = {}
+    for key, _name in DIFFICULTY_AXES:
+        diff_pairs[key] = [(labels[u][key], results[u][key]) for u in common
+                           if labels[u].get(key) is not None
+                           and results[u].get(key) is not None]
+
+    if any(diff_pairs.values()):
+        log("")
+        log("=" * 68)
+        log(f"5) DRIVING DIFFICULTY  ({DIFFICULTY_MIN}-{DIFFICULTY_MAX})")
+        log("=" * 68)
+        for key, name in DIFFICULTY_AXES:
+            log("")
+            log(f" {name} ({key})")
+            tier_block(key, diff_pairs[key], log, DIFFICULTY_VALUES)
+
+        log("")
+        log("-" * 68)
+        log(f"  {'AXIS':<26}{'N':>6}{'MSE':>8}{'EXACT':>8}{'+-1':>8}"
+            f"{'GT~':>7}{'PRED~':>7}")
+        log("  " + "-" * 62)
+        for key, name in DIFFICULTY_AXES:
+            p = diff_pairs[key]
+            if not p:
+                log(f"  {name:<26}{0:>6}{'-':>8}{'-':>8}{'-':>8}{'-':>7}{'-':>7}")
+                continue
+            m = len(p)
+            mse = sum((t - q) ** 2 for t, q in p) / m
+            exact = sum(t == q for t, q in p) / m
+            near = sum(abs(t - q) <= 1 for t, q in p) / m
+            gt_mean = sum(t for t, _ in p) / m
+            pr_mean = sum(q for _, q in p) / m
+            log(f"  {name:<26}{m:>6}{mse:>8.3f}{exact:>7.1%}{near:>8.1%}"
+                f"{gt_mean:>7.2f}{pr_mean:>7.2f}")
+        log("  " + "-" * 62)
+        log("  GT~ / PRED~ 는 평균값이다. 둘이 크게 벌어지면 그 축은 한쪽으로"
+            " 치우쳐 찍고 있다는 뜻.")
+        log("  축은 서로 독립으로 매기므로 합이 전체 난이도가 되지는 않는다.")
 
     log("")
     log(f"[saved] {args.out or run_dir / 'evaluation.log'}")

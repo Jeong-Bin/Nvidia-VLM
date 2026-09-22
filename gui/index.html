@@ -105,6 +105,12 @@ main{padding:14px 16px 40px}
 .row>label.rng{flex-direction:row;align-items:center;gap:6px}
 label.rng input[type=number]{width:52px;text-align:center}
 /* 팝업의 난이도 4축 근거: 축 이름 | 점수 | 근거 문장 */
+/* GT vs Pred 비교표. 다른 값만 눈에 띄면 되므로 일치 행은 건드리지 않고
+   불일치 행에만 표시를 준다. */
+table.cmp td,table.cmp th{white-space:normal}
+table.cmp tr.mismatch>td{background:rgba(248,81,73,.07)}
+.okmark{color:var(--muted)}
+.badmark{color:var(--bad);font-weight:700}
 .dgrid{display:flex;flex-direction:column;gap:6px}
 .drow{display:grid;grid-template-columns:minmax(60px,110px) 28px 1fr;
   gap:10px;align-items:start;font-size:12px}
@@ -156,6 +162,8 @@ label.rng input[type=number]{width:52px;text-align:center}
 }
 /* 마지막으로 연 행. 배경만 바꾸면 얼룩처럼 보여서, 왼쪽에 선을 하나 세워
    어느 행이었는지 훑어볼 때 바로 집히게 한다. */
+/* 행 더블클릭으로 영상이 열린다 - 눌러도 되는 줄이라는 표시. */
+#s-rows tr{cursor:pointer}
 tr.seen>td{background:var(--panel2)}
 tr.seen>td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 /* NAS 마운트 경고 배너. 서버가 대신 mount 하지 않는 이유는 gui_server.py 의
@@ -464,6 +472,8 @@ video{width:100%;background:#000;border-radius:6px}
         <input type="checkbox" id="r-rarity" checked> Rarity 등급 켜기</label>
       <label class="chk" title="주행 난이도 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
         <input type="checkbox" id="r-difficulty" checked> 난이도 4축 켜기</label>
+      <label class="chk" title="난이도 4축만 추론한다. edge-case 탐지(VERDICT/CATEGORIES)와 Safety/Rarity 등급을 전부 빼고, 프롬프트를 난이도 전용으로 바꾼다.">
+        <input type="checkbox" id="r-diffonly"> 난이도만 추론</label>
       <label id="r-gpuwrap" class="hide">GPU<input type="text" id="r-gpus" value="0,1,2" size="8"></label>
       <label id="r-shardwrap">샤드 수<input type="number" id="r-shards" value="8" min="1" max="8" size="2"></label>
       <label>메모<input type="text" id="r-memo" size="26" placeholder="이 실행이 무엇을 시험하는지"></label>
@@ -578,6 +588,8 @@ video{width:100%;background:#000;border-radius:6px}
         <input type="checkbox" id="sg-rarity" checked> Rarity 등급 켜기</label>
       <label class="chk" title="주행 난이도 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
         <input type="checkbox" id="sg-difficulty" checked> 난이도 4축 켜기</label>
+      <label class="chk" title="난이도 4축만 추론한다. edge-case 탐지(VERDICT/CATEGORIES)와 Safety/Rarity 등급을 전부 빼고, 프롬프트를 난이도 전용으로 바꾼다.">
+        <input type="checkbox" id="sg-diffonly"> 난이도만 추론</label>
     </div>
     <div class="row" style="margin-top:12px">
       <button id="sg-go" class="primary">이 클립 추론</button>
@@ -632,6 +644,8 @@ video{width:100%;background:#000;border-radius:6px}
         <input type="checkbox" id="n-rarity" checked> Rarity 등급 켜기</label>
       <label class="chk" title="주행 난이도 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
         <input type="checkbox" id="n-difficulty" checked> 난이도 4축 켜기</label>
+      <label class="chk" title="난이도 4축만 추론한다. edge-case 탐지(VERDICT/CATEGORIES)와 Safety/Rarity 등급을 전부 빼고, 프롬프트를 난이도 전용으로 바꾼다.">
+        <input type="checkbox" id="n-diffonly"> 난이도만 추론</label>
       <label id="n-gpuwrap" class="hide">GPU<input type="text" id="n-gpus" value="0,1,2" size="8"></label>
       <label id="n-shardwrap">샤드 수<input type="number" id="n-shards" value="8" min="1" max="8" size="2"></label>
       <label>메모<input type="text" id="n-memo" size="26" placeholder="이 실행이 무엇을 시험하는지"></label>
@@ -822,7 +836,7 @@ function renderEval() {
     <div><b>${v.tp}/${v.fp}/${v.fn}/${v.tn}</b><span>TP/FP/FN/TN</span></div>`;
   const t = EV.tiers || {};
   const tier = k => t[k] && t[k].n
-    ? `${k} MAE ${t[k].mae.toFixed(3)} · 정확일치 ${pct(t[k].exact)}` : `${k} 없음`;
+    ? `${k} MSE ${t[k].mse.toFixed(3)} · 정확일치 ${pct(t[k].exact)}` : `${k} 없음`;
   $('#ev-note').innerHTML =
     `라벨 ${EV.n_labels}개 중 ${EV.n_matched}개 채점` +
     (EV.n_missing ? ` · <span style="color:var(--warn)">결과에 없는 라벨 ${EV.n_missing}개</span>` : '') +
@@ -885,25 +899,104 @@ $('#ev-log').onclick = async () => {
 };
 
 /* ---------- 클립 상세 ---------- */
-async function openClip(uuid, run) {
+/* GT vs Pred 한눈 비교표. 저장된 시각화 mp4 의 패널이 하던 일을 화면에서
+   그대로 한다 - 그 패널도 영상 위에 글자를 얹은 것이라(visualize_clip.py의
+   cat_segments/PANEL_STEPS) 좌표가 필요한 그림이 아니다. 그래서 시각화를
+   저장하지 않아도 같은 내용을 볼 수 있다. */
+function cmpTable(g, p, pd) {
+  const rows = [];
+  const set = a => new Set(a || []);
+  const gc = set(g.categories), pc = set(p.categories);
+  const allCats = [...new Set([...gc, ...pc])].sort();
+  rows.push(['카테고리',
+    allCats.length
+      ? allCats.map(x => gc.has(x)
+          ? `<span class="tag ${pc.has(x) ? 'tp' : ''}">${esc(x)}</span>` : '').join('')
+        || '<span class="muted">없음</span>'
+      : '<span class="muted">없음</span>',
+    allCats.length
+      ? allCats.map(x => pc.has(x)
+          ? `<span class="tag ${gc.has(x) ? 'tp' : 'fp'}">${esc(x)}</span>` : '').join('')
+        || '<span class="muted">없음</span>'
+      : '<span class="muted">없음</span>',
+    // 집합이 정확히 같을 때만 일치로 본다.
+    allCats.every(x => gc.has(x) === pc.has(x))]);
+
+  for (const [key, label] of [['safety', 'Safety'], ['rarity', 'Rarity']]) {
+    rows.push([label, g[key] ?? '-', p[key] ?? '-',
+               g[key] != null && g[key] === p[key]]);
+  }
+  const gd = g.difficulty || {}, pdd = (pd && pd.difficulty) || {};
+  for (const [k, label] of DIFF_AXES_UI) {
+    const a = gd[k], b = pdd[k];
+    if (a == null && b == null) continue;
+    rows.push([label, a ?? '-', b ?? '-', a != null && a === b]);
+  }
+
+  return `<h3 style="margin:12px 0 4px">GT vs Pred</h3>
+    <div class="scroll"><table class="cmp">
+      <thead><tr><th>항목</th><th>GT</th><th>Pred</th><th class="num">일치</th></tr></thead>
+      <tbody>${rows.map(([lbl, a, b, ok]) => `
+        <tr class="${ok ? '' : 'mismatch'}">
+          <td class="muted">${esc(lbl)}</td>
+          <td>${a}</td><td>${b}</td>
+          <td class="num">${ok ? '<span class="okmark">=</span>'
+                               : '<span class="badmark">≠</span>'}</td>
+        </tr>`).join('')}</tbody>
+    </table></div>`;
+}
+
+async function openClip(uuid, run, labels) {
   const r = run || (EV && EV.run) || $('#s-run').value || '';
-  const lab = $('#ev-labels').value || BOOT.default_labels;
+  // 부른 쪽이 라벨을 넘기면 그걸 쓴다. 탭마다 고른 라벨이 다른데 여기서
+  // 임의로 고르면 GT 가 딴 파일 기준으로 떠서 TP/FP 표시가 어긋난다.
+  const lab = labels || (EV && EV.labels_name) || BOOT.default_labels;
   let d;
   try {
     d = await api(`/api/clip?uuid=${uuid}&run=${encodeURIComponent(r)}&labels=${encodeURIComponent(lab)}`);
   } catch (e) { return toast(e.message); }
   const g = d.truth || {}, p = d.pred || {};
-  const vid = d.video || d.source_video;
+  // 원본 영상 + 모델 서술로 보여준다. 시각화 mp4 는 --no-viz 로 돌린 실행에는
+  // 아예 없어서, 그걸 우선하면 어떤 실행은 열리고 어떤 실행은 안 열린다.
+  const vid = d.source_video || d.video;
+  const isClipEp = vid && vid.startsWith('clip/');
+  const src = isClipEp ? '/' + vid : `/media?path=${encodeURIComponent(vid || '')}`;
+  const dl = isClipEp ? '/' + vid : `/media?path=${encodeURIComponent(vid || '')}&dl=1`;
+
+  // 서술은 CSV(pred_detail)를 먼저 쓴다. result.json 은 시각화를 만들 때만
+  // 생기므로 없을 수 있다.
+  const pd = d.pred_detail || {};
   const rs = (d.reasoning || {}).reasoning || {};
+  const obs = pd.observation || rs.observation || '';
+  const ego = pd.ego_behavior || rs.ego_behavior || '';
+  const unu = pd.unusual_elements || rs.unusual_elements || '';
+
+  const dv = k => (pd.difficulty && pd.difficulty[k] != null) ? pd.difficulty[k] : null;
+  const dreason = DIFF_AXES_UI.map(([k, label]) => {
+    const why = ((pd.difficulty_reason || {})[k] || '').trim();
+    if (dv(k) == null && !why) return '';
+    return `<div class="drow">
+      <span class="dlbl">${esc(label)}</span>
+      <span class="dscore">${dv(k) ?? '-'}</span>
+      <span class="dwhy">${why ? esc(why) : '<span class="muted">근거 없음</span>'}</span>
+    </div>`;
+  }).join('');
+
+  const fields = [
+    ['장면', obs], ['자차', ego], ['특이요소', unu],
+    ['safety 근거', pd.safety_reason], ['rarity 근거', pd.rarity_reason],
+  ].filter(([, v]) => (v || '').trim());
+
   showModal(`
     <h2 class="mono">${esc(uuid)}</h2>
-    ${vid ? `<video controls src="/media?path=${encodeURIComponent(vid)}"></video>
+    ${vid ? `<video controls src="${src}"></video>
       <div class="row" style="margin:8px 0 12px">
-        <a class="pill" href="/media?path=${encodeURIComponent(vid)}&dl=1"
-           download>영상 다운로드</a>
-        ${d.video ? '<span class="muted">시각화 패널 포함 영상</span>'
-                  : '<span class="muted">원본 영상(이 실행에 시각화 없음)</span>'}
+        <a class="pill" href="${dl}" download>영상 다운로드</a>
+        <span class="muted">원본 영상 + 모델 추론</span>
+        ${d.video ? `<a class="pill" href="/media?path=${encodeURIComponent(d.video)}"
+           target="_blank">시각화 영상 열기</a>` : ''}
       </div>` : '<p class="muted">영상을 찾지 못했습니다.</p>'}
+    ${cmpTable(g, p, pd)}
     <div class="split">
       <div><h3>정답(GT)</h3>
         <p>${(g.categories || []).map(x => `<span class="tag">${esc(x)}</span>`).join('') || '<span class="muted">카테고리 없음</span>'}</p>
@@ -913,10 +1006,11 @@ async function openClip(uuid, run) {
         <p>${(p.categories || []).map(x => `<span class="tag ${(g.categories || []).includes(x) ? 'tp' : 'fp'}">${esc(x)}</span>`).join('') || '<span class="muted">카테고리 없음</span>'}</p>
         <p class="muted">Safety ${p.safety ?? '-'} · Rarity ${p.rarity ?? '-'}</p></div>
     </div>
-    ${rs.observation ? `<h3 style="margin-top:12px">모델 서술</h3>
-      <p class="muted"><b>장면</b> ${esc(rs.observation)}</p>
-      <p class="muted"><b>자차</b> ${esc(rs.ego_behavior || '')}</p>
-      <p class="muted"><b>특이요소</b> ${esc(rs.unusual_elements || '')}</p>` : ''}
+    ${fields.length ? `<h3 style="margin-top:12px">모델 서술</h3>
+      ${fields.map(([k, v]) =>
+        `<p class="muted" style="margin:2px 0"><b>${esc(k)}</b> ${esc(v)}</p>`).join('')}` : ''}
+    ${dreason ? `<h3 style="margin:12px 0 4px">난이도 근거</h3>
+      <div class="dgrid">${dreason}</div>` : ''}
     <div class="row" style="margin-top:14px">
       <button onclick="editLabel('${uuid}')">이 클립 라벨 편집</button>
       <button onclick="closeModal()" style="margin-left:auto">닫기</button>
@@ -973,9 +1067,18 @@ $('#s-go').onclick = async () => {
         <td class="num">${r.safety}</td><td class="num">${r.rarity}</td>
         <td class="muted">${esc((r.note || '').slice(0, 30))}</td>
         <td><button data-clip="${esc(r.uuid)}">열기</button></td></tr>`).join('');
-    $$('#s-rows [data-clip]').forEach(b => b.onclick = () => {
-      markSeen('#s-rows', b.closest('tr'));
-      openClip(b.dataset.clip, $('#s-run').value);
+    const openRow = uuid => tr => {
+      markSeen('#s-rows', tr);
+      openClip(uuid, $('#s-run').value, $('#s-labels').value);
+    };
+    $$('#s-rows tr').forEach(tr => {
+      const b = tr.querySelector('[data-clip]');
+      if (!b) return;
+      const go = openRow(b.dataset.clip);
+      b.onclick = ev => { ev.stopPropagation(); go(tr); };
+      // 행 아무 데나 더블클릭해도 같은 팝업. 한 번 클릭으로 열면 표를
+      // 훑다가 실수로 열리므로 더블클릭으로 둔다.
+      tr.ondblclick = () => go(tr);
     });
   } catch (e) { toast(e.message); }
 };
@@ -1108,6 +1211,32 @@ $('#c-del').onclick = async () => {
 };
 
 /* ---------- 5. 추론 ---------- */
+// --difficulty-only 와 등급 체크박스의 연동.
+//
+// 이 모드는 난이도 4축만 남기고 탐지/등급을 전부 끄는 것이라, 화면 상태가
+// 실제로 돌아갈 명령과 어긋나면 안 된다. 그래서 양방향으로 묶는다:
+//   난이도만 추론 ON  -> Safety/Rarity 해제, 난이도 4축 체크
+//   Safety/Rarity 중 하나라도 수동 체크 -> 난이도만 추론 해제
+// 뒤쪽에서 난이도 4축을 따라 끄지는 않는다 - 등급과 난이도를 함께 보는
+// 실행이 정상적인 조합이기 때문(사용자가 원하면 직접 끈다).
+function syncDiffOnly(prefix, src) {
+  const only = $('#' + prefix + '-diffonly');
+  const saf = $('#' + prefix + '-safety');
+  const rar = $('#' + prefix + '-rarity');
+  const dif = $('#' + prefix + '-difficulty');
+  if (src === 'only' && only.checked) {
+    saf.checked = false; rar.checked = false; dif.checked = true;
+  } else if (src === 'tier' && (saf.checked || rar.checked)) {
+    only.checked = false;
+  }
+  // 등급 체크박스를 disabled 로 잠그면 안 된다 - 잠그면 "Safety 를 다시
+  // 체크하면 난이도만 추론이 꺼진다"는 동작 자체가 불가능해진다.
+  // 대신 흐리게만 해서 지금 꺼져 있다는 것을 보이고, 누르는 것은 허용한다.
+  [saf, rar].forEach(el => {
+    el.closest('label').style.opacity = only.checked ? '.55' : '1';
+  });
+}
+
 function syncVpc(prefix) {
   // "카테고리별 N" 일 때만 개수 입력을 열어준다.
   const on = $('#' + prefix + '-viz').value === 'cat';
@@ -1134,17 +1263,24 @@ function previewCmd() {
   if (rv === '1') parts.push('--viz-normal --viz-special');
   else if (rv === 'cat') parts.push('--viz-per-category ' + ($('#r-vpc').value || 5));
   if ($('#r-data').value !== 'local') parts.push('--data ' + $('#r-data').value);
-  if (!$('#r-safety').checked) parts.push('--no-safety-tier');
-  if (!$('#r-rarity').checked) parts.push('--no-rarity-tier');
-  if ($('#r-difficulty').checked) parts.push('--difficulty');
+  if ($('#r-diffonly').checked) {
+    parts.push('--difficulty-only');   // 등급/난이도 플래그를 함의한다
+  } else {
+    if (!$('#r-safety').checked) parts.push('--no-safety-tier');
+    if (!$('#r-rarity').checked) parts.push('--no-rarity-tier');
+    if ($('#r-difficulty').checked) parts.push('--difficulty');
+  }
   if ($('#r-memo').value) parts.push(`--memo "${$('#r-memo').value}"`);
   $('#r-cmd').textContent = '$ ' + parts.join(' ');
 }
 ['#r-model', '#r-labels', '#r-scene', '#r-traj', '#r-ego', '#r-viz', '#r-data',
- '#r-vpc', '#r-safety', '#r-rarity', '#r-difficulty', '#r-gpus', '#r-shards', '#r-memo'].forEach(s => {
+ '#r-vpc', '#r-safety', '#r-rarity', '#r-difficulty', '#r-diffonly', '#r-gpus', '#r-shards', '#r-memo'].forEach(s => {
   $(s).addEventListener('input', previewCmd); $(s).addEventListener('change', previewCmd);
 });
 $('#r-model').addEventListener('change', onModelChange);
+$('#r-diffonly').addEventListener('change', () => { syncDiffOnly('r','only'); previewCmd(); });
+['#r-safety', '#r-rarity'].forEach(sel =>
+  $(sel).addEventListener('change', () => { syncDiffOnly('r','tier'); previewCmd(); }));
 
 /* ---------- 6. NAS 전체 추론 ---------- */
 function nasClipsText() {
@@ -1178,17 +1314,24 @@ function previewNasCmd() {
   else parts.push('--no-viz');
   // 이 스크립트들의 기본이 nas 다 - 다를 때만 적는다.
   if ($('#n-data').value !== 'nas') parts.push('--data ' + $('#n-data').value);
-  if (!$('#n-safety').checked) parts.push('--no-safety-tier');
-  if (!$('#n-rarity').checked) parts.push('--no-rarity-tier');
-  if ($('#n-difficulty').checked) parts.push('--difficulty');
+  if ($('#n-diffonly').checked) {
+    parts.push('--difficulty-only');   // 등급/난이도 플래그를 함의한다
+  } else {
+    if (!$('#n-safety').checked) parts.push('--no-safety-tier');
+    if (!$('#n-rarity').checked) parts.push('--no-rarity-tier');
+    if ($('#n-difficulty').checked) parts.push('--difficulty');
+  }
   if ($('#n-memo').value) parts.push(`--memo "${$('#n-memo').value}"`);
   $('#n-cmd').textContent = '$ ' + parts.join(' ');
 }
 ['#n-model', '#n-scene', '#n-limit', '#n-traj', '#n-ego', '#n-viz', '#n-data',
- '#n-vpc', '#n-safety', '#n-rarity', '#n-difficulty', '#n-gpus', '#n-shards', '#n-memo'].forEach(s => {
+ '#n-vpc', '#n-safety', '#n-rarity', '#n-difficulty', '#n-diffonly', '#n-gpus', '#n-shards', '#n-memo'].forEach(s => {
   $(s).addEventListener('input', previewNasCmd); $(s).addEventListener('change', previewNasCmd);
 });
 $('#n-model').addEventListener('change', onNasModelChange);
+$('#n-diffonly').addEventListener('change', () => { syncDiffOnly('n','only'); previewNasCmd(); });
+['#n-safety', '#n-rarity'].forEach(sel =>
+  $(sel).addEventListener('change', () => { syncDiffOnly('n','tier'); previewNasCmd(); }));
 $('#n-go').onclick = async () => {
   const n = $('#n-limit').value;
   if (!confirm(n ? `${n}개 클립을 추론할까요?`
@@ -1207,6 +1350,7 @@ $('#n-go').onclick = async () => {
         no_safety_tier: !$('#n-safety').checked,
         no_rarity_tier: !$('#n-rarity').checked,
         difficulty: $('#n-difficulty').checked,
+        difficulty_only: $('#n-diffonly').checked,
         gpus: $('#n-gpus').value, shards: +$('#n-shards').value,
         memo: $('#n-memo').value,
       })
@@ -1228,6 +1372,7 @@ $('#r-go').onclick = async () => {
         no_safety_tier: !$('#r-safety').checked,
         no_rarity_tier: !$('#r-rarity').checked,
         difficulty: $('#r-difficulty').checked,
+        difficulty_only: $('#r-diffonly').checked,
         gpus: $('#r-gpus').value, shards: +$('#r-shards').value,
         memo: $('#r-memo').value,
       })
@@ -1241,6 +1386,11 @@ $('#r-go').onclick = async () => {
    NAS zip 에서도 전체 인덱스를 안 만들고 그 클립이 든 zip 만 찾는다. */
 let SG_JOB = null, SG_TIMER = null;
 
+// 단일 클립 패널에도 같은 연동을 건다(이쪽은 명령 미리보기가 없다).
+$('#sg-diffonly').addEventListener('change', () => syncDiffOnly('sg', 'only'));
+['#sg-safety', '#sg-rarity'].forEach(sel =>
+  $(sel).addEventListener('change', () => syncDiffOnly('sg', 'tier')));
+
 function sgOpts() {
   return {
     mode: $('#sg-data').value === 'local' ? 'labeled' : 'nas',
@@ -1251,6 +1401,7 @@ function sgOpts() {
     no_safety_tier: !$('#sg-safety').checked,
     no_rarity_tier: !$('#sg-rarity').checked,
     difficulty: $('#sg-difficulty').checked,
+    difficulty_only: $('#sg-diffonly').checked,
   };
 }
 
@@ -1309,7 +1460,7 @@ async function sgShow(uuid, runDir) {
 }
 
 ['#sg-uuid', '#sg-model', '#sg-scene', '#sg-data', '#sg-traj', '#sg-ego',
- '#sg-safety', '#sg-rarity', '#sg-difficulty'].forEach(sel => {
+ '#sg-safety', '#sg-rarity', '#sg-difficulty', '#sg-diffonly'].forEach(sel => {
   const el = $(sel); if (!el) return;
   el.addEventListener('input', sgPreview); el.addEventListener('change', sgPreview);
 });

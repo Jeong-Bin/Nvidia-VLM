@@ -645,7 +645,8 @@ def build_nureasoning_prompt(category_menu: str, sensor_facts: str = "",
                              header_style: str = "v1",
                              safety_tiers: bool = True,
                              rarity_tiers: bool = True,
-                             difficulty: bool = False) -> str:
+                             difficulty: bool = False,
+                             difficulty_only: bool = False) -> str:
     """nuReasoning 6단계 CoT + 1~10 점수를 요구하는 프롬프트.
 
     --traj 로 궤적을 그려도 프롬프트에는 그 사실을 알리지 않는다. 알려주는
@@ -888,6 +889,44 @@ the CURRENT moment. Each group of three is synchronized camera views
    one state whether it changed the ego-vehicle's behaviour. Also name the
    matching scenario types from the list above, copying the names EXACTLY."""
         observation_field = "<scene description, one or two sentences>"
+
+    # ------------------------------------------------------------------
+    # --difficulty-only: 주행 조건 4축만 묻는다.
+    #
+    # edge-case 탐지 문구를 남긴 채 단계만 끄면 프롬프트가 자기모순에 빠진다:
+    #   (1) 1단계가 "Do not describe lighting or weather" 로 조도/날씨 서술을
+    #       금지하는데, 4단계는 바로 그것을 점수로 매기라고 요구한다. 난이도가
+    #       유일한 과제가 되면 이 금지문이 근거 관찰 자체를 막는다.
+    #   (2) 머리말의 "You are NOT rating how difficult ... the clip is" 가
+    #       이 모드에서는 정반대 지시가 된다.
+    #   (3) 4단계의 "judged independently of the edge-case decision above" 가
+    #       사라진 단계를 가리킨다(rarity 단독 실행에서 겪은 것과 같은 문제).
+    # 그래서 문구를 덧대지 않고 과제 선언부터 다시 쓴다. 관찰 지시는 금지가
+    # 아니라 요구로 뒤집어, 점수의 근거를 먼저 보게 한다.
+    # 센서 사실(속도/가속도/주변 객체)은 넣지 않는다. 조도·강수·노면·대기가림은
+    # 영상에서만 읽히는 값이라 자차 속도가 근거가 될 수 없고, 남겨두면 그 블록이
+    # "use this for step 2 and step 3" 처럼 사라진 단계를 가리킨다((3)과 같은 문제).
+    if difficulty_only:
+        return f"""{intro}
+
+Your job is to rate the DRIVING CONDITIONS of this clip - the light, the
+weather, and the state of the road surface. You are not looking for unusual
+events or rare situations, and nothing in this task depends on whether the
+scene is ordinary: most clips are ordinary, and an ordinary clip in good
+conditions should be rated {DIFFICULTY_MIN} on every axis.
+
+Work through these steps in order:
+1. Condition Description: describe what the scene looks like in terms of
+   lighting, weather and road surface - time of day, how well lit the scene is,
+   whether anything is falling (rain or snow), whether the road is dry, wet,
+   snow-covered or unpaved, and how far you can see through the air. Describe
+   only what you can actually see; if something is not visible, say so rather
+   than guessing.
+2. Driving Difficulty: rate each factor from what you described in step 1.
+{difficulty_block()}
+Respond with ONLY a JSON object, no other text:
+{{"observation": "<what the lighting, weather and road surface look like>",
+{tier_fields.rstrip().rstrip(',')}}}"""
 
     return f"""{intro}
 {fact_block}
@@ -1304,6 +1343,7 @@ def save_run_config(args, run_dir, n_views=1):
             "use_3dbbox": bool(args.use_obstacle),
             "constrain_tiers": bool(args.constrain_tiers),
             "difficulty": bool(args.difficulty),
+            "difficulty_only": bool(args.difficulty_only),
             "num_shards": args.num_shards,
         },
         # 위에 없는 옵션까지 전부. 값이 Path 등이면 문자열로 눕힌다.
@@ -1540,6 +1580,14 @@ if __name__ == "__main__":
                          "값과 근거 문장이 CSV 열로 나가고 시각화 패널과 "
                          "aggregate_clip.log 분포에 실린다. 기본 off - "
                          "출력 토큰이 늘어 느려지므로 필요한 실행에서만 켠다.")
+    ap.add_argument("--difficulty-only", action="store_true",
+                    help="주행 난이도 4축만 추론한다. edge-case 탐지"
+                         "(VERDICT/CATEGORIES)와 등급(SAFETY/RARITY)을 모두 "
+                         "빼고 프롬프트를 난이도 전용으로 다시 쓴다 - 단계만 "
+                         "끄면 '조도/날씨를 서술하지 마라'(1단계)와 '조도/날씨를 "
+                         "점수로 매겨라'(4단계)가 충돌한다. --difficulty 를 "
+                         "자동으로 켜며, 등급/카테고리 CSV 열은 빈 값이 된다"
+                         "(열 구성 자체는 유지해 실행 간 비교가 깨지지 않는다).")
     ap.add_argument("--no-constrain-tiers", dest="constrain_tiers",
                     action="store_false",
                     help="등급(safety/rarity) 필드를 디코딩 단계에서 1/2/3 으로 "
@@ -1598,6 +1646,16 @@ if __name__ == "__main__":
         args.prompt_style = "nureasoning"
         args.ask_blocking = False
         print("[info] --clip-mode implies --prompt-style nureasoning")
+
+    # --difficulty-only 는 난이도를 켜고 나머지 판정을 끈다. 사용자가
+    # --difficulty 를 같이 적지 않아도 되게 하고, 등급을 켠 채로 들어와도
+    # 프롬프트와 어긋나지 않도록 여기서 한 번에 맞춘다.
+    if args.difficulty_only:
+        args.difficulty = True
+        args.safety_tiers = False
+        args.rarity_tiers = False
+        print("[info] --difficulty-only: 난이도 4축만 추론한다 "
+              "(verdict/categories/safety/rarity off)")
 
     if args.out is None:
         run_dir = ROOT / "results" / datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1703,6 +1761,7 @@ if __name__ == "__main__":
                            safety_tiers=args.safety_tiers,
                            rarity_tiers=args.rarity_tiers,
                            difficulty=args.difficulty,
+                           difficulty_only=args.difficulty_only,
                            use_obstacle=args.use_obstacle,
                            single_view=args.single_view,
                            fps=args.clip_fps,

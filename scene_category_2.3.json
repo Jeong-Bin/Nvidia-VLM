@@ -1,0 +1,311 @@
+{
+  "_meta": {
+    "Dynamic object": [
+      "Manual Traffic Control",
+      "Emergency Vehicle",
+      "Vehicles narrowing the lane",
+      "Animal on Road",
+      "Pedestrian on Road",
+      "Cyclist on Road",
+      "Tram or Railroad"
+    ],
+    "Driving environment": [
+      "Road Construction",
+      "Traffic Accident",
+      "Unpaved road",
+      "Obstacle on Road"
+    ]
+  },
+  "normal": {
+    "scenarios": [
+      {
+        "name": "Normal driving scenario",
+        "categories": [
+          {
+            "name": "Normal Driving",
+            "templates": [
+              "Driving normally",
+              "Just moving forward"
+            ],
+            "template_candidates": [
+              "A car driving straight on a clear road",
+              "Vehicles moving normally in traffic",
+              "Ordinary traffic flow on a multi-lane road",
+              "A vehicle changing lanes smoothly",
+              "Light traffic on a city street",
+              "A car driving on an empty highway",
+              "The ego-vehicle is driving normally",
+              "The car starts moving at the green light",
+              "The vehicle is changing lanes",
+              "The car makes a gentle right turn",
+              "The vehicle makes a smooth left turn",
+              "The car continues straight, driving alongside other vehicles",
+              "driving straight",
+              "ordinary driving",
+              "normal traffic flow",
+              "changing lanes",
+              "turning normally"
+            ]
+          },
+          {
+            "name": "Normal Stop",
+            "templates": [
+              "Stopped normally",
+              "Waiting at a red light"
+            ],
+            "template_candidates": [
+              "The car is waiting at a red light",
+              "The vehicle is stopped alongside other vehicles",
+              "Vehicles queued at a green light intersection",
+              "Vehicles are waiting for pedestrians to finish crossing the crosswalk",
+              "A cyclist is crossing the crosswalk",
+              "There are many vehicles nearby, and the ego-vehicle is currently stopped",
+              "The car is waiting at the crosswalk",
+              "stopped in traffic",
+              "waiting at the signal",
+              "queued in traffic",
+              "stopped at an intersection"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "special": {
+    "scenarios": [
+      {
+        "name": "Dynamic object",
+        "categories": [
+          {
+            "name": "Manual Traffic Control",
+            "templates": [
+              "A traffic controller or flagger guiding vehicles",
+              "A police directing traffic"
+            ],
+            "template_candidates": [
+              "A police officer directing traffic",
+              "A traffic controller guiding vehicles",
+              "A construction worker directing vehicles",
+              "A flagger controlling traffic",
+              "A person signaling vehicles to stop",
+              "A worker holding a stop sign for traffic",
+              "Manual traffic control at an intersection",
+              "Traffic being directed by a police officer",
+              "The vehicle stops as a flagger signals it to wait",
+              "The car is waiting for directions from the flagger",
+              "A traffic police officer is giving hand signals to the car",
+              "traffic controller",
+              "traffic control personnel",
+              "traffic officer",
+              "construction flagger",
+              "crossing guard"
+            ]
+          },
+          {
+            "name": "Emergency Vehicle",
+            "templates": [
+              "An ambulance speeds by",
+              "A fire truck is blocking the lane"
+            ],
+            "template_candidates": [
+              "An ambulance with flashing lights",
+              "An emergency vehicle approaching traffic",
+              "A police car responding to an incident",
+              "A fire truck driving on the road",
+              "Emergency vehicles passing through traffic",
+              "An ambulance stopped on the roadside",
+              "Emergency responders at the scene",
+              "The ego-vehicle pulls over as an ambulance approaches from behind",
+              "police car",
+              "patrol car",
+              "rescue vehicle",
+              "EMS vehicle"
+            ]
+          },
+          {
+            "name": "Animal on Road",
+            "templates": [
+              "A real animal, not a statue, is crossing the road",
+              "A Wildlife is blocking the path of passing vehicles"
+            ],
+            "template_candidates": [
+              "An animal crossing the road",
+              "A dog running into the street",
+              "A cat running into the road",
+              "A deer crossing in front of traffic",
+              "Wildlife near the roadway",
+              "Wild animals approaching",
+              "An animal standing on the road",
+              "A large animal blocking traffic",
+              "Livestock walking along the road",
+              "The car stops as a deer crosses the road ahead",
+              "The car stopped because ducks were crossing the road",
+              "The vehicle stopped because an animal suddenly darted onto the road",
+              "cat ahead",
+              "dog",
+              "deer",
+              "bird",
+              "livestock",
+              "wild animal",
+              "An animal loose on the road",
+              "Wildlife crossing in front of traffic"
+            ]
+          },
+          {
+            "name": "Pedestrian on Road",
+            "templates": [
+              "A person crossing between moving vehicles",
+              "A person is walking on the roadway, outside the sidewalk",
+              "A pedestrian jaywalking across the road where there is no crosswalk",
+              "A pedestrian is waiting for a vehicle to stop at the crosswalk"
+            ],
+            "template_candidates": [
+              "A person crossing between moving vehicles",
+              "A pedestrian entering the roadway suddenly",
+              "A pedestrian is crossing outside the crosswalk",
+              "People are passing between the stopped vehicles",
+              "The car brakes suddenly as a pedestrian jaywalks ahead",
+              "The vehicle stopped because a pedestrian was crossing the road outside of a crosswalk",
+              "illegal crossing",
+              "People are passing between",
+              "A pedestrian suddenly steps onto a road where there is no crosswalk"
+            ]
+          },
+          {
+            "name": "Cyclist on Road",
+            "templates": [
+              "Person on the scooter is crossing the street",
+              "A cyclist is riding very close to the ego vehicle on the roadway"
+            ],
+            "template_candidates": [
+              "A cyclist is riding close to ego vehicle"
+            ]
+          },
+          {
+            "name": "Tram or Railroad",
+            "templates": [
+              "A tram passes by the side of the vehicle",
+              "A tram is stopped",
+              "A railway gate is blocking entry, and a train is passing by",
+              "The railroad crossing barrier is open, and the ego-vehicle passes through smoothly"
+            ],
+            "template_candidates": [
+              "",
+              "",
+              ""
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Driving environment",
+        "categories": [
+          {
+            "name": "Road Construction",
+            "templates": [
+              "The traffic lane has been shifted due to construction work and traffic cones ahead",
+              "Construction work is underway outside of the current traffic lane",
+              "Road repairs are underway on one side"
+            ],
+            "template_candidates": [
+              "A road under construction",
+              "Traffic passing through a construction zone",
+              "Road maintenance in progress",
+              "Construction equipment beside the road",
+              "An excavator working near the roadway",
+              "A construction vehicle blocking a lane",
+              "Traffic cones blocking the lane",
+              "Construction barriers redirecting traffic",
+              "A construction worker directing traffic",
+              "A lane closed due to road construction",
+              "Vehicles following a temporary lane",
+              "The car slows down near a construction zone",
+              "traffic cones guide the way",
+              "some roads were closed to traffic",
+              "roadwork",
+              "road maintenance",
+              "road repair",
+              "construction vehicle",
+              "construction equipment",
+              "excavator",
+              "road barrier",
+              "barricade",
+              "warning sign",
+              "construction worker"
+            ]
+          },
+          {
+            "name": "Traffic Accident",
+            "templates": [
+              "A traffic accident has occurred up ahead",
+              "Fire occurred due to a car accident",
+              "The ego-vehicle is on the verge of a collision",
+              "Note: simply a high density of vehicles should not be misclassified as a traffic accident"
+            ],
+            "template_candidates": [
+              "Traffic completely gridlocked across the intersection",
+              "Vehicles crossing into the oncoming lane to get around a blockage",
+              "A contraflow lane where traffic runs opposite to normal",
+              "Vehicles queued in a disorganized, irregular line",
+              "Cars merging chaotically with no clear order",
+              "Vehicles moving without lane discipline in an open unmarked area",
+              "A blocked intersection with cars stuck in all directions",
+              "The ego-vehicle waits as traffic backs up through the intersection",
+              "traffic backed up and gridlocked",
+              "vehicles driving into oncoming lanes",
+              "contraflow traffic",
+              "vehicles queued in an irregular line",
+              "traffic merging chaotically",
+              "cars moving without lane discipline in an open area",
+              "traffic flowing the wrong way around an obstruction"
+            ]
+          },
+          {
+            "name": "Unpaved road",
+            "templates": [
+              "The road has no paved surface and no lane markings - gravel, dirt, or sand",
+              "The ego-vehicle leaves the paved road onto an unpaved shoulder or track",
+              "The ego-vehicle passes along a dirt road overgrown with tall grass",
+              "The ego-vehicle travels along an unpaved, bumpy road"
+            ],
+            "template_candidates": [
+              "Ego vehicle is on the an unsealed road",
+              "Ego vehicle is driving on an dirt road",
+              "The vehicle is driving along an unpaved road",
+              "The vehicle continues straight along the dirt road",
+              "The vehicle is moving forward on the gravel road",
+              "A snow-covered rural or forest service road with no visible pavement"
+            ]
+          },
+          {
+            "name": "Obstacle",
+            "templates": [
+              "Unknown object is blocking the vehicle",
+              "Debris scattered on the road",
+              "Raised barrier blocking the road"
+            ],
+            "template_candidates": [
+              "An unknown object blocking the road",
+              "Foreign object on the road surface",
+              "Unexpected objects on the road",
+              "Unidentified obstacle ahead",
+              "Debris scattered across the roadway",
+              "Garbage scattered on the roadway",
+              "A fallen tree blocking the road",
+              "A fallen branch on the roadway",
+              "A large rock in the middle of the road",
+              "A cardboard box on the road",
+              "Road debris blocking the lane",
+              "An object partially blocking the lane",
+              "The car stops abruptly to avoid an obstacle in the lane",
+              "fallen tree",
+              "fallen branch",
+              "box",
+              "rock"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

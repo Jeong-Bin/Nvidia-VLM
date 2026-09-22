@@ -97,6 +97,25 @@ def list_scene_files() -> list[str]:
                   if is_v2_scene(p))
 
 
+def newest_of(names: list[str], fallback: str) -> str:
+    """목록에서 가장 최근에 수정된 파일. 없으면 fallback.
+
+    config.py 의 기본값은 손으로 고치는 값이라, 새 라벨/분류 체계를 만들어도
+    거기 반영되지 않아 GUI 가 옛 파일을 계속 고른다(실측: 파일은 333/2.2 인데
+    기본값은 230/2.0). 파일 이름의 숫자로 정렬하지 않는 이유는 규칙이
+    바뀌면(2.10, _E 같은) 바로 어긋나기 때문이다 - 수정 시각이 더 튼튼하다.
+    """
+    best, best_m = fallback, -1.0
+    for n in names:
+        try:
+            m = (ROOT / n).stat().st_mtime
+        except OSError:
+            continue
+        if m > best_m:
+            best, best_m = n, m
+    return best
+
+
 def taxonomy_categories(scene_path: Path) -> list[dict]:
     """[{scenario, name, templates, template_candidates}] - 프롬프트 메뉴와 같은 순서."""
     scene = json.loads(Path(scene_path).read_text(encoding="utf-8"))
@@ -417,10 +436,13 @@ def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
         pairs = [(truth[u][key], pred[u][key]) for u in common
                  if pred[u].get(key) is not None]
         if pairs:
-            mae = sum(abs(a - b) for a, b in pairs) / len(pairs)
+            # evaluate_labels.py 의 tier_block() 과 같은 지표를 쓴다 -
+            # CLI 로그와 GUI 가 다른 숫자를 내는 사고(MAE/MSE 처럼)를
+            # 반복하지 않으려면 지표를 한쪽에서만 바꾸면 안 된다.
+            mse = sum((a - b) ** 2 for a, b in pairs) / len(pairs)
             exact = sum(a == b for a, b in pairs) / len(pairs)
             within1 = sum(abs(a - b) <= 1 for a, b in pairs) / len(pairs)
-            tiers[key] = {"n": len(pairs), "mae": mae, "exact": exact,
+            tiers[key] = {"n": len(pairs), "mse": mse, "exact": exact,
                           "within1": within1}
         else:
             tiers[key] = {"n": 0}
@@ -458,13 +480,28 @@ def clip_detail(uuid: str, run_dir: Path | None, labels_path: Path) -> dict:
         t = truth[uuid]
         out["truth"] = {"categories": sorted(t["categories"]),
                         "safety": t["safety"], "rarity": t["rarity"],
-                        "note": t["note"]}
+                        "note": t["note"],
+                        # 난이도는 EV.load_labels 가 버리므로 따로 읽는다.
+                        "difficulty": gt_difficulty(labels_path).get(uuid)}
     if run_dir is not None:
         rows = EV.load_results(run_dir)
         if uuid in rows:
             r = rows[uuid]
             out["pred"] = {"categories": sorted(r["categories"]),
                            "safety": r["safety"], "rarity": r["rarity"]}
+        # 난이도와 근거는 CSV 에서 가져온다. result.json 은 시각화를 만들
+        # 때만 생기므로, --no-viz 로 돌린 실행에서는 서술이 통째로 빈다.
+        pr = load_pred_rows(run_dir).get(uuid)
+        if pr:
+            out["pred_detail"] = {
+                "difficulty": pr["difficulty"],
+                "difficulty_reason": pr["difficulty_reason"],
+                "observation": pr["observation"],
+                "ego_behavior": pr["ego_behavior"],
+                "unusual_elements": pr["unusual_elements"],
+                "safety_reason": pr["safety_reason"],
+                "rarity_reason": pr["rarity_reason"],
+            }
         out.update(find_viz(run_dir, uuid))
         rj = out.get("result_json")
         if rj:
@@ -1074,16 +1111,23 @@ def build_command(opts: dict, jid: str = "adhoc") -> list[str]:
         cmd += ["--viz-normal", "--viz-special"]
     elif nas:
         cmd += ["--no-viz"]
-    # 등급(4·5단계)을 프롬프트에서 빼는 스위치. 두 개를 다 끄면 스크립트에
-    # --no-score-tiers 별칭이 있지만, 굳이 쓰지 않는다. run.log 에 남는 명령이
-    # 어느 축을 껐는지 그대로 읽히는 편이 나중에 실행끼리 비교할 때 낫다.
-    if opts.get("no_safety_tier"):
-        cmd += ["--no-safety-tier"]
-    if opts.get("no_rarity_tier"):
-        cmd += ["--no-rarity-tier"]
-    # 난이도 4축은 등급과 별개 축이라 기본 off - 켤 때만 넘긴다.
-    if opts.get("difficulty"):
-        cmd += ["--difficulty"]
+    # --difficulty-only 는 난이도만 남기고 탐지/등급을 전부 끈다. 그 함의는
+    # 스크립트(edge_case_mining.py)가 처리하므로 여기서 --difficulty 나
+    # --no-*-tier 를 같이 붙이지 않는다 - run.log 에 남는 명령이 짧을수록
+    # 나중에 무엇을 시험한 실행인지 읽기 쉽다.
+    if opts.get("difficulty_only"):
+        cmd += ["--difficulty-only"]
+    else:
+        # 등급(4·5단계)을 프롬프트에서 빼는 스위치. 두 개를 다 끄면 스크립트에
+        # --no-score-tiers 별칭이 있지만, 굳이 쓰지 않는다. run.log 에 남는 명령이
+        # 어느 축을 껐는지 그대로 읽히는 편이 나중에 실행끼리 비교할 때 낫다.
+        if opts.get("no_safety_tier"):
+            cmd += ["--no-safety-tier"]
+        if opts.get("no_rarity_tier"):
+            cmd += ["--no-rarity-tier"]
+        # 난이도 4축은 등급과 별개 축이라 기본 off - 켤 때만 넘긴다.
+        if opts.get("difficulty"):
+            cmd += ["--difficulty"]
     # 프레임 소스. 스크립트마다 기본값이 다르므로(labeled=local, nas=nas)
     # 기본과 같을 때만 생략한다 - run.log 에 남는 명령이 짧을수록 낫다.
     data = opts.get("data")
@@ -1290,11 +1334,16 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(nas_status())
 
         if p == "/api/bootstrap":
+            _labels = list_label_files()
+            _scenes = list_scene_files()
             return self._json({
-                "labels": list_label_files(),
-                "scenes": list_scene_files(),
-                "default_labels": Path(config.LABELS_JSON).name,
-                "default_scene": Path(config.SCENE_JSON).name,
+                "labels": _labels,
+                "scenes": _scenes,
+                # 가장 최근에 손댄 파일을 기본으로 고른다. config.py 값은
+                # 그 파일이 목록에 없을 때(지워졌거나 스키마가 걸러졌을 때)
+                # 쓰는 최후 수단이다.
+                "default_labels": newest_of(_labels, Path(config.LABELS_JSON).name),
+                "default_scene": newest_of(_scenes, Path(config.SCENE_JSON).name),
                 "models": [{"id": k, **v} for k, v in MODELS.items()],
                 "nas_clips": nas_clip_count(),
                 "runs": [{

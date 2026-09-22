@@ -69,6 +69,7 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --no-rarity-tier         Rarity(5단계)만 프롬프트에서 끈다             [RARITY_TIER=0]
   --no-score-tiers         위 둘을 한꺼번에 끄는 별칭                    [SCORE_TIERS=0]
   --difficulty             주행 난이도 4축을 0~4 로 함께 매긴다         [DIFFICULTY=1]
+  --difficulty-only        난이도 4축만 추론한다 (탐지/등급 전부 off)  [DIFFICULTY_ONLY=1]
   --viz-per-category N     카테고리마다 최초 N개 클립만 시각화           [VIZ_PER_CAT]
   --clip-fps F              초당 몇 장 뽑을지 (기본 edge_case_mining.py) [CLIP_FPS]
   --clip-max-frames N       클립당 최대 프레임                          [CLIP_MAX_FRAMES]
@@ -112,6 +113,7 @@ while [ $# -gt 0 ]; do
     --no-rarity-tier)        RARITY_TIER=0 ;;
     --no-score-tiers)        SAFETY_TIER=0; RARITY_TIER=0 ;;
     --difficulty)            DIFFICULTY=1 ;;
+    --difficulty-only)       DIFFICULTY_ONLY=1 ;;
     --viz-per-category=*)  VIZ_PER_CAT="${1#*=}" ;;
     --viz-per-category)    shift; VIZ_PER_CAT="${1:-}" ;;
     --traj=*)                TRAJ="${1#*=}" ;;
@@ -188,6 +190,7 @@ OPTS="--clip-mode --single-view --num-shards 1 --shard-id 0 --model $MODEL"
 [ "${SAFETY_TIER:-1}" = "0" ]   && OPTS="$OPTS --no-safety-tier"
 [ "${RARITY_TIER:-1}" = "0" ]   && OPTS="$OPTS --no-rarity-tier"
 [ "${DIFFICULTY:-0}" = "1" ]    && OPTS="$OPTS --difficulty"
+[ "${DIFFICULTY_ONLY:-0}" = "1" ] && OPTS="$OPTS --difficulty-only"
 [ -n "${VIZ_PER_CAT:-}" ]        && OPTS="$OPTS --viz-per-category $VIZ_PER_CAT"
 [ -n "${TRAJ:-}" ]              && OPTS="$OPTS --traj $TRAJ"
 # --viz-per-category 는 그 자체가 "시각화하라"는 뜻이다 - 로컬 스크립트는
