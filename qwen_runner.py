@@ -487,7 +487,8 @@ def run_clip_inference(uuids, labels, category_menu,
                        gt_labels=None, timeline=False, ego_track=False,
                        ego_ablation=None, header_style="v1",
                        want_margin=False, safety_tiers=True, rarity_tiers=True,
-                       difficulty=False, difficulty_only=False, traj=None,
+                       difficulty=False, difficulty_only=False,
+                       tiers_elements=False, explain_traj=False, traj=None,
                        viz_per_category=None):
     """클립 전체(20초)를 1fps 로 넣어 클립 단위로 판정한다.
 
@@ -614,7 +615,9 @@ def run_clip_inference(uuids, labels, category_menu,
                 safety_tiers=safety_tiers,
                 rarity_tiers=rarity_tiers,
                 difficulty=difficulty,
-                difficulty_only=difficulty_only)
+                difficulty_only=difficulty_only,
+                tiers_elements=tiers_elements,
+                explain_traj=explain_traj)
             gen_out = _generate(model, processor, images, prompt,
                                 max_new_tokens=(NUR_MAX_NEW_TOKENS_DIFFICULTY
                                                 if difficulty

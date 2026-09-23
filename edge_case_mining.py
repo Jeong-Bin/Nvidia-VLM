@@ -646,7 +646,9 @@ def build_nureasoning_prompt(category_menu: str, sensor_facts: str = "",
                              safety_tiers: bool = True,
                              rarity_tiers: bool = True,
                              difficulty: bool = False,
-                             difficulty_only: bool = False) -> str:
+                             difficulty_only: bool = False,
+                             tiers_elements: bool = False,
+                             explain_traj: bool = False) -> str:
     """nuReasoning 6단계 CoT + 1~10 점수를 요구하는 프롬프트.
 
     --traj 로 궤적을 그려도 프롬프트에는 그 사실을 알리지 않는다. 알려주는
@@ -734,6 +736,20 @@ in order, both from the vehicle's front-wide camera: the FIRST is from about
 in order: the FIRST three are from about 1 second EARLIER, the LAST three are
 the CURRENT moment. Each group of three is synchronized camera views
 (front-wide, cross-left, cross-right) of the same vehicle."""
+
+    # --explain-traj: 프레임에 그려진 초록 선이 무엇인지 한 문장으로 알린다.
+    #
+    # 기본은 알리지 않는 것이다. 예전에 알려 봤다가 6개 축이 모두 나빠졌기
+    # 때문이다(실측 115클립, 위 docstring 참고) - "궤적으로 어떤 도로
+    # 사용자와 실제로 상호작용하는지 보라"는 식으로 쓰자 그 문구가 필터로
+    # 읽혀, 경로 밖 보행자를 특이 요소에서 통째로 빼버렸다.
+    #
+    # 그래서 이 문장은 선이 무엇인지만 말하고, 그것으로 무엇을 하라는 말은
+    # 하지 않는다. 판단 지시를 넣는 순간 그때의 실패가 재현된다.
+    traj_note = ("\nA green line is drawn on the frames: it marks the "
+                 f"ego-vehicle's own path over the next {_TRAJ_HORIZON_S:g} "
+                 "seconds. It is an overlay, not an object in the scene."
+                 if explain_traj else "")
 
     tier_scale = tier_menu()
     tier_min, tier_max = min(TIER_VALUES), max(TIER_VALUES)
@@ -891,6 +907,67 @@ the CURRENT moment. Each group of three is synchronized camera views
         observation_field = "<scene description, one or two sentences>"
 
     # ------------------------------------------------------------------
+    # --no-tiers-elements (A안): 등급을 빼는 대신 3단계를 속성 표로 만든다.
+    #
+    # 배경 - 등급이 탐지를 돕는 진짜 이유:
+    #   등급을 끄면 VERDICT F1 이 77.5% -> 73.0% 로 떨어지고, GT=special 인데
+    #   3단계가 통째로 빈 클립이 41 -> 52건으로 는다(실측 20260921, 333클립).
+    #   그런데 1단계 서술을 보면 모델은 그 요소를 이미 보고 적어 두었다
+    #   ("A pedestrian is visible on the sidewalk to the left" 라고 쓰고도
+    #   3단계는 비웠다). 즉 탐지 실패가 아니라 1단계 -> 3단계 옮겨 적기
+    #   실패다. 3단계가 비면 카테고리도 비는 비율이 99% 라 그대로 손실이 된다.
+    #
+    #   등급이 켜져 있으면 모델이 시키지도 않았는데 3단계를 목록으로 쓴다
+    #   ("Pedestrian on sidewalk; influenced_ego=no; low"). 뒤에서 등급을
+    #   매겨야 하니 미리 적어 두는 것이다(3단계에 등급 어휘를 스스로 단
+    #   클립: 등급 on 169건 vs off 12건). 특히 influenced_ego=no 인 요소가
+    #   이 덕분에 살아남는다 - 등급이 없으면 "영향 없으니 적을 필요 없다"로
+    #   지워버린다.
+    #
+    # 그래서 기여하는 것은 등급의 '의미'(위험도/희귀도)가 아니라 "요소마다
+    # 무언가를 반드시 채워야 한다"는 구조적 압력이라고 보고, 그 압력을
+    # 목표 지표에 직접 쓰이는 속성으로 대체한다:
+    #   position - 도로 위인가 보도인가. Pedestrian on Road / Narrow road
+    #              같은 카테고리 판정에 그대로 쓰이는 정보다.
+    #   ego      - 영향 없음을 '명시'하게 해서 생략 경로를 막는다.
+    # 등급과 달리 채점하지 않는 값을 생성하지 않고, rubric 두 벌이 빠져
+    # 프롬프트도 짧아진다.
+    # JSON 필드 설명도 같은 형식을 반복해 준다 - 단계 지시만 바꾸고 스키마를
+    # 자유 서술로 두면 모델이 스키마 쪽을 따라 형식이 흐트러진다.
+    elements_field = ("<each unusual element and whether it influenced the ego>"
+                      if not tiers_elements else
+                      "<elem; position=in-path|adjacent|off-road; "
+                      "ego=affected|unaffected | next elem; ...>")
+    if tiers_elements:
+        # position 축을 "자차 차선 기준"으로 두는 판(v1). 노면 기준
+        # (on-road/roadside/off-road)으로 다시 그어 본 v2 도 있었는데 더
+        # 나빴다 - 실측 20260922, 333클립 동일 조건:
+        #
+        #            VERDICT F1   recall   micro F1  macro F1   FP    FN
+        #   v1(이것)     80.4%     94.3%     0.679     0.619    71    10
+        #   v2           74.0%     80.1%     0.637     0.569    64    35
+        #
+        # v2 는 노렸던 것(한 칸 쏠림)은 실제로 풀었다 - adjacent 83% 가
+        # on-road 52% / roadside 45% 로 갈렸다. 그런데도 전 지표가 나빠졌다.
+        # 원인은 축을 정교하게 만들면서 "어느 지면 위인가"를 따지라는 지시와
+        # 금지 조항 두 줄이 붙어 프롬프트가 길어진 것(5585 -> 6389자)으로
+        # 본다. 그 판단에 예산을 쓰느라 "빠짐없이 나열하라"는 압력이 약해져
+        # FN 이 10 -> 35 로 늘었다. 이 프롬프트가 반복해 겪은 패턴이다
+        # (궤적 설명 추가 시 6축 동반 하락, 급제동 근거 지정 시 66% -> 37%).
+        # 즉 position 의 정확도가 목적이 아니다 - 요소를 빠뜨리지 않게 하는
+        # 압력이 목적이고, 그 압력은 칸이 거칠어도 유지된다.
+        step3_head += """
+   Write one line per element in EXACTLY this form, separating elements with '|':
+     <what it is>; position=<in-path|adjacent|off-road>; ego=<affected|unaffected>
+   position is where the element is relative to the lane the ego-vehicle drives
+   in: in-path (in that lane), adjacent (beside it - the next lane, the kerb,
+   a crossing it is waiting at), off-road (pavement, verge, behind a fence).
+   An element belongs here even when it is off-road and the ego-vehicle was
+   unaffected - those are the ones most often dropped, and dropping them is an
+   error. Anything you named in step 1 must appear here unless it is ordinary
+   moving traffic."""
+
+    # ------------------------------------------------------------------
     # --difficulty-only: 주행 조건 4축만 묻는다.
     #
     # edge-case 탐지 문구를 남긴 채 단계만 끄면 프롬프트가 자기모순에 빠진다:
@@ -928,7 +1005,7 @@ Respond with ONLY a JSON object, no other text:
 {{"observation": "<what the lighting, weather and road surface look like>",
 {tier_fields.rstrip().rstrip(',')}}}"""
 
-    return f"""{intro}
+    return f"""{intro}{traj_note}
 {fact_block}
 Your job is to decide whether this clip contains any edge-case element - a rare
 or unusual road situation - and to name which of the types below it matches.
@@ -952,7 +1029,7 @@ Work through these steps in order:
 Respond with ONLY a JSON object, no other text:
 {{"observation": "{observation_field}",
  "ego_behavior": "<how the ego-vehicle is behaving and whether it changed>",
- "unusual_elements": "<each unusual element and whether it influenced the ego>",
+ "unusual_elements": "{elements_field}",
 {tier_fields} "scenario_types": ["<exact scenario type name>", ...]}}"""
 
 
@@ -1344,6 +1421,8 @@ def save_run_config(args, run_dir, n_views=1):
             "constrain_tiers": bool(args.constrain_tiers),
             "difficulty": bool(args.difficulty),
             "difficulty_only": bool(args.difficulty_only),
+            "tiers_elements": bool(args.tiers_elements),
+            "explain_traj": bool(args.explain_traj),
             "num_shards": args.num_shards,
         },
         # 위에 없는 옵션까지 전부. 값이 Path 등이면 문자열로 눕힌다.
@@ -1580,6 +1659,25 @@ if __name__ == "__main__":
                          "값과 근거 문장이 CSV 열로 나가고 시각화 패널과 "
                          "aggregate_clip.log 분포에 실린다. 기본 off - "
                          "출력 토큰이 늘어 느려지므로 필요한 실행에서만 켠다.")
+    ap.add_argument("--explain-traj", action="store_true",
+                    help="--traj 로 그린 초록 선이 자차의 미래 궤적임을 "
+                         "프롬프트에 한 문장으로 알린다. 기본 off - 예전에 "
+                         "알려 봤다가 6개 축이 모두 나빠졌다(실측 115클립: "
+                         "Verdict F1 90.5->83.0). 그때는 '궤적으로 상호작용을 "
+                         "보라'는 판단 지시가 붙어 필터로 읽힌 것이 원인이라, "
+                         "여기서는 선이 무엇인지만 말하고 무엇을 하라고는 "
+                         "하지 않는다. --traj 없이 주면 의미가 없다.")
+    ap.add_argument("--no-tiers-elements", dest="tiers_elements",
+                    action="store_true",
+                    help="[A안] Safety/Rarity 등급을 빼고, 대신 3단계(요소 "
+                         "나열)를 속성 표로 강제한다: 요소마다 "
+                         "position(in-path/adjacent/off-road)과 "
+                         "ego(affected/unaffected)를 반드시 적게 한다. "
+                         "등급이 탐지를 돕는 이유가 rubric 의 내용이 아니라 "
+                         "'요소마다 무언가 채워야 한다'는 압력이라고 보고, "
+                         "그 압력을 목표 지표에 직접 쓰이는 속성으로 바꾼 "
+                         "것이다. --no-safety-tier/--no-rarity-tier 를 "
+                         "자동으로 켠다.")
     ap.add_argument("--difficulty-only", action="store_true",
                     help="주행 난이도 4축만 추론한다. edge-case 탐지"
                          "(VERDICT/CATEGORIES)와 등급(SAFETY/RARITY)을 모두 "
@@ -1650,6 +1748,13 @@ if __name__ == "__main__":
     # --difficulty-only 는 난이도를 켜고 나머지 판정을 끈다. 사용자가
     # --difficulty 를 같이 적지 않아도 되게 하고, 등급을 켠 채로 들어와도
     # 프롬프트와 어긋나지 않도록 여기서 한 번에 맞춘다.
+    # [A안] 등급을 속성 표로 대체한다. 등급을 따로 끄지 않아도 되게 한다.
+    if args.tiers_elements:
+        args.safety_tiers = False
+        args.rarity_tiers = False
+        print("[info] --no-tiers-elements: 등급 대신 3단계를 속성 표로 강제한다 "
+              "(safety/rarity off)")
+
     if args.difficulty_only:
         args.difficulty = True
         args.safety_tiers = False
@@ -1762,6 +1867,8 @@ if __name__ == "__main__":
                            rarity_tiers=args.rarity_tiers,
                            difficulty=args.difficulty,
                            difficulty_only=args.difficulty_only,
+                           tiers_elements=args.tiers_elements,
+                           explain_traj=args.explain_traj,
                            use_obstacle=args.use_obstacle,
                            single_view=args.single_view,
                            fps=args.clip_fps,

@@ -89,6 +89,8 @@ while [ $# -gt 0 ]; do
     --no-score-tiers)        SAFETY_TIER=0; RARITY_TIER=0 ;;
     --difficulty)            DIFFICULTY=1 ;;
     --difficulty-only)       DIFFICULTY_ONLY=1 ;;
+    --no-tiers-elements)     TIERS_ELEMENTS=1 ;;
+    --explain-traj)          EXPLAIN_TRAJ=1 ;;
     --viz-per-category=*)  VIZ_PER_CAT="${1#*=}" ;;
     --viz-per-category)    shift; VIZ_PER_CAT="${1:-}" ;;
     --traj=*)                TRAJ="${1#*=}" ;;
@@ -158,6 +160,8 @@ OPTS="--clip-mode --single-view --num-shards 1 --shard-id 0 --model $MODEL"
 [ "${RARITY_TIER:-1}" = "0" ]   && OPTS="$OPTS --no-rarity-tier"
 [ "${DIFFICULTY:-0}" = "1" ]    && OPTS="$OPTS --difficulty"
 [ "${DIFFICULTY_ONLY:-0}" = "1" ] && OPTS="$OPTS --difficulty-only"
+[ "${TIERS_ELEMENTS:-0}" = "1" ] && OPTS="$OPTS --no-tiers-elements"
+[ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
 [ -n "${VIZ_PER_CAT:-}" ]        && OPTS="$OPTS --viz-per-category $VIZ_PER_CAT"
 [ -n "${TRAJ:-}" ]              && OPTS="$OPTS --traj $TRAJ"
 # --viz-per-category 는 그 자체가 "시각화하라"는 뜻이다 - 로컬 스크립트는

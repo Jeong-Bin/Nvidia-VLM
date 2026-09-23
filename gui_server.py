@@ -1097,8 +1097,15 @@ def build_command(opts: dict, jid: str = "adhoc") -> list[str]:
         cmd += ["--scene-json", str(ROOT / opts["scene_json"])]
     if opts.get("use_egomotion"):
         cmd += ["--use-egomotion"]
-    if opts.get("traj"):
-        cmd += ["--traj", opts["traj"]]
+    # 궤적 드롭박스는 "center+explain" 처럼 모드와 설명 여부를 한 값에 담는다.
+    # 화면에서 둘을 따로 고르게 하면 "설명만 켜고 궤적은 끈" 무의미한 조합이
+    # 생기므로, 조합 자체를 선택지로 두고 여기서 두 플래그로 나눈다.
+    traj = opts.get("traj") or ""
+    if traj:
+        mode, _, suffix = traj.partition("+")
+        cmd += ["--traj", mode]
+        if suffix == "explain":
+            cmd += ["--explain-traj"]
     # 시각화 기본값이 스크립트마다 반대다: labeled_* 는 off(--viz 로 켬),
     # nas_* 는 on(--no-viz 로 끔). 켤 때는 --viz-normal/--viz-special 로
     # 어느 쪽이든 명시적으로 켜지고, 끌 때는 nas_* 에만 --no-viz 가 필요하다.
@@ -1117,6 +1124,12 @@ def build_command(opts: dict, jid: str = "adhoc") -> list[str]:
     # 나중에 무엇을 시험한 실행인지 읽기 쉽다.
     if opts.get("difficulty_only"):
         cmd += ["--difficulty-only"]
+    elif opts.get("tiers_elements"):
+        # --no-tiers-elements 도 등급 off 를 함의하므로 --no-*-tier 를 같이
+        # 붙이지 않는다. 난이도는 별개 축이라 그대로 따라간다.
+        cmd += ["--no-tiers-elements"]
+        if opts.get("difficulty"):
+            cmd += ["--difficulty"]
     else:
         # 등급(4·5단계)을 프롬프트에서 빼는 스위치. 두 개를 다 끄면 스크립트에
         # --no-score-tiers 별칭이 있지만, 굳이 쓰지 않는다. run.log 에 남는 명령이

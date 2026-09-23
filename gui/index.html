@@ -452,9 +452,12 @@ video{width:100%;background:#000;border-radius:6px}
       <label>분류 체계<select id="r-scene"></select></label>
     </div>
     <div class="row" style="margin-top:10px">
-      <label>궤적 오버레이<select id="r-traj">
-        <option value="">사용 안 함</option><option value="center">center</option>
-        <option value="width">width</option></select></label>
+      <label title="+설명 을 고르면 초록 선이 자차의 미래 5초 궤적이라는 문장을 프롬프트에 넣는다. 기본은 넣지 않는 것 - 실측 115클립에서 설명을 넣자 6개 축이 모두 나빠졌다(Verdict F1 90.5->83.0).">궤적 오버레이<select id="r-traj">
+        <option value="">사용 안 함</option>
+        <option value="center">center</option>
+        <option value="width">width</option>
+        <option value="center+explain">center + 설명</option>
+        <option value="width+explain">width + 설명</option></select></label>
       <label>egomotion<select id="r-ego">
         <option value="1">사용</option><option value="0">사용 안 함</option></select></label>
       <label>시각화 mp4<select id="r-viz">
@@ -474,6 +477,8 @@ video{width:100%;background:#000;border-radius:6px}
         <input type="checkbox" id="r-difficulty" checked> 난이도 4축 켜기</label>
       <label class="chk" title="난이도 4축만 추론한다. edge-case 탐지(VERDICT/CATEGORIES)와 Safety/Rarity 등급을 전부 빼고, 프롬프트를 난이도 전용으로 바꾼다.">
         <input type="checkbox" id="r-diffonly"> 난이도만 추론</label>
+      <label class="chk" title="[A안] Safety/Rarity 등급을 빼고, 3단계 요소 나열을 속성 표(position/ego)로 강제한다. 실측 20260922(333클립): VERDICT F1 80.4%, recall 94.3%, micro F1 0.679 로 등급 방식(80.0%/81.8%/0.655)보다 놓치는 클립이 적다(FN 32→10). 대신 오탐은 는다(FP 40→71).">
+        <input type="checkbox" id="r-notiers"> 등급 대신 요소 속성표</label>
       <label id="r-gpuwrap" class="hide">GPU<input type="text" id="r-gpus" value="0,1,2" size="8"></label>
       <label id="r-shardwrap">샤드 수<input type="number" id="r-shards" value="8" min="1" max="8" size="2"></label>
       <label>메모<input type="text" id="r-memo" size="26" placeholder="이 실행이 무엇을 시험하는지"></label>
@@ -624,9 +629,12 @@ video{width:100%;background:#000;border-radius:6px}
           placeholder="전체"></label>
     </div>
     <div class="row" style="margin-top:10px">
-      <label>궤적 오버레이<select id="n-traj">
-        <option value="">사용 안 함</option><option value="center">center</option>
-        <option value="width">width</option></select></label>
+      <label title="+설명 을 고르면 초록 선이 자차의 미래 5초 궤적이라는 문장을 프롬프트에 넣는다. 기본은 넣지 않는 것 - 실측 115클립에서 설명을 넣자 6개 축이 모두 나빠졌다(Verdict F1 90.5->83.0).">궤적 오버레이<select id="n-traj">
+        <option value="">사용 안 함</option>
+        <option value="center">center</option>
+        <option value="width">width</option>
+        <option value="center+explain">center + 설명</option>
+        <option value="width+explain">width + 설명</option></select></label>
       <label>egomotion<select id="n-ego">
         <option value="1">사용</option><option value="0">사용 안 함</option></select></label>
       <label>시각화 mp4<select id="n-viz">
@@ -646,6 +654,8 @@ video{width:100%;background:#000;border-radius:6px}
         <input type="checkbox" id="n-difficulty" checked> 난이도 4축 켜기</label>
       <label class="chk" title="난이도 4축만 추론한다. edge-case 탐지(VERDICT/CATEGORIES)와 Safety/Rarity 등급을 전부 빼고, 프롬프트를 난이도 전용으로 바꾼다.">
         <input type="checkbox" id="n-diffonly"> 난이도만 추론</label>
+      <label class="chk" title="[A안] Safety/Rarity 등급을 빼고, 3단계 요소 나열을 속성 표(position/ego)로 강제한다. 실측 20260922(333클립): VERDICT F1 80.4%, recall 94.3%, micro F1 0.679 로 등급 방식(80.0%/81.8%/0.655)보다 놓치는 클립이 적다(FN 32→10). 대신 오탐은 는다(FP 40→71).">
+        <input type="checkbox" id="n-notiers"> 등급 대신 요소 속성표</label>
       <label id="n-gpuwrap" class="hide">GPU<input type="text" id="n-gpus" value="0,1,2" size="8"></label>
       <label id="n-shardwrap">샤드 수<input type="number" id="n-shards" value="8" min="1" max="8" size="2"></label>
       <label>메모<input type="text" id="n-memo" size="26" placeholder="이 실행이 무엇을 시험하는지"></label>
@@ -1219,21 +1229,41 @@ $('#c-del').onclick = async () => {
 //   Safety/Rarity 중 하나라도 수동 체크 -> 난이도만 추론 해제
 // 뒤쪽에서 난이도 4축을 따라 끄지는 않는다 - 등급과 난이도를 함께 보는
 // 실행이 정상적인 조합이기 때문(사용자가 원하면 직접 끈다).
+// 궤적 드롭박스 값("center+explain")을 실제 플래그 문자열로 편다.
+// build_command() 가 서버에서 하는 분해와 같은 규칙이어야 미리보기가
+// 실제로 돌아갈 명령과 어긋나지 않는다.
+function trajFlags(v) {
+  if (!v) return [];
+  const [mode, suffix] = v.split('+');
+  return suffix === 'explain' ? ['--traj ' + mode, '--explain-traj']
+                              : ['--traj ' + mode];
+}
+
 function syncDiffOnly(prefix, src) {
   const only = $('#' + prefix + '-diffonly');
   const saf = $('#' + prefix + '-safety');
   const rar = $('#' + prefix + '-rarity');
   const dif = $('#' + prefix + '-difficulty');
+  // 단일 클립 패널(sg)에는 이 체크박스가 없다 - 없으면 그냥 건너뛴다.
+  const nt = $('#' + prefix + '-notiers');
   if (src === 'only' && only.checked) {
     saf.checked = false; rar.checked = false; dif.checked = true;
-  } else if (src === 'tier' && (saf.checked || rar.checked)) {
+    if (nt) nt.checked = false;          // 둘은 서로 배타다
+  } else if (src === 'notiers' && nt && nt.checked) {
+    // --no-tiers-elements 는 등급을 끄는 것을 함의한다. 화면도 그렇게 맞춘다.
     only.checked = false;
+    saf.checked = false; rar.checked = false;
+  } else if (src === 'tier' && (saf.checked || rar.checked)) {
+    // 등급을 다시 켜면 등급을 끄는 두 모드가 모두 해제된다.
+    only.checked = false;
+    if (nt) nt.checked = false;
   }
   // 등급 체크박스를 disabled 로 잠그면 안 된다 - 잠그면 "Safety 를 다시
   // 체크하면 난이도만 추론이 꺼진다"는 동작 자체가 불가능해진다.
   // 대신 흐리게만 해서 지금 꺼져 있다는 것을 보이고, 누르는 것은 허용한다.
+  const tiersOff = only.checked || (nt && nt.checked);
   [saf, rar].forEach(el => {
-    el.closest('label').style.opacity = only.checked ? '.55' : '1';
+    el.closest('label').style.opacity = tiersOff ? '.55' : '1';
   });
 }
 
@@ -1258,13 +1288,17 @@ function previewCmd() {
   parts.push('--labels ' + $('#r-labels').value);
   parts.push('--scene-json ' + $('#r-scene').value);
   if ($('#r-ego').value === '1') parts.push('--use-egomotion');
-  if ($('#r-traj').value) parts.push('--traj ' + $('#r-traj').value);
+  parts.push(...trajFlags($('#r-traj').value));
   const rv = $('#r-viz').value;
   if (rv === '1') parts.push('--viz-normal --viz-special');
   else if (rv === 'cat') parts.push('--viz-per-category ' + ($('#r-vpc').value || 5));
   if ($('#r-data').value !== 'local') parts.push('--data ' + $('#r-data').value);
   if ($('#r-diffonly').checked) {
     parts.push('--difficulty-only');   // 등급/난이도 플래그를 함의한다
+  } else if ($('#r-notiers').checked) {
+    // --no-tiers-elements 가 등급 off 를 함의한다 - 중복 플래그를 붙이지 않는다
+    parts.push('--no-tiers-elements');
+    if ($('#r-difficulty').checked) parts.push('--difficulty');
   } else {
     if (!$('#r-safety').checked) parts.push('--no-safety-tier');
     if (!$('#r-rarity').checked) parts.push('--no-rarity-tier');
@@ -1274,11 +1308,12 @@ function previewCmd() {
   $('#r-cmd').textContent = '$ ' + parts.join(' ');
 }
 ['#r-model', '#r-labels', '#r-scene', '#r-traj', '#r-ego', '#r-viz', '#r-data',
- '#r-vpc', '#r-safety', '#r-rarity', '#r-difficulty', '#r-diffonly', '#r-gpus', '#r-shards', '#r-memo'].forEach(s => {
+ '#r-vpc', '#r-safety', '#r-rarity', '#r-difficulty', '#r-diffonly', '#r-notiers', '#r-gpus', '#r-shards', '#r-memo'].forEach(s => {
   $(s).addEventListener('input', previewCmd); $(s).addEventListener('change', previewCmd);
 });
 $('#r-model').addEventListener('change', onModelChange);
 $('#r-diffonly').addEventListener('change', () => { syncDiffOnly('r','only'); previewCmd(); });
+$('#r-notiers').addEventListener('change', () => { syncDiffOnly('r','notiers'); previewCmd(); });
 ['#r-safety', '#r-rarity'].forEach(sel =>
   $(sel).addEventListener('change', () => { syncDiffOnly('r','tier'); previewCmd(); }));
 
@@ -1306,7 +1341,7 @@ function previewNasCmd() {
   parts.push('--scene-json ' + $('#n-scene').value);
   if ($('#n-limit').value) parts.push('--limit-clips ' + $('#n-limit').value);
   if ($('#n-ego').value === '1') parts.push('--use-egomotion');
-  if ($('#n-traj').value) parts.push('--traj ' + $('#n-traj').value);
+  parts.push(...trajFlags($('#n-traj').value));
   // nas_* 는 시각화가 기본 on 이라, 끌 때 --no-viz 를 명시해야 한다.
   const nv = $('#n-viz').value;
   if (nv === '1') parts.push('--viz-normal --viz-special');
@@ -1316,6 +1351,10 @@ function previewNasCmd() {
   if ($('#n-data').value !== 'nas') parts.push('--data ' + $('#n-data').value);
   if ($('#n-diffonly').checked) {
     parts.push('--difficulty-only');   // 등급/난이도 플래그를 함의한다
+  } else if ($('#n-notiers').checked) {
+    // --no-tiers-elements 가 등급 off 를 함의한다 - 중복 플래그를 붙이지 않는다
+    parts.push('--no-tiers-elements');
+    if ($('#n-difficulty').checked) parts.push('--difficulty');
   } else {
     if (!$('#n-safety').checked) parts.push('--no-safety-tier');
     if (!$('#n-rarity').checked) parts.push('--no-rarity-tier');
@@ -1325,11 +1364,12 @@ function previewNasCmd() {
   $('#n-cmd').textContent = '$ ' + parts.join(' ');
 }
 ['#n-model', '#n-scene', '#n-limit', '#n-traj', '#n-ego', '#n-viz', '#n-data',
- '#n-vpc', '#n-safety', '#n-rarity', '#n-difficulty', '#n-diffonly', '#n-gpus', '#n-shards', '#n-memo'].forEach(s => {
+ '#n-vpc', '#n-safety', '#n-rarity', '#n-difficulty', '#n-diffonly', '#n-notiers', '#n-gpus', '#n-shards', '#n-memo'].forEach(s => {
   $(s).addEventListener('input', previewNasCmd); $(s).addEventListener('change', previewNasCmd);
 });
 $('#n-model').addEventListener('change', onNasModelChange);
 $('#n-diffonly').addEventListener('change', () => { syncDiffOnly('n','only'); previewNasCmd(); });
+$('#n-notiers').addEventListener('change', () => { syncDiffOnly('n','notiers'); previewNasCmd(); });
 ['#n-safety', '#n-rarity'].forEach(sel =>
   $(sel).addEventListener('change', () => { syncDiffOnly('n','tier'); previewNasCmd(); }));
 $('#n-go').onclick = async () => {
@@ -1351,6 +1391,7 @@ $('#n-go').onclick = async () => {
         no_rarity_tier: !$('#n-rarity').checked,
         difficulty: $('#n-difficulty').checked,
         difficulty_only: $('#n-diffonly').checked,
+        tiers_elements: $('#n-notiers').checked,
         gpus: $('#n-gpus').value, shards: +$('#n-shards').value,
         memo: $('#n-memo').value,
       })
@@ -1373,6 +1414,7 @@ $('#r-go').onclick = async () => {
         no_rarity_tier: !$('#r-rarity').checked,
         difficulty: $('#r-difficulty').checked,
         difficulty_only: $('#r-diffonly').checked,
+        tiers_elements: $('#r-notiers').checked,
         gpus: $('#r-gpus').value, shards: +$('#r-shards').value,
         memo: $('#r-memo').value,
       })
@@ -1473,7 +1515,7 @@ function sgPreview() {
                  nas ? '--num-shards 1' : '--num-shards 1',
                  '--model ' + o.model, '--viz-normal --viz-special'];
   if (o.scene_json) parts.push('--scene-json ' + o.scene_json);
-  if (o.traj) parts.push('--traj ' + o.traj);
+  parts.push(...trajFlags(o.traj));
   if (o.use_egomotion) parts.push('--use-egomotion');
   if (o.no_safety_tier) parts.push('--no-safety-tier');
   if (o.no_rarity_tier) parts.push('--no-rarity-tier');

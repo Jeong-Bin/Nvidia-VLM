@@ -126,6 +126,166 @@ RARITY_RUBRIC = {
        "Furthermore, various exceptional situations that do not fit the context of a road environment.",
 }
 
+IMPACT_RUBRIC = {
+    0: "It is a scene of normal driving, with no special object or "
+       "environmental element present.",
+    1: "It is a special object or environmental element present in the scene, "
+       "but positioned away from the ego-vehicle's driving path or far enough "
+       "that the vehicle did not need to slow or steer for it.",
+    2: "It had a minor impact on driving - the ego-vehicle slowed gradually, "
+       "briefly stopped, or made a slight lateral adjustment within its lane "
+       "to avoid it, with plenty of time and space to do so.",
+    3: "It had a moderate impact on driving - the ego-vehicle had to leave its "
+       "lane, make a wide detour, or cross the center line to avoid it, but "
+       "still had enough time to do so without urgency.",
+    4: "It had a severe impact on driving - the ego-vehicle had to perform an "
+       "emergency stop or emergency evasive maneuver with little to no time to react.",
+}
+
+
+# IMPACT_RUBRIC 의 대안판. 위쪽은 "자차가 실제로 무엇을 했는가" 하나만 보는데,
+# 그러면 자차가 반응하지 '못한' 장면이 1점으로 떨어진다 - 예: 자전거가 바로
+# 옆에 바짝 붙어 달리는데 egomotion 에는 변화가 없는 클립. 마이닝 목적에서는
+# 그런 클립이야말로 검수 대상인데 1점이 되면 걸러진다.
+#
+# 그래서 이 판은 판정 기준을 세 축으로 나눈다:
+#   침범 - 이것이 자차의 주행 경로를 얼마나 침범했는가 (도로 밖 / 다른 차선 /
+#          경로 옆 / 경로 안)
+#   여유 - 자차가 대응할 시간이 있었는가 (속도와 거리를 함께 본다)
+#   대응 - 자차가 실제로 무엇을 했는가
+#
+# 세 축을 단순 합산하지 않는 이유:
+#   합산은 축이 서로 독립일 때만 맞는데 여기서는 곱셈에 가깝다. 실제로 계산해
+#   보면 "보도 위 보행자 + 자차 50km/h + 근접"이 침범 0 인데도 합계가 7/10 이
+#   되어 3점을 받는다. 침범이 0 이면 속도가 얼마든 영향은 0 이어야 하므로,
+#   침범을 먼저 게이트로 두고 그 안에서 여유/대응이 강도를 가르게 한다.
+#
+#   속도와 거리를 따로 더하지 않는 것도 같은 이유다. 둘은 사실상 같은 것을
+#   다르게 잰 값이고(50km/h 30m = 2.2초, 10km/h 10m = 3.6초), 따로 더하면
+#   두 상황이 같은 점수가 된다. 그래서 '여유'라는 한 축으로 합쳐 시간으로
+#   말한다.
+#
+# 라벨링용 보조 기준(사람이 GT 를 일관되게 매길 때 쓰는 내부 척도):
+#   침범 0 도로 밖(보도/갓길 너머) | 1 도로 위지만 다른 차선
+#        2 경로 바로 옆 또는 진입 중 | 3 경로 안 정면
+#   여유 0 정차 중이거나 서행(10km/h 이하) | 1 30m 이상 또는 저속
+#        2 10~30m 중속 | 3 10m 이내 또는 50km/h 이상
+# 이 보조 척도는 프롬프트에 넣지 않는다 - 모델에게 축 3개를 따로 재고 합치게
+# 하면 그 예산이 탐지에서 빠진다(실측: position 축을 세분화한 v2 에서 FN 이
+# 10 -> 35 로 늘고 F1 이 80.4% -> 74.0% 로 떨어졌다). 모델에게는 아래 완성된
+# 0~4 문장만 보여준다.
+IMPACT_RUBRIC_2 = {
+    0: "It is not present in the scene, or it stays entirely off the roadway - "
+       "on the pavement, behind a barrier, or beyond the far kerb - and never "
+       "moves toward the road. How fast the ego-vehicle is driving does not "
+       "matter here: if it is off the roadway and stays there, this is 0.",
+    1: "It is on the roadway but in another lane, or it is off the roadway and "
+       "merely close to the ego-vehicle's path. The ego-vehicle keeps its speed "
+       "and its line, and would have driven the same way had it not been there.",
+    2: "It is in or beside the lane the ego-vehicle is driving through, and the "
+       "vehicle had room to deal with it - it eased off, waited, or shifted "
+       "slightly within its own lane, with several seconds of margin. A slow or "
+       "stopped ego-vehicle that simply lets it pass belongs here.",
+    3: "It is in the ego-vehicle's path, or so close alongside that the vehicle "
+       "could not hold its line - it had to leave its lane, swing wide, or cross "
+       "the centre line for it, though still without panic. An element riding or "
+       "walking right beside the vehicle at speed belongs here even if the "
+       "recorded motion barely changed: the margin was gone, whether or not the "
+       "vehicle managed to use it.",
+    4: "It is in the ego-vehicle's path with no margin left - closing fast, or "
+       "appearing so near that only an emergency stop or a hard swerve could "
+       "answer it. A collision, or a near miss that was avoided only by such a "
+       "manoeuvre, belongs here.",
+}
+
+GATE_RUBRIC = {
+    0: "A barrier or level crossing is visible but not on the ego-vehicle's "
+       "route - it controls a side entrance, the opposite carriageway, or a "
+       "way the vehicle never takes. The vehicle held its speed and its line.",
+    1: "It controls the way the ego-vehicle is taking, but it was open, so the "
+       "vehicle drove straight through without stopping or slowing for it.",
+    2: "It closed the ego-vehicle's way - the barrier was down, or, where there "
+       "is no barrier, a red light or flashing signal held traffic back - so "
+       "the vehicle came to a stop and waited for the way to clear before "
+       "going on.",
+    3: "It closed as the ego-vehicle was about to pass, so the vehicle had "
+       "to stop sharply.",
+}
+
+
+# 공사 구역 전용. Dynamic object 6종과 달리 공사는 움직이지 않고 도로 구조
+# 자체를 바꾸므로, IMPACT 계열의 "무엇이 다가왔는가" 대신 "차선이 얼마나
+# 먹혔는가"가 등급을 가른다.
+#
+# 0 과 1 을 위치로만 가르지 않는 이유: 위치는 연속량이라 어디서 잘라도
+# 경계가 생긴다. "옆 차선까지 1점" 으로 좁히면 편도 4차선에서 자차 1차선 /
+# 공사 4차선 이 어느 칸에도 안 들어가고, "반대 차선까지 1점" 으로 넓히면
+# 왕복 8차선 반대편 끝 공사가 바로 옆 차선 공사와 같은 등급이 된다.
+# 그래서 자차가 그 옆을 실제로 지나가는지로 가른다 - 차로 수를 세지 않아도
+# 되고, 교차로에서 돌아나가 공사 쪽으로 아예 가지 않는 클립이 0 으로 빠진다.
+#
+# 등급 폭이 GATE_RUBRIC 과 같은 0~3 인 것은 의도된 것이다. 공사에는 IMPACT
+# 4점(긴급 회피)에 해당하는 칸이 없다 - 공사 구역은 예고되고 유도되므로
+# 급제동/급조향으로만 답할 수 있는 상황이 아니다. 빈 칸을 만들어 두면 모델이
+# 그 칸을 채우려 하므로(실측: Animal 7건 전부 rarity=2) 아예 두지 않는다.
+CONSTRUCTION_RUBRIC = {
+    0: "The works lie away from where the ego-vehicle is going - off the "
+       "roadway altogether, beyond a central reservation or a crash barrier, "
+       "or somewhere the vehicle never draws level with because it turns off "
+       "or leaves them behind. The vehicle held its speed and its line.",
+    1: "The ego-vehicle drives past the works. They are on the roadway but not "
+       "in its lane, so it carried on through at the same speed and on the "
+       "same line.",
+    2: "The works or their traffic cones take up part of the lane the "
+       "ego-vehicle is driving in. The vehicle edged across to the far side of "
+       "its own lane to get by, without leaving the lane.",
+    3: "The lane the ego-vehicle was in is closed off - cones or barricades "
+       "block it and guide traffic onto another way. The vehicle had to give "
+       "up that lane and move into the next one or onto a temporary lane laid "
+       "out for it.",
+}
+
+
+# 비포장 도로 전용. 여기서 어려운 것은 진동이 아니라 주행 가능 영역이
+# 어디까지인지가 불확실하다는 점이므로, 경계의 선명도를 주축으로 삼는다.
+#
+# 두 조건(경계/노면)을 2x2 교차표로 늘어놓지 않는다. 0~3 은 순서 척도이고
+# 평가는 MSE 라 칸의 대소가 의미를 가져야 하는데, 축이 둘이면 "경계는
+# 뚜렷한데 심하게 파인 길" 과 "경계는 흐린데 노면은 매끈한 길" 중 무엇이
+# 위인지 정해지지 않는다. 그래서 노면은 경계가 읽히는 구간(0~1)에서만
+# 칸을 가르고, 경계가 무너진 2~3 에서는 쓰지 않는다 - 같은 조건을 두 곳에서
+# 재사용하면 2 와 3 의 차이가 노면뿐이 되어 주축이 무의미해진다.
+#
+# 풀이 무성한 것은 2~3 의 근거가 아니다. 풀줄기는 "여기부터 길이 아니다" 를
+# 보여주는 표시라 오히려 경계가 읽힌다는 뜻이다. 경계가 실제로 사라지는
+# 것은 노면과 그 바깥이 같은 재질일 때다.
+#
+# 노면 상태를 젖음/눈/웅덩이로 서술하지 않는 이유: difficulty 의
+# road_surface 축이 이미 그것을 재고 있다(1=unpaved or dusty road,
+# 3=standing water/puddles, 4=deep snow-covered). 같은 어휘를 프롬프트 두
+# 곳에 두면 모델이 한쪽 판단을 다른 쪽으로 복사한다 - DIFFICULTY_ONLY 가
+# 존재하는 이유가 그것이다. 여기서는 지형의 요철(파임/자갈)만 쓰고, 3 은
+# 원인을 적지 않고 결과만 말한다. 눈 때문에 경계가 사라진 클립도 그 문장에
+# 그대로 해당하므로 적용 범위는 줄지 않는다.
+UNPAVED_RUBRIC = {
+    0: "The surface is unpaved, but it is clear how far the road reaches - the "
+       "track and the ground beside it part cleanly in colour or in material, "
+       "and the surface is reasonably even. The ego-vehicle held its speed and "
+       "its line.",
+    1: "The edges of the track are still clear, but the surface is uneven - "
+       "rutted, or loose with coarse gravel. The ego-vehicle slowed down as it "
+       "went over it.",
+    2: "The track runs on into the ground beside it in the same material, so "
+       "one of its edges cannot be made out. The other edge, or the wheel "
+       "tracks left by whoever went before, still shows which way the road "
+       "goes.",
+    3: "The track and the ground around it read as one, so neither the width "
+       "of the road nor its direction can be told from the terrain.",
+}
+
+
+
+
 # 등급은 "무엇이 있는가"가 아니라 "그것이 무엇을 하는가"로 갈린다.
 #
 # 실측(20260812)에서 이걸 안 가르치면 모델이 객체 이름으로 패턴 매칭한다:
