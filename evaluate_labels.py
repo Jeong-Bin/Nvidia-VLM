@@ -12,20 +12,17 @@
                  정답이 [Jaywalking] 인데 모델이 4개를 다 찍어도 1.0 이 되어,
                  "전부 찍기"가 최적 전략이 되어버린다. F1 은 precision 을
                  함께 보므로 그 문제가 없다.
-  5) DIFFICULTY  주행 조건 4축(조도/강수/노면/대기가림). 목표 지표와
+  3) SCORES      카테고리마다 붙은 0~4 점수. GT 와 예측이 둘 다 찍은
+                 카테고리만 채점한다 - 한쪽만 찍은 것은 2) 에서 이미
+                 FP/FN 으로 세었으므로 여기서 또 벌점을 주면 같은 오류를
+                 두 번 세게 된다. 카테고리마다 쓰는 rubric 이 다르므로
+                 (IMPACT/GATE/CONSTRUCTION/UNPAVED) 카테고리별 표를 함께
+                 낸다.
+  5) WEATHER     날씨 4축(조도/강수/노면/대기가림). 목표 지표와
                  같은 방식으로 채점한다. 등급과 달리 edge-case 여부와 무관한
                  축이라(평범한 클립도 비가 오면 높다) SPECIAL 만 따로 내지
                  않고 전체만 내며, 대신 4축 요약표를 붙여 어느 축이 틀리는지
                  나란히 본다.
-
-보조 축 (채점 대상이 아니다 - 참고용으로만 찍는다):
-
-  참고) SAFETY / RARITY   0~4 정수. 이 값을 맞히는 것은 목표가 아니다.
-                 켜 두는 이유는 3단계(요소 나열)를 채우게 만들기 때문이다 -
-                 자세한 실측 근거는 아래 '참고) SAFETY, RARITY' 섹션의
-                 주석에 적어 두었다. 이 수치가 나쁘다고 파이프라인이
-                 실패한 것이 아니며, 이 수치를 올리려고 rubric 을 손대는
-                 것도 목표가 아니다.
 
 유병률 보정:
   정답 표본은 normal:special = 50:50 이지만 실제 데이터는 약 81:19 다.
@@ -39,7 +36,7 @@
   4축은 정답의 45~87% 가 0점이라 전부 0 으로 찍어도 그럴듯해 보인다).
   그래서 최빈값 예측의 MSE 를 함께 내고, 모델이 그걸 이기는지 본다.
   이기지 못하면 모델이 그 축을 실제로 판단하는 것이 아니다.
-  이 비교가 실제로 중요한 곳은 목표 지표인 5) DIFFICULTY 다.
+  이 비교가 실제로 중요한 곳은 목표 지표인 5) WEATHER 다.
 
 Usage:
   python evaluate_labels.py --run-dir results/20260812_135056_videoC
@@ -54,7 +51,7 @@ from pathlib import Path
 import pandas as pd
 
 from config import SCENE_JSON as CONFIG_SCENE_JSON, LABELS_JSON
-from constrained_tier import TIER_VALUES
+from constrained_tier import TIER_VALUES, rubric_name_for
 from prompts import DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX
 
 # 난이도 축의 눈금. 등급(TIER_VALUES)과 따로 두는 이유는 두 척도가 서로
@@ -72,11 +69,15 @@ DEFAULT_PREVALENCE = 375 / 1998
 
 
 def load_labels(path: Path):
-    """정답 라벨 -> {uuid: {categories, safety, rarity, note, <난이도 4축>}}.
+    """정답 라벨 -> {uuid: {categories, scores, note, <난이도 4축>}}.
 
-    safety 키는 'safety_criticality' 가 정식이지만 손으로 쓰다 보면
-    'safty_criticality' 오타가 섞인다(실측 7/100). 조용히 0 으로 처리하면
-    점수가 왜곡되므로 둘 다 받아들이고, 아예 없으면 그 클립을 건너뛴다.
+    categories 는 두 가지 모양을 받는다:
+      - 딕셔너리 {"Pedestrian on Road": 2}  - 카테고리마다 점수가 붙은 정식
+      - 리스트 ["Pedestrian on Road"]        - 점수가 없던 옛 라벨
+    어느 쪽이든 categories 는 이름 집합이 되고, scores 는 {이름: 점수} 가
+    된다. 리스트였거나 값이 -1(라벨 보류)이면 그 항목은 scores 에서 빠진다 -
+    0 으로 채우면 "영향 없음"과 "아직 안 매김"이 같은 값이 되어 채점이
+    왜곡된다.
 
     난이도는 없어도 건너뛰지 않는다 - 예전 라벨 파일에는 difficulty 키가
     아예 없고, 그것 때문에 클립을 빼면 1~4 번 채점의 표본까지 조용히 줄어든다.
@@ -86,15 +87,20 @@ def load_labels(path: Path):
     clips = data.get("clips", data)
     out, skipped = {}, []
     for uuid, v in clips.items():
-        s = v.get("safety_criticality", v.get("safty_criticality"))
-        r = v.get("rarity")
-        if s is None or r is None:
+        raw = v.get("categories")
+        if raw is None:
             skipped.append(uuid)
             continue
+        if isinstance(raw, dict):
+            names = set(raw)
+            scores = {k: int(x) for k, x in raw.items()
+                      if _int_or_none(x) is not None and int(x) >= 0}
+        else:
+            names = set(raw)
+            scores = {}
         rec = {
-            "categories": set(v.get("categories") or []),
-            "safety": int(s),
-            "rarity": int(r),
+            "categories": names,
+            "scores": scores,
             "note": v.get("note", ""),
         }
         # 난이도는 {"difficulty": {...}} 중첩이 정식이지만, 손으로 만든
@@ -107,7 +113,12 @@ def load_labels(path: Path):
 
 
 def load_results(run_dir: Path):
-    """모델 결과 CSV(샤드 병합) -> {uuid: {categories, safety, rarity, <난이도>}}."""
+    """모델 결과 CSV(샤드 병합) -> {uuid: {categories, scores, <난이도>}}.
+
+    category_scores 열은 "Pedestrian on Road=2|Unpaved road=1" 형태다.
+    점수를 끈 실행에서는 빈 칸이라 scores 가 비고, 그러면 3) 섹션이
+    통째로 빠진다.
+    """
     files = sorted(glob.glob(str(run_dir / "clip_results*.csv")))
     if not files:
         return {}
@@ -117,11 +128,17 @@ def load_results(run_dir: Path):
     for _, r in df.iterrows():
         cats = r.get("categories")
         cats = set(str(cats).split("|")) if isinstance(cats, str) and cats.strip() else set()
-        rec = {
-            "categories": cats,
-            "safety": _int_or_none(r.get("safety_tier")),
-            "rarity": _int_or_none(r.get("rarity_tier")),
-        }
+        raw = r.get("category_scores")
+        scores = {}
+        if isinstance(raw, str) and raw.strip():
+            for part in raw.split("|"):
+                if "=" not in part:
+                    continue
+                k, _, v = part.rpartition("=")
+                n = _int_or_none(v)
+                if k.strip() and n is not None:
+                    scores[k.strip()] = n
+        rec = {"categories": cats, "scores": scores}
         # --difficulty 를 끈 실행에는 이 칸이 아예 없거나 빈 값이다.
         for key, _name in DIFFICULTY_AXES:
             rec[key] = _int_or_none(r.get(key))
@@ -180,6 +197,11 @@ def confusion(pairs, values=None):
         acc = f"{c.get((t, t), 0) / total * 100:.1f}%" if total else "-"
         lines.append(f"  true{t}{row}{total:>{w}}{acc:>{w}}")
     return "\n".join(lines)
+
+
+def _mse(pairs) -> float:
+    """(정답, 예측) 쌍들의 평균제곱오차. 빈 리스트면 0."""
+    return (sum((a - b) ** 2 for a, b in pairs) / len(pairs)) if pairs else 0.0
 
 
 def tier_block(name, pairs, log, values=None):
@@ -302,8 +324,7 @@ def log_run_config(run_dir, log):
         f"ego-track={_onoff(key.get('ego_track'))}  "
         f"traj={key.get('traj') or 'off'}  "
         f"header={key.get('header_style') or 'v1'}  "
-        f"tiers=safety:{_tier_onoff(key, 'safety_tiers')}"
-        f"/rarity:{_tier_onoff(key, 'rarity_tiers')}  "
+        f"cat-scores={_scores_onoff(key)}  "
         f"difficulty={_onoff(key.get('difficulty'))}")
     return cfg
 
@@ -312,15 +333,18 @@ def _onoff(v):
     return "on" if v else "off" if v is not None else "?"
 
 
-def _tier_onoff(key, name):
-    """등급 단계 on/off. 예전 run_config 는 score_tiers 하나로만 기록했다.
+def _scores_onoff(key):
+    """점수 단계 on/off. 옛 run_config 는 다른 이름으로 기록했다.
 
-    --no-score-tiers 시절의 실행은 safety/rarity 를 함께 켜고 껐으므로,
-    새 키가 없으면 옛 키를 그대로 두 단계의 값으로 읽는다.
+    safety_tiers/rarity_tiers 시절의 실행은 두 축을 따로 껐으므로, 하나라도
+    켜져 있었으면 on 으로 읽는다 - 그때의 '점수 단계가 있었는가' 에 해당하는
+    값이 그것이다.
     """
-    if name in key:
-        return _onoff(key[name])
-    return _onoff(key.get("score_tiers", True))
+    if "score_categories" in key:
+        return _onoff(key["score_categories"])
+    old = [key[k] for k in ("safety_tiers", "rarity_tiers", "score_tiers")
+           if k in key]
+    return _onoff(any(old)) if old else "?"
 
 
 # 샤드 로그에서 실패를 알아보는 표식. 파이썬 traceback 과, 죽지는 않았지만
@@ -440,7 +464,7 @@ def main():
         log(f"[info] labeled_by={meta.get('labeled_by','?')} "
             f"date={meta.get('date','?')}")
     if skipped:
-        log(f"[warn] {len(skipped)} label(s) missing safety/rarity - skipped")
+        log(f"[warn] {len(skipped)} label(s) missing categories - skipped")
 
     common = [u for u in labels if u in results]
     missing = [u for u in labels if u not in results]
@@ -468,10 +492,16 @@ def main():
     if not SCENE_JSON.is_absolute():
         SCENE_JSON = ROOT / SCENE_JSON
     taxonomy = set()
+    # 카테고리 -> 묶음. 3) 절에서 그 카테고리가 어느 rubric 으로 채점됐는지
+    # 함께 찍으려고 들고 있는다.
+    scenario_of = {}
     if SCENE_JSON.exists():
         scene = json.loads(SCENE_JSON.read_text(encoding="utf-8"))
         taxonomy = {c["name"] for s in scene["special"]["scenarios"]
                     for c in s["categories"]}
+        scenario_of = {c["name"]: s["name"]
+                       for s in scene["special"]["scenarios"]
+                       for c in s["categories"]}
         lab_names = {c for u in common for c in labels[u]["categories"]}
         res_names = {c for u in common for c in results[u]["categories"]}
         for tag, names in (("labels", lab_names), ("results", res_names)):
@@ -575,50 +605,60 @@ def main():
             f"{ctp:>5}{cfp:>5}{cfn:>5}")
     write_category_lists(run_dir, per_cat, log)
 
-    # ---------------- 참고) SAFETY, RARITY ----------------
-    # 이 두 축은 이 파이프라인이 최종적으로 예측하려는 값이 아니다. 목표는
-    # VERDICT / CATEGORIES / DRIVING DIFFICULTY 이고, 등급은 그것들을 돕는
-    # 보조 장치로 켜 둔다.
+    # ---------------- 3) CATEGORY SCORES ----------------
+    # 카테고리마다 붙은 0~4 점수. 예전의 safety/rarity 를 대체한다.
     #
-    # 왜 끄지 않고 켜 두는가 (실측 20260921, 333클립, 조건 동일):
-    #   등급 on  -> VERDICT F1 77.5% / GT=special 인데 3단계가 빈 클립 41건
-    #   등급 off -> VERDICT F1 73.0% / 같은 항목 52건
-    #   등급 on + 난이도 on -> VERDICT F1 80.0% (최고)
-    # 등급 단계가 있으면 모델이 3단계에 요소를 적어 두고 등급을 붙인다
-    # (실측: 3단계에 low/moderate/high 를 스스로 단 클립이 on 169건 vs
-    # off 12건). 그 서술이 곧 카테고리가 되므로 - 3단계가 비면 카테고리도
-    # 비는 비율이 99% - 등급을 빼면 탐지가 같이 무너진다. 특히 "자차에
-    # 영향은 없지만 존재하는 요소"(보도 위 보행자 등)가 통째로 사라진다.
+    # 예전 두 축은 클립 하나에 값 하나라, 요소가 여럿인 클립에서 무엇이
+    # 그 점수를 받았는지 알 수 없었고 실제로 뭉개졌다(실측 20260904,
+    # 27,024클립: 요소가 1개든 3개든 rarity 평균 2.00 고정). 점수를
+    # 카테고리에 붙이면 그 뭉개짐이 구조적으로 불가능해지고, 채점도
+    # 항목 단위로 붙는다.
     #
-    # 그래서 값 자체는 채점 대상이 아니다. 아래 표는 참고용으로만 남긴다 -
-    # 이 숫자가 나쁘다고 해서 파이프라인이 실패한 것이 아니며, 이 숫자를
-    # 올리려고 rubric 을 손대는 것은 목표가 아니다.
-    log("")
-    log("=" * 68)
-    log("참고) SAFETY / RARITY - 보조 축, 채점 대상 아님")
-    log("=" * 68)
-    log("  이 두 축은 예측 목표가 아니라 3단계(요소 나열)를 채우게 하려고")
-    log("  켜 두는 보조 장치다. 목표 지표는 1) VERDICT, 2) CATEGORIES,")
-    log("  5) DRIVING DIFFICULTY 이며, 아래 수치는 참고용이다.")
-    for key, title in (("safety", "참고-1) SAFETY CRITICALITY"),
-                       ("rarity", "참고-2) RARITY")):
-        log("")
-        log("-" * 68)
-        log(f"{title}  ({min(TIER_VALUES)}-{max(TIER_VALUES)})   [보조 축]")
-        log("-" * 68)
-        pairs_all = [(labels[u][key], results[u][key]) for u in common
-                     if results[u][key] is not None]
-        log(" ALL clips")
-        tier_block(key, pairs_all, log)
-        pairs_sp = [(labels[u][key], results[u][key]) for u in sp
-                    if results[u][key] is not None]
-        if pairs_sp and len(pairs_sp) != len(pairs_all):
-            log("")
-            log(" SPECIAL clips only  (normal clips are almost all 1, which"
-                " inflates the scores above)")
-            tier_block(key, pairs_sp, log)
+    # 채점 대상은 GT 와 예측이 '둘 다' 그 카테고리를 찍은 항목뿐이다.
+    # 한쪽만 찍은 것은 2) CATEGORIES 에서 이미 FP/FN 으로 세었으므로,
+    # 여기서 또 벌점을 주면 같은 오류를 두 번 세게 된다. 즉 이 절은
+    # "맞게 찾은 카테고리에 점수를 제대로 매겼는가"만 본다.
+    score_pairs = []          # (gt, pred) 전체
+    by_cat = {}               # 카테고리별
+    n_pred_only = n_gt_only = 0
+    for u in common:
+        g, pr = labels[u]["scores"], results[u]["scores"]
+        for c, gv in g.items():
+            if c in pr:
+                score_pairs.append((gv, pr[c]))
+                by_cat.setdefault(c, []).append((gv, pr[c]))
+            else:
+                n_gt_only += 1
+        n_pred_only += sum(1 for c in pr if c not in g)
 
-    # ---------------- 5) DIFFICULTY ----------------
+    if score_pairs:
+        log("")
+        log("=" * 68)
+        log("3) CATEGORY SCORES  (0-4, per matched category)")
+        log("=" * 68)
+        log(f"  채점 대상 {len(score_pairs)}건 - GT 와 예측이 둘 다 찍은 카테고리.")
+        log(f"  GT 에만 있어 제외 {n_gt_only}건 / 예측에만 있어 제외 {n_pred_only}건")
+        log("  (그 둘은 2) CATEGORIES 에서 FN/FP 로 이미 세었다)")
+        log("")
+        log(" ALL matched categories")
+        tier_block("score", score_pairs, log)
+
+        # 카테고리마다 쓰는 rubric 이 다르므로(IMPACT/GATE/CONSTRUCTION/
+        # UNPAVED) 표본이 모이는 것부터 따로 낸다 - 어느 rubric 이 안 먹는지
+        # 전체 평균으로는 안 보인다.
+        rows = [(c, len(v), _mse(v), sum(1 for a, b in v if a == b) / len(v))
+                for c, v in by_cat.items()]
+        rows = [r for r in rows if r[1] >= args.min_support]
+        if rows:
+            log("")
+            log(f"  {'category':<32}{'rubric':>14}{'n':>5}{'MSE':>8}{'Acc':>7}")
+            log("  " + "-" * 66)
+            for c, n, mse, acc in sorted(rows, key=lambda x: -x[1]):
+                log(f" {c:<32}"
+                    f"{rubric_name_for(c, scenario_of.get(c, '')):>14}{n:>5}"
+                    f"{mse:>8.3f}{acc:>7.2f}")
+
+    # ---------------- 5) WEATHER ----------------
     # 등급과 달리 edge-case 여부와 무관한 축이라(평범한 클립도 비가 오면
     # 높다) SPECIAL 만 따로 내지 않는다. 대신 4축을 나란히 놓은 요약표를
     # 붙인다 - 축마다 표를 다시 읽지 않고 "어느 축이 틀리는가"를 보려는 것.
@@ -631,7 +671,7 @@ def main():
     if any(diff_pairs.values()):
         log("")
         log("=" * 68)
-        log(f"5) DRIVING DIFFICULTY  ({DIFFICULTY_MIN}-{DIFFICULTY_MAX})")
+        log(f"5) WEATHER  ({DIFFICULTY_MIN}-{DIFFICULTY_MAX})")
         log("=" * 68)
         for key, name in DIFFICULTY_AXES:
             log("")

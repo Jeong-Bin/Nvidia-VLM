@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""JSON 출력에서 등급 필드를 정수 0~4 로만 나오게 강제한다.
+"""JSON 출력에서 등급 필드를 정수로만 나오게 강제한다.
 
 배경 - 왜 이게 필요한가:
   프롬프트로 'Low, Moderate, High 중 하나만 써라'라고 지시해도 모델이
@@ -21,6 +21,8 @@
 동작 방식:
   생성된 토큰열 끝이 `"safety_tier":` 같은 마커와 일치하면, 그 다음부터
   숫자가 나올 때까지 공백만 허용하고 숫자 자리에서는 TIER_VALUES(0~4) 로 막는다.
+  (점수가 카테고리별로 바뀌면서 마커로 쓸 고정 키가 없어져 지금은 TIER_FIELDS
+  가 비어 있고, 이 제약기는 실제로 쓰이지 않는다.)
   모델이 JSON 을 `"x": 1` 로 쓸지 `"x":1` 로 쓸지 미리 알 수 없으므로
   공백 허용 단계를 반드시 둬야 한다(실측: ': 1' 은 ['Ġ','1'] 2토큰,
   ':1' 은 ['1'] 1토큰).
@@ -42,15 +44,21 @@ from functools import lru_cache
 # 20건 중 18건을 2로 예측). 위에 더 극단적인 칸을 두면 3 이 "최악"이 아니라
 # "심각한 편"이 되어 쓰기 쉬워진다. 4 를 실제로 찾는 것은 목표가 아니다.
 #
-# 0 은 "위협 요소가 아예 없다/전혀 특이하지 않다"를 1(Low)과 분리하기 위해
-# 추가했다 - 1 은 "요소는 있지만 쉽게 처리됨"이고 0 은 "그런 요소 자체가
-# 없음"이라 서로 다른 사실을 가리킨다. 이 둘을 합쳐두면 정상 주행 클립과
-# 경미한 요소가 있는 클립이 같은 칸에 몰려 변별력이 없어진다.
-TIER_LABELS = {0: "None", 1: "Low", 2: "Moderate", 3: "High", 4: "Extreme"}
+# 0 은 rubric 에 없다. 모든 rubric 이 1 에서 시작하고, 0 은 "그 카테고리가
+# 이 클립에 없다" 는 뜻으로만 남는다 - 없는 카테고리는 애초에 점수를 받지
+# 않으므로 모델이 0 을 낼 일도 없다. 값 자체는 계속 허용한다: GT 라벨이
+# 채점에서 0 을 쓸 수 있고, 제약 디코딩도 0 을 막지 않는다.
+TIER_LABELS = {0: "Absent", 1: "Low", 2: "Moderate", 3: "High", 4: "Extreme"}
 TIER_VALUES = tuple(sorted(TIER_LABELS))          # (0, 1, 2, 3, 4)
 
 # 강제 대상 필드. JSON 키 이름 그대로 쓴다.
-TIER_FIELDS = ("safety_tier", "rarity_tier")
+#
+# 점수가 클립당 두 개(safety/rarity)에서 "영상에 등장한 카테고리마다 하나"로
+# 바뀌면서, 마커로 삼을 고정 키가 없어졌다 - 모델이 내는 키는 카테고리
+# 이름이고 그것은 클립마다 다르다. 제약기는 그래서 이 모드에서 쓰지 않는다
+# (make_tier_processor 에 빈 fields 를 주면 None 이 된다). 값이 지저분하게
+# 나오면 _coerce_tier 가 흡수한다.
+TIER_FIELDS = ()
 
 # 마커 뒤에서 숫자가 나오기 전까지 허용할 최대 토큰 수. JSON 이면
 # 공백 한두 개가 전부라 3 이면 충분하고, 이 값을 넘으면 제약을 푼다
@@ -92,194 +100,88 @@ def tier_menu() -> str:
 # 등급을 올리는 근거가 아니다. 실제로 자차가 무엇을 했는지, 그 요소가 얼마나
 # 드문지가 기준이다. 이 지시는 프롬프트 본문에도 명시한다
 # (build_nureasoning_prompt 의 steps45 조립부 참고).
-SAFETY_RUBRIC = {
-    0: "It is a scene of peaceful driving, with no elements on the road that threaten safety.",
-    1: "There are objects requiring the ego-vehicle's attention on the road, "
-       "but they are located away from the vehicle's driving path or are sufficiently distant, "
-       "so neither deceleration nor a change in steering is necessary.",
-    2: "The ego-vehicle had to give way - slow, yield, wait, or steer around something "
-       "- but with plenty of time and space to do it.",
-    3: "An object suddenly appeared, the ego-vehicle took emergency actions "
-       "such as hard braking and evasive steering. "
-       "This is a situation that arises more suddenly compared to the two-point criterion.",
-    4: "A collision occurred between the ego-vehicle and another object. "
-       "UThe moment of the accident was captured on camera."
-       
-}
 
-RARITY_RUBRIC = {
-    0: "It is a monotonous scene typical of everyday driving. "
-       "Nothing out of the ordinary is visible, apart from the usual vehicles, pedestrians on the sidewalk, or empty roads.",
-    1: "These are elements you can frequently see while driving. "
-       "For example, pedestrians or cyclists crossing a crosswalk.",
-    2: "These are elements or situations occasionally encountered while driving. "
-       "For example, jaywalkers crossing outside of crosswalks, "
-       "cyclists in dangerously close proximity to the ego-vehicle "
-       "or there are traffic cones but they do not affect ego-vehicle's driving.",
-    3: "These are critical edge cases that can rarely occur on the road."
-       "For example, a person wearing a mascot costume, wildlife crossing the road, "
-       "a fallen tree blocking the road, an accident that has already occurred, a road completely submerged by the flood, "
-       "or construction work and traffic cones have completely altered the ego-vehicle's driving path.",
-    4: "This is a super rare situation—the kind one might not see even once in a lifetime. "
-       "For example, a road destroyed by a natural disaster, "
-       "the very moment a major traffic accident occurs. "
-       "Furthermore, various exceptional situations that do not fit the context of a road environment.",
-}
-
+# 눈금이 0 이 아니라 1 에서 시작한다.
+#
+# 0 은 원래 "그 요소가 장면에 아예 없다" 를 위한 칸이었는데, 없는 요소는
+# 애초에 categories 에 적히지 않으므로 점수를 받을 일이 없다. 빈 칸을 두면
+# 모델이 그것을 채우려 하므로(실측 20260812: Animal 7건이 내용과 무관하게
+# 전부 rarity=2) 아예 없앤다.
+#
+# 덕분에 경계가 하나 깨끗해진다. 도로 밖 인도에 있는 보행자는 Pedestrian
+# on Road 의 templates("on the roadway, outside the sidewalk")에 해당하지
+# 않으므로 카테고리 자체가 붙지 않고, 그러면 점수도 없다(= 0). 카테고리가
+# 붙은 것은 전부 도로 위에 있다는 뜻이라 1 부터 자연스럽게 이어진다.
+# 예전 0점("도로 밖에 머문다")은 rubric 과 카테고리 정의가 서로 다른 것을
+# 말하게 만들어, 인도 보행자를 카테고리로 잡되 0점을 주라는 모순된 지시로
+# 읽혔다.
 IMPACT_RUBRIC = {
-    0: "It is a scene of normal driving, with no special object or "
-       "environmental element present.",
-    1: "It is a special object or environmental element present in the scene, "
-       "but positioned away from the ego-vehicle's driving path or far enough "
-       "that the vehicle did not need to slow or steer for it.",
-    2: "It had a minor impact on driving - the ego-vehicle slowed gradually, "
-       "briefly stopped, or made a slight lateral adjustment within its lane "
-       "to avoid it, with plenty of time and space to do so.",
-    3: "It had a moderate impact on driving - the ego-vehicle had to leave its "
-       "lane, make a wide detour, or cross the center line to avoid it, but "
-       "still had enough time to do so without urgency.",
-    4: "It had a severe impact on driving - the ego-vehicle had to perform an "
-       "emergency stop or emergency evasive maneuver with little to no time to react.",
-}
-
-
-# IMPACT_RUBRIC 의 대안판. 위쪽은 "자차가 실제로 무엇을 했는가" 하나만 보는데,
-# 그러면 자차가 반응하지 '못한' 장면이 1점으로 떨어진다 - 예: 자전거가 바로
-# 옆에 바짝 붙어 달리는데 egomotion 에는 변화가 없는 클립. 마이닝 목적에서는
-# 그런 클립이야말로 검수 대상인데 1점이 되면 걸러진다.
-#
-# 그래서 이 판은 판정 기준을 세 축으로 나눈다:
-#   침범 - 이것이 자차의 주행 경로를 얼마나 침범했는가 (도로 밖 / 다른 차선 /
-#          경로 옆 / 경로 안)
-#   여유 - 자차가 대응할 시간이 있었는가 (속도와 거리를 함께 본다)
-#   대응 - 자차가 실제로 무엇을 했는가
-#
-# 세 축을 단순 합산하지 않는 이유:
-#   합산은 축이 서로 독립일 때만 맞는데 여기서는 곱셈에 가깝다. 실제로 계산해
-#   보면 "보도 위 보행자 + 자차 50km/h + 근접"이 침범 0 인데도 합계가 7/10 이
-#   되어 3점을 받는다. 침범이 0 이면 속도가 얼마든 영향은 0 이어야 하므로,
-#   침범을 먼저 게이트로 두고 그 안에서 여유/대응이 강도를 가르게 한다.
-#
-#   속도와 거리를 따로 더하지 않는 것도 같은 이유다. 둘은 사실상 같은 것을
-#   다르게 잰 값이고(50km/h 30m = 2.2초, 10km/h 10m = 3.6초), 따로 더하면
-#   두 상황이 같은 점수가 된다. 그래서 '여유'라는 한 축으로 합쳐 시간으로
-#   말한다.
-#
-# 라벨링용 보조 기준(사람이 GT 를 일관되게 매길 때 쓰는 내부 척도):
-#   침범 0 도로 밖(보도/갓길 너머) | 1 도로 위지만 다른 차선
-#        2 경로 바로 옆 또는 진입 중 | 3 경로 안 정면
-#   여유 0 정차 중이거나 서행(10km/h 이하) | 1 30m 이상 또는 저속
-#        2 10~30m 중속 | 3 10m 이내 또는 50km/h 이상
-# 이 보조 척도는 프롬프트에 넣지 않는다 - 모델에게 축 3개를 따로 재고 합치게
-# 하면 그 예산이 탐지에서 빠진다(실측: position 축을 세분화한 v2 에서 FN 이
-# 10 -> 35 로 늘고 F1 이 80.4% -> 74.0% 로 떨어졌다). 모델에게는 아래 완성된
-# 0~4 문장만 보여준다.
-IMPACT_RUBRIC_2 = {
-    0: "It is not present in the scene, or it stays entirely off the roadway - "
-       "on the pavement, behind a barrier, or beyond the far kerb - and never "
-       "moves toward the road. How fast the ego-vehicle is driving does not "
-       "matter here: if it is off the roadway and stays there, this is 0.",
-    1: "It is on the roadway but in another lane, or it is off the roadway and "
-       "merely close to the ego-vehicle's path. The ego-vehicle keeps its speed "
-       "and its line, and would have driven the same way had it not been there.",
-    2: "It is in or beside the lane the ego-vehicle is driving through, and the "
-       "vehicle had room to deal with it - it eased off, waited, or shifted "
-       "slightly within its own lane, with several seconds of margin. A slow or "
-       "stopped ego-vehicle that simply lets it pass belongs here.",
-    3: "It is in the ego-vehicle's path, or so close alongside that the vehicle "
-       "could not hold its line - it had to leave its lane, swing wide, or cross "
-       "the centre line for it, though still without panic. An element riding or "
+    1: "It is on the roadway, but in another lane well away from the one the "
+       "ego-vehicle is driving in. The vehicle keeps its speed and its line, "
+       "and would have driven the same way had it not been there.",
+    2: "It is right beside the lane the ego-vehicle is driving in. Carrying "
+       "straight on would have been fine, but to keep a safe gap the vehicle "
+       "eased off a little or edged slightly to one side. An element riding or "
        "walking right beside the vehicle at speed belongs here even if the "
-       "recorded motion barely changed: the margin was gone, whether or not the "
-       "vehicle managed to use it.",
+       "recorded motion barely changed - whether or not the vehicle used that "
+       "margin does not matter.",
+    3: "It is in the ego-vehicle's path ahead, or crosses in front of it - the "
+       "vehicle slowed, stopped, or steered aside to let it pass, or had to "
+       "leave its lane or cross the centre line for a moment. There was enough "
+       "time and distance to do so.",
     4: "It is in the ego-vehicle's path with no margin left - closing fast, or "
        "appearing so near that only an emergency stop or a hard swerve could "
        "answer it. A collision, or a near miss that was avoided only by such a "
        "manoeuvre, belongs here.",
 }
 
+
 GATE_RUBRIC = {
-    0: "A barrier or level crossing is visible but not on the ego-vehicle's "
+    1: "A barrier or level crossing is visible but not on the ego-vehicle's "
        "route - it controls a side entrance, the opposite carriageway, or a "
        "way the vehicle never takes. The vehicle held its speed and its line.",
-    1: "It controls the way the ego-vehicle is taking, but it was open, so the "
+    2: "It controls the way the ego-vehicle is taking, but it was open, so the "
        "vehicle drove straight through without stopping or slowing for it.",
-    2: "It closed the ego-vehicle's way - the barrier was down, or, where there "
+    3: "It closed the ego-vehicle's way - the barrier was down, or, where there "
        "is no barrier, a red light or flashing signal held traffic back - so "
        "the vehicle came to a stop and waited for the way to clear before "
        "going on.",
-    3: "It closed as the ego-vehicle was about to pass, so the vehicle had "
+    4: "It closed as the ego-vehicle was about to pass, so the vehicle had "
        "to stop sharply.",
 }
 
 
-# 공사 구역 전용. Dynamic object 6종과 달리 공사는 움직이지 않고 도로 구조
-# 자체를 바꾸므로, IMPACT 계열의 "무엇이 다가왔는가" 대신 "차선이 얼마나
-# 먹혔는가"가 등급을 가른다.
-#
-# 0 과 1 을 위치로만 가르지 않는 이유: 위치는 연속량이라 어디서 잘라도
-# 경계가 생긴다. "옆 차선까지 1점" 으로 좁히면 편도 4차선에서 자차 1차선 /
-# 공사 4차선 이 어느 칸에도 안 들어가고, "반대 차선까지 1점" 으로 넓히면
-# 왕복 8차선 반대편 끝 공사가 바로 옆 차선 공사와 같은 등급이 된다.
-# 그래서 자차가 그 옆을 실제로 지나가는지로 가른다 - 차로 수를 세지 않아도
-# 되고, 교차로에서 돌아나가 공사 쪽으로 아예 가지 않는 클립이 0 으로 빠진다.
-#
-# 등급 폭이 GATE_RUBRIC 과 같은 0~3 인 것은 의도된 것이다. 공사에는 IMPACT
-# 4점(긴급 회피)에 해당하는 칸이 없다 - 공사 구역은 예고되고 유도되므로
-# 급제동/급조향으로만 답할 수 있는 상황이 아니다. 빈 칸을 만들어 두면 모델이
-# 그 칸을 채우려 하므로(실측: Animal 7건 전부 rarity=2) 아예 두지 않는다.
 CONSTRUCTION_RUBRIC = {
-    0: "The works lie away from where the ego-vehicle is going - off the "
+    1: "The works lie away from where the ego-vehicle is going - off the "
        "roadway altogether, beyond a central reservation or a crash barrier, "
        "or somewhere the vehicle never draws level with because it turns off "
        "or leaves them behind. The vehicle held its speed and its line.",
-    1: "The ego-vehicle drives past the works. They are on the roadway but not "
+    2: "The ego-vehicle drives past the works. They are on the roadway but not "
        "in its lane, so it carried on through at the same speed and on the "
        "same line.",
-    2: "The works or their traffic cones take up part of the lane the "
+    3: "The works or their traffic cones take up part of the lane the "
        "ego-vehicle is driving in. The vehicle edged across to the far side of "
        "its own lane to get by, without leaving the lane.",
-    3: "The lane the ego-vehicle was in is closed off - cones or barricades "
+    4: "The lane the ego-vehicle was in is closed off - cones or barricades "
        "block it and guide traffic onto another way. The vehicle had to give "
        "up that lane and move into the next one or onto a temporary lane laid "
        "out for it.",
 }
 
 
-# 비포장 도로 전용. 여기서 어려운 것은 진동이 아니라 주행 가능 영역이
-# 어디까지인지가 불확실하다는 점이므로, 경계의 선명도를 주축으로 삼는다.
-#
-# 두 조건(경계/노면)을 2x2 교차표로 늘어놓지 않는다. 0~3 은 순서 척도이고
-# 평가는 MSE 라 칸의 대소가 의미를 가져야 하는데, 축이 둘이면 "경계는
-# 뚜렷한데 심하게 파인 길" 과 "경계는 흐린데 노면은 매끈한 길" 중 무엇이
-# 위인지 정해지지 않는다. 그래서 노면은 경계가 읽히는 구간(0~1)에서만
-# 칸을 가르고, 경계가 무너진 2~3 에서는 쓰지 않는다 - 같은 조건을 두 곳에서
-# 재사용하면 2 와 3 의 차이가 노면뿐이 되어 주축이 무의미해진다.
-#
-# 풀이 무성한 것은 2~3 의 근거가 아니다. 풀줄기는 "여기부터 길이 아니다" 를
-# 보여주는 표시라 오히려 경계가 읽힌다는 뜻이다. 경계가 실제로 사라지는
-# 것은 노면과 그 바깥이 같은 재질일 때다.
-#
-# 노면 상태를 젖음/눈/웅덩이로 서술하지 않는 이유: difficulty 의
-# road_surface 축이 이미 그것을 재고 있다(1=unpaved or dusty road,
-# 3=standing water/puddles, 4=deep snow-covered). 같은 어휘를 프롬프트 두
-# 곳에 두면 모델이 한쪽 판단을 다른 쪽으로 복사한다 - DIFFICULTY_ONLY 가
-# 존재하는 이유가 그것이다. 여기서는 지형의 요철(파임/자갈)만 쓰고, 3 은
-# 원인을 적지 않고 결과만 말한다. 눈 때문에 경계가 사라진 클립도 그 문장에
-# 그대로 해당하므로 적용 범위는 줄지 않는다.
 UNPAVED_RUBRIC = {
-    0: "The surface is unpaved, but it is clear how far the road reaches - the "
+    1: "The surface is unpaved, but it is clear how far the road reaches - the "
        "track and the ground beside it part cleanly in colour or in material, "
        "and the surface is reasonably even. The ego-vehicle held its speed and "
        "its line.",
-    1: "The edges of the track are still clear, but the surface is uneven - "
+    2: "The edges of the track are still clear, but the surface is uneven - "
        "rutted, or loose with coarse gravel. The ego-vehicle slowed down as it "
        "went over it.",
-    2: "The track runs on into the ground beside it in the same material, so "
+    3: "The track runs on into the ground beside it in the same material, so "
        "one of its edges cannot be made out. The other edge, or the wheel "
        "tracks left by whoever went before, still shows which way the road "
        "goes.",
-    3: "The track and the ground around it read as one, so neither the width "
+    4: "The track and the ground around it read as one, so neither the width "
        "of the road nor its direction can be told from the terrain.",
 }
 
@@ -322,36 +224,120 @@ def contrast_text() -> str:
 
 
 def _fmt_rubric(rubric: dict) -> str:
+    """rubric 의 실제 눈금만 돈다 - 표가 1 에서 시작하므로 TIER_VALUES(0 포함)
+    를 그대로 돌면 KeyError 가 난다."""
     return "\n".join(f"     {v} ({TIER_LABELS[v]}) = {rubric[v]}"
-                     for v in TIER_VALUES)
+                     for v in sorted(rubric))
 
 
-def safety_rubric_text() -> str:
-    return _fmt_rubric(SAFETY_RUBRIC)
+# 카테고리 -> rubric 배정.
+#
+# scene_category.json 의 scenario 이름이 그대로 묶음 단위다 - Dynamic object
+# 6종은 "무엇이 다가왔는가"라 IMPACT 하나를 공유하고, Driving environment 는
+# 카테고리마다 성격이 달라 따로 준다.
+#
+# 이름이 아니라 묶음으로 배정하는 이유: 카테고리마다 rubric 을 따로 주면
+# 모델이 rubric 문장이 아니라 카테고리 이름으로 패턴 매칭한다(실측 20260812:
+# Animal 7건이 내용과 무관하게 전부 rarity=2). 같은 rubric 을 공유하면
+# "같은 객체 x 다른 행동 = 다른 점수" 가 유지된다.
+RUBRIC_BY_SCENARIO = {
+    "Dynamic object": "impact",
+}
+RUBRIC_BY_CATEGORY = {
+    "Road Construction": "construction",
+    "Railway crossing": "gate",
+    "Barrier arm": "gate",
+    "Unpaved road": "unpaved",
+}
+
+# rubric 본문. 이름 -> (제목, 표).
+#
+# 네 rubric 모두 1~4 로 폭이 같다. 시작이 1 인 이유는 IMPACT_RUBRIC 위
+# 주석에 적었다 - 0 은 "카테고리가 없음"이고, 없는 카테고리는 점수를 받지
+# 않는다.
+RUBRICS = {
+    "impact":       ("how much it affected the ego-vehicle", IMPACT_RUBRIC),
+    "gate":         ("how much the barrier or crossing held the ego-vehicle up",
+                     GATE_RUBRIC),
+    "construction": ("how far the works reached into the ego-vehicle's lane",
+                     CONSTRUCTION_RUBRIC),
+    "unpaved":      ("how clearly the edges of the road can be made out",
+                     UNPAVED_RUBRIC),
+}
 
 
-def rarity_rubric_text() -> str:
-    return _fmt_rubric(RARITY_RUBRIC)
+def rubric_name_for(category: str, scenario: str = "") -> str:
+    """이 카테고리가 쓸 rubric 이름. 모르는 카테고리는 impact 로 떨어뜨린다."""
+    if category in RUBRIC_BY_CATEGORY:
+        return RUBRIC_BY_CATEGORY[category]
+    return RUBRIC_BY_SCENARIO.get(scenario, "impact")
 
 
-# 시각화 폴더를 나누는 점수 = safety + rarity. 둘 다 0~4 이므로 0~8.
-# 이건 nuReasoning 의 1~10 난이도 점수와 다르다 - 그건 "얼마나 가치 있는
-# 롱테일인가"를 모델이 직접 매기게 한 것이고(우리는 폐기했다), 이건 이미
-# 받아둔 두 등급을 검수 편의를 위해 더한 것뿐이다. 모델에게 묻지 않는다.
-SCORE_MIN, SCORE_MAX = 2 * min(TIER_VALUES), 2 * max(TIER_VALUES)
+def rubric_values(name: str) -> tuple[int, ...]:
+    """그 rubric 이 실제로 쓰는 눈금. 폭이 rubric 마다 다르다."""
+    return tuple(sorted(RUBRICS[name][1]))
 
 
-def tier_score(safety_tier, rarity_tier) -> int | None:
-    """safety + rarity 합계. 둘 중 하나라도 못 읽었으면 None."""
-    if safety_tier is None or rarity_tier is None:
+def rubric_text(name: str) -> str:
+    """rubric 하나를 프롬프트 문구로."""
+    return _fmt_rubric(RUBRICS[name][1])
+
+
+def rubric_blocks(labels) -> str:
+    """프롬프트에 넣을 rubric 전체.
+
+    labels(load_labels 결과)에 실제로 들어 있는 카테고리만 훑어 필요한
+    rubric 만 싣는다 - scene_category.json 에서 카테고리를 빼면 그 rubric 도
+    저절로 빠진다. 각 rubric 아래에 그것을 쓰는 카테고리를 적어, 모델이
+    어느 표를 봐야 하는지 이름으로 찾게 한다.
+    """
+    used = {}
+    for lab in labels:
+        if lab.get("is_normal"):
+            continue
+        name = rubric_name_for(lab["category"], lab.get("scenario", ""))
+        used.setdefault(name, []).append(lab["category"])
+
+    out = []
+    for name in ("impact", "gate", "construction", "unpaved"):
+        if name not in used:
+            continue
+        title, rubric = RUBRICS[name]
+        vals = tuple(sorted(rubric))
+        out.append(
+            f"   For {', '.join(used[name])} - {title} "
+            f"({min(vals)}-{max(vals)}):\n"
+            + "\n".join(f"     {v} = {rubric[v]}" for v in vals))
+    return "\n".join(out)
+
+
+# 시각화 폴더를 나누는 점수.
+#
+# 예전에는 safety + rarity 합(0~8)이었다. 이제 점수가 카테고리마다 따로
+# 붙으므로 합이 카테고리 수에 따라 달라져 폴더 이름으로 못 쓴다. 대신 그
+# 클립에서 가장 높은 점수 하나를 쓴다 - "이 클립에서 가장 심한 요소가
+# 몇 점인가"가 검수 우선순위이고, 요소가 여럿이면 최댓값을 쓴다는 프롬프트
+# 규칙과도 같은 기준이다.
+SCORE_MIN, SCORE_MAX = min(TIER_VALUES), max(TIER_VALUES)
+
+
+def tier_score(category_scores) -> int | None:
+    """카테고리별 점수 중 최댓값. 읽을 수 있는 값이 하나도 없으면 None.
+
+    category_scores 는 {카테고리명: 점수} 딕셔너리다. 빈 딕셔너리(=특이
+    요소 없음)도 None 이다 - "점수가 0" 과 "매길 대상이 없음" 은 다르다.
+    """
+    if not isinstance(category_scores, dict):
         return None
-    try:
-        s, r = int(safety_tier), int(rarity_tier)
-    except (TypeError, ValueError):
-        return None
-    if s not in TIER_LABELS or r not in TIER_LABELS:
-        return None
-    return s + r
+    vals = []
+    for v in category_scores.values():
+        try:
+            n = int(v)
+        except (TypeError, ValueError):
+            continue
+        if n in TIER_LABELS:
+            vals.append(n)
+    return max(vals) if vals else None
 
 
 def score_dirname(score) -> str:

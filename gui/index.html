@@ -70,10 +70,10 @@ main{padding:14px 16px 40px}
    그래프가 필요한 만큼만 두고 나머지는 여백으로 남긴다. */
 .chartpanel{max-width:760px}
 .axisgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
-/* 카테고리 빈도(넓게) | Safety·Rarity(1열) */
+/* 카테고리 빈도(넓게) | 카테고리 점수(1열) */
 .aggcols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
   gap:12px;align-items:start}
-/* 난이도 4축 요약 표. 예전에는 오른쪽에 종합 난이도 칸이 있었다.
+/* 날씨 4축 요약 표. 예전에는 오른쪽에 종합 점수 칸이 있었다.
    align-items 를 stretch(기본)로 두고 패널을 100% 높이로 늘려야
    내용이 짧은 쪽도 같은 높이가 된다. */
 .diffrow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
@@ -104,7 +104,7 @@ main{padding:14px 16px 40px}
 /* 점수 범위 입력: 라벨 [최소] ~ [최대] 를 한 줄로 */
 .row>label.rng{flex-direction:row;align-items:center;gap:6px}
 label.rng input[type=number]{width:52px;text-align:center}
-/* 팝업의 난이도 4축 근거: 축 이름 | 점수 | 근거 문장 */
+/* 팝업의 날씨 4축 근거: 축 이름 | 점수 | 근거 문장 */
 /* GT vs Pred 비교표. 다른 값만 눈에 띄면 되므로 일치 행은 건드리지 않고
    불일치 행에만 표시를 준다. */
 table.cmp td,table.cmp th{white-space:normal}
@@ -118,7 +118,7 @@ table.cmp tr.mismatch>td{background:rgba(248,81,73,.07)}
 .dlbl{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dscore{font-variant-numeric:tabular-nums;text-align:right;font-weight:650}
 .dwhy{color:var(--fg);overflow-wrap:anywhere;line-height:1.5}
-/* Safety | Rarity - 오른쪽 칸을 다시 둘로 */
+/* 카테고리 점수 - 오른쪽 칸 */
 .tiercols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;
   align-items:start}
 .tiercols>*{min-width:0}
@@ -135,7 +135,7 @@ table.cmp tr.mismatch>td{background:rgba(248,81,73,.07)}
 .tiercols .chartpanel{max-width:none}
 .panel{min-width:0}
 .bars{min-width:0}
-/* Safety/Rarity 2단 묶음도 화면 끝까지 늘어나지 않게 한다. */
+/* 점수 패널도 화면 끝까지 늘어나지 않게 한다. */
 /* 아래 탭들은 박스를 --page-max 로 묶어 화면 가운데에 놓고 좌우를 여백으로
    남긴다. 섹션 전체에 걸어야 한다 - 안쪽 결과 영역에만 걸면 그 위의 조작
    패널만 화면 끝까지 늘어난다. */
@@ -283,8 +283,10 @@ video{width:100%;background:#000;border-radius:6px}
         <span class="muted" id="ev-listcount"></span>
       </div>
       <div class="scroll"><table>
-        <thead><tr><th>uuid</th><th>GT 카테고리</th><th>예측 카테고리</th>
-          <th class="num">GT S/R</th><th class="num">예측 S/R</th><th>시각화</th></tr></thead>
+        <!-- 점수는 카테고리 태그 뒤에 붙여 찍는다 - 카테고리마다 값이
+             달라 한 칸에 모으면 어느 점수가 어느 것인지 알 수 없다. -->
+        <thead><tr><th>uuid</th><th>GT 카테고리 (점수)</th>
+          <th>예측 카테고리 (점수)</th><th>시각화</th></tr></thead>
         <tbody id="ev-list"></tbody></table></div>
     </div>
   </div>
@@ -309,34 +311,26 @@ video{width:100%;background:#000;border-radius:6px}
       </select></label>
     </div>
     <!-- GT | Pred 를 두 단으로 나눈다. 단마다 제목 1개, 그 아래 같은 순서로
-         점수/난이도 줄이 들어간다. 가운데 선은 단 전체에 하나로 이어진다. -->
+         점수/날씨 줄이 들어간다. 가운데 선은 단 전체에 하나로 이어진다. -->
     <div class="gtpred" style="margin-top:10px"
          title="왼쪽은 정답 라벨 기준, 오른쪽은 선택한 실행의 예측 기준입니다">
       <div class="gpcol">
         <div class="sidelbl">GT</div>
         <div class="row">
-          <label class="rng">Safety
+          <label class="rng" title="이 클립에서 가장 높은 카테고리 점수 기준으로 거른다">점수(최대)
             <input type="number" id="s-smin" value="0" min="0" max="4">
             <span class="muted">~</span>
             <input type="number" id="s-smax" value="4" min="0" max="4"></label>
-          <label class="rng">Rarity
-            <input type="number" id="s-rmin" value="0" min="0" max="4">
-            <span class="muted">~</span>
-            <input type="number" id="s-rmax" value="4" min="0" max="4"></label>
         </div>
         <div class="row" id="s-diffrow"></div>
       </div>
       <div class="gpcol">
         <div class="sidelbl pred">Pred</div>
         <div class="row">
-          <label class="rng">Safety
+          <label class="rng" title="이 클립에서 가장 높은 카테고리 점수 기준으로 거른다">점수(최대)
             <input type="number" id="s-psmin" min="0" max="4" placeholder="0">
             <span class="muted">~</span>
             <input type="number" id="s-psmax" min="0" max="4" placeholder="4"></label>
-          <label class="rng">Rarity
-            <input type="number" id="s-prmin" min="0" max="4" placeholder="0">
-            <span class="muted">~</span>
-            <input type="number" id="s-prmax" min="0" max="4" placeholder="4"></label>
         </div>
         <div class="row" id="sp-diffrow"></div>
       </div>
@@ -355,8 +349,8 @@ video{width:100%;background:#000;border-radius:6px}
       <button id="s-csv" style="margin-left:auto">CSV로 저장</button>
     </div>
     <div class="scroll"><table>
-      <thead><tr><th>uuid</th><th>GT 카테고리</th><th>예측</th><th class="num">S</th>
-        <th class="num">R</th><th>note</th><th>시각화</th></tr></thead>
+      <thead><tr><th>uuid</th><th>GT 카테고리 (점수)</th><th>예측 (점수)</th>
+        <th>note</th><th>시각화</th></tr></thead>
       <tbody id="s-rows"></tbody></table></div>
   </div>
 </section>
@@ -380,8 +374,6 @@ video{width:100%;background:#000;border-radius:6px}
     <div class="panel">
       <h2>라벨 값</h2>
       <div class="row" style="margin-bottom:10px">
-        <label>Safety(0-4)<input type="number" id="l-safety" min="0" max="4" value="0" size="2"></label>
-        <label>Rarity(0-4)<input type="number" id="l-rarity" min="0" max="4" value="0" size="2"></label>
         <label>자차 영향<select id="l-infl">
           <option value="false">false</option><option value="true">true</option></select></label>
         <label>야간<select id="l-night">
@@ -389,6 +381,9 @@ video{width:100%;background:#000;border-radius:6px}
       </div>
       <h3>카테고리 (클릭해서 토글)</h3>
       <div id="l-cats" style="margin-bottom:10px"></div>
+      <!-- 켠 카테고리마다 0~4 점수 칸이 여기 생긴다. 점수는 카테고리에
+           붙으므로 클립 단위 입력 칸을 둘 수 없다. -->
+      <div id="l-scores" style="margin-bottom:10px"></div>
       <h3>날씨 (쉼표 구분)</h3>
       <input type="text" id="l-weather" style="width:100%;margin-bottom:10px">
       <h3>note</h3>
@@ -469,15 +464,13 @@ video{width:100%;background:#000;border-radius:6px}
         데이터<select id="r-data">
         <option value="local">local (pav_sample)</option>
         <option value="nas">nas (NAS 청크 zip)</option></select></label>
-      <label class="chk" title="프롬프트 4) Safety Criticality 항목을 물어본다. 값 자체는 채점 대상이 아니지만(보조 축), 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
-        <input type="checkbox" id="r-safety" checked> Safety 등급 켜기</label>
-      <label class="chk" title="프롬프트 5) Rarity 항목을 물어본다. 값 자체는 채점 대상이 아니지만(보조 축), 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
-        <input type="checkbox" id="r-rarity" checked> Rarity 등급 켜기</label>
-      <label class="chk" title="주행 난이도 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
-        <input type="checkbox" id="r-difficulty" checked> 난이도 4축 켜기</label>
-      <label class="chk" title="난이도 4축만 추론한다. edge-case 탐지(VERDICT/CATEGORIES)와 Safety/Rarity 등급을 전부 빼고, 프롬프트를 난이도 전용으로 바꾼다.">
-        <input type="checkbox" id="r-diffonly"> 난이도만 추론</label>
-      <label class="chk" title="[A안] Safety/Rarity 등급을 빼고, 3단계 요소 나열을 속성 표(position/ego)로 강제한다. 실측 20260922(333클립): VERDICT F1 80.4%, recall 94.3%, micro F1 0.679 로 등급 방식(80.0%/81.8%/0.655)보다 놓치는 클립이 적다(FN 32→10). 대신 오탐은 는다(FP 40→71).">
+      <label class="chk" title="프롬프트 4) Category Scores 항목을 물어본다. 영상에 등장한 카테고리마다 0~4 점을 매긴다(카테고리별 rubric: Dynamic object=IMPACT, Road Construction=CONSTRUCTION, Railway crossing/Barrier arm=GATE, Unpaved road=UNPAVED). 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
+        <input type="checkbox" id="r-scores" checked> 카테고리 점수 켜기</label>
+      <label class="chk" title="날씨 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
+        <input type="checkbox" id="r-difficulty" checked> 날씨 4축 켜기</label>
+      <label class="chk" title="날씨 4축만 추론한다. edge-case 탐지(VERDICT/CATEGORIES)와 카테고리 점수를 전부 빼고, 프롬프트를 날씨 전용으로 바꾼다.">
+        <input type="checkbox" id="r-diffonly"> 날씨만 추론</label>
+      <label class="chk" title="[A안] 카테고리 점수를 빼고, 3단계 요소 나열을 속성 표(position/ego)로 강제한다. 실측 20260922(333클립): VERDICT F1 80.4%, recall 94.3%, micro F1 0.679 로 등급 방식(80.0%/81.8%/0.655)보다 놓치는 클립이 적다(FN 32→10). 대신 오탐은 는다(FP 40→71).">
         <input type="checkbox" id="r-notiers"> 등급 대신 요소 속성표</label>
       <label id="r-gpuwrap" class="hide">GPU<input type="text" id="r-gpus" value="0,1,2" size="8"></label>
       <label id="r-shardwrap">샤드 수<input type="number" id="r-shards" value="8" min="1" max="8" size="2"></label>
@@ -530,14 +523,10 @@ video{width:100%;background:#000;border-radius:6px}
       <button id="ns-clear">초기화</button>
     </div>
     <div class="row" style="margin-top:10px">
-      <label class="rng">Safety
+      <label class="rng" title="이 클립에서 가장 높은 카테고리 점수 기준으로 거른다">점수(최대)
         <input type="number" id="ns-smin" value="0" min="0" max="4">
         <span class="muted">~</span>
         <input type="number" id="ns-smax" value="4" min="0" max="4"></label>
-      <label class="rng">Rarity
-        <input type="number" id="ns-rmin" value="0" min="0" max="4">
-        <span class="muted">~</span>
-        <input type="number" id="ns-rmax" value="4" min="0" max="4"></label>
     </div>
     <div class="row" style="margin-top:10px" id="ns-diffrow"></div>
     <div class="row" style="margin-top:10px;align-items:flex-start">
@@ -554,8 +543,8 @@ video{width:100%;background:#000;border-radius:6px}
       <button id="ns-csv" style="margin-left:auto">CSV로 저장</button>
     </div>
     <div class="scroll"><table>
-      <thead><tr><th>uuid</th><th>예측 카테고리</th><th class="num">S</th>
-        <th class="num">R</th><th class="num">난이도</th><th>observation</th>
+      <thead><tr><th>uuid</th><th>예측 카테고리 (점수)</th>
+        <th class="num">날씨</th><th>observation</th>
         <th>영상</th></tr></thead>
       <tbody id="ns-rows"></tbody></table></div>
   </div>
@@ -587,14 +576,12 @@ video{width:100%;background:#000;border-radius:6px}
         <option value="width">width</option></select></label>
       <label>egomotion<select id="sg-ego">
         <option value="1">사용</option><option value="0">사용 안 함</option></select></label>
-      <label class="chk" title="프롬프트 4) Safety Criticality 항목을 물어본다. 값 자체는 채점 대상이 아니지만(보조 축), 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
-        <input type="checkbox" id="sg-safety" checked> Safety 등급 켜기</label>
-      <label class="chk" title="프롬프트 5) Rarity 항목을 물어본다. 값 자체는 채점 대상이 아니지만(보조 축), 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
-        <input type="checkbox" id="sg-rarity" checked> Rarity 등급 켜기</label>
-      <label class="chk" title="주행 난이도 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
-        <input type="checkbox" id="sg-difficulty" checked> 난이도 4축 켜기</label>
-      <label class="chk" title="난이도 4축만 추론한다. edge-case 탐지(VERDICT/CATEGORIES)와 Safety/Rarity 등급을 전부 빼고, 프롬프트를 난이도 전용으로 바꾼다.">
-        <input type="checkbox" id="sg-diffonly"> 난이도만 추론</label>
+      <label class="chk" title="프롬프트 4) Category Scores 항목을 물어본다. 영상에 등장한 카테고리마다 0~4 점을 매긴다(카테고리별 rubric: Dynamic object=IMPACT, Road Construction=CONSTRUCTION, Railway crossing/Barrier arm=GATE, Unpaved road=UNPAVED). 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
+        <input type="checkbox" id="sg-scores" checked> 카테고리 점수 켜기</label>
+      <label class="chk" title="날씨 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
+        <input type="checkbox" id="sg-difficulty" checked> 날씨 4축 켜기</label>
+      <label class="chk" title="날씨 4축만 추론한다. edge-case 탐지(VERDICT/CATEGORIES)와 카테고리 점수를 전부 빼고, 프롬프트를 날씨 전용으로 바꾼다.">
+        <input type="checkbox" id="sg-diffonly"> 날씨만 추론</label>
     </div>
     <div class="row" style="margin-top:12px">
       <button id="sg-go" class="primary">이 클립 추론</button>
@@ -646,15 +633,13 @@ video{width:100%;background:#000;border-radius:6px}
         데이터<select id="n-data">
         <option value="nas">nas (NAS 청크 zip)</option>
         <option value="local">local (pav_sample)</option></select></label>
-      <label class="chk" title="프롬프트 4) Safety Criticality 항목을 물어본다. 값 자체는 채점 대상이 아니지만(보조 축), 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
-        <input type="checkbox" id="n-safety" checked> Safety 등급 켜기</label>
-      <label class="chk" title="프롬프트 5) Rarity 항목을 물어본다. 값 자체는 채점 대상이 아니지만(보조 축), 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
-        <input type="checkbox" id="n-rarity" checked> Rarity 등급 켜기</label>
-      <label class="chk" title="주행 난이도 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
-        <input type="checkbox" id="n-difficulty" checked> 난이도 4축 켜기</label>
-      <label class="chk" title="난이도 4축만 추론한다. edge-case 탐지(VERDICT/CATEGORIES)와 Safety/Rarity 등급을 전부 빼고, 프롬프트를 난이도 전용으로 바꾼다.">
-        <input type="checkbox" id="n-diffonly"> 난이도만 추론</label>
-      <label class="chk" title="[A안] Safety/Rarity 등급을 빼고, 3단계 요소 나열을 속성 표(position/ego)로 강제한다. 실측 20260922(333클립): VERDICT F1 80.4%, recall 94.3%, micro F1 0.679 로 등급 방식(80.0%/81.8%/0.655)보다 놓치는 클립이 적다(FN 32→10). 대신 오탐은 는다(FP 40→71).">
+      <label class="chk" title="프롬프트 4) Category Scores 항목을 물어본다. 영상에 등장한 카테고리마다 0~4 점을 매긴다(카테고리별 rubric: Dynamic object=IMPACT, Road Construction=CONSTRUCTION, Railway crossing/Barrier arm=GATE, Unpaved road=UNPAVED). 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
+        <input type="checkbox" id="n-scores" checked> 카테고리 점수 켜기</label>
+      <label class="chk" title="날씨 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
+        <input type="checkbox" id="n-difficulty" checked> 날씨 4축 켜기</label>
+      <label class="chk" title="날씨 4축만 추론한다. edge-case 탐지(VERDICT/CATEGORIES)와 카테고리 점수를 전부 빼고, 프롬프트를 날씨 전용으로 바꾼다.">
+        <input type="checkbox" id="n-diffonly"> 날씨만 추론</label>
+      <label class="chk" title="[A안] 카테고리 점수를 빼고, 3단계 요소 나열을 속성 표(position/ego)로 강제한다. 실측 20260922(333클립): VERDICT F1 80.4%, recall 94.3%, micro F1 0.679 로 등급 방식(80.0%/81.8%/0.655)보다 놓치는 클립이 적다(FN 32→10). 대신 오탐은 는다(FP 40→71).">
         <input type="checkbox" id="n-notiers"> 등급 대신 요소 속성표</label>
       <label id="n-gpuwrap" class="hide">GPU<input type="text" id="n-gpus" value="0,1,2" size="8"></label>
       <label id="n-shardwrap">샤드 수<input type="number" id="n-shards" value="8" min="1" max="8" size="2"></label>
@@ -791,8 +776,8 @@ async function boot() {
     .map(r => [r.name, r.name + (r.memo ? '  — ' + r.memo : '')]);
   opts($('#ag-run'), nasRuns);
   opts($('#ns-run'), nasRuns);
-  // 난이도 필터 입력칸은 축 목록에서 만든다 - 축이 늘면 여기만 고치면 된다.
-  // 라벨 씬 검색은 GT / 예측이 각자 단을 가진다 - 난이도도 단별로 채운다.
+  // 날씨 필터 입력칸은 축 목록에서 만든다 - 축이 늘면 여기만 고치면 된다.
+  // 라벨 씬 검색은 GT / 예측이 각자 단을 가진다 - 날씨도 단별로 채운다.
   $('#s-diffrow').insertAdjacentHTML('beforeend', diffInputs('s'));
   $('#sp-diffrow').insertAdjacentHTML('beforeend', diffInputs('sp'));
   $('#ns-diffrow').insertAdjacentHTML('beforeend', diffInputs('ns'));
@@ -819,6 +804,19 @@ async function loadTax(scene) {
   $('#ns-cats').innerHTML = html;
   $$('#s-cats .pill,#l-cats .pill,#ns-cats .pill').forEach(p =>
     p.onclick = () => p.classList.toggle('on'));
+  // 라벨 탭은 카테고리를 켜고 끌 때마다 점수 칸을 다시 그린다. 이미 넣은
+  // 점수는 살린다 - 실수로 토글했다가 값을 잃으면 다시 매겨야 한다.
+  $$('#l-cats .pill').forEach(p => p.addEventListener('click', () => {
+    const keep = {};
+    $$('#l-scores input').forEach(el => { if (el.value !== '') keep[el.id.slice(5)] = +el.value; });
+    const scores = {};
+    $$('#l-cats .pill.on').forEach(q => {
+      const v = keep[cssId(q.dataset.cat)];
+      if (v != null) scores[q.dataset.cat] = v;
+    });
+    renderLabelScores(scores);
+  }));
+  renderLabelScores({});
 }
 
 /* ---------- 1. 평가 ---------- */
@@ -851,12 +849,11 @@ function renderEval() {
     `라벨 ${EV.n_labels}개 중 ${EV.n_matched}개 채점` +
     (EV.n_missing ? ` · <span style="color:var(--warn)">결과에 없는 라벨 ${EV.n_missing}개</span>` : '') +
     ` · GT special ${v.n_special_truth} / normal ${v.n_normal_truth}<br>` +
-    `<span class="muted">보조 축(채점 대상 아님): ${tier('safety')} · ${tier('rarity')}</span>`;
+    `<span class="muted">카테고리 점수: ${tier('score')}</span>`;
   const c = EV.config || {};
   $('#ev-cfg').innerHTML = `<span class="mono">${esc(c.model || '')}</span>` +
     (c.use_egomotion ? ' · egomotion' : '') + (c.traj ? ' · traj=' + esc(c.traj) : '') +
-    (c.safety_tiers === false ? ' · <span style="color:var(--warn)">safety 등급 off</span>' : '') +
-    (c.rarity_tiers === false ? ' · <span style="color:var(--warn)">rarity 등급 off</span>' : '') +
+    (c.score_categories === false ? ' · <span style="color:var(--warn)">카테고리 점수 off</span>' : '') +
     (c.memo ? ' · ' + esc(c.memo) : '');
 
   $('#ev-cats').innerHTML = EV.categories.map((c, i) => `
@@ -893,11 +890,14 @@ function renderCatList() {
       const d = await api(`/api/clip?uuid=${u}&run=${encodeURIComponent(EV.run)}&labels=${encodeURIComponent(EV.labels_name)}`);
       const td = $(`#ev-list [data-fill="${u}"]`); if (!td) return;
       const g = d.truth || {}, p = d.pred || {};
+      // 카테고리 뒤에 그 카테고리의 점수를 붙인다 - 점수가 카테고리마다
+      // 따로 붙으므로 한 칸에 모아 찍으면 어느 점수가 어느 것인지 알 수 없다.
+      const gs = g.scores || {}, ps = p.scores || {};
+      const tag = (x, cls, sc) =>
+        `<span class="tag ${cls}">${esc(x)}${sc[x] != null ? ' ' + sc[x] : ''}</span>`;
       td.outerHTML =
-        `<td class="cats">${(g.categories || []).map(x => `<span class="tag">${esc(x)}</span>`).join('') || '<span class="muted">없음</span>'}</td>
-         <td class="cats">${(p.categories || []).map(x => `<span class="tag ${(g.categories || []).includes(x) ? 'tp' : 'fp'}">${esc(x)}</span>`).join('') || '<span class="muted">없음</span>'}</td>
-         <td class="num">${g.safety ?? '-'}/${g.rarity ?? '-'}</td>
-         <td class="num">${p.safety ?? '-'}/${p.rarity ?? '-'}</td>`;
+        `<td class="cats">${(g.categories || []).map(x => tag(x, '', gs)).join('') || '<span class="muted">없음</span>'}</td>
+         <td class="cats">${(p.categories || []).map(x => tag(x, (g.categories || []).includes(x) ? 'tp' : 'fp', ps)).join('') || '<span class="muted">없음</span>'}</td>`;
     } catch (e) {}
   });
 }
@@ -932,9 +932,13 @@ function cmpTable(g, p, pd) {
     // 집합이 정확히 같을 때만 일치로 본다.
     allCats.every(x => gc.has(x) === pc.has(x))]);
 
-  for (const [key, label] of [['safety', 'Safety'], ['rarity', 'Rarity']]) {
-    rows.push([label, g[key] ?? '-', p[key] ?? '-',
-               g[key] != null && g[key] === p[key]]);
+  // 카테고리마다 한 줄. GT 와 예측 중 한쪽에만 있는 카테고리도 줄을 만든다 -
+  // 그 경우가 바로 검수 대상이라 빠지면 안 된다.
+  const gsc = g.scores || {}, psc = (p && p.scores) || {};
+  for (const c of allCats) {
+    if (gsc[c] == null && psc[c] == null) continue;
+    rows.push(['점수: ' + c, gsc[c] ?? '-', psc[c] ?? '-',
+               gsc[c] != null && gsc[c] === psc[c]]);
   }
   const gd = g.difficulty || {}, pdd = (pd && pd.difficulty) || {};
   for (const [k, label] of DIFF_AXES_UI) {
@@ -994,7 +998,7 @@ async function openClip(uuid, run, labels) {
 
   const fields = [
     ['장면', obs], ['자차', ego], ['특이요소', unu],
-    ['safety 근거', pd.safety_reason], ['rarity 근거', pd.rarity_reason],
+    ['점수 근거', pd.score_reason],
   ].filter(([, v]) => (v || '').trim());
 
   showModal(`
@@ -1009,17 +1013,15 @@ async function openClip(uuid, run, labels) {
     ${cmpTable(g, p, pd)}
     <div class="split">
       <div><h3>정답(GT)</h3>
-        <p>${(g.categories || []).map(x => `<span class="tag">${esc(x)}</span>`).join('') || '<span class="muted">카테고리 없음</span>'}</p>
-        <p class="muted">Safety ${g.safety ?? '-'} · Rarity ${g.rarity ?? '-'}</p>
+        <p>${(g.categories || []).map(x => `<span class="tag">${esc(x)}${(g.scores || {})[x] != null ? ' (' + g.scores[x] + '/4)' : ''}</span>`).join('') || '<span class="muted">카테고리 없음</span>'}</p>
         ${g.note ? `<p class="muted">note: ${esc(g.note)}</p>` : ''}</div>
       <div><h3>모델 예측</h3>
-        <p>${(p.categories || []).map(x => `<span class="tag ${(g.categories || []).includes(x) ? 'tp' : 'fp'}">${esc(x)}</span>`).join('') || '<span class="muted">카테고리 없음</span>'}</p>
-        <p class="muted">Safety ${p.safety ?? '-'} · Rarity ${p.rarity ?? '-'}</p></div>
+        <p>${(p.categories || []).map(x => `<span class="tag ${(g.categories || []).includes(x) ? 'tp' : 'fp'}">${esc(x)}${(p.scores || {})[x] != null ? ' (' + p.scores[x] + '/4)' : ''}</span>`).join('') || '<span class="muted">카테고리 없음</span>'}</p></div>
     </div>
     ${fields.length ? `<h3 style="margin-top:12px">모델 서술</h3>
       ${fields.map(([k, v]) =>
         `<p class="muted" style="margin:2px 0"><b>${esc(k)}</b> ${esc(v)}</p>`).join('')}` : ''}
-    ${dreason ? `<h3 style="margin:12px 0 4px">난이도 근거</h3>
+    ${dreason ? `<h3 style="margin:12px 0 4px">날씨 근거</h3>
       <div class="dgrid">${dreason}</div>` : ''}
     <div class="row" style="margin-top:14px">
       <button onclick="editLabel('${uuid}')">이 클립 라벨 편집</button>
@@ -1039,25 +1041,30 @@ window.editLabel = u => {
 };
 
 /* ---------- 2. 검색 ---------- */
+// 카테고리 태그 뒤에 그 카테고리의 점수를 붙인다. 점수가 없으면(아직 안
+// 매겼거나 -1) 이름만 찍는다 - 0 으로 보이면 "영향 없음"과 구분이 안 된다.
+function scTag(name, cls, scores) {
+  const v = (scores || {})[name];
+  return `<span class="tag ${cls}">${esc(name)}${v != null && v >= 0 ? ' ' + v : ''}</span>`;
+}
+
+
 function searchQuery() {
   const cats = $$('#s-cats .pill.on').map(p => p.dataset.cat).join('|');
   const q = new URLSearchParams({
     labels: $('#s-labels').value, run: $('#s-run').value,
     uuid: $('#s-uuid').value, note: $('#s-note').value,
     categories: cats, cat_mode: $('#s-catmode').value,
-    safety_min: $('#s-smin').value, safety_max: $('#s-smax').value,
-    rarity_min: $('#s-rmin').value, rarity_max: $('#s-rmax').value,
+    score_min: $('#s-smin').value, score_max: $('#s-smax').value,
     special: $('#s-special').value, only: $('#s-only').value,
   });
-  // 난이도는 값이 있을 때만 붙인다. 빈 값을 보내면 서버가 0 으로 읽어
+  // 날씨는 값이 있을 때만 붙인다. 빈 값을 보내면 서버가 0 으로 읽어
   // 걸지도 않은 조건이 걸린다. GT 는 gt_, 예측은 pred_ 접두사로 보낸다.
   for (const [k, v] of Object.entries(diffQuery('s', 'gt_'))) q.set(k, v);
   for (const [k, v] of Object.entries(diffQuery('sp', 'pred_'))) q.set(k, v);
   // 예측 점수 범위도 비어 있으면 아예 보내지 않는다.
-  for (const [id, key] of [['#s-psmin', 'pred_safety_min'],
-                           ['#s-psmax', 'pred_safety_max'],
-                           ['#s-prmin', 'pred_rarity_min'],
-                           ['#s-prmax', 'pred_rarity_max']]) {
+  for (const [id, key] of [['#s-psmin', 'pred_score_min'],
+                           ['#s-psmax', 'pred_score_max']]) {
     const v = $(id).value.trim();
     if (v !== '') q.set(key, v);
   }
@@ -1071,10 +1078,9 @@ $('#s-go').onclick = async () => {
     $('#s-count').textContent = `${j.total}개 중 ${j.rows.length}개 표시`;
     $('#s-rows').innerHTML = j.rows.map(r => `
       <tr><td class="mono">${esc(r.uuid.slice(0, 18))}…</td>
-        <td class="cats">${r.categories.map(x => `<span class="tag">${esc(x)}</span>`).join('') || '<span class="muted">-</span>'}</td>
+        <td class="cats">${r.categories.map(x => scTag(x, '', r.scores)).join('') || '<span class="muted">-</span>'}</td>
         <td class="cats">${r.pred_categories ? r.pred_categories.map(x =>
-          `<span class="tag ${r.categories.includes(x) ? 'tp' : 'fp'}">${esc(x)}</span>`).join('') || '<span class="muted">없음</span>' : ''}</td>
-        <td class="num">${r.safety}</td><td class="num">${r.rarity}</td>
+          scTag(x, r.categories.includes(x) ? 'tp' : 'fp', r.pred_scores)).join('') || '<span class="muted">없음</span>' : ''}</td>
         <td class="muted">${esc((r.note || '').slice(0, 30))}</td>
         <td><button data-clip="${esc(r.uuid)}">열기</button></td></tr>`).join('');
     const openRow = uuid => tr => {
@@ -1095,17 +1101,17 @@ $('#s-go').onclick = async () => {
 $('#s-clear').onclick = () => {
   $('#s-uuid').value = ''; $('#s-note').value = '';
   $('#s-smin').value = 0; $('#s-smax').value = 4;
-  $('#s-rmin').value = 0; $('#s-rmax').value = 4;
   $('#s-special').value = ''; $('#s-only').value = '';
   clearDiff('s'); clearDiff('sp');
-  ['#s-psmin', '#s-psmax', '#s-prmin', '#s-prmax'].forEach(x => $(x).value = '');
+  ['#s-psmin', '#s-psmax'].forEach(x => $(x).value = '');
   $$('#s-cats .pill').forEach(p => p.classList.remove('on'));
 };
 $('#s-csv').onclick = () => {
   if (!SROWS.length) return toast('검색 결과가 없습니다');
-  const head = 'uuid,categories,pred_categories,safety,rarity,note';
+  const head = 'uuid,categories,pred_categories,scores,pred_scores,note';
+  const sj = o => Object.entries(o || {}).map(([k, v]) => `${k}=${v}`).join('|');
   const body = SROWS.map(r => [r.uuid, r.categories.join('|'),
-    (r.pred_categories || []).join('|'), r.safety, r.rarity,
+    (r.pred_categories || []).join('|'), sj(r.scores), sj(r.pred_scores),
     (r.note || '').replace(/"/g, '""')]
     .map(x => `"${x}"`).join(',')).join('\n');
   const blob = new Blob([head + '\n' + body], { type: 'text/csv;charset=utf-8' });
@@ -1121,24 +1127,43 @@ $('#l-load').onclick = async () => {
     const d = await api(`/api/clip?uuid=${u}&labels=${encodeURIComponent($('#l-file').value)}`);
     const t = d.truth;
     $('#l-status').textContent = t ? '기존 라벨을 불러왔습니다' : '새 라벨입니다(저장 시 추가)';
-    $('#l-safety').value = t?.safety ?? 0;
-    $('#l-rarity').value = t?.rarity ?? 0;
     $('#l-note').value = t?.note ?? '';
     $$('#l-cats .pill').forEach(p =>
       p.classList.toggle('on', (t?.categories || []).includes(p.dataset.cat)));
+    renderLabelScores(t?.scores || {});
     const v = d.source_video || d.video;
     $('#l-preview').innerHTML = v
       ? `<video controls src="/media?path=${encodeURIComponent(v)}"></video>`
       : '<span class="muted">이 uuid 의 영상을 찾지 못했습니다.</span>';
   } catch (e) { toast(e.message); }
 };
+// 카테고리 이름을 DOM id 로 쓸 수 있게 바꾼다(공백/괄호 때문에).
+function cssId(name) { return name.replace(/[^A-Za-z0-9]/g, '_'); }
+
+function renderLabelScores(scores) {
+  const on = $$('#l-cats .pill.on').map(p => p.dataset.cat);
+  $('#l-scores').innerHTML = on.length ? on.map(c => {
+    const v = scores[c];
+    // 켜 둔 카테고리는 그 클립에 있다는 뜻이므로 눈금이 1 에서 시작한다 -
+    // 0 은 "카테고리 없음"이고, 그건 카테고리를 끄는 것으로 표현한다.
+    return `<label style="margin-right:10px">${esc(c)}(1-4)
+      <input type="number" id="l-sc-${cssId(c)}" min="1" max="4" size="2"
+             value="${v != null && v >= 1 ? v : ''}" placeholder="-"></label>`;
+  }).join('') : '<span class="muted">카테고리를 켜면 점수 칸이 생깁니다.</span>';
+}
+
 $('#l-save').onclick = async () => {
   const u = $('#l-uuid').value.trim();
   if (!u) return toast('uuid 를 입력하세요');
   const patch = {
-    categories: $$('#l-cats .pill.on').map(p => p.dataset.cat),
-    safety_criticality: +$('#l-safety').value,
-    rarity: +$('#l-rarity').value,
+    // categories 는 {카테고리: 0~4 점수} 딕셔너리다. 점수를 비워 두면 -1 로
+    // 보내 "아직 안 매김"을 0 과 구분한다 - 0 으로 채우면 채점에서 둘이
+    // 같은 값이 되어 왜곡된다.
+    categories: Object.fromEntries($$('#l-cats .pill.on').map(p => {
+      const el = $('#l-sc-' + cssId(p.dataset.cat));
+      const v = el && el.value !== '' ? +el.value : -1;
+      return [p.dataset.cat, v];
+    })),
     influenced_ego: $('#l-infl').value === 'true',
     is_night: $('#l-night').value === 'true',
     weather: $('#l-weather').value.split(',').map(s => s.trim()).filter(Boolean),
@@ -1221,13 +1246,13 @@ $('#c-del').onclick = async () => {
 };
 
 /* ---------- 5. 추론 ---------- */
-// --difficulty-only 와 등급 체크박스의 연동.
+// --weather-only 와 점수 체크박스의 연동.
 //
-// 이 모드는 난이도 4축만 남기고 탐지/등급을 전부 끄는 것이라, 화면 상태가
+// 이 모드는 날씨 4축만 남기고 탐지/점수를 전부 끄는 것이라, 화면 상태가
 // 실제로 돌아갈 명령과 어긋나면 안 된다. 그래서 양방향으로 묶는다:
-//   난이도만 추론 ON  -> Safety/Rarity 해제, 난이도 4축 체크
-//   Safety/Rarity 중 하나라도 수동 체크 -> 난이도만 추론 해제
-// 뒤쪽에서 난이도 4축을 따라 끄지는 않는다 - 등급과 난이도를 함께 보는
+//   날씨만 추론 ON  -> 카테고리 점수 해제, 날씨 4축 체크
+//   카테고리 점수를 수동 체크 -> 날씨만 추론 해제
+// 뒤쪽에서 날씨 4축을 따라 끄지는 않는다 - 점수와 날씨를 함께 보는
 // 실행이 정상적인 조합이기 때문(사용자가 원하면 직접 끈다).
 // 궤적 드롭박스 값("center+explain")을 실제 플래그 문자열로 편다.
 // build_command() 가 서버에서 하는 분해와 같은 규칙이어야 미리보기가
@@ -1241,30 +1266,27 @@ function trajFlags(v) {
 
 function syncDiffOnly(prefix, src) {
   const only = $('#' + prefix + '-diffonly');
-  const saf = $('#' + prefix + '-safety');
-  const rar = $('#' + prefix + '-rarity');
+  const sc = $('#' + prefix + '-scores');
   const dif = $('#' + prefix + '-difficulty');
   // 단일 클립 패널(sg)에는 이 체크박스가 없다 - 없으면 그냥 건너뛴다.
   const nt = $('#' + prefix + '-notiers');
   if (src === 'only' && only.checked) {
-    saf.checked = false; rar.checked = false; dif.checked = true;
+    sc.checked = false; dif.checked = true;
     if (nt) nt.checked = false;          // 둘은 서로 배타다
   } else if (src === 'notiers' && nt && nt.checked) {
-    // --no-tiers-elements 는 등급을 끄는 것을 함의한다. 화면도 그렇게 맞춘다.
+    // --no-tiers-elements 는 점수를 끄는 것을 함의한다. 화면도 그렇게 맞춘다.
     only.checked = false;
-    saf.checked = false; rar.checked = false;
-  } else if (src === 'tier' && (saf.checked || rar.checked)) {
-    // 등급을 다시 켜면 등급을 끄는 두 모드가 모두 해제된다.
+    sc.checked = false;
+  } else if (src === 'tier' && sc.checked) {
+    // 점수를 다시 켜면 점수를 끄는 두 모드가 모두 해제된다.
     only.checked = false;
     if (nt) nt.checked = false;
   }
-  // 등급 체크박스를 disabled 로 잠그면 안 된다 - 잠그면 "Safety 를 다시
-  // 체크하면 난이도만 추론이 꺼진다"는 동작 자체가 불가능해진다.
+  // 점수 체크박스를 disabled 로 잠그면 안 된다 - 잠그면 "점수를 다시
+  // 체크하면 날씨만 추론이 꺼진다"는 동작 자체가 불가능해진다.
   // 대신 흐리게만 해서 지금 꺼져 있다는 것을 보이고, 누르는 것은 허용한다.
-  const tiersOff = only.checked || (nt && nt.checked);
-  [saf, rar].forEach(el => {
-    el.closest('label').style.opacity = tiersOff ? '.55' : '1';
-  });
+  const scoresOff = only.checked || (nt && nt.checked);
+  sc.closest('label').style.opacity = scoresOff ? '.55' : '1';
 }
 
 function syncVpc(prefix) {
@@ -1294,28 +1316,26 @@ function previewCmd() {
   else if (rv === 'cat') parts.push('--viz-per-category ' + ($('#r-vpc').value || 5));
   if ($('#r-data').value !== 'local') parts.push('--data ' + $('#r-data').value);
   if ($('#r-diffonly').checked) {
-    parts.push('--difficulty-only');   // 등급/난이도 플래그를 함의한다
+    parts.push('--weather-only');      // 점수/날씨 플래그를 함의한다
   } else if ($('#r-notiers').checked) {
     // --no-tiers-elements 가 등급 off 를 함의한다 - 중복 플래그를 붙이지 않는다
     parts.push('--no-tiers-elements');
-    if ($('#r-difficulty').checked) parts.push('--difficulty');
+    if ($('#r-difficulty').checked) parts.push('--weather');
   } else {
-    if (!$('#r-safety').checked) parts.push('--no-safety-tier');
-    if (!$('#r-rarity').checked) parts.push('--no-rarity-tier');
-    if ($('#r-difficulty').checked) parts.push('--difficulty');
+    if (!$('#r-scores').checked) parts.push('--no-category-scores');
+    if ($('#r-difficulty').checked) parts.push('--weather');
   }
   if ($('#r-memo').value) parts.push(`--memo "${$('#r-memo').value}"`);
   $('#r-cmd').textContent = '$ ' + parts.join(' ');
 }
 ['#r-model', '#r-labels', '#r-scene', '#r-traj', '#r-ego', '#r-viz', '#r-data',
- '#r-vpc', '#r-safety', '#r-rarity', '#r-difficulty', '#r-diffonly', '#r-notiers', '#r-gpus', '#r-shards', '#r-memo'].forEach(s => {
+ '#r-vpc', '#r-scores', '#r-difficulty', '#r-diffonly', '#r-notiers', '#r-gpus', '#r-shards', '#r-memo'].forEach(s => {
   $(s).addEventListener('input', previewCmd); $(s).addEventListener('change', previewCmd);
 });
 $('#r-model').addEventListener('change', onModelChange);
 $('#r-diffonly').addEventListener('change', () => { syncDiffOnly('r','only'); previewCmd(); });
 $('#r-notiers').addEventListener('change', () => { syncDiffOnly('r','notiers'); previewCmd(); });
-['#r-safety', '#r-rarity'].forEach(sel =>
-  $(sel).addEventListener('change', () => { syncDiffOnly('r','tier'); previewCmd(); }));
+$('#r-scores').addEventListener('change', () => { syncDiffOnly('r','tier'); previewCmd(); });
 
 /* ---------- 6. NAS 전체 추론 ---------- */
 function nasClipsText() {
@@ -1350,28 +1370,26 @@ function previewNasCmd() {
   // 이 스크립트들의 기본이 nas 다 - 다를 때만 적는다.
   if ($('#n-data').value !== 'nas') parts.push('--data ' + $('#n-data').value);
   if ($('#n-diffonly').checked) {
-    parts.push('--difficulty-only');   // 등급/난이도 플래그를 함의한다
+    parts.push('--weather-only');      // 점수/날씨 플래그를 함의한다
   } else if ($('#n-notiers').checked) {
     // --no-tiers-elements 가 등급 off 를 함의한다 - 중복 플래그를 붙이지 않는다
     parts.push('--no-tiers-elements');
-    if ($('#n-difficulty').checked) parts.push('--difficulty');
+    if ($('#n-difficulty').checked) parts.push('--weather');
   } else {
-    if (!$('#n-safety').checked) parts.push('--no-safety-tier');
-    if (!$('#n-rarity').checked) parts.push('--no-rarity-tier');
-    if ($('#n-difficulty').checked) parts.push('--difficulty');
+    if (!$('#n-scores').checked) parts.push('--no-category-scores');
+    if ($('#n-difficulty').checked) parts.push('--weather');
   }
   if ($('#n-memo').value) parts.push(`--memo "${$('#n-memo').value}"`);
   $('#n-cmd').textContent = '$ ' + parts.join(' ');
 }
 ['#n-model', '#n-scene', '#n-limit', '#n-traj', '#n-ego', '#n-viz', '#n-data',
- '#n-vpc', '#n-safety', '#n-rarity', '#n-difficulty', '#n-diffonly', '#n-notiers', '#n-gpus', '#n-shards', '#n-memo'].forEach(s => {
+ '#n-vpc', '#n-scores', '#n-difficulty', '#n-diffonly', '#n-notiers', '#n-gpus', '#n-shards', '#n-memo'].forEach(s => {
   $(s).addEventListener('input', previewNasCmd); $(s).addEventListener('change', previewNasCmd);
 });
 $('#n-model').addEventListener('change', onNasModelChange);
 $('#n-diffonly').addEventListener('change', () => { syncDiffOnly('n','only'); previewNasCmd(); });
 $('#n-notiers').addEventListener('change', () => { syncDiffOnly('n','notiers'); previewNasCmd(); });
-['#n-safety', '#n-rarity'].forEach(sel =>
-  $(sel).addEventListener('change', () => { syncDiffOnly('n','tier'); previewNasCmd(); }));
+$('#n-scores').addEventListener('change', () => { syncDiffOnly('n','tier'); previewNasCmd(); });
 $('#n-go').onclick = async () => {
   const n = $('#n-limit').value;
   if (!confirm(n ? `${n}개 클립을 추론할까요?`
@@ -1387,8 +1405,7 @@ $('#n-go').onclick = async () => {
         use_egomotion: $('#n-ego').value === '1', viz: $('#n-viz').value === '1',
         viz_per_category: $('#n-viz').value === 'cat' ? (+$('#n-vpc').value || 5) : null,
         data: $('#n-data').value,
-        no_safety_tier: !$('#n-safety').checked,
-        no_rarity_tier: !$('#n-rarity').checked,
+        no_category_scores: !$('#n-scores').checked,
         difficulty: $('#n-difficulty').checked,
         difficulty_only: $('#n-diffonly').checked,
         tiers_elements: $('#n-notiers').checked,
@@ -1410,8 +1427,7 @@ $('#r-go').onclick = async () => {
         use_egomotion: $('#r-ego').value === '1', viz: $('#r-viz').value === '1',
         viz_per_category: $('#r-viz').value === 'cat' ? (+$('#r-vpc').value || 5) : null,
         data: $('#r-data').value,
-        no_safety_tier: !$('#r-safety').checked,
-        no_rarity_tier: !$('#r-rarity').checked,
+        no_category_scores: !$('#r-scores').checked,
         difficulty: $('#r-difficulty').checked,
         difficulty_only: $('#r-diffonly').checked,
         tiers_elements: $('#r-notiers').checked,
@@ -1430,8 +1446,7 @@ let SG_JOB = null, SG_TIMER = null;
 
 // 단일 클립 패널에도 같은 연동을 건다(이쪽은 명령 미리보기가 없다).
 $('#sg-diffonly').addEventListener('change', () => syncDiffOnly('sg', 'only'));
-['#sg-safety', '#sg-rarity'].forEach(sel =>
-  $(sel).addEventListener('change', () => syncDiffOnly('sg', 'tier')));
+$('#sg-scores').addEventListener('change', () => { syncDiffOnly('sg','tier'); previewSingleCmd(); });
 
 function sgOpts() {
   return {
@@ -1440,8 +1455,7 @@ function sgOpts() {
     model: $('#sg-model').value, scene_json: $('#sg-scene').value,
     data: $('#sg-data').value, traj: $('#sg-traj').value,
     use_egomotion: $('#sg-ego').value === '1',
-    no_safety_tier: !$('#sg-safety').checked,
-    no_rarity_tier: !$('#sg-rarity').checked,
+    no_category_scores: !$('#sg-scores').checked,
     difficulty: $('#sg-difficulty').checked,
     difficulty_only: $('#sg-diffonly').checked,
   };
@@ -1502,7 +1516,7 @@ async function sgShow(uuid, runDir) {
 }
 
 ['#sg-uuid', '#sg-model', '#sg-scene', '#sg-data', '#sg-traj', '#sg-ego',
- '#sg-safety', '#sg-rarity', '#sg-difficulty', '#sg-diffonly'].forEach(sel => {
+ '#sg-scores', '#sg-difficulty', '#sg-diffonly'].forEach(sel => {
   const el = $(sel); if (!el) return;
   el.addEventListener('input', sgPreview); el.addEventListener('change', sgPreview);
 });
@@ -1517,9 +1531,8 @@ function sgPreview() {
   if (o.scene_json) parts.push('--scene-json ' + o.scene_json);
   parts.push(...trajFlags(o.traj));
   if (o.use_egomotion) parts.push('--use-egomotion');
-  if (o.no_safety_tier) parts.push('--no-safety-tier');
-  if (o.no_rarity_tier) parts.push('--no-rarity-tier');
-  if (o.difficulty) parts.push('--difficulty');
+  if (o.no_category_scores) parts.push('--no-category-scores');
+  if (o.difficulty) parts.push('--weather');
   parts.push('--only-uuids <' + o.single_uuid + '>');
   $('#sg-cmd').textContent = '$ bash ' + parts.join(' ');
 }
@@ -1608,7 +1621,7 @@ function bars(items, opt) {
 
 function distBody(d, labels) {
   // 패널 껍데기 없이 막대 + 통계 한 줄만. 한 패널 안에 분포를 여러 개
-  // 넣을 때 쓴다(Safety 패널에 '전체'와 'SPECIAL only' 두 벌).
+  // 넣을 때 쓴다(점수 패널에 '전체'와 카테고리별 여러 벌).
   if (!d || !d.n) return `<p class="muted">해당 값을 매긴 클립이 없습니다.</p>`;
   const items = d.counts.map(c => ({
     label: labels ? `${c.score} = ${labels[c.score] || ''}` : String(c.score),
@@ -1630,13 +1643,18 @@ function distPanel(title, d, lo, hi, labels) {
 }
 
 function tierPanel(title, t, labels) {
-  // 한 지표(Safety 또는 Rarity)의 두 갈래를 소제목으로 나눠 1열로 쌓는다.
+  // 카테고리 점수 분포. 단위가 클립이 아니라 (클립 x 카테고리) 항목이라
+  // 전체를 먼저 내고, 그 아래에 카테고리마다 따로 쌓는다 - rubric 이
+  // 카테고리마다 다르므로(IMPACT/GATE/CONSTRUCTION/UNPAVED) 한 카테고리가
+  // 한 칸에 몰리는 것이 전체 분포에서는 보이지 않는다.
+  const per = (t.by_category || []).map(b => `
+    <div class="scen">${esc(b.category)} <span class="muted">(${b.n}건)</span></div>
+    ${distBody(b, labels)}`).join('');
   return `<div class="panel chartpanel">
     <h2>${esc(title)}</h2>
-    <div class="scen">전체 클립</div>
+    <div class="scen">전체 항목</div>
     ${distBody(t.all, labels)}
-    <div class="scen">SPECIAL only</div>
-    ${distBody(t.edge, labels)}
+    ${per}
   </div>`;
 }
 
@@ -1675,25 +1693,22 @@ function renderAgg(a) {
       멀티라벨이라 합이 100%를 넘을 수 있습니다. % 는 전체 클립 대비입니다.</p>
     <div id="ag-cats">${catHtml}</div>${perClip}</div>`;
 
-  // 오른쪽 칸을 다시 둘로: Safety | Rarity. 각 박스 안에 '전체 클립' 과
-  // 'SPECIAL only' 를 소제목으로 나눠 1열로 쌓는다.
   const tierHtml = `<div class="tiercols">
-    ${tierPanel('Safety Criticality', a.tiers.safety, SCORE_LABEL)}
-    ${tierPanel('Rarity', a.tiers.rarity, SCORE_LABEL)}
+    ${tierPanel('카테고리 점수', a.tiers.score, SCORE_LABEL)}
   </div>`;
 
-  // 왼쪽 카테고리 빈도 / 오른쪽 Safety·Rarity.
+  // 왼쪽 카테고리 빈도 / 오른쪽 점수 분포.
   const mid = `<div class="aggcols">
     <div>${cats}</div>
     <div>${tierHtml}</div>
   </div>`;
 
-  // 난이도 4축(조도·강수·노면·대기가림). 종합 난이도는 더 이상 모델에게
+  // 날씨 4축(조도·강수·노면·대기가림). 종합 점수는 더 이상 모델에게
   // 묻지 않는다 - 요인과 따로 매기면 서로 모순된 값이 나왔다.
   const rated = a.difficulty.filter(d => d.n);
   const factors = rated;
 
-  const diffTable = rated.length ? `<div class="panel"><h2>난이도 4축 요약</h2>
+  const diffTable = rated.length ? `<div class="panel"><h2>날씨 4축 요약</h2>
     <div class="scroll"><table>
       <thead><tr><th>축</th><th class="num">N</th><th class="num">평균</th>
         <th class="num">분산</th><th class="num">중앙값</th>
@@ -1765,7 +1780,7 @@ const DIFF_AXES_UI = [
 
 function diffInputs(prefix) {
   // 축마다 최소~최대 한 쌍. 비워두면 그 축은 조건에서 빠진다.
-  // Safety/Rarity 줄과 같은 .rng 모양을 써서 두 줄이 나란히 읽히게 한다.
+  // 점수 줄과 같은 .rng 모양을 써서 두 줄이 나란히 읽히게 한다.
   return DIFF_AXES_UI.map(([k, label]) => `
     <label class="rng" title="${esc(k)} — 비워두면 이 축은 거르지 않습니다">${esc(label)}
       <input type="number" id="${prefix}-${k}-min" min="0" max="4" placeholder="0">
@@ -1813,8 +1828,7 @@ async function nasSearch() {
     run, uuid: $('#ns-uuid').value.trim(), text: $('#ns-text').value.trim(),
     special: $('#ns-special').value, categories: cats,
     cat_mode: $('#ns-catmode').value,
-    safety_min: $('#ns-smin').value, safety_max: $('#ns-smax').value,
-    rarity_min: $('#ns-rmin').value, rarity_max: $('#ns-rmax').value,
+    score_min: $('#ns-smin').value, score_max: $('#ns-smax').value,
     limit: 500,
   }, diffQuery('ns'));
   const qs = Object.entries(q).filter(([, v]) => v !== '' && v != null)
@@ -1826,14 +1840,12 @@ async function nasSearch() {
     NS = { rows: j.rows, run };
     $('#ns-count').textContent =
       `${j.total.toLocaleString()}건 중 ${j.rows.length.toLocaleString()}건 표시`
-      + (j.has_difficulty ? '' : '  (이 실행에는 난이도 값이 없습니다)');
+      + (j.has_difficulty ? '' : '  (이 실행에는 날씨 값이 없습니다)');
     $('#ns-rows').innerHTML = j.rows.map((r, i) => `
       <tr data-i="${i}">
         <td class="mono">${esc(r.uuid.slice(0, 8))}</td>
-        <td class="cats">${(r.categories || []).map(c => `<span class="tag">${esc(c)}</span>`).join('')
+        <td class="cats">${(r.categories || []).map(c => scTag(c, '', r.scores)).join('')
              || '<span class="muted">없음</span>'}</td>
-        <td class="num">${r.safety ?? '-'}</td>
-        <td class="num">${r.rarity ?? '-'}</td>
         <td class="num">${diffCell(r.difficulty)}</td>
         <td class="muted">${esc((r.observation || '').slice(0, 70))}</td>
         <td><button data-open="${i}">열기</button></td>
@@ -1854,12 +1866,12 @@ function nasOpen(i) {
   const fields = [
     ['observation', r.observation], ['ego_behavior', r.ego_behavior],
     ['unusual_elements', r.unusual_elements],
-    ['safety 근거', r.safety_reason], ['rarity 근거', r.rarity_reason],
+    ['점수 근거', r.score_reason],
   ].filter(([, v]) => (v || '').trim());
   const dv = k => (r.difficulty && r.difficulty[k] != null) ? r.difficulty[k] : null;
   const diff = DIFF_AXES_UI.map(([k, label]) =>
     `${esc(label)} <b>${dv(k) ?? '-'}</b>`).join(' · ');
-  // 난이도는 축마다 근거가 따로 있다. 점수만 보면 왜 그 값인지 알 수 없어
+  // 날씨는 축마다 근거가 따로 있다. 점수만 보면 왜 그 값인지 알 수 없어
   // 검토가 안 되므로 축별로 점수와 근거를 나란히 적는다.
   const dreason = DIFF_AXES_UI.map(([k, label]) => {
     const why = ((r.difficulty_reason || {})[k] || '').trim();
@@ -1877,14 +1889,13 @@ function nasOpen(i) {
       <a class="pill" href="/clip/${encodeURIComponent(r.uuid)}" download>영상 다운로드</a>
       <span class="muted">NAS 원본 (시각화 오버레이 없음)</span>
     </div>
-    <p>${(r.categories || []).map(c => `<span class="tag">${esc(c)}</span>`).join('')
+    <p>${(r.categories || []).map(c => scTag(c, '', r.scores)).join('')
         || '<span class="muted">카테고리 없음</span>'}</p>
-    <p class="muted">Safety <b>${r.safety ?? '-'}</b> · Rarity <b>${r.rarity ?? '-'}</b>
-      · 난이도 ${diff}</p>
+    <p class="muted">날씨 ${diff}</p>
     ${fields.map(([k, v]) =>
       `<h3 style="margin:10px 0 2px">${esc(k)}</h3>
        <p style="margin:0">${esc(v)}</p>`).join('')}
-    ${dreason ? `<h3 style="margin:12px 0 4px">난이도 4축 근거</h3>
+    ${dreason ? `<h3 style="margin:12px 0 4px">날씨 4축 근거</h3>
       <div class="dgrid">${dreason}</div>` : ''}
   `);
 }
@@ -1894,17 +1905,17 @@ $('#ns-clear').onclick = () => {
   ['#ns-uuid', '#ns-text'].forEach(x => $(x).value = '');
   $('#ns-special').value = ''; $('#ns-catmode').value = 'any';
   $('#ns-smin').value = 0; $('#ns-smax').value = 4;
-  $('#ns-rmin').value = 0; $('#ns-rmax').value = 4;
   clearDiff('ns');
   $$('#ns-cats .pill').forEach(p => p.classList.remove('on'));
   $('#ns-rows').innerHTML = ''; $('#ns-count').textContent = '';
 };
 $('#ns-csv').onclick = () => {
   if (!NS.rows.length) return toast('검색 결과가 없습니다');
-  const head = ['uuid', 'categories', 'safety', 'rarity',
+  const head = ['uuid', 'categories', 'scores',
     ...DIFF_AXES_UI.flatMap(([k]) => [k, k + '_reason']), 'observation'];
   const body = NS.rows.map(r => [
-    r.uuid, (r.categories || []).join('|'), r.safety ?? '', r.rarity ?? '',
+    r.uuid, (r.categories || []).join('|'),
+    Object.entries(r.scores || {}).map(([k, v]) => `${k}=${v}`).join('|'),
     ...DIFF_AXES_UI.flatMap(([k]) => [
       (r.difficulty && r.difficulty[k] != null) ? r.difficulty[k] : '',
       ((r.difficulty_reason || {})[k] || '').replace(/"/g, '""'),

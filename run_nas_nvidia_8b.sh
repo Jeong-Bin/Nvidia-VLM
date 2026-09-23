@@ -93,15 +93,13 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --use-egomotion-c      [대조군C] 헤더/hint 유지, 센서 수치만 제거          [EGO_ABLATION=c]
   --use-egomotion-d      [대조군D] hint 만 남기고 헤더/수치 제거             [EGO_ABLATION=d]
   --header-style v1|v2   자차 행동 블록 헤더 문구 (기본 v1)              [HEADER_STYLE]
-  --no-safety-tier        Safety Criticality(4단계)만 프롬프트에서 끈다  [SAFETY_TIER=0]
-  --no-rarity-tier        Rarity(5단계)만 프롬프트에서 끈다              [RARITY_TIER=0]
-  --no-score-tiers        위 둘을 한꺼번에 끄는 별칭                     [SCORE_TIERS=0]
-  --difficulty           주행 난이도 4축(조도/강수/노면/대기가림)을
+  --no-category-scores    카테고리별 점수(4단계)를 프롬프트에서 끈다  [CAT_SCORES=0]
+  --weather              날씨 4축(조도/강수/노면/대기가림)을
                          0~4 로 함께 매긴다. 시각화 패널과
-                         aggregate_clip.log 분포에 실린다        [DIFFICULTY=1]
-  --difficulty-only      난이도 4축만 추론한다. edge-case 탐지와 등급을
-                         모두 빼고 프롬프트를 난이도 전용으로 바꾼다
-                         (--difficulty 를 자동으로 켠다)      [DIFFICULTY_ONLY=1]
+                         aggregate_clip.log 분포에 실린다        [WEATHER=1]
+  --weather-only         날씨 4축만 추론한다. edge-case 탐지와 점수를
+                         모두 빼고 프롬프트를 날씨 전용으로 바꾼다
+                         (--weather 를 자동으로 켠다)         [WEATHER_ONLY=1]
   --viz-per-category N   카테고리마다 최초 N개 클립만 시각화한다. 폴더를
                          score 대신 카테고리 이름으로 나눈다      [VIZ_PER_CAT]
   --no-video-input       프레임을 비디오가 아니라 낱장으로 넘긴다       [VIDEO_INPUT=0]
@@ -150,11 +148,12 @@ while [ $# -gt 0 ]; do
     --use-egomotion-d)   EGO_ABLATION=d ;;
     --header-style=*)    HEADER_STYLE="${1#*=}" ;;
     --header-style)      shift; HEADER_STYLE="${1:-v1}" ;;
-    --no-safety-tier)    SAFETY_TIER=0 ;;
-    --no-rarity-tier)    RARITY_TIER=0 ;;
-    --no-score-tiers)    SAFETY_TIER=0; RARITY_TIER=0 ;;
-    --difficulty)        DIFFICULTY=1 ;;
-    --difficulty-only)   DIFFICULTY_ONLY=1 ;;
+    --no-category-scores|--no-safety-tier|--no-rarity-tier|--no-score-tiers)
+                         CAT_SCORES=0 ;;
+    --weather|--difficulty)
+                         WEATHER=1 ;;
+    --weather-only|--difficulty-only)
+                         WEATHER_ONLY=1 ;;
     --no-tiers-elements) TIERS_ELEMENTS=1 ;;
     --explain-traj)      EXPLAIN_TRAJ=1 ;;
     --viz-per-category=*) VIZ_PER_CAT="${1#*=}" ;;
@@ -228,11 +227,16 @@ OPTS="--clip-mode --single-view --data $DATA"
 [ -n "${EGO_ABLATION:-}" ]      && OPTS="$OPTS --use-egomotion-${EGO_ABLATION}"
 [ -n "${HEADER_STYLE:-}" ]      && OPTS="$OPTS --header-style $HEADER_STYLE"
 # SCORE_TIERS=0 은 옛 이름 - 둘 다 끄는 뜻으로 계속 받아준다.
-[ "${SCORE_TIERS:-1}" = "0" ]   && { SAFETY_TIER=0; RARITY_TIER=0; }
-[ "${SAFETY_TIER:-1}" = "0" ]   && OPTS="$OPTS --no-safety-tier"
-[ "${RARITY_TIER:-1}" = "0" ]   && OPTS="$OPTS --no-rarity-tier"
-[ "${DIFFICULTY:-0}" = "1" ]     && OPTS="$OPTS --difficulty"
-[ "${DIFFICULTY_ONLY:-0}" = "1" ] && OPTS="$OPTS --difficulty-only"
+# 옛 환경변수 이름. 점수가 두 축에서 카테고리별 하나로 바뀌었어도
+# 스크립트를 부르는 쪽이 아직 이 이름을 쓸 수 있어 받아 준다.
+[ "${SCORE_TIERS:-1}" = "0" ] || [ "${SAFETY_TIER:-1}" = "0" ] \
+  || [ "${RARITY_TIER:-1}" = "0" ] && CAT_SCORES=0
+[ "${CAT_SCORES:-1}" = "0" ]    && OPTS="$OPTS --no-category-scores"
+# 옛 환경변수 이름(DIFFICULTY/DIFFICULTY_ONLY)도 계속 받는다.
+[ "${DIFFICULTY:-0}" = "1" ]      && WEATHER=1
+[ "${DIFFICULTY_ONLY:-0}" = "1" ] && WEATHER_ONLY=1
+[ "${WEATHER:-0}" = "1" ]         && OPTS="$OPTS --weather"
+[ "${WEATHER_ONLY:-0}" = "1" ]    && OPTS="$OPTS --weather-only"
 [ "${TIERS_ELEMENTS:-0}" = "1" ] && OPTS="$OPTS --no-tiers-elements"
 [ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
 [ -n "${VIZ_PER_CAT:-}" ]        && OPTS="$OPTS --viz-per-category $VIZ_PER_CAT"

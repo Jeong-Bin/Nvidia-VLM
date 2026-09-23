@@ -26,33 +26,20 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from constrained_tier import tier_label
+from constrained_tier import rubric_name_for, rubric_values
 from prompts import DIFFICULTY_AXES, DIFFICULTY_MAX
 
-# 하단 패널에 표시할 단계. (result 의 키, 화면에 쓸 제목) 순서가 곧 표시 순서다.
+# 하단 패널에 표시할 단계. (result 의 키들, 화면에 쓸 제목) 순서가 곧 표시
+# 순서다.
+#
+# 1단계와 2단계를 한 칸에 합친 이유: 둘 다 "무엇이 보였나"를 서술하는 문단
+# 이라 따로 두면 패널 높이만 늘고 읽는 순서는 그대로다. 검수자가 실제로
+# 대조하는 것은 아래 카테고리별 점수이므로, 서술은 짧게 묶어 위에 둔다.
 PANEL_STEPS = [
-    ("observation", "1. Scene Description"),
-    ("ego_behavior", "2. Ego Behavior Summary"),
-    ("unusual_elements", "3. Unusual Element & Ego Influence"),
-    ("safety_assessment", "4. Safety Criticality"),
-    ("rarity_assessment", "5. Rarity"),
+    (("observation", "ego_behavior"), "1. Scene Description & Ego Behavior"),
+    (("unusual_elements",), "2. Unusual Element & Ego Influence"),
 ]
 
-# 4/5단계는 등급(1/2/3)과 이유가 따로 오므로, 패널에는
-# "Moderate (2) - 이유" 형태로 합쳐 보여준다. 라벨만 쓰면 폴더명이 되는
-# 점수(합계)와 눈으로 대조할 수 없어서 정수도 함께 적는다.
-# result 에서 (라벨 키, 정수 키) 를 어디서 읽을지 매핑.
-STEP_TIER_KEY = {
-    "safety_assessment": ("safety_label", "safety_tier"),
-    "rarity_assessment": ("rarity_label", "rarity_tier"),
-}
-
-# 정답 라벨(test_label.json)에서 각 단계에 해당하는 키.
-# 라벨 파일은 safety_criticality/rarity 라는 이름을 쓰므로 여기서 맞춰준다.
-GT_TIER_KEY = {
-    "safety_assessment": "safety",
-    "rarity_assessment": "rarity",
-}
 
 FONT_REG = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
@@ -120,9 +107,9 @@ def _wrap(text, width_chars):
 
 
 def difficulty_lines(result: dict) -> list[str]:
-    """난이도 4축을 패널에 넣을 문자열 줄로 만든다.
+    """날씨 4축을 패널에 넣을 문자열 줄로 만든다.
 
-        DRIVING DIFFICULTY : (2 / 4) <근거 문장>
+        WEATHER : (2 / 4) <근거 문장>
         - Illumination: (1 / 4) <근거 문장>
         ...
 
@@ -143,6 +130,68 @@ def difficulty_lines(result: dict) -> list[str]:
         why = (result.get(f"{key}_reason") or "").strip()
         head = f"{name} : " if i == 0 else f"- {name}: "
         lines.append(f"{head}{score}" + (f" {why}" if why else ""))
+    return lines
+
+
+# 카테고리 -> 묶음 이름. rubric 을 고를 때 쓴다.
+#
+# scene_category.json 을 읽어 채우되, 못 읽으면 빈 채로 둔다 - 그러면
+# rubric_name_for 가 impact 로 떨어뜨리므로 분모가 4 로 나온다. 시각화가
+# 씬 파일을 못 찾았다고 해서 영상 생성이 실패하면 안 된다.
+SCENARIO_OF = {}
+
+
+def load_scenario_map(scene_json) -> None:
+    """scene_category.json 에서 카테고리->묶음 표를 읽어 둔다."""
+    try:
+        data = json.loads(Path(scene_json).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    SCENARIO_OF.clear()
+    for sc in data.get("special", {}).get("scenarios", []):
+        for c in sc.get("categories", []):
+            SCENARIO_OF[c["name"]] = sc["name"]
+
+
+def category_score_lines(result: dict, gt: dict | None) -> list[str]:
+    """카테고리별 점수를 패널에 넣을 문자열 줄로 만든다.
+
+        GT   : Pedestrian on Road (1/4), Railway crossing (2/4)
+        Pred : Pedestrian on Road (2/4), Railway crossing (3/4)
+        <근거 문장>
+
+    분모는 그 카테고리가 쓰는 rubric 의 상한이다. 지금은 네 rubric 이 모두
+    1~4 라 항상 4 지만, rubric 마다 폭이 달라질 수 있으므로 표에서 읽어
+    온다.
+
+    GT 가 없으면(라벨 없는 실행) Pred 줄만 낸다. 점수를 끈 실행에서는
+    카테고리 이름만 남아 빈 괄호가 붙지 않도록 점수 없는 항목은 이름만
+    적는다.
+    """
+    def fmt(cats, scores):
+        out = []
+        for c in cats:
+            v = (scores or {}).get(c)
+            if v is None or v < 0:
+                out.append(c)
+            else:
+                out.append(f"{c} ({v}/{max(rubric_values(rubric_name_for(c, SCENARIO_OF.get(c, ''))))})")
+        return ", ".join(out) if out else "None"
+
+    pred_cats = sorted(result.get("categories") or [])
+    pred_scores = result.get("category_scores") or {}
+    lines = []
+    if gt is not None:
+        gt_cats = sorted(gt.get("categories") or [])
+        lines.append("GT   : " + fmt(gt_cats, gt.get("scores")))
+        lines.append("Pred : " + fmt(pred_cats, pred_scores))
+    elif pred_cats:
+        lines.append("Pred : " + fmt(pred_cats, pred_scores))
+    if not lines:
+        return []
+    why = (result.get("score_reason") or "").strip()
+    if why:
+        lines.append(why)
     return lines
 
 
@@ -170,42 +219,27 @@ def build_text_panel(result: dict, width: int, scale: float = 1.0) -> np.ndarray
     width_chars = max(40, int((width - 2 * pad) / (fs_body * 0.55)))
 
     cats = result.get("categories") or []
-    cat_line = ", ".join(cats) if cats else "— none —"
-
-    # 정답 라벨(gt)이 함께 넘어오면 GT 와 Pred 를 나란히 보여준다.
-    # "GT:" / "|" / "Pred:" 는 검정, 값만 색을 준다 - 검수자가 라벨과 예측을
-    # 눈으로 짝지어 볼 때 구분자가 값과 같은 색이면 읽기 어렵다.
+    # 정답 라벨(gt)이 함께 넘어오면 3번 칸이 GT 와 Pred 를 한 줄씩 짝지어
+    # 보여준다(category_score_lines).
     gt = result.get("_gt")
-    cat_segments = None
-    if gt is not None:
-        gt_cats = gt.get("categories") or []
-        cat_segments = [
-            ("GT: ", TEXT_DARK),
-            (", ".join(sorted(gt_cats)) if gt_cats else "None",
-             ACCENT if gt_cats else TEXT_MUTED),
-            ("  |  ", TEXT_DARK),
-            ("Pred: ", TEXT_DARK),
-            (cat_line, ACCENT if cats else TEXT_MUTED),
-        ]
 
     blocks = []
-    for key, title in PANEL_STEPS:
-        body = result.get(key, "")
-        label_key, tier_key = STEP_TIER_KEY.get(key, (None, None))
-        gt_line = None
-        if label_key:
-            label = result.get(label_key, "")
-            tier = result.get(tier_key)
-            if label and label != "Unknown":
-                head = f"{label} ({tier})" if tier is not None else label
-                body = f"{head} - {body}" if body else head
-            # 등급 단계(4/5)에서는 GT 를 한 줄 위에 따로 얹는다.
-            if gt is not None:
-                g = gt.get(GT_TIER_KEY[key])
-                gt_line = (f"GT: {tier_label(g)} ({g})" if g is not None
-                           else "GT: —")
-                body = f"Pred: {body}" if body else "Pred: —"
-        blocks.append((title, _wrap(body, width_chars), gt_line))
+    for keys, title in PANEL_STEPS:
+        # 여러 키를 묶은 칸은 한 문단으로 이어 붙인다(1단계 + 2단계).
+        body = " ".join(str(result.get(k) or "").strip() for k in keys).strip()
+        blocks.append((title, _wrap(body, width_chars), None))
+
+    # 카테고리별 점수. GT 와 Pred 를 한 줄씩 짝지어 놓는다 - 검수자가 실제로
+    # 대조하는 것이 이 값이고, 분모를 함께 적어야 2 가 중간인지 상한인지
+    # 읽힌다(rubric 마다 폭이 달라질 수 있다).
+    score_lines = category_score_lines(result, gt)
+    if score_lines:
+        wrapped = []
+        for ln in score_lines:
+            wrapped.extend(textwrap.wrap(ln, width=width_chars,
+                                         subsequent_indent="    ") or [ln])
+        blocks.append((f"{len(blocks) + 1}. Categories & Impact score",
+                       wrapped, None))
 
     # 난이도는 등급 단계 다음에 자기 블록으로 붙는다. PANEL_STEPS 에 넣지
     # 않는 이유는 형식이 다르기 때문이다 - 저쪽은 "제목 + 문단" 한 덩어리고,
@@ -221,7 +255,7 @@ def build_text_panel(result: dict, width: int, scale: float = 1.0) -> np.ndarray
             wrapped.extend(parts)
         # 번호는 앞서 실제로 담긴 블록 수를 이어받는다 - 등급을 끈
         # 실행에서는 4/5단계가 없으므로 "6." 이라고 쓰면 없는 단계를 센다.
-        blocks.append((f"{len(blocks) + 1}. Driving Difficulty", wrapped, None))
+        blocks.append((f"{len(blocks) + 1}. Weather score", wrapped, None))
 
     # --- 높이 계산 ---
     h = pad
@@ -248,17 +282,14 @@ def build_text_panel(result: dict, width: int, scale: float = 1.0) -> np.ndarray
     d.text((pad, y), head, font=f_head, fill=TEXT_DARK)
     y += int(fs_head * 1.6) + int(6 * scale)
 
-    label = f"Categories ({len(cats)}): "
-    if cat_segments is None:
-        d.text((pad, y), label, font=f_title, fill=TEXT_DARK)
-        d.text((pad + d.textlength(label, font=f_title), y), cat_line,
-               font=f_title, fill=ACCENT if cats else TEXT_MUTED)
-    else:
-        # "Categories (n) - GT: ... | Pred: ..." 형태
-        x = pad + d.textlength(f"Categories ({len(cats)}) - ", font=f_title)
-        d.text((pad, y), f"Categories ({len(cats)}) - ", font=f_title,
-               fill=TEXT_DARK)
-        draw_segments(x, y, cat_segments, f_title)
+    # 카테고리 이름은 3번 칸이 점수와 함께 찍으므로 여기서는 판정과 개수만
+    # 적는다 - 같은 목록을 두 번 쓰면 패널만 길어지고 읽는 것은 아래 칸이다.
+    verdict = result.get("verdict") or ("Special" if cats else "Normal")
+    d.text((pad, y), f"{verdict}  ", font=f_title,
+           fill=ACCENT if cats else TEXT_MUTED)
+    d.text((pad + d.textlength(f"{verdict}  ", font=f_title), y),
+           f"({len(cats)} categor{'y' if len(cats) == 1 else 'ies'})",
+           font=f_title, fill=TEXT_MUTED)
     y += int(fs_body * 1.6) + gap
 
     for title, lines, gt_line in blocks:
@@ -476,11 +507,10 @@ def save_clip_json(result: dict, out_path, extra: dict | None = None) -> Path:
         "uuid": result.get("_uuid", ""),
         "verdict": result.get("verdict"),
         "categories": result.get("categories", []),
-        "reasoning": {key: result.get(key, "") for key, _ in PANEL_STEPS},
-        "safety_tier": result.get("safety_tier"),
-        "safety_label": result.get("safety_label", "Unknown"),
-        "rarity_tier": result.get("rarity_tier"),
-        "rarity_label": result.get("rarity_label", "Unknown"),
+        "reasoning": {k: result.get(k, "")
+                      for keys, _ in PANEL_STEPS for k in keys},
+        "category_scores": result.get("category_scores") or {},
+        "score_reason": result.get("score_reason", ""),
         "tier_score": result.get("tier_score"),
         "parse_ok": bool(result.get("parse_ok", False)),
     }

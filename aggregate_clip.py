@@ -16,7 +16,7 @@ aggregate.py 와 판정 단위가 달라 파일을 나눴다:
      못 돌리므로, 모델 출력 자체의 분포를 보는 것이 여기서 유일한 점검
      수단이다. edge-case 만 따로 한 번 더 낸다 - normal 클립이 거의 전부
      1 이라 전체 평균에 섞으면 special 안에서의 분포가 묻힌다.
-  5) 주행 난이도 분포 - --difficulty 를 켠 실행에서만. 전체 난이도와 요인
+  5) 날씨 분포 - --weather 를 켠 실행에서만. 전체 점수와 요인
      4개(조도/강수/노면/대기가림)를 0~4 눈금으로 각각 집계하고, 마지막에
      다섯 축을 나란히 놓은 요약표를 낸다. 등급과 달리 edge-case 여부와
      무관한 축이라 SPECIAL 만 따로 내지는 않는다.
@@ -38,7 +38,7 @@ from pathlib import Path
 import pandas as pd
 
 from config import SCENE_JSON as CONFIG_SCENE_JSON
-from constrained_tier import TIER_VALUES, tier_label
+from constrained_tier import TIER_VALUES, TIER_LABELS, tier_label
 from prompts import DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX
 
 ROOT = Path(__file__).resolve().parent
@@ -127,7 +127,7 @@ def dist_block(log, title, values, total, scale, labels=None,
                note=""):
     """점수 한 축의 분포 - 값별 개수/비율과 평균/분산/중앙값.
 
-    safety/rarity(0~4)와 주행 난이도 4축(0~4)이 같이 쓴다. 눈금이 같아졌지만
+    카테고리 점수(1~4)와 날씨 4축(0~4)이 같이 쓴다. 눈금이 달라도
     여전히 scale 로 받고, 라벨이 있는 축(None/Low/Moderate/...)만 labels 를 준다.
 
     라벨이 없는 데이터에서는 정답과 대조할 수 없으므로(evaluate_labels.py 의
@@ -334,22 +334,39 @@ def main():
         for (a, b), n in pairs.most_common(args.top_pairs):
             log(f"   {n:4d}  {a} + {b}")
 
-    # --- 4) 등급 분포 ---
-    # 라벨 없는 실행에서는 evaluate_labels.py 를 못 돌리므로, 등급을 여기서
-    # 본다. edge-case 만 따로 다시 내는 이유는 normal 클립이 거의 전부 1 이라
-    # 전체 평균이 1 쪽으로 눌려 special 안에서의 분포가 안 보이기 때문이다.
+    # --- 4) 카테고리 점수 분포 ---
+    # 라벨 없는 실행에서는 evaluate_labels.py 를 못 돌리므로 여기서 본다.
+    #
+    # 점수는 클립이 아니라 (클립 x 카테고리) 항목마다 붙으므로 분모가
+    # 클립 수가 아니다. 카테고리마다 나눠 내는 이유는 rubric 이 서로 다르고
+    # (IMPACT/GATE/CONSTRUCTION/UNPAVED) 한 카테고리가 한 칸에 몰리는 것이
+    # 전체 분포에서는 안 보이기 때문이다.
     edge_df = df[labeled]
     tier_labels = {v: tier_label(v) for v in TIER_VALUES}
-    for col, title in (("safety_tier", "SAFETY CRITICALITY"),
-                       ("rarity_tier", "RARITY")):
-        dist_block(log, f"{title} - ALL clips", tier_series(df, col), total,
-                   TIER_VALUES, tier_labels)
-        if n_edge:
-            dist_block(log, f"{title} - SPECIAL clips only",
-                       tier_series(edge_df, col), n_edge,
-                       TIER_VALUES, tier_labels)
+    by_cat = {}
+    if "category_scores" in df.columns:
+        for raw in df["category_scores"]:
+            if not isinstance(raw, str) or not raw.strip():
+                continue
+            for part in raw.split("|"):
+                if "=" not in part:
+                    continue
+                k, _, v = part.rpartition("=")
+                try:
+                    n = int(str(v).strip())
+                except (TypeError, ValueError):
+                    continue
+                if n in TIER_LABELS:
+                    by_cat.setdefault(k.strip(), []).append(n)
+    if by_cat:
+        allv = [n for v in by_cat.values() for n in v]
+        dist_block(log, "CATEGORY SCORES - all scored items", allv,
+                   len(allv), TIER_VALUES, tier_labels)
+        for cat in sorted(by_cat, key=lambda c: -len(by_cat[c])):
+            dist_block(log, f"CATEGORY SCORES - {cat}", by_cat[cat],
+                       len(by_cat[cat]), TIER_VALUES, tier_labels)
 
-    # --- 5) 주행 난이도 분포 ---
+    # --- 5) 날씨 분포 ---
     # 등급과 달리 edge-case 여부와 무관한 축이다 - 평범한 클립도 비가 오면
     # 높다. 그래서 SPECIAL 만 따로 내지 않고 전체만 낸다. 대신 축이
     # 다섯이라, 어느 요인이 전체 난이도를 끌어올리는지 나란히 놓고 본다.
@@ -364,7 +381,7 @@ def main():
         # 한눈에 보려는 것이다.
         log("")
         log("=" * 64)
-        log("DIFFICULTY SUMMARY  (all 5 axes side by side)")
+        log("WEATHER SUMMARY  (all 4 axes side by side)")
         log("=" * 64)
         log(f"  {'AXIS':<26}{'N':>6}{'MEAN':>8}{'VAR':>8}{'MEDIAN':>8}"
             f"{'MIN':>5}{'MAX':>5}")

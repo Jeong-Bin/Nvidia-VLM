@@ -51,7 +51,8 @@ from egomotion import (
 from obstacle import obstacle_summary, describe_obstacles, path_intrusion
 from visualize import render_scene_card
 from visualize_clip import render_clip_result, VIZ_WIDTH
-from constrained_tier import make_tier_processor, tier_label, score_dirname
+from constrained_tier import (make_tier_processor, tier_label, score_dirname,
+                              TIER_FIELDS)
 from prompts import DIFFICULTY_AXES
 
 
@@ -147,8 +148,12 @@ NUR_MAX_NEW_TOKENS_DIFFICULTY = 1100
 CLIP_CSV_COLUMNS = [
     "uuid", "n_frames", "verdict", "n_categories",
     "categories", "parse_ok", "observation", "ego_behavior",
-    "unusual_elements", "safety_tier", "safety_label",
-    "safety_reason", "rarity_tier", "rarity_label", "rarity_reason",
+    "unusual_elements",
+    # 카테고리별 점수. "Pedestrian on Road=2|Unpaved road=1" 형태로 한 칸에
+    # 담는다 - 카테고리마다 열을 만들면 scene_category.json 을 고칠 때마다
+    # 열 구성이 달라져 실행 간 병합이 깨진다.
+    "category_scores", "score_reason",
+    # 그중 최댓값. 시각화 폴더를 나누는 데만 쓴다.
     "tier_score",
     "ego_speed_kmh", "ego_motion", "ego_behavior_measured",
     # 결정 마진 - 이 클립의 판정이 얼마나 아슬아슬했는지.
@@ -169,7 +174,7 @@ def _lp_list(proc):
 
 
 # 판정을 담는 JSON 키 - 이 값들이 바뀌면 채점 결과가 바뀐다.
-DECISION_KEYS = ("scenario_types", "safety_tier", "rarity_tier", "verdict",
+DECISION_KEYS = ("scenario_types", "category_scores", "verdict",
                  "scenario_type", "influenced_ego")
 
 
@@ -486,7 +491,7 @@ def run_clip_inference(uuids, labels, category_menu,
                        viz_normal=None, viz_special=None,
                        gt_labels=None, timeline=False, ego_track=False,
                        ego_ablation=None, header_style="v1",
-                       want_margin=False, safety_tiers=True, rarity_tiers=True,
+                       want_margin=False, score_categories=True,
                        difficulty=False, difficulty_only=False,
                        tiers_elements=False, explain_traj=False, traj=None,
                        viz_per_category=None):
@@ -514,27 +519,26 @@ def run_clip_inference(uuids, labels, category_menu,
     <viz_dir>/{normal,special}/score_<N>/<uuid>/ 로 나눠 담는다. 둘 다 None
     이면 예전 방식(viz_only_edge + not_save_low)으로 동작한다.
 
-    not_save_low=True(기본)면 거기서 한 번 더 거른다: Safety Criticality 와
-    Rarity 가 둘 다 "Low" 인 클립은 저장하지 않는다 - 카테고리는 나열됐지만
-    자차에 영향도 없고(Q3 폐지 대신 4단계가 이 역할) 희귀하지도 않다고 모델
-    스스로 판단한 경우다. 탐지(scenario_types, CSV)는 건드리지 않고 시각화
-    대상만 줄인다 - 이 필터가 틀려도 재추론 없이 CSV 로 다시 뽑을 수 있다.
+    not_save_low=True(기본)면 거기서 한 번 더 거른다: 카테고리 점수가 전부
+    1(다른 차선, 자차 무반응)인 클립은 저장하지 않는다 - 카테고리는 나열됐지만 자차에 영향이
+    없다고 모델 스스로 판단한 경우다. 탐지(scenario_types, CSV)는 건드리지
+    않고 시각화 대상만 줄인다 - 이 필터가 틀려도 재추론 없이 CSV 로 다시
+    뽑을 수 있다.
 
-    safety_tiers / rarity_tiers 는 4/5단계를 하나씩 끈다. 끈 등급은 프롬프트와
-    출력 스키마에서 빠지고 CSV 에서 빈 칸이 되며, tier_score(합계)도 비게
-    된다. 값이 없으면 not_save_low 의 "둘 다 Low" 조건이 성립하지 않아 그
-    필터는 저절로 무력화된다.
+    score_categories 는 4단계(카테고리별 점수)를 끈다. 끄면 프롬프트와 출력
+    스키마에서 빠지고 CSV 에서 빈 칸이 되며 tier_score 도 비게 된다. 값이
+    없으면 not_save_low 조건이 성립하지 않아 그 필터는 저절로 무력화된다.
     """
     model, processor = load_model(model_id)
     views = views_for(single_view)
 
-    # 등급 필드를 1/2/3 정수로만 나오게 디코딩 단계에서 막는다.
-    # 프롬프트 지시만으로는 "Low to moderate" 류가 새어나왔다(실측 20260811).
-    # 끈 등급은 애초에 생성되지 않으므로 제약 대상에서도 뺀다 - 둘 다 끄면
-    # 제약할 필드가 없어 프로세서 자체를 만들지 않는다.
-    tier_field_names = tuple(
-        n for n, on in (("safety_tier", safety_tiers),
-                        ("rarity_tier", rarity_tiers)) if on)
+    # 제약 디코딩은 이 모드에서 쓰지 않는다.
+    #
+    # 제약기는 `"safety_tier":` 같은 고정 키를 마커로 삼아 그 뒤 숫자 자리를
+    # 막는 방식이다. 그런데 점수가 카테고리별로 바뀌면서 마커로 삼을 고정
+    # 키가 없어졌다 - 모델이 내는 키는 카테고리 이름이고 클립마다 다르다.
+    # 값이 "2 (moderate)" 처럼 지저분하게 나오면 _coerce_tier 가 흡수한다.
+    tier_field_names = TIER_FIELDS
     tier_proc = (make_tier_processor(processor.tokenizer,
                                      fields=tier_field_names)
                  if constrain_tiers and tier_field_names else None)
@@ -543,11 +547,10 @@ def run_clip_inference(uuids, labels, category_menu,
     print(f"[clip] {len(uuids)} clips | {len(views)} view(s) | {fps}fps "
           f"max {max_frames} frames @ {max_long_side}px | {n_special} categories")
     print(f"[clip] input mode: {'VIDEO (temporal merge + timestamps)' if video_input else 'image list'}")
-    print(f"[clip] tiers: safety={'on' if safety_tiers else 'off'}  "
-          f"rarity={'on' if rarity_tiers else 'off'}")
+    print(f"[clip] category scores: {'on' if score_categories else 'off'}")
     print("[clip] tier constraint: "
-          + (f"ON (1/2/3 enforced at decode: {', '.join(tier_field_names)})"
-             if tier_proc else "OFF"))
+          + (f"ON (enforced at decode: {', '.join(tier_field_names)})"
+             if tier_proc else "OFF (per-category keys have no fixed marker)"))
 
     cat_counts = Counter()
     # --viz-per-category N: 카테고리마다 최초 N개 클립만 시각화한다.
@@ -605,15 +608,14 @@ def run_clip_inference(uuids, labels, category_menu,
                     obstacle_summary(uuid, last_idx, n_views=len(views)))
 
             prompt = build_nureasoning_prompt(
-                category_menu, facts, behavior_facts=behavior,
+                category_menu, facts, labels, behavior_facts=behavior,
                 intro=clip_intro(len(images), len(views), fps=fps,
                                  as_video=video_input),
                 timeline=timeline,
                 # D 는 behavior_facts 가 비어도 hint 를 켠다.
                 force_behavior_hint=(ego_ablation == "d"),
                 header_style=header_style,
-                safety_tiers=safety_tiers,
-                rarity_tiers=rarity_tiers,
+                score_categories=score_categories,
                 difficulty=difficulty,
                 difficulty_only=difficulty_only,
                 tiers_elements=tiers_elements,
@@ -639,10 +641,10 @@ def run_clip_inference(uuids, labels, category_menu,
                 len(cats), "|".join(cats), int(result["parse_ok"]),
                 result.get("observation", ""), result.get("ego_behavior", ""),
                 result.get("unusual_elements", ""),
-                result.get("safety_tier", ""), result.get("safety_label", ""),
-                result.get("safety_assessment", ""),
-                result.get("rarity_tier", ""), result.get("rarity_label", ""),
-                result.get("rarity_assessment", ""),
+                # {"Pedestrian on Road": 2} -> "Pedestrian on Road=2"
+                "|".join(f"{k}={v}" for k, v in
+                         (result.get("category_scores") or {}).items()),
+                result.get("score_reason", ""),
                 result.get("tier_score", ""),
                 # 클립 요약이므로 한 시점의 속도가 아니라 구간 범위를 적는다
                 f"{ego['speed_min']:.0f}-{ego['speed_max']:.0f}" if ego else "",
@@ -672,8 +674,12 @@ def run_clip_inference(uuids, labels, category_menu,
                 # 예전 방식으로 호출된 경우 - 기존 동작을 그대로 유지한다.
                 want_viz = is_special or not viz_only_edge
                 if want_viz and not_save_low and is_special:
-                    want_viz = not (result.get("safety_tier") == 1
-                                    and result.get("rarity_tier") == 1)
+                    # 점수가 전부 1(다른 차선, 자차 무반응)이면 모델이
+                    # "자차에 영향 없음"으로 본 것이다. 점수를 끈 실행에서는
+                    # tier_score 가 None 이라 이 조건이 성립하지 않아 필터가
+                    # 저절로 무력화된다.
+                    top = result.get("tier_score")
+                    want_viz = top is None or top > 1
             else:
                 want_viz = (viz_special if is_special else viz_normal) or False
 
@@ -765,7 +771,7 @@ def run_inference(units, labels, category_menu,
     # 어느 스타일인지 신경 쓰지 않는다.
     def _make_prompt(facts="", behavior=""):
         if nur:
-            return build_nureasoning_prompt(category_menu, facts,
+            return build_nureasoning_prompt(category_menu, facts, labels,
                                             single_view=single_view,
                                             behavior_facts=behavior)
         return build_vlm_prompt(category_menu, facts,
@@ -879,8 +885,9 @@ def run_inference(units, labels, category_menu,
                     payload["reasoning"] = {
                         k: result.get(k, "") for k in
                         ("observation", "ego_behavior", "unusual_elements",
-                         "safety_assessment", "rarity_assessment")
+                         "score_reason")
                     }
+                    payload["category_scores"] = result.get("category_scores") or {}
                     if behavior:
                         payload["ego_behavior_measured"] = behavior
                 if ego:

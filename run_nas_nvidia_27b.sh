@@ -65,11 +65,9 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --viz-special            Special(카테고리 있음) 클립을 시각화          [VIZ_SPECIAL=1]
   --use-egomotion          egomotion 사실을 주입 (기본 off)              [USE_EGOMOTION=1]
   --traj center|width      자차 미래 궤적을 프레임에 그린다 (기본 off)   [TRAJ]
-  --no-safety-tier         Safety Criticality(4단계)만 프롬프트에서 끈다 [SAFETY_TIER=0]
-  --no-rarity-tier         Rarity(5단계)만 프롬프트에서 끈다             [RARITY_TIER=0]
-  --no-score-tiers         위 둘을 한꺼번에 끄는 별칭                    [SCORE_TIERS=0]
-  --difficulty             주행 난이도 4축을 0~4 로 함께 매긴다         [DIFFICULTY=1]
-  --difficulty-only        난이도 4축만 추론한다 (탐지/등급 전부 off)  [DIFFICULTY_ONLY=1]
+  --no-category-scores    카테고리별 점수(4단계)를 프롬프트에서 끈다  [CAT_SCORES=0]
+  --weather                날씨 4축을 0~4 로 함께 매긴다               [WEATHER=1]
+  --weather-only           날씨 4축만 추론한다 (탐지/점수 전부 off)    [WEATHER_ONLY=1]
   --viz-per-category N     카테고리마다 최초 N개 클립만 시각화           [VIZ_PER_CAT]
   --clip-fps F              초당 몇 장 뽑을지 (기본 edge_case_mining.py) [CLIP_FPS]
   --clip-max-frames N       클립당 최대 프레임                          [CLIP_MAX_FRAMES]
@@ -109,11 +107,11 @@ while [ $# -gt 0 ]; do
     --viz-normal)            VIZ_NORMAL=1 ;;
     --viz-special)           VIZ_SPECIAL=1 ;;
     --use-egomotion)         USE_EGOMOTION=1 ;;
-    --no-safety-tier)        SAFETY_TIER=0 ;;
-    --no-rarity-tier)        RARITY_TIER=0 ;;
-    --no-score-tiers)        SAFETY_TIER=0; RARITY_TIER=0 ;;
-    --difficulty)            DIFFICULTY=1 ;;
-    --difficulty-only)       DIFFICULTY_ONLY=1 ;;
+    --no-category-scores|--no-safety-tier|--no-rarity-tier|--no-score-tiers)
+                         CAT_SCORES=0 ;;
+    --weather|--difficulty)  WEATHER=1 ;;
+    --weather-only|--difficulty-only)
+                             WEATHER_ONLY=1 ;;
     --no-tiers-elements)     TIERS_ELEMENTS=1 ;;
     --explain-traj)          EXPLAIN_TRAJ=1 ;;
     --viz-per-category=*)  VIZ_PER_CAT="${1#*=}" ;;
@@ -188,11 +186,16 @@ OPTS="--clip-mode --single-view --num-shards 1 --shard-id 0 --model $MODEL"
 [ -n "$SCENE_JSON" ]            && OPTS="$OPTS --scene-json $SCENE_JSON"
 [ "${USE_EGOMOTION:-0}" = "1" ] && OPTS="$OPTS --use-egomotion"
 # SCORE_TIERS=0 은 옛 이름 - 둘 다 끄는 뜻으로 계속 받아준다.
-[ "${SCORE_TIERS:-1}" = "0" ]   && { SAFETY_TIER=0; RARITY_TIER=0; }
-[ "${SAFETY_TIER:-1}" = "0" ]   && OPTS="$OPTS --no-safety-tier"
-[ "${RARITY_TIER:-1}" = "0" ]   && OPTS="$OPTS --no-rarity-tier"
-[ "${DIFFICULTY:-0}" = "1" ]    && OPTS="$OPTS --difficulty"
-[ "${DIFFICULTY_ONLY:-0}" = "1" ] && OPTS="$OPTS --difficulty-only"
+# 옛 환경변수 이름. 점수가 두 축에서 카테고리별 하나로 바뀌었어도
+# 스크립트를 부르는 쪽이 아직 이 이름을 쓸 수 있어 받아 준다.
+[ "${SCORE_TIERS:-1}" = "0" ] || [ "${SAFETY_TIER:-1}" = "0" ] \
+  || [ "${RARITY_TIER:-1}" = "0" ] && CAT_SCORES=0
+[ "${CAT_SCORES:-1}" = "0" ]    && OPTS="$OPTS --no-category-scores"
+# 옛 환경변수 이름(DIFFICULTY/DIFFICULTY_ONLY)도 계속 받는다.
+[ "${DIFFICULTY:-0}" = "1" ]      && WEATHER=1
+[ "${DIFFICULTY_ONLY:-0}" = "1" ] && WEATHER_ONLY=1
+[ "${WEATHER:-0}" = "1" ]         && OPTS="$OPTS --weather"
+[ "${WEATHER_ONLY:-0}" = "1" ]    && OPTS="$OPTS --weather-only"
 [ "${TIERS_ELEMENTS:-0}" = "1" ] && OPTS="$OPTS --no-tiers-elements"
 [ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
 [ -n "${VIZ_PER_CAT:-}" ]        && OPTS="$OPTS --viz-per-category $VIZ_PER_CAT"

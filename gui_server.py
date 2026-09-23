@@ -10,7 +10,7 @@
 제공 기능(요청 3가지):
   1) 추론 실행 + 성능 리포트 + 카테고리별 TP/FP/FN 목록 + 영상 다운로드
   2) 씬(카테고리 정의)과 라벨 추가/수정
-  3) 씬 검색 - uuid / 카테고리 / safety / rarity 필터
+  3) 씬 검색 - uuid / 카테고리 / 점수 필터
 
 채점은 evaluate_labels.py 의 함수를 그대로 불러 쓴다. 지표 계산을 여기서
 다시 구현하면 CLI 와 GUI 가 서로 다른 숫자를 내놓게 되고, 그건 이 프로젝트가
@@ -251,14 +251,20 @@ def aggregate_run(run_dir: Path) -> dict:
         if cats:
             per_clip[len(cats)] = per_clip.get(len(cats), 0) + 1
 
-    tiers = {}
-    for key in ("safety_tier", "rarity_tier"):
-        allv = [v for v in (as_int(r.get(key)) for r in rows) if v is not None]
-        edgev = [v for v, cats in ((as_int(r.get(key)), c)
-                                   for r, c in zip(rows, cat_of)) if v is not None and cats]
-        tiers[key.replace("_tier", "")] = {
-            "all": _dist(allv, min(TIER_VALUES), max(TIER_VALUES)),
-            "edge": _dist(edgev, min(TIER_VALUES), max(TIER_VALUES))}
+    # 카테고리 점수 분포. 클립이 아니라 (클립 x 카테고리) 항목이 단위라
+    # 분모가 클립 수가 아니다.
+    per_cat_scores = {}
+    for r in rows:
+        for cat, v in _parse_scores(r.get("category_scores")).items():
+            per_cat_scores.setdefault(cat, []).append(v)
+    allv = [v for vs in per_cat_scores.values() for v in vs]
+    tiers = {"score": {
+        "all": _dist(allv, min(TIER_VALUES), max(TIER_VALUES)),
+        "by_category": [
+            dict(_dist(vs, min(TIER_VALUES), max(TIER_VALUES)),
+                 category=cat, n=len(vs))
+            for cat, vs in sorted(per_cat_scores.items(),
+                                  key=lambda kv: -len(kv[1]))]}}
 
     diff = []
     for key, label in DIFF_AXES:
@@ -430,22 +436,33 @@ def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
     per_clip = sum(EV.f1_set(truth[u]["categories"], pred[u]["categories"])
                    for u in common) / n
 
-    # --- 3) safety / rarity ---
+    # --- 3) 카테고리 점수 ---
+    # GT 와 예측이 둘 다 찍은 카테고리만 채점한다 - 한쪽만 찍은 것은 2) 에서
+    # FP/FN 으로 이미 세었으므로 여기서 또 벌점을 주면 같은 오류를 두 번
+    # 세게 된다(evaluate_labels.py 3) 절과 같은 규칙).
+    pairs, by_cat = [], {}
+    for u in common:
+        g, pr_ = truth[u]["scores"], pred[u]["scores"]
+        for c, gv in g.items():
+            if c in pr_:
+                pairs.append((gv, pr_[c]))
+                by_cat.setdefault(c, []).append((gv, pr_[c]))
     tiers = {}
-    for key in ("safety", "rarity"):
-        pairs = [(truth[u][key], pred[u][key]) for u in common
-                 if pred[u].get(key) is not None]
-        if pairs:
-            # evaluate_labels.py 의 tier_block() 과 같은 지표를 쓴다 -
-            # CLI 로그와 GUI 가 다른 숫자를 내는 사고(MAE/MSE 처럼)를
-            # 반복하지 않으려면 지표를 한쪽에서만 바꾸면 안 된다.
-            mse = sum((a - b) ** 2 for a, b in pairs) / len(pairs)
-            exact = sum(a == b for a, b in pairs) / len(pairs)
-            within1 = sum(abs(a - b) <= 1 for a, b in pairs) / len(pairs)
-            tiers[key] = {"n": len(pairs), "mse": mse, "exact": exact,
-                          "within1": within1}
-        else:
-            tiers[key] = {"n": 0}
+    if pairs:
+        # evaluate_labels.py 의 tier_block() 과 같은 지표를 쓴다 - CLI 로그와
+        # GUI 가 다른 숫자를 내는 사고(MAE/MSE 처럼)를 반복하지 않으려면
+        # 지표를 한쪽에서만 바꾸면 안 된다.
+        def _stat(ps):
+            return {"n": len(ps),
+                    "mse": sum((a - b) ** 2 for a, b in ps) / len(ps),
+                    "exact": sum(a == b for a, b in ps) / len(ps),
+                    "within1": sum(abs(a - b) <= 1 for a, b in ps) / len(ps)}
+        tiers["score"] = _stat(pairs)
+        tiers["score"]["by_category"] = [
+            dict(_stat(v), category=c)
+            for c, v in sorted(by_cat.items(), key=lambda kv: -len(kv[1]))]
+    else:
+        tiers["score"] = {"n": 0}
 
     return {
         "run": run_dir.name,
@@ -479,7 +496,7 @@ def clip_detail(uuid: str, run_dir: Path | None, labels_path: Path) -> dict:
     if uuid in truth:
         t = truth[uuid]
         out["truth"] = {"categories": sorted(t["categories"]),
-                        "safety": t["safety"], "rarity": t["rarity"],
+                        "scores": t["scores"],
                         "note": t["note"],
                         # 난이도는 EV.load_labels 가 버리므로 따로 읽는다.
                         "difficulty": gt_difficulty(labels_path).get(uuid)}
@@ -488,7 +505,7 @@ def clip_detail(uuid: str, run_dir: Path | None, labels_path: Path) -> dict:
         if uuid in rows:
             r = rows[uuid]
             out["pred"] = {"categories": sorted(r["categories"]),
-                           "safety": r["safety"], "rarity": r["rarity"]}
+                           "scores": r["scores"]}
         # 난이도와 근거는 CSV 에서 가져온다. result.json 은 시각화를 만들
         # 때만 생기므로, --no-viz 로 돌린 실행에서는 서술이 통째로 빈다.
         pr = load_pred_rows(run_dir).get(uuid)
@@ -499,8 +516,7 @@ def clip_detail(uuid: str, run_dir: Path | None, labels_path: Path) -> dict:
                 "observation": pr["observation"],
                 "ego_behavior": pr["ego_behavior"],
                 "unusual_elements": pr["unusual_elements"],
-                "safety_reason": pr["safety_reason"],
-                "rarity_reason": pr["rarity_reason"],
+                "score_reason": pr["score_reason"],
             }
         out.update(find_viz(run_dir, uuid))
         rj = out.get("result_json")
@@ -525,8 +541,8 @@ def clip_detail(uuid: str, run_dir: Path | None, labels_path: Path) -> dict:
 # ---------------------------------------------------------------------------
 # 라벨 편집
 # ---------------------------------------------------------------------------
-LABEL_FIELDS = ("categories", "influenced_ego", "safety_criticality",
-                "rarity", "weather", "is_night", "note")
+LABEL_FIELDS = ("categories", "influenced_ego",
+                "weather", "is_night", "note")
 
 
 def read_labels_file(name: str) -> dict:
@@ -557,9 +573,9 @@ def write_labels_file(name: str, data: dict):
 def upsert_label(file_name: str, uuid: str, patch: dict) -> dict:
     data = read_labels_file(file_name)
     clips = data.setdefault("clips", {})
-    cur = clips.get(uuid, {"categories": [], "influenced_ego": False,
-                           "safety_criticality": min(TIER_VALUES),
-                           "rarity": min(TIER_VALUES),
+    # categories 는 {카테고리: 0~4 점수} 딕셔너리다 - GT 라벨과 모델 출력이
+    # 같은 모양이어야 채점이 항목 단위로 붙는다.
+    cur = clips.get(uuid, {"categories": {}, "influenced_ego": False,
                            "weather": [], "is_night": False, "note": ""})
     for k in LABEL_FIELDS:
         if k in patch:
@@ -653,7 +669,7 @@ DIFF_KEYS = [k for k, _ in DIFF_AXES]
 def load_pred_rows(run_dir: Path) -> dict:
     """실행 CSV -> {uuid: {...}}. 난이도 4축과 근거 텍스트까지 들고 온다.
 
-    EV.load_results 는 채점에 필요한 categories/safety/rarity 만 준다.
+    EV.load_results 는 채점에 필요한 categories/scores 만 준다.
     씬 검색은 난이도로도 거르고 팝업에 근거를 보여줘야 해서 원본 행이
     통째로 필요하다.
     """
@@ -672,8 +688,8 @@ def load_pred_rows(run_dir: Path) -> dict:
                 out[u] = {
                     "uuid": u,
                     "categories": [c for c in raw.split("|") if c.strip()],
-                    "safety": _as_int(r.get("safety_tier")),
-                    "rarity": _as_int(r.get("rarity_tier")),
+                    "scores": _parse_scores(r.get("category_scores")),
+                    "score_max": None,   # 아래에서 채운다
                     "difficulty": {k: _as_int(r.get(k)) for k in DIFF_KEYS},
                     # 축마다 근거 문장이 따로 있다(<축>_reason). 점수만 보면
                     # 왜 그렇게 매겼는지 알 수 없어 검토가 안 된다.
@@ -682,11 +698,37 @@ def load_pred_rows(run_dir: Path) -> dict:
                     "observation": r.get("observation", ""),
                     "ego_behavior": r.get("ego_behavior", ""),
                     "unusual_elements": r.get("unusual_elements", ""),
-                    "safety_reason": r.get("safety_reason", ""),
-                    "rarity_reason": r.get("rarity_reason", ""),
+                    "score_reason": r.get("score_reason", ""),
                     "verdict": r.get("verdict", ""),
                 }
+                sc = out[u]["scores"]
+                out[u]["score_max"] = max(sc.values()) if sc else None
     return out
+
+
+def _parse_scores(raw) -> dict:
+    """CSV 의 category_scores 칸 -> {카테고리: 점수}.
+
+    "Pedestrian on Road=2|Unpaved road=1" 형식이다. 카테고리 이름에 '=' 가
+    들어갈 일은 없지만 rpartition 으로 갈라 마지막 '=' 만 구분자로 본다.
+    """
+    out = {}
+    if not isinstance(raw, str) or not raw.strip():
+        return out
+    for part in raw.split("|"):
+        if "=" not in part:
+            continue
+        k, _, v = part.rpartition("=")
+        n = _as_int(v)
+        if k.strip() and n is not None:
+            out[k.strip()] = n
+    return out
+
+
+def _max_or_none(scores):
+    """{카테고리: 점수} -> 최댓값. 비었으면 None(=필터에서 거르지 않음)."""
+    vals = [v for v in (scores or {}).values() if isinstance(v, int)]
+    return max(vals) if vals else None
 
 
 def _as_int(v):
@@ -739,10 +781,11 @@ def search_nas_clips(q: dict) -> dict:
     text_q = (q.get("text") or "").strip().lower()
     cats = [c for c in (q.get("categories") or "").split("|") if c]
     cat_mode = q.get("cat_mode", "any")
-    smin = int(q.get("safety_min", min(TIER_VALUES)))
-    smax = int(q.get("safety_max", max(TIER_VALUES)))
-    rmin = int(q.get("rarity_min", min(TIER_VALUES)))
-    rmax = int(q.get("rarity_max", max(TIER_VALUES)))
+    # 점수 필터는 "이 클립에서 가장 높은 카테고리 점수" 기준이다 - 검수
+    # 우선순위가 그것이고, 카테고리마다 따로 거르면 멀티라벨 클립에서
+    # 어느 쪽을 따라야 할지 정해지지 않는다.
+    smin = int(q.get("score_min", min(TIER_VALUES)))
+    smax = int(q.get("score_max", max(TIER_VALUES)))
     special = q.get("special", "")
 
     rows = []
@@ -763,19 +806,17 @@ def search_nas_clips(q: dict) -> dict:
         if special == "normal" and pc:
             continue
         # 점수가 없는 클립(파싱 실패 등)은 범위 조건을 좁혔을 때만 뺀다.
-        if r["safety"] is not None and not (smin <= r["safety"] <= smax):
-            continue
-        if r["rarity"] is not None and not (rmin <= r["rarity"] <= rmax):
+        if r["score_max"] is not None and not (smin <= r["score_max"] <= smax):
             continue
         if not _diff_ok(r["difficulty"], q):
             continue
         if text_q and text_q not in " ".join([
                 r["observation"], r["ego_behavior"], r["unusual_elements"],
-                r["safety_reason"], r["rarity_reason"]]).lower():
+                r["score_reason"]]).lower():
             continue
         rows.append(r)
 
-    rows.sort(key=lambda r: (-(r["safety"] or 0), -(r["rarity"] or 0), r["uuid"]))
+    rows.sort(key=lambda r: (-(r["score_max"] or 0), r["uuid"]))
     total = len(rows)
     limit = int(q.get("limit", 500))
     return {"total": total, "rows": rows[:limit], "run": run,
@@ -834,7 +875,7 @@ def _diff_ok_prefixed(d: dict, q: dict, prefix: str) -> bool:
 
 
 def search_clips(q: dict) -> dict:
-    """라벨 기준 검색. uuid / 카테고리 / safety / rarity 필터.
+    """라벨 기준 검색. uuid / 카테고리 / 점수 필터.
 
     run 을 주면 그 실행의 예측도 함께 붙여, 검색 결과에서 바로 맞았는지
     틀렸는지 볼 수 있게 한다.
@@ -858,19 +899,21 @@ def search_clips(q: dict) -> dict:
     note_q = (q.get("note") or "").strip().lower()
     only = q.get("only", "")                     # "" | tp | fp | fn (run 필요)
 
-    # 점수/난이도는 GT 와 예측을 따로 건다. 접두사 없는 키(safety_min 등)는
+    # 점수/난이도는 GT 와 예측을 따로 건다. 접두사 없는 키(score_min 등)는
     # GT 로 읽는다 - 이 이름으로 저장해 둔 북마크나 옛 링크가 계속 같은 뜻을
     # 갖게 하려는 것이다.
-    gt_smin = q.get("safety_min", q.get("gt_safety_min"))
-    gt_smax = q.get("safety_max", q.get("gt_safety_max"))
-    gt_rmin = q.get("rarity_min", q.get("gt_rarity_min"))
-    gt_rmax = q.get("rarity_max", q.get("gt_rarity_max"))
+    #
+    # 점수는 카테고리마다 붙으므로 클립 하나에 여러 값이 있다. 필터는 그중
+    # 최댓값으로 건다 - 검수 우선순위가 "이 클립에서 가장 심한 요소"이고,
+    # 카테고리마다 따로 걸면 멀티라벨 클립에서 어느 쪽을 따를지 정해지지
+    # 않는다.
+    gt_smin = q.get("score_min", q.get("gt_score_min"))
+    gt_smax = q.get("score_max", q.get("gt_score_max"))
     gt_diff = gt_difficulty(ROOT / labels_name)
 
     # 예측 기준 조건이 하나라도 걸렸나. 실행을 안 골랐으면 대조할 예측이
     # 없으므로 조용히 무시한다 - 조건을 걸었는데 전부 탈락하는 것보다 낫다.
-    pred_keys = ["pred_safety_min", "pred_safety_max",
-                 "pred_rarity_min", "pred_rarity_max"]
+    pred_keys = ["pred_score_min", "pred_score_max"]
     pred_keys += [f"pred_{k}_{b}" for k in DIFF_KEYS for b in ("min", "max")]
     want_pred = any(q.get(k) is not None for k in pred_keys)
 
@@ -887,9 +930,7 @@ def search_clips(q: dict) -> dict:
                 continue
             if cat_mode == "none" and hit:
                 continue
-        if not _range_ok(t["safety"], gt_smin, gt_smax):
-            continue
-        if not _range_ok(t["rarity"], gt_rmin, gt_rmax):
+        if not _range_ok(_max_or_none(t["scores"]), gt_smin, gt_smax):
             continue
         if not _diff_ok_prefixed(gt_diff.get(u), q, "gt_"):
             continue
@@ -904,23 +945,21 @@ def search_clips(q: dict) -> dict:
             pr = pred_rows.get(u) or {}
             if not _diff_ok_prefixed(pr.get("difficulty"), q, "pred_"):
                 continue
-            if not _range_ok(pr.get("safety"),
-                             q.get("pred_safety_min"), q.get("pred_safety_max")):
-                continue
-            if not _range_ok(pr.get("rarity"),
-                             q.get("pred_rarity_min"), q.get("pred_rarity_max")):
+            if not _range_ok(pr.get("score_max"),
+                             q.get("pred_score_min"), q.get("pred_score_max")):
                 continue
 
-        row = {"uuid": u, "categories": sorted(tc), "safety": t["safety"],
-               "rarity": t["rarity"], "note": t.get("note", ""),
+        row = {"uuid": u, "categories": sorted(tc), "scores": t["scores"],
+               "score_max": _max_or_none(t["scores"]),
+               "note": t.get("note", ""),
                "gt_difficulty": gt_diff.get(u)}
         if u in pred_rows:
             row["difficulty"] = pred_rows[u]["difficulty"]
         if u in pred:
             pc = pred[u]["categories"]
             row["pred_categories"] = sorted(pc)
-            row["pred_safety"] = pred[u]["safety"]
-            row["pred_rarity"] = pred[u]["rarity"]
+            row["pred_scores"] = pred[u]["scores"]
+            row["pred_score_max"] = _max_or_none(pred[u]["scores"])
             row["correct"] = (pc == tc)
             if only == "tp" and not (pc and tc):
                 continue
@@ -932,7 +971,7 @@ def search_clips(q: dict) -> dict:
             continue
         rows.append(row)
 
-    rows.sort(key=lambda r: (-r["safety"], -r["rarity"], r["uuid"]))
+    rows.sort(key=lambda r: (-(r["score_max"] or 0), r["uuid"]))
     total = len(rows)
     limit = int(q.get("limit", 500))
     return {"total": total, "rows": rows[:limit], "labels": labels_name,
@@ -1118,29 +1157,26 @@ def build_command(opts: dict, jid: str = "adhoc") -> list[str]:
         cmd += ["--viz-normal", "--viz-special"]
     elif nas:
         cmd += ["--no-viz"]
-    # --difficulty-only 는 난이도만 남기고 탐지/등급을 전부 끈다. 그 함의는
-    # 스크립트(edge_case_mining.py)가 처리하므로 여기서 --difficulty 나
+    # --weather-only 는 날씨 4축만 남기고 탐지/점수를 전부 끈다. 그 함의는
+    # 스크립트(edge_case_mining.py)가 처리하므로 여기서 --weather 나
     # --no-*-tier 를 같이 붙이지 않는다 - run.log 에 남는 명령이 짧을수록
     # 나중에 무엇을 시험한 실행인지 읽기 쉽다.
     if opts.get("difficulty_only"):
-        cmd += ["--difficulty-only"]
+        cmd += ["--weather-only"]
     elif opts.get("tiers_elements"):
-        # --no-tiers-elements 도 등급 off 를 함의하므로 --no-*-tier 를 같이
-        # 붙이지 않는다. 난이도는 별개 축이라 그대로 따라간다.
+        # --no-tiers-elements 도 점수 off 를 함의하므로 --no-category-scores
+        # 를 같이 붙이지 않는다. 난이도는 별개 축이라 그대로 따라간다.
         cmd += ["--no-tiers-elements"]
         if opts.get("difficulty"):
-            cmd += ["--difficulty"]
+            cmd += ["--weather"]
     else:
-        # 등급(4·5단계)을 프롬프트에서 빼는 스위치. 두 개를 다 끄면 스크립트에
-        # --no-score-tiers 별칭이 있지만, 굳이 쓰지 않는다. run.log 에 남는 명령이
-        # 어느 축을 껐는지 그대로 읽히는 편이 나중에 실행끼리 비교할 때 낫다.
-        if opts.get("no_safety_tier"):
-            cmd += ["--no-safety-tier"]
-        if opts.get("no_rarity_tier"):
-            cmd += ["--no-rarity-tier"]
+        # 4단계(카테고리별 점수)를 프롬프트에서 빼는 스위치. 끄면
+        # VERDICT/CATEGORIES 만 남는다.
+        if opts.get("no_category_scores"):
+            cmd += ["--no-category-scores"]
         # 난이도 4축은 등급과 별개 축이라 기본 off - 켤 때만 넘긴다.
         if opts.get("difficulty"):
-            cmd += ["--difficulty"]
+            cmd += ["--weather"]
     # 프레임 소스. 스크립트마다 기본값이 다르므로(labeled=local, nas=nas)
     # 기본과 같을 때만 생략한다 - run.log 에 남는 명령이 짧을수록 낫다.
     data = opts.get("data")
