@@ -43,14 +43,33 @@ def merge_shards(run_dir: Path, keep_shards: bool = False, quiet: bool = False):
             print(f"[merge] no {SHARD_GLOB} in {run_dir}")
         return None, 0
 
+    # 병합본이 이미 있으면 그것도 함께 합친다. --resume 으로 이미 병합이
+    # 끝난 실행을 이어받으면, 옛 결과는 병합본에 있고 새 결과는 샤드 파일에
+    # 있다. 샤드만 합쳐 병합본에 쓰면 옛 결과가 통째로 덮여 사라진다.
     frames = [pd.read_csv(f) for f in shards]
+    if merged.exists():
+        frames.insert(0, pd.read_csv(merged))
+        if not quiet:
+            print(f"[merge] existing {merged.name} ({len(frames[0])} rows) "
+                  f"is merged in too")
     df = pd.concat(frames, ignore_index=True)
 
     # 샤드는 서로 겹치지 않아야 한다. 겹치면 같은 클립이 두 번 세어지므로
     # 조용히 넘기지 않고 알린 뒤 중복을 제거한다.
+    #
+    # 겹칠 때는 영상을 실제로 읽은 행(n_frames > 0)을 남긴다. 파일 순서로
+    # 고르면(keep="first") 이어받기 전에 기록된 "(no frames)" 실패 행이
+    # 다시 돌려 얻은 결과를 이긴다.
     n_raw = len(df)
     if "uuid" in df.columns:
-        df = df.drop_duplicates(subset="uuid", keep="first")
+        if "n_frames" in df.columns:
+            ok = pd.to_numeric(df["n_frames"], errors="coerce").fillna(0) > 0
+            df = (df.assign(_ok=ok)
+                    .sort_values("_ok", ascending=False, kind="stable")
+                    .drop_duplicates(subset="uuid", keep="first")
+                    .drop(columns="_ok"))
+        else:
+            df = df.drop_duplicates(subset="uuid", keep="first")
         if len(df) != n_raw and not quiet:
             print(f"[merge] warn: {n_raw - len(df)} duplicate uuid(s) dropped")
         df = df.sort_values("uuid", ignore_index=True)
@@ -60,7 +79,8 @@ def merge_shards(run_dir: Path, keep_shards: bool = False, quiet: bool = False):
         print(f"[merge] {len(shards)} shards -> {merged.name} ({len(df)} rows)")
 
     if not keep_shards:
-        # 병합본이 실제로 쓰인 뒤에만 지운다.
+        # 병합본이 실제로 쓰인 뒤에만 지운다. 병합본은 샤드 목록(SHARD_GLOB)
+        # 에 들지 않으므로 여기서 지워지지 않는다.
         for f in shards:
             Path(f).unlink()
         if not quiet:

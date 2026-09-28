@@ -5,14 +5,14 @@
       "Emergency Vehicle",
       "Animal on Road",
       "Pedestrian on Road",
-      "Cyclist on Road",
-      "Obstacle"
+      "Cyclist on Road"
     ],
     "Driving environment": [
       "Road Construction",
       "Railway crossing",
       "Barrier arm",
-      "Unpaved road"
+      "Unpaved road",
+      "Obstacle on Road"
     ]
   },
   "normal": {
@@ -103,8 +103,8 @@
           {
             "name": "Emergency Vehicle",
             "templates": [
-              "An ambulance speeds by",
-              "A fire truck is blocking the lane",
+              "An ambulance, fire engine or police car with its emergency lights flashing",
+              "An emergency vehicle is stopped on the roadway, blocking part of it",
               "A police car is handling the scene of a traffic accident"
             ],
             "template_candidates": [
@@ -120,6 +120,9 @@
               "patrol car",
               "rescue vehicle",
               "EMS vehicle"
+            ],
+            "excludes": [
+              "An emergency vehicle driving with its emergency lights off - that is ordinary traffic, whatever its type."
             ]
           },
           {
@@ -179,37 +182,6 @@
             ],
             "template_candidates": [
               "A cyclist is riding close to ego vehicle"
-            ]
-          },
-          {
-            "name": "Obstacle",
-            "templates": [
-              "Unknown object is blocking the vehicle",
-              "Debris scattered on the road",
-              "Some objects are occupying one side of the lane",
-              "A fallen tree or large branch lies across the roadway"
-            ],
-            "template_candidates": [
-              "An unknown object blocking the road",
-              "Foreign object on the road surface",
-              "Unexpected objects on the road",
-              "Unidentified obstacle ahead",
-              "Debris scattered across the roadway",
-              "Garbage scattered on the roadway",
-              "A fallen tree blocking the road",
-              "A fallen branch on the roadway",
-              "A large rock in the middle of the road",
-              "A cardboard box on the road",
-              "Road debris blocking the lane",
-              "An object partially blocking the lane",
-              "The car stops abruptly to avoid an obstacle in the lane",
-              "fallen tree",
-              "fallen branch",
-              "box",
-              "rock"
-            ],
-            "excludes": [
-              "A barrier arm at a railway crossing, car park or toll plaza - a barrier arm is a control device that lifts to let traffic through, not an object left on the road. That is the Barrier arm category."
             ]
           }
         ]
@@ -302,6 +274,39 @@
               "The vehicle continues straight along the dirt road",
               "The vehicle is moving forward on the gravel road",
               "A snow-covered rural or forest service road with no visible pavement"
+            ]
+          },
+          {
+            "name": "Obstacle on Road",
+            "templates": [
+              "Unknown object is blocking the vehicle",
+              "Debris scattered on the road",
+              "Some objects are occupying one side of the lane",
+              "A fallen tree or large branch lies across the roadway",
+              "An object suddenly fell or flew in front of the ego-vehicle."
+            ],
+            "template_candidates": [
+              "An unknown object blocking the road",
+              "Foreign object on the road surface",
+              "Unexpected objects on the road",
+              "Unidentified obstacle ahead",
+              "Debris scattered across the roadway",
+              "Garbage scattered on the roadway",
+              "A fallen tree blocking the road",
+              "A fallen branch on the roadway",
+              "A large rock in the middle of the road",
+              "A cardboard box on the road",
+              "Road debris blocking the lane",
+              "An object partially blocking the lane",
+              "The car stops abruptly to avoid an obstacle in the lane",
+              "fallen tree",
+              "fallen branch",
+              "box",
+              "rock"
+            ],
+            "excludes": [
+              "A barrier arm at a railway crossing, car park or toll plaza - a barrier arm is a control device that lifts to let traffic through, not an object left on the road. That is the Barrier arm category.",
+        "An object lying entirely outside the ego-vehicle's path - in another lane, on the verge or beyond the kerb - that the vehicle never has to drive over or around. Only an object in the ego-vehicle's path, or at the very edge of its lane, is this category."
             ]
           }
         ]

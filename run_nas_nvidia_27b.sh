@@ -72,6 +72,11 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --clip-fps F              초당 몇 장 뽑을지 (기본 edge_case_mining.py) [CLIP_FPS]
   --clip-max-frames N       클립당 최대 프레임                          [CLIP_MAX_FRAMES]
   --memo "TEXT"             이 실행이 무엇을 시험하는지 한 줄 메모       [MEMO]
+  --resume DIR             중단된 실행 폴더를 이어받는다              [RESUME_DIR]
+                           끝난 클립(n_frames>0)은 건너뛰고, 영상을 못 읽어
+                           n_frames=0 으로 남은 클립은 다시 돌린다. 그 옛 실패
+                           행은 먼저 DIR/resume_backup_<시각>/ 에 백업한 뒤
+                           지운다. 원래 실행과 같은 옵션을 줘야 한다.
   --eval                   라벨 있는 클립만 처리하고 채점한다           [EVAL_MODE=1]
                            (평가가 주 목적이면 run_labeled_27b.sh 를 쓸 것)
   --no-eval                (기본) 라벨 없이 데이터셋 전체를 훑는다      [EVAL_MODE=0]
@@ -100,6 +105,8 @@ while [ $# -gt 0 ]; do
     --limit-clips)          shift; LIMIT_CLIPS="${1:-}" ;;
     --only-uuids=*)        ONLY_UUIDS="${1#*=}" ;;
     --only-uuids)          shift; ONLY_UUIDS="${1:-}" ;;
+    --resume=*)            RESUME_DIR="${1#*=}" ;;
+    --resume)              shift; RESUME_DIR="${1:-}" ;;
     --scene-json=*)         SCENE_JSON="${1#*=}" ;;
     --scene-json)            shift; SCENE_JSON="${1:-}" ;;
     --no-viz)               CLIP_VIZ=0 ;;
@@ -173,13 +180,23 @@ if [ -n "${EVAL_ONLY:-}" ]; then
   exit $?
 fi
 
-RUN_TS="$(date +%Y%m%d_%H%M%S)"
-if [ "${EVAL_MODE:-0}" = "1" ]; then
-  RUN_DIR="results/labeld/${RUN_TS}_video27b_eval"
+RESUME_FLAG=""
+if [ -n "${RESUME_DIR:-}" ]; then
+  RUN_DIR="${RESUME_DIR%/}"
+  if ! ls "${RUN_DIR}"/clip_results*.csv >/dev/null 2>&1; then
+    echo "[error] --resume: ${RUN_DIR} 에 이어받을 clip_results*.csv 가 없습니다" >&2
+    exit 2
+  fi
+  RESUME_FLAG="--resume"
 else
-  RUN_DIR="results/unlabeled/${RUN_TS}_video27b"
+  RUN_TS="$(date +%Y%m%d_%H%M%S)"
+  if [ "${EVAL_MODE:-0}" = "1" ]; then
+    RUN_DIR="results/labeld/${RUN_TS}_video27b_eval"
+  else
+    RUN_DIR="results/unlabeled/${RUN_TS}_video27b"
+  fi
+  mkdir -p "$RUN_DIR"
 fi
-mkdir -p "$RUN_DIR"
 
 OPTS="--clip-mode --single-view --num-shards 1 --shard-id 0 --model $MODEL"
 [ -n "${DATA:-}" ]              && OPTS="$OPTS --data $DATA"
@@ -241,8 +258,23 @@ PY
   fi
 fi
 
+# --resume 준비 단계. 완성된 $OPTS 로 불러야 원래 실행과 설정을 대조할 수
+# 있고, 다르면 파일을 건드리기 전에 멈춘다.
+if [ -n "$RESUME_FLAG" ]; then
+  echo "[resume] ${RUN_DIR} 점검/정리 중..."
+  if ! "$PYBIN" -u edge_case_mining.py $OPTS --memo "${MEMO:-}" \
+        --out "${RUN_DIR}/clip_results_shard_0.csv" --viz-dir "${RUN_DIR}/viz" \
+        --resume-prepare; then
+    echo "[error] --resume 준비 단계에서 멈췄습니다 - 위 메시지를 확인하세요." >&2
+    echo "        결과 파일은 바뀌지 않았거나, 바뀌었다면 ${RUN_DIR}/resume_backup_*/ 에 원본이 있습니다." >&2
+    exit 1
+  fi
+fi
+
 {
+  echo
   echo "[info] run dir     : $RUN_DIR"
+  [ -n "$RESUME_FLAG" ] && echo "[info] resume      : $(date '+%Y-%m-%d %H:%M:%S') 이어받기"
   echo "[info] model       : $MODEL"
   echo "[info] gpus        : $GPUS (단일 프로세스, device_map=auto)"
   echo "[info] python      : $PYBIN (conda env: qwen38)"
@@ -256,12 +288,20 @@ fi
       $OPTS \
       --memo "${MEMO:-}" \
       --out "${RUN_DIR}/clip_results_shard_0.csv" \
-      --viz-dir "${RUN_DIR}/viz" \
-      2>&1 | tee "${RUN_DIR}/run_shard_0.log"
+      --viz-dir "${RUN_DIR}/viz" $RESUME_FLAG \
+      2>&1 | tee -a "${RUN_DIR}/run_shard_0.log"
 
   echo "[info] run done."
-  "$PYBIN" -u merge_shards.py --run-dir "$RUN_DIR" 2>&1 || \
-    cp "${RUN_DIR}/clip_results_shard_0.csv" "${RUN_DIR}/clip_results_all.csv"
+  # 병합이 실패하면 샤드 파일을 병합본 자리에 복사해 두는데, 병합본이 이미
+  # 있으면(이어받은 실행) 복사하지 않는다 - 덮으면 옛 결과가 사라진다.
+  # 그때는 샤드 파일이 그대로 남으므로 merge_shards.py 를 다시 돌리면 된다.
+  "$PYBIN" -u merge_shards.py --run-dir "$RUN_DIR" 2>&1 || {
+    if [ -f "${RUN_DIR}/clip_results_all.csv" ]; then
+      echo "[warn] 병합 실패 - 기존 clip_results_all.csv 를 보존하고 샤드 파일을 남겨 둡니다."
+    else
+      cp "${RUN_DIR}/clip_results_shard_0.csv" "${RUN_DIR}/clip_results_all.csv"
+    fi
+  }
 
   if [ "${EVAL_MODE:-0}" = "1" ]; then
     "$PYBIN" -u evaluate_labels.py --run-dir "$RUN_DIR" --labels "$LABELS"
@@ -270,4 +310,4 @@ fi
   fi
 
   echo "[info] results saved in: ${RUN_DIR}/"
-} 2>&1 | tee "${RUN_DIR}/run.log"
+} 2>&1 | tee -a "${RUN_DIR}/run.log"

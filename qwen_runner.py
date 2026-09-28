@@ -22,6 +22,7 @@ AutoModelForImageTextToText / AutoProcessor 로 로드해 model_id 에 따라 �
 카테고리가 하나도 없는 판정 단위는 저장하지 않는다.
 """
 import csv
+import os
 import json
 import re
 import shutil
@@ -492,6 +493,7 @@ def run_clip_inference(uuids, labels, category_menu,
                        gt_labels=None, timeline=False, ego_track=False,
                        ego_ablation=None, header_style="v1",
                        want_margin=False, score_categories=True,
+                       resume=False,
                        difficulty=False, difficulty_only=False,
                        tiers_elements=False, explain_traj=False, traj=None,
                        viz_per_category=None):
@@ -558,6 +560,9 @@ def run_clip_inference(uuids, labels, category_menu,
     # 카테고리를 받으면 해당 폴더 전부에 중복 저장한다.
     viz_cat_counts = Counter()
     n_parse_fail = n_viz = n_edge = 0
+    # 영상을 못 읽어 모델에 넣지 않은 클립. 파싱 실패와 따로 센다 - 둘은
+    # 원인도 대처도 다르다(이쪽은 --resume 으로 다시 돌릴 대상이다).
+    n_no_frames = n_partial = 0
     viz_path = Path(viz_dir) if viz_dir else None
     if viz_path:
         viz_path.mkdir(parents=True, exist_ok=True)
@@ -574,9 +579,37 @@ def run_clip_inference(uuids, labels, category_menu,
                   + f"  width {viz_width or 'original'}")
     t_start = time.time()
 
-    with open(out_csv, "w", newline="", encoding="utf-8") as f:
+    # resume 이면 기존 파일 뒤에 덧붙인다. "w" 로 열면 여는 순간 그때까지의
+    # 결과가 지워진다 - 이어받기의 목적 자체가 사라진다.
+    #
+    # 헤더는 파일이 없거나 비었을 때만 쓴다. 이미 있는 파일의 헤더가 지금
+    # 열 구성과 다르면 쓰기 전에 멈춘다 - 덧붙이면 한 파일 안에서 같은
+    # 칸의 뜻이 행마다 달라진다. (main 이 먼저 대조하지만, 이 함수를
+    # 직접 부르는 경로가 있어 여기서도 막는다.)
+    append = False
+    if resume and os.path.exists(out_csv) and os.path.getsize(out_csv) > 0:
+        with open(out_csv, newline="", encoding="utf-8") as fh:
+            head = next(csv.reader(fh), [])
+        if head != CLIP_CSV_COLUMNS:
+            raise RuntimeError(
+                f"{out_csv} 의 열 구성이 지금 코드와 달라 이어 쓸 수 없습니다 "
+                f"({len(head)}열 vs {len(CLIP_CSV_COLUMNS)}열)")
+        append = True
+        # 쓰다가 죽은 프로세스가 마지막 줄을 줄바꿈 없이 남겼으면, 그 뒤에
+        # 바로 붙여 쓰면 두 행이 한 줄로 합쳐진다. 준비 단계가 잘린 행을
+        # 지우지만, 끝에 줄바꿈이 없는 경우까지 여기서 한 번 더 막는다.
+        with open(out_csv, "rb") as fh:
+            fh.seek(-1, os.SEEK_END)
+            ends_nl = fh.read(1) in (b"\n", b"\r")
+        if not ends_nl:
+            with open(out_csv, "a", newline="", encoding="utf-8") as fh:
+                fh.write("\r\n")
+
+    with open(out_csv, "a" if append else "w", newline="",
+              encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(CLIP_CSV_COLUMNS)
+        if not append:
+            writer.writerow(CLIP_CSV_COLUMNS)
 
         pbar = tqdm(uuids, total=len(uuids), unit="clip", dynamic_ncols=True,
                     mininterval=1.0, smoothing=0.1)
@@ -585,11 +618,32 @@ def run_clip_inference(uuids, labels, category_menu,
                                       max_long_side=max_long_side, views=views,
                                       traj=traj)
             images = [im for _, _, im in clip["frames"]]
-            if not images:
+            # 요청한 장수를 다 읽지 못했으면 모델에 넣지 않는다.
+            #
+            # 디코딩이 중간에 실패하면 그때까지 읽은 프레임만 돌아온다. 그대로
+            # 넣으면 모델은 클립 뒷부분을 못 본 채 판정하고, CSV 에는 그 장수만
+            # 적혀 짧은 클립(19.3초 -> 39장, 정상)과 구분되지 않는다. 요청
+            # 장수는 클립 길이에서 나오므로(sample_clip_indices) 그것과 대조하면
+            # 짧은 클립은 통과하고 끊긴 읽기만 걸린다. 실측(NAS 실행 두 개):
+            # 40 이 아닌 149건이 전부 짧은 클립이었고 끊긴 읽기는 0건이었다 -
+            # 지금까지는 없었지만 생겨도 알 방법이 없었다.
+            #
+            # 둘 다 n_frames=0 으로 적는다. --resume 은 n_frames > 0 만 끝난
+            # 것으로 보므로(resume_run.py) 따로 규칙을 두지 않아도 다시 돌릴
+            # 대상이 된다. 사유는 observation 칸에 남겨 열 구성을 바꾸지 않는다.
+            expected = len(clip["indices"]) * len(views)
+            if len(images) < expected:
+                why = ("(no frames)" if not images else
+                       f"(partial frames {len(images)}/{expected})")
                 # 빈 칸 개수를 손으로 세지 않는다 - 열이 늘 때마다 어긋난다.
-                row = [uuid, 0, "Normal", 0, "", 0, "(no frames)"]
+                row = [uuid, 0, "Normal", 0, "", 0, why]
                 writer.writerow(row + [""] * (len(CLIP_CSV_COLUMNS) - len(row)))
-                n_parse_fail += 1
+                f.flush()
+                if images:
+                    n_partial += 1
+                    tqdm.write(f"[warn] {uuid}: {why} - 추론하지 않고 실패로 기록")
+                else:
+                    n_no_frames += 1
                 continue
 
             # egomotion 은 클립 전 구간을 요약한다 (시간축 정렬).
@@ -727,6 +781,10 @@ def run_clip_inference(uuids, labels, category_menu,
           f"({dt/n:.1f} s/clip)")
     if n_parse_fail:
         print(f"[warn] JSON parse failed on {n_parse_fail} clips")
+    if n_no_frames or n_partial:
+        print(f"[warn] 영상을 다 읽지 못해 추론하지 않은 클립: "
+              f"프레임 없음 {n_no_frames} / 일부만 읽힘 {n_partial} - "
+              f"CSV 에 n_frames=0 으로 남았고 --resume 으로 다시 돌릴 수 있다")
     print(f"[clip] SPECIAL (>=1 category): {n_edge}/{n} ({100*n_edge/n:.1f}%)")
     print(f"[clip] NORMAL   (no category)  : {n-n_edge}/{n} "
           f"({100*(n-n_edge)/n:.1f}%)")

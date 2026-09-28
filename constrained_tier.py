@@ -107,68 +107,83 @@ def tier_menu() -> str:
 # 애초에 categories 에 적히지 않으므로 점수를 받을 일이 없다. 빈 칸을 두면
 # 모델이 그것을 채우려 하므로(실측 20260812: Animal 7건이 내용과 무관하게
 # 전부 rarity=2) 아예 없앤다.
-#
-# 덕분에 경계가 하나 깨끗해진다. 도로 밖 인도에 있는 보행자는 Pedestrian
-# on Road 의 templates("on the roadway, outside the sidewalk")에 해당하지
-# 않으므로 카테고리 자체가 붙지 않고, 그러면 점수도 없다(= 0). 카테고리가
-# 붙은 것은 전부 도로 위에 있다는 뜻이라 1 부터 자연스럽게 이어진다.
-# 예전 0점("도로 밖에 머문다")은 rubric 과 카테고리 정의가 서로 다른 것을
-# 말하게 만들어, 인도 보행자를 카테고리로 잡되 0점을 주라는 모순된 지시로
-# 읽혔다.
+# IMPACT_RUBRIC_0 = {
+#     1: "It is on the roadway, but in another lane well away from the one the "
+#        "ego-vehicle is driving in. The vehicle keeps its speed and its line, "
+#        "and would have driven the same way had it not been there.",
+#     2: "It is right beside the lane the ego-vehicle is driving in. Carrying "
+#        "straight on would have been fine, but to keep a safe gap the vehicle "
+#        "eased off a little or edged slightly to one side. This case applies "
+#        "even if the recorded movement of the ego-vehicle barely changed "
+#        "when this is located right next to a moving ego-vehicle,"
+#        "regardless of whether the vehicle utilized that safe distance.",
+#     3: "It is in the ego-vehicle's path ahead, or crosses in front of it - the "
+#        "vehicle slowed, stopped, or steered aside to let it pass, or had to "
+#        "leave its lane or cross the centre line for a moment. There was enough "
+#        "time and distance to do so.",
+#     4: "It is in the ego-vehicle's path with no margin left - closing fast, or "
+#        "appearing so near that only an emergency stop or a hard swerve could "
+#        "answer it. A collision, or a near miss that was avoided only by such a "
+#        "manoeuvre, belongs here.",
+# }
+
+
+# for Animal on Road, Pedestrian on Road, Cyclist on Road, Emergency Vehicle
 IMPACT_RUBRIC = {
     1: "It is on the roadway, but in another lane well away from the one the "
        "ego-vehicle is driving in. The vehicle keeps its speed and its line, "
        "and would have driven the same way had it not been there.",
-    2: "It is right beside the lane the ego-vehicle is driving in. Carrying "
-       "straight on would have been fine, but to keep a safe gap the vehicle "
-       "eased off a little or edged slightly to one side. An element riding or "
-       "walking right beside the vehicle at speed belongs here even if the "
-       "recorded motion barely changed - whether or not the vehicle used that "
-       "margin does not matter.",
-    3: "It is in the ego-vehicle's path ahead, or crosses in front of it - the "
-       "vehicle slowed, stopped, or steered aside to let it pass, or had to "
-       "leave its lane or cross the centre line for a moment. There was enough "
-       "time and distance to do so.",
-    4: "It is in the ego-vehicle's path with no margin left - closing fast, or "
-       "appearing so near that only an emergency stop or a hard swerve could "
-       "answer it. A collision, or a near miss that was avoided only by such a "
-       "manoeuvre, belongs here.",
+    2: "It is right beside the ego-vehicle's lane or passes right beside it, "
+       "or it crosses the road on a crosswalk directly in front of the "
+       "vehicle. When it is beside the lane, carrying straight on would have "
+       "been fine, but to keep a safe gap the vehicle eased off a little or "
+       "edged slightly to one side. When it crosses on a crosswalk, the "
+       "vehicle gradually slowed down or came to a stop for it.",
+    3: "It is in the ego-vehicle's path ahead - crossing the road outside a "
+       "crosswalk, moving along ahead in the ego-vehicle's lane, or stopped on "
+       "the road in the vehicle's way. The vehicle gradually slowed down, "
+       "stopped, or steered around it.",
+    4: "It appeared suddenly in the ego-vehicle's path, on a crosswalk or not, "
+       "and the vehicle had to brake hard, stop, or swerve urgently. A near "
+       "miss avoided only that way, or a collision because it could not be "
+       "avoided, belongs here.",
 }
 
-
-GATE_RUBRIC = {
-    1: "A barrier or level crossing is visible but not on the ego-vehicle's "
-       "route - it controls a side entrance, the opposite carriageway, or a "
-       "way the vehicle never takes. The vehicle held its speed and its line.",
-    2: "It controls the way the ego-vehicle is taking, but it was open, so the "
-       "vehicle drove straight through without stopping or slowing for it.",
-    3: "It closed the ego-vehicle's way - the barrier was down, or, where there "
-       "is no barrier, a red light or flashing signal held traffic back - so "
-       "the vehicle came to a stop and waited for the way to clear before "
-       "going on.",
-    4: "It closed as the ego-vehicle was about to pass, so the vehicle had "
-       "to stop sharply.",
-}
-
-
+# for Road Construction
 CONSTRUCTION_RUBRIC = {
-    1: "The works lie away from where the ego-vehicle is going - off the "
-       "roadway altogether, beyond a central reservation or a crash barrier, "
-       "or somewhere the vehicle never draws level with because it turns off "
-       "or leaves them behind. The vehicle held its speed and its line.",
-    2: "The ego-vehicle drives past the works. They are on the roadway but not "
-       "in its lane, so it carried on through at the same speed and on the "
-       "same line.",
-    3: "The works or their traffic cones take up part of the lane the "
-       "ego-vehicle is driving in. The vehicle edged across to the far side of "
-       "its own lane to get by, without leaving the lane.",
-    4: "The lane the ego-vehicle was in is closed off - cones or barricades "
-       "block it and guide traffic onto another way. The vehicle had to give "
-       "up that lane and move into the next one or onto a temporary lane laid "
-       "out for it.",
+    1: "A construction site, traffic cone, or traffic barricade is located very far from the ego-vehicle's lane. "
+       "Therefore, the ego-vehicle maintained its speed and route regardless of its presence.",
+    2: "The construction site or traffic cone is located next to the ego-vehicle. "
+       "However, since this is an area where the ego-vehicle is normally unable to go "
+       "—such as a pedestrian walkway, parking area, or the first lane of the opposite direction—there is no direct impact.",
+    3: "The construction site or traffic cone is restricting the lane directly next to the ego-vehicle. "
+       "Although the construction equipment or traffic cones are not blocking the lane the ego-vehicle is currently traveling in, "
+       "the vehicle cannot currently change lanes in that direction. ",
+    4: "The lane the ego-vehicle was in is closed off - cones or barricades block it "
+       "and guide traffic onto another way. The vehicle had to give up that lane "
+       "and move into the next one or onto a temporary lane laid out for it.",
 }
 
+# for Manual Traffic Control, Railway crossing, Barrier arm
+GATE_RUBRIC = {
+    1: "A barrier, a level crossing, or a person directing traffic is visible "
+       "but does not control the ego-vehicle's way - it controls a side "
+       "entrance, the opposite carriageway, cross traffic, or a way the "
+       "vehicle never takes. The vehicle held its speed and its line.",
+    2: "It controls the way the ego-vehicle is taking, but that way was open - "
+       "the barrier was up, or the person directing traffic waved the vehicle "
+       "on - so the vehicle drove straight through without stopping or "
+       "slowing for it.",
+    3: "It closed the ego-vehicle's way - the barrier was down; where there is "
+       "no barrier, a red light or flashing signal held traffic back; or the "
+       "person directing traffic signalled it to stop - so the vehicle came to "
+       "a stop and waited for the way to clear before going on.",
+    4: "It closed as the ego-vehicle was about to pass - the barrier came "
+       "down, the signal changed, or the person directing traffic suddenly "
+       "signalled it to stop - so the vehicle had to stop sharply.",
+}
 
+# for Unpaved road
 UNPAVED_RUBRIC = {
     1: "The surface is unpaved, but it is clear how far the road reaches - the "
        "track and the ground beside it part cleanly in colour or in material, "
@@ -183,6 +198,36 @@ UNPAVED_RUBRIC = {
        "goes.",
     4: "The track and the ground around it read as one, so neither the width "
        "of the road nor its direction can be told from the terrain.",
+}
+
+# for Obstacle on Road
+#
+# IMPACT 에서 떼어 낸 이유: "경로 위에 있지만 밟고 지나가도 되는 물체" 를
+# IMPACT 로는 채점할 수 없다. IMPACT 는 경로 안에 있으면 자차가 감속/정지/
+# 회피했다는 전제(3)라, 작은 나뭇가지를 그냥 밟고 지나간 클립이 갈 칸이
+# 없다. 여기서는 1 이 그 경우다.
+#
+# 그래서 두 가지를 순서대로 본다 - 먼저 "밟고 지나갈 수 있는가"(1 과 나머지
+# 를 가른다), 그다음 위치와 여유(2~4). 더하지 않고 순서대로 거르므로 한
+# 칸에 두 축이 섞이지 않는다.
+#
+# 자차 주행 경로에서 완전히 벗어난 물체(다른 차선, 갓길 너머)는 카테고리
+# 자체가 아니다 - scene_category 의 excludes 에 적었다. 그래서 1 이 "경로
+# 밖"을 다루지 않아도 빈 칸이 생기지 않는다. 인도 위 보행자가 Pedestrian
+# on Road 가 아닌 것과 같은 구조다.
+OBSTACLE_RUBRIC = {
+    1: "A small object - a branch, a bit of debris, a scrap of litter - lies "
+       "in the ego-vehicle's path, small enough to drive over. The vehicle "
+       "drove over it or past it without changing its speed or its line.",
+    2: "An object lies right beside the ego-vehicle's path, partly over the "
+       "edge of its lane. To keep a safe gap the vehicle eased off a little or "
+       "edged slightly away from it.",
+    3: "An object too large to drive over lies in the ego-vehicle's path "
+       "ahead. The vehicle saw it from a distance and steered around it or "
+       "came gradually to a stop.",
+    4: "An object too large to drive over fell into the ego-vehicle's path, "
+       "or came into view suddenly from behind the vehicle ahead. The vehicle "
+       "had to brake hard, stop, or swerve urgently.",
 }
 
 
@@ -247,7 +292,11 @@ RUBRIC_BY_CATEGORY = {
     "Road Construction": "construction",
     "Railway crossing": "gate",
     "Barrier arm": "gate",
+    # Dynamic object 묶음이지만 IMPACT 가 아니라 GATE 를 쓴다(GATE_RUBRIC
+    # 위 주석). 카테고리 이름 배정이 묶음 배정보다 먼저 적용된다.
+    "Manual Traffic Control": "gate",
     "Unpaved road": "unpaved",
+    "Obstacle on Road": "obstacle",
 }
 
 # rubric 본문. 이름 -> (제목, 표).
@@ -257,12 +306,15 @@ RUBRIC_BY_CATEGORY = {
 # 않는다.
 RUBRICS = {
     "impact":       ("how much it affected the ego-vehicle", IMPACT_RUBRIC),
-    "gate":         ("how much the barrier or crossing held the ego-vehicle up",
+    "gate":         ("how much the barrier, crossing or person directing "
+                     "traffic held the ego-vehicle up",
                      GATE_RUBRIC),
     "construction": ("how far the works reached into the ego-vehicle's lane",
                      CONSTRUCTION_RUBRIC),
     "unpaved":      ("how clearly the edges of the road can be made out",
                      UNPAVED_RUBRIC),
+    "obstacle":     ("how much the object got in the ego-vehicle's way",
+                     OBSTACLE_RUBRIC),
 }
 
 
@@ -299,7 +351,9 @@ def rubric_blocks(labels) -> str:
         used.setdefault(name, []).append(lab["category"])
 
     out = []
-    for name in ("impact", "gate", "construction", "unpaved"):
+    # RUBRICS 에 등록된 순서대로 돈다. 이름을 여기 따로 적어 두면 새 rubric
+    # 을 등록하고도 이 목록에 빠뜨렸을 때 프롬프트에서 조용히 사라진다.
+    for name in RUBRICS:
         if name not in used:
             continue
         title, rubric = RUBRICS[name]

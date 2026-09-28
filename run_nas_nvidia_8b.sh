@@ -78,6 +78,12 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --limit-clips N        처리할 클립 수 제한 (기본: 데이터셋 전체)     [LIMIT_CLIPS]
   --only-uuids FILE      이 파일에 적힌 uuid 만 처리 (한 줄에 하나)    [ONLY_UUIDS]
   --num-shards N         GPU/shard 개수 (기본 8)                       [NSHARDS]
+  --resume DIR           중단된 실행 폴더를 이어받는다              [RESUME_DIR]
+                         끝난 클립(n_frames>0)은 건너뛰고, 영상을 못 읽어
+                         n_frames=0 으로 남은 클립은 다시 돌린다. 그 옛 실패
+                         행은 샤드를 띄우기 전에 DIR/resume_backup_<시각>/ 에
+                         백업한 뒤 지운다. 원래 실행과 같은 옵션을 줘야 한다 -
+                         모델/카테고리/프롬프트/fps 등이 다르면 거부한다.
   --scene-json PATH      카테고리 정의 (기본: config.py 의 SCENE_JSON)  [SCENE_JSON]
   --no-viz               시각화 mp4 를 만들지 않는다                    [CLIP_VIZ=0]
   --viz-all              edge-case 가 아닌 클립까지 전부 시각화         [VIZ_ALL=1]
@@ -128,6 +134,8 @@ while [ $# -gt 0 ]; do
     --model)             shift; MODEL="${1:-}" ;;
     --num-shards=*)      NSHARDS="${1#*=}" ;;
     --num-shards)        shift; NSHARDS="${1:-8}" ;;
+    --resume=*)          RESUME_DIR="${1#*=}" ;;
+    --resume)            shift; RESUME_DIR="${1:-}" ;;
     --scene-json=*)      SCENE_JSON="${1#*=}" ;;
     --scene-json)        shift; SCENE_JSON="${1:-}" ;;
     --no-viz)            CLIP_VIZ=0 ;;
@@ -257,12 +265,36 @@ OPTS="--clip-mode --single-view --data $DATA"
 # 든 zip 만 찾아 열므로, NAS 에서도 몇 초~30초 안에 시작한다.
 [ -n "${ONLY_UUIDS:-}" ]        && OPTS="$OPTS --only-uuids $ONLY_UUIDS"
 
-RUN_TS="$(date +%Y%m%d_%H%M%S)"
-RUN_DIR="results/unlabeled/${RUN_TS}_video8b"
-mkdir -p "$RUN_DIR"
+RESUME_FLAG=""
+if [ -n "${RESUME_DIR:-}" ]; then
+  RUN_DIR="${RESUME_DIR%/}"
+  if ! ls "${RUN_DIR}"/clip_results*.csv >/dev/null 2>&1; then
+    echo "[error] --resume: ${RUN_DIR} 에 이어받을 clip_results*.csv 가 없습니다" >&2
+    exit 2
+  fi
+  # 준비 단계는 샤드를 띄우기 전에 한 프로세스로 한 번만 한다. 샤드마다
+  # 하면 같은 병합본을 여러 프로세스가 동시에 다시 쓴다. 같은 $OPTS 로
+  # 부르므로 원래 실행과 설정이 다르면 여기서 멈춘다 - 파일을 건드리기 전에.
+  echo "[resume] ${RUN_DIR} 점검/정리 중..."
+  if ! "$PYBIN" -u edge_case_mining.py \
+        --num-shards "$NSHARDS" --shard-id 0 $OPTS --memo "${MEMO:-}" \
+        --out "${RUN_DIR}/clip_results_shard_0.csv" --viz-dir "${RUN_DIR}/viz" \
+        --resume-prepare; then
+    echo "[error] --resume 준비 단계에서 멈췄습니다 - 위 메시지를 확인하세요." >&2
+    echo "        결과 파일은 바뀌지 않았거나, 바뀌었다면 ${RUN_DIR}/resume_backup_*/ 에 원본이 있습니다." >&2
+    exit 1
+  fi
+  RESUME_FLAG="--resume"
+else
+  RUN_TS="$(date +%Y%m%d_%H%M%S)"
+  RUN_DIR="results/unlabeled/${RUN_TS}_video8b"
+  mkdir -p "$RUN_DIR"
+fi
 
 {
+  echo
   echo "[info] run dir     : $RUN_DIR"
+  [ -n "$RESUME_FLAG" ] && echo "[info] resume      : $(date '+%Y-%m-%d %H:%M:%S') 이어받기"
   echo "[info] data        : $DATA  (no ground-truth labels - 분포만 집계한다)"
   echo "[info] clips       : $TOTAL_CLIPS  ($NSHARDS shards, GPU 0-$((NSHARDS-1)))"
   echo "[info] categories  : ${SCENE_JSON:-$("$PYBIN" -c 'import config; print(config.SCENE_JSON.name)') (config.py)}"
@@ -282,8 +314,8 @@ mkdir -p "$RUN_DIR"
         $OPTS \
         --memo "${MEMO:-}" \
         --out "${RUN_DIR}/clip_results_shard_${g}.csv" \
-        --viz-dir "${RUN_DIR}/viz" \
-        > "${RUN_DIR}/run_shard_${g}.log" 2>&1 &
+        --viz-dir "${RUN_DIR}/viz" $RESUME_FLAG \
+        >> "${RUN_DIR}/run_shard_${g}.log" 2>&1 &
     pids+=($!)
   done
   echo "[info] launched ${#pids[@]} shards, PIDs: ${pids[*]}"
@@ -294,8 +326,9 @@ mkdir -p "$RUN_DIR"
     alive=0
     for p in "${pids[@]}"; do kill -0 "$p" 2>/dev/null && alive=$((alive+1)); done
     done_n=0
-    for g in $(seq 0 $((NSHARDS-1))); do
-      f="${RUN_DIR}/clip_results_shard_${g}.csv"
+    # 이미 병합이 끝난 실행을 이어받으면 옛 결과는 병합본에 있다.
+    for f in "${RUN_DIR}/clip_results_all.csv" \
+             $(for g in $(seq 0 $((NSHARDS-1))); do echo "${RUN_DIR}/clip_results_shard_${g}.csv"; done); do
       # wc -l 로 세면 안 된다. 모델 출력이나 센서 시계열(--ego-track)에
       # 줄바꿈이 들어가면 한 클립이 CSV 여러 줄을 차지해(실측 115클립 ->
       # 460줄) 진행률이 총 개수를 넘어간다. CSV 규격대로 따옴표를 이해하는
@@ -331,7 +364,7 @@ except Exception:
   "$PYBIN" -u aggregate_clip.py --run-dir "$RUN_DIR"
 
   echo "[info] results saved in: ${RUN_DIR}/"
-} 2>&1 | tee "${RUN_DIR}/run.log"
+} 2>&1 | tee -a "${RUN_DIR}/run.log"
 
 # tee 로 파이프하면 종료 코드가 tee 의 것(항상 0)이 된다. 그래서 샤드가
 # 전부 죽어도 GUI/cron 은 "정상 완료"로 표시한다. 결과 CSV 유무로 판정한다.

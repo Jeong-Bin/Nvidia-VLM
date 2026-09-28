@@ -198,7 +198,16 @@ def _read_frames_at(src, indices, max_long_side: int = 896):
     PyAV 순차 디코딩이 cv2 의 CAP_PROP_POS_FRAMES 와 픽셀 단위로 일치함을
     확인했다(평균차 0.00).
 
-    실패한 인덱스는 결과 dict 에서 빠진다.
+    실패한 인덱스는 결과 dict 에서 빠진다. 그러므로 돌려받은 개수가 요청한
+    개수보다 적을 수 있다 - 호출부(run_clip_inference)가 개수를 대조해
+    모자라면 추론하지 않고 실패로 기록한다.
+
+    읽는 도중의 OSError 도 여기서 잡는다. 파일을 여는 단계의 OSError 는
+    예전부터 잡았지만 디코딩 중에 NAS 가 끊기면 나는 것(Errno 112 Host is
+    down)은 잡지 않아, 그 예외가 샤드 프로세스를 통째로 죽였다(실측
+    20260904_124936_video8b 샤드 2). 여는 단계와 똑같이 "못 읽음"으로
+    돌려주면 프로세스는 계속 돌고 그 클립만 실패 행으로 남아, 나중에
+    --resume 으로 다시 돌릴 수 있다.
     """
     want = sorted(set(int(i) for i in indices))
     if not want:
@@ -220,10 +229,15 @@ def _read_frames_at(src, indices, max_long_side: int = 896):
                 remain.discard(n)
             if n >= last or not remain:
                 break
-    except AV_ERROR:
+    except (AV_ERROR, OSError):
         pass
     finally:
-        container.close()
+        # 연결이 끊긴 파일은 닫다가도 OSError 를 낸다. finally 에서 새는
+        # 예외는 위에서 잡은 것을 덮어쓰고 호출부까지 올라간다.
+        try:
+            container.close()
+        except (AV_ERROR, OSError):
+            pass
     return out
 
 
@@ -420,7 +434,15 @@ def sample_clip_frames(uuid: str, fps: float = CLIP_FPS,
 
     per_view = {}
     for view in views:
-        per_view[view] = _read_frames_at(clip_open(view, uuid), idxs,
+        # clip_open 도 NAS 에서는 zip 을 열다가 OSError 를 낼 수 있다. 여기서
+        # 새면 샤드가 죽으므로 "이 뷰는 한 장도 못 읽음"으로 둔다 - 호출부가
+        # 개수를 대조해 실패로 기록한다.
+        try:
+            src = clip_open(view, uuid)
+        except OSError:
+            per_view[view] = {}
+            continue
+        per_view[view] = _read_frames_at(src, idxs,
                                          max_long_side=max_long_side)
     # 자차 미래 궤적을 프레임 위에 그린다. 텍스트로 주던 시공간 정보를
     # 픽셀로 옮기는 것 - 리사이즈 후에 그려야 선 두께가 입력 해상도에
@@ -1389,7 +1411,68 @@ def _file_sha(path, n=10):
         return None
 
 
-def save_run_config(args, run_dir, n_views=1):
+def _config_key(args, n_views=1, prompt_sha=None) -> dict:
+    """run_config.json 의 "key" - 이 실행의 결과를 결정하는 설정.
+
+    save_run_config 와 이어받기 대조(_check_resume)가 같은 함수를 써야,
+    기록한 값과 대조하는 값이 어긋나지 않는다.
+    """
+    return {
+        # 사람이 붙인 실행 설명. 설정만으로는 구분이 안 되는 실험
+        # (예: 라벨 파일 내용을 고쳤을 때)을 나중에 알아보게 해준다.
+        "memo": args.memo,
+        "model": args.model,
+        "scene_json": args.scene_json,
+        # 카테고리 파일 "내용" 의 지문. 경로가 같아도 templates 나 excludes
+        # 를 고치면 프롬프트가 달라진다 - 이어받기가 그것을 알아채야 한다.
+        "scene_json_sha": _file_sha(args.scene_json),
+        # 프롬프트 틀의 지문. rubric 문장이나 단계 지시를 코드에서 고치면
+        # 설정 플래그는 그대로인데 모델이 읽는 글이 바뀐다. 이 저장소에서
+        # 가장 자주 바뀌는 것이 그것이라, 이어받기가 옛 프롬프트로 만든 행
+        # 뒤에 새 프롬프트 행을 덧붙이는 것을 막으려면 이 값이 필요하다.
+        "prompt_sha": prompt_sha,
+        # 라벨 "내용" 의 지문. 경로는 그대로인데 내용만 고치는 일이
+        # 잦아(실측: 20260818 의 130207 과 134742 는 설정이 완전히
+        # 같은데 그 사이 Too Close Person 을 Jaywalking 에 병합해
+        # 점수가 달라졌다) 경로만으로는 두 실행을 구분할 수 없다.
+        "gt_labels_sha": _file_sha(args.gt_labels),
+        # 시각화 패널에 GT 를 함께 그릴 때 쓴 정답 라벨. 채점에 쓰는
+        # --labels 와 다른 파일일 수 있어(test_label.json vs _D) 따로 남긴다.
+        "gt_labels": args.gt_labels,
+        "prompt_style": args.prompt_style,
+        "clip_fps": args.clip_fps,
+        "clip_max_frames": args.clip_max_frames,
+        "clip_long_side": args.clip_long_side,
+        "n_views": n_views,
+        "single_view": bool(args.single_view),
+        "video_input": bool(args.clip_video_input),
+        "timeline": bool(args.timeline),
+        "ego_track": bool(args.ego_track),
+        "traj": args.traj,
+        # 궤적 스타일은 trajectory.py 상수가 단일 진실 공급원이다.
+        # 그 값을 여기 박아두어야 나중에 상수를 바꿔도 과거 실행이
+        # 어떤 설정이었는지 되짚을 수 있다.
+        **({"traj_horizon": _TRAJ_HORIZON_S,
+            "traj_alpha": _TRAJ_ALPHA} if args.traj else {}),
+        "use_egomotion": bool(args.use_egomotion),
+        "ego_ablation": args.ego_ablation,
+        "header_style": args.header_style,
+        "margin": bool(args.margin),
+        "score_categories": bool(args.score_categories),
+        "use_3dbbox": bool(args.use_obstacle),
+        "constrain_tiers": bool(args.constrain_tiers),
+        "difficulty": bool(args.difficulty),
+        # 키 이름은 difficulty_only 로 둔다 - 기존 실행 폴더의
+        # run_config.json 과 같은 이름이어야 evaluate_labels 가 옛 실행도
+        # 읽는다. 화면 표기만 weather 로 바뀌었다.
+        "difficulty_only": bool(args.difficulty_only),
+        "tiers_elements": bool(args.tiers_elements),
+        "explain_traj": bool(args.explain_traj),
+        "num_shards": args.num_shards,
+    }
+
+
+def save_run_config(args, run_dir, n_views=1, prompt_sha=None):
     """이번 실행의 설정을 <run_dir>/run_config.json 에 남긴다.
 
     argparse 네임스페이스를 통째로 저장하되, 나중에 사람이 먼저 보게 될
@@ -1399,66 +1482,126 @@ def save_run_config(args, run_dir, n_views=1):
     왜 결과 폴더에 두는가: 실행 폴더를 나중에 열었을 때 어떤 설정으로 낸
     숫자인지 알 방법이 run.log 를 뒤지는 것뿐이면, 로그가 지워지거나
     --eval-only 로 재채점할 때 근거가 사라진다.
+
+    --resume 으로 이어받는 실행은 원래 설정을 덮어쓰지 않는다 - 대조를
+    통과했으니 결과를 결정하는 값은 같고, 덮어쓰면 처음 시작한 시각이
+    사라진다. 대신 "resumes" 에 이어받은 기록을 한 줄 덧붙인다.
     """
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
-    cfg = {
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "key": {
-            # 사람이 붙인 실행 설명. 설정만으로는 구분이 안 되는 실험
-            # (예: 라벨 파일 내용을 고쳤을 때)을 나중에 알아보게 해준다.
-            "memo": args.memo,
-            "model": args.model,
-            "scene_json": args.scene_json,
-            # 라벨 "내용" 의 지문. 경로는 그대로인데 내용만 고치는 일이
-            # 잦아(실측: 20260818 의 130207 과 134742 는 설정이 완전히
-            # 같은데 그 사이 Too Close Person 을 Jaywalking 에 병합해
-            # 점수가 달라졌다) 경로만으로는 두 실행을 구분할 수 없다.
-            "gt_labels_sha": _file_sha(args.gt_labels),
-            # 시각화 패널에 GT 를 함께 그릴 때 쓴 정답 라벨. 채점에 쓰는
-            # --labels 와 다른 파일일 수 있어(test_label.json vs _D) 따로 남긴다.
-            "gt_labels": args.gt_labels,
-            "prompt_style": args.prompt_style,
-            "clip_fps": args.clip_fps,
-            "clip_max_frames": args.clip_max_frames,
-            "clip_long_side": args.clip_long_side,
-            "n_views": n_views,
-            "single_view": bool(args.single_view),
-            "video_input": bool(args.clip_video_input),
-            "timeline": bool(args.timeline),
-            "ego_track": bool(args.ego_track),
-            "traj": args.traj,
-            # 궤적 스타일은 trajectory.py 상수가 단일 진실 공급원이다.
-            # 그 값을 여기 박아두어야 나중에 상수를 바꿔도 과거 실행이
-            # 어떤 설정이었는지 되짚을 수 있다.
-            **({"traj_horizon": _TRAJ_HORIZON_S,
-                "traj_alpha": _TRAJ_ALPHA} if args.traj else {}),
-            "use_egomotion": bool(args.use_egomotion),
-            "ego_ablation": args.ego_ablation,
-            "header_style": args.header_style,
-            "margin": bool(args.margin),
-            "score_categories": bool(args.score_categories),
-            "use_3dbbox": bool(args.use_obstacle),
-            "constrain_tiers": bool(args.constrain_tiers),
-            "difficulty": bool(args.difficulty),
-            # 키 이름은 difficulty_only 로 둔다 - 기존 실행 폴더의
-            # run_config.json 과 같은 이름이어야 evaluate_labels 가 옛 실행도
-            # 읽는다. 화면 표기만 weather 로 바뀌었다.
-            "difficulty_only": bool(args.difficulty_only),
-            "tiers_elements": bool(args.tiers_elements),
-            "explain_traj": bool(args.explain_traj),
-            "num_shards": args.num_shards,
-        },
-        # 위에 없는 옵션까지 전부. 값이 Path 등이면 문자열로 눕힌다.
-        "argv": {k: (v if isinstance(v, (int, float, str, bool, type(None)))
-                     else str(v))
-                 for k, v in vars(args).items()},
-    }
     path = run_dir / RUN_CONFIG_NAME
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
+
+    if getattr(args, "resume", False) and path.exists():
+        cfg = json.loads(path.read_text(encoding="utf-8"))
+        cfg.setdefault("resumes", []).append({
+            "timestamp": now,
+            "num_shards": args.num_shards,
+            "memo": args.memo,
+        })
+        # 옛 실행에는 지문이 없다. 이번에 대조한 값으로 채워 두면 다음
+        # 이어받기부터는 프롬프트까지 대조된다.
+        key = cfg.setdefault("key", {})
+        for k in ("scene_json_sha", "prompt_sha"):
+            if key.get(k) is None:
+                key[k] = _config_key(args, n_views, prompt_sha)[k]
+    else:
+        cfg = {
+            "timestamp": now,
+            "key": _config_key(args, n_views, prompt_sha),
+            # 위에 없는 옵션까지 전부. 값이 Path 등이면 문자열로 눕힌다.
+            "argv": {k: (v if isinstance(v, (int, float, str, bool, type(None)))
+                         else str(v))
+                     for k, v in vars(args).items()},
+        }
     path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False),
                     encoding="utf-8")
     print(f"[info] run config -> {path}")
     return path
+
+
+# 이어받을 때 원래 실행과 달라도 되는 설정. 결과 행의 내용을 바꾸지 않는다.
+#   memo           사람이 붙인 설명
+#   num_shards     클립을 몇 갈래로 나누는가 - 어느 클립이 끝났는지는
+#                  CSV 로 판정하므로 갈래 수가 바뀌어도 빠지거나 겹치지 않는다
+#   gt_labels*     시각화 패널에 GT 를 곁들일 때만 쓴다
+RESUME_IGNORED_KEYS = {"memo", "num_shards", "gt_labels", "gt_labels_sha"}
+
+
+def _prompt_fingerprint(args, labels, category_menu, n_views) -> str:
+    """모델이 읽는 프롬프트 틀의 해시.
+
+    클립마다 달라지는 부분(프레임 수, 자차 행동 문장)은 자리표시자로 둔다 -
+    지문이 잡아야 하는 것은 rubric, 단계 지시, 카테고리 메뉴처럼 코드와
+    설정 파일에서 오는 부분이다.
+    """
+    import hashlib
+    text = build_nureasoning_prompt(
+        category_menu, "", labels,
+        single_view=args.single_view,
+        behavior_facts="<BEHAVIOR>" if args.use_egomotion else "",
+        intro=f"<INTRO views={n_views} fps={args.clip_fps} "
+              f"frames={args.clip_max_frames} video={args.clip_video_input}>",
+        timeline=args.timeline,
+        force_behavior_hint=(args.ego_ablation == "d"),
+        header_style=args.header_style,
+        score_categories=args.score_categories,
+        difficulty=args.difficulty,
+        difficulty_only=args.difficulty_only,
+        tiers_elements=args.tiers_elements,
+        explain_traj=args.explain_traj)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+def _check_resume(args, run_dir, n_views, prompt_sha):
+    """이어받아도 되는 실행인지 대조한다. 안 되면 SystemExit.
+
+    결과를 결정하는 설정이 하나라도 다르면, 한 CSV 안에 서로 다른 조건으로
+    만든 행이 섞인다. 그 뒤의 집계는 둘을 구분할 방법이 없어 조용히
+    오염된다. 그래서 다르면 멈추고 무엇이 다른지 보여준다.
+
+    옛 run_config 에 없는 키(예: prompt_sha 는 나중에 추가됐다)는 대조할 수
+    없으므로 경고만 하고 넘어간다. 열 구성이 바뀐 옛 실행은 그와 별개로
+    CSV 헤더 대조에서 걸린다.
+    """
+    run_dir = Path(run_dir)
+    path = run_dir / RUN_CONFIG_NAME
+    if not path.exists():
+        raise SystemExit(f"[error] --resume: {path} 가 없습니다 - 원래 실행의 "
+                         f"설정을 알 수 없어 이어받을 수 없습니다.")
+    old = json.loads(path.read_text(encoding="utf-8")).get("key", {})
+    new = _config_key(args, n_views, prompt_sha)
+
+    def norm(k, v):
+        # 경로는 적는 방식(상대/절대)이 달라도 같은 파일이면 같다.
+        if k == "scene_json" and v:
+            return str(Path(v).resolve())
+        return v
+
+    diff, unverified = [], []
+    for k, v in new.items():
+        if k in RESUME_IGNORED_KEYS:
+            continue
+        if k not in old or old[k] is None:
+            if v is not None:
+                unverified.append(k)
+            continue
+        if norm(k, old[k]) != norm(k, v):
+            diff.append(f"    {k:18} 원래 {old[k]!r}\n{'':22} 지금 {v!r}")
+    if diff:
+        hint = ""
+        log = run_dir / "run.log"
+        if log.exists():
+            for line in log.read_text(encoding="utf-8", errors="replace").splitlines():
+                if line.startswith("[info] opts"):
+                    hint = f"\n  원래 실행의 옵션 ({log.name}):\n    {line}"
+                    break
+        raise SystemExit(
+            "[error] --resume: 원래 실행과 설정이 다릅니다. 같은 옵션으로 "
+            "다시 실행하세요.\n" + "\n".join(diff) + hint)
+    if unverified:
+        print(f"[warn] --resume: 원래 실행 설정에 없는 항목이라 대조하지 못함: "
+              f"{', '.join(unverified)}")
 
 
 def _load_gt_labels(path):
@@ -1601,6 +1744,22 @@ if __name__ == "__main__":
     ap.add_argument("--only-uuids", default=None,
                     help="이 파일에 적힌 uuid(한 줄에 하나)만 처리한다. "
                          "정답 라벨이 있는 클립만 골라 검증할 때 쓴다.")
+    ap.add_argument("--resume", action="store_true",
+                    help="--out 이 가리키는 실행 폴더를 이어받는다. 폴더의 "
+                         "clip_results*.csv 에서 끝난 클립(n_frames > 0)을 "
+                         "빼고 나머지만 돌려 같은 파일 뒤에 덧붙인다. 영상을 "
+                         "못 읽어 n_frames=0 으로 기록된 클립은 실패로 보고 "
+                         "다시 돌린다 - 그 옛 행은 이어받기 전에 백업 후 "
+                         "지워야 중복이 생기지 않는다(resume_run.py, 셸 "
+                         "스크립트의 --resume 이 자동으로 한다). 설정(모델/"
+                         "카테고리/프롬프트/fps 등)이 원래 실행과 다르면 "
+                         "거부한다. 클립 모드 전용.")
+    ap.add_argument("--resume-prepare", action="store_true",
+                    help="--resume 의 준비 단계만 한다: 설정 대조, 열 구성 "
+                         "대조, 실패 행 백업 후 삭제. 모델을 올리지 않고 "
+                         "끝난다. 여러 샤드가 동시에 정리하면 병합본을 함께 "
+                         "다시 쓰게 되므로, 셸 스크립트가 샤드를 띄우기 전에 "
+                         "한 번만 부른다.")
     ap.add_argument("--clip-mode", action="store_true",
                     help="판정 단위를 (uuid, frame_idx) 가 아니라 클립 전체로 "
                          "바꾼다. 20초를 --clip-fps 로 훑어 시간순 이미지를 "
@@ -1792,6 +1951,16 @@ if __name__ == "__main__":
         print("[info] --weather-only: 날씨 4축만 추론한다 "
               "(verdict/categories/scores off)")
 
+    # --resume 은 이어받을 폴더를 --out 으로 받는다. 없으면 아래에서 새 실행
+    # 폴더가 만들어져, 이어받는 대신 처음부터 도는 실행이 조용히 생긴다.
+    if (args.resume or args.resume_prepare) and args.out is None:
+        raise SystemExit("[error] --resume 은 --out <이어받을 폴더>/"
+                         "clip_results_shard_N.csv 가 필요합니다")
+    if (args.resume or args.resume_prepare) and not args.clip_mode:
+        raise SystemExit("[error] --resume 은 클립 모드(--clip-mode) 전용입니다")
+    if args.resume_prepare:
+        args.resume = True
+
     if args.out is None:
         run_dir = ROOT / "results" / datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -1827,6 +1996,49 @@ if __name__ == "__main__":
     print(f"[info] camera views: {len(_views)} "
           f"({'front-wide only' if args.single_view else 'front 3-view'})"
           f" -> {2 * len(_views)} images per unit")
+
+    prompt_sha = (_prompt_fingerprint(args, labels, category_menu, len(_views))
+                  if args.clip_mode else None)
+
+    # --resume: 원래 실행과 대조한 뒤 끝난 클립 목록을 얻는다.
+    #
+    # 순서가 중요하다. (1) 설정 대조와 (2) CSV 열 구성 대조를 둘 다 통과한
+    # 뒤에야 (3) 실패 행을 지운다 - 이어받을 수 없는 실행을 발견하기 전에
+    # 파일부터 고쳐 두면 되돌리기 번거롭다. 전부 클립 목록 만들기 전에 한다.
+    # NAS 는 목록에 한 시간이 걸릴 수 있어, 거부될 실행이 그만큼 기다리게
+    # 하지 않는다.
+    resume_done = None
+    if args.resume:
+        import resume_run as RR
+        # 이 import 는 torch 를 올리지만 어차피 아래에서 올린다. 열 구성의
+        # 진실 공급원이 qwen_runner 라 여기서 가져와야 한다.
+        from qwen_runner import CLIP_CSV_COLUMNS
+        run_dir = Path(args.out).parent
+        if not RR.result_files(run_dir):
+            raise SystemExit(f"[error] --resume: {run_dir} 에 이어받을 "
+                             f"{RR.RESULT_GLOB} 가 없습니다")
+        _check_resume(args, run_dir, len(_views), prompt_sha)
+        try:
+            if args.resume_prepare:
+                info = RR.prepare(run_dir, CLIP_CSV_COLUMNS)
+                print(f"[resume] 준비 완료 - 끝난 클립 {len(info['done']):,}개")
+                raise SystemExit(0)
+            info = RR.scan(run_dir, CLIP_CSV_COLUMNS)
+            if info["n_drop"]:
+                # 샤드가 여럿이면 여기서 정리하면 안 된다 - 같은 병합본을
+                # 여러 프로세스가 동시에 다시 쓰게 된다. 정리하지 않고
+                # 진행하면 실패 행과 새 행이 같은 uuid 로 겹친다.
+                if args.num_shards > 1:
+                    raise SystemExit(
+                        f"[error] --resume: 지워야 할 실패 행이 "
+                        f"{info['n_drop']:,}개 남아 있습니다. 샤드를 띄우기 "
+                        f"전에 한 번만 정리하세요:\n"
+                        f"  python resume_run.py --run-dir {run_dir} --apply")
+                info = RR.prepare(run_dir, CLIP_CSV_COLUMNS)
+        except RR.ResumeError as e:
+            raise SystemExit(f"[error] --resume: {e}")
+        resume_done = info["done"]
+        print(f"[resume] {run_dir}: 끝난 클립 {len(resume_done):,}개는 건너뛴다")
 
     # 특정 클립만 처리 (검증용). 라벨된 uuid 는 데이터셋 전체에 흩어져 있어서
     # --limit-clips 로는 못 뽑는다. 목록에 있지만 데이터셋에 없는 uuid 는
@@ -1867,6 +2079,18 @@ if __name__ == "__main__":
             uuids = uuids[args.shard_id::args.num_shards]
             print(f"[info] shard {args.shard_id}/{args.num_shards}: "
                   f"{len(uuids)} clips")
+        # 끝난 클립은 샤드로 나눈 '뒤에' 뺀다. 먼저 빼고 나누면, 샤드마다
+        # 끝난 목록을 읽은 시점이 조금씩 다를 때(먼저 시작한 샤드가 이미
+        # 행을 덧붙인 뒤) 나머지 샤드의 몫이 밀려 어떤 클립은 두 번, 어떤
+        # 클립은 한 번도 안 돌게 된다. 나눈 뒤에 빼면 샤드끼리 몫이 겹치지
+        # 않으므로 그 시점 차이가 결과를 바꾸지 못한다.
+        if resume_done is not None:
+            n_all = len(uuids)
+            uuids = [u for u in uuids if u not in resume_done]
+            print(f"[resume] {n_all - len(uuids):,}개 끝남 -> "
+                  f"남은 {len(uuids):,}개를 돌린다")
+            if not uuids:
+                print("[resume] 이 샤드에 남은 클립이 없습니다")
         n_img = args.clip_max_frames * len(_views)
         print(f"[info] clip mode: {len(uuids)} clips, {args.clip_fps} fps, "
               f"max {args.clip_max_frames} frames/view -> {n_img} images/clip "
@@ -1875,7 +2099,8 @@ if __name__ == "__main__":
         # 를 되짚을 방법이 로그 뒤지기밖에 없으면 A/B 비교를 신뢰할 수 없다.
         # 샤드 0 만 쓴다 (8개가 같은 파일에 동시에 쓰면 깨진다).
         if args.shard_id == 0:
-            save_run_config(args, Path(args.out).parent, n_views=len(_views))
+            save_run_config(args, Path(args.out).parent, n_views=len(_views),
+                            prompt_sha=prompt_sha)
         if args.dry_run:
             for u in uuids[:3]:
                 c = sample_clip_frames(u, fps=args.clip_fps,
@@ -1886,6 +2111,10 @@ if __name__ == "__main__":
                 print(f"  {u}: {len(c['frames'])} images, idx "
                       f"{c['indices'][:3]}..{c['indices'][-1]}, sizes {sizes}")
             print("[dry-run] done")
+            raise SystemExit(0)
+        # 이어받았는데 이 샤드 몫이 전부 끝났으면 모델을 올리지 않는다 -
+        # 8B 도 올리는 데 수십 초가 걸리고, 할 일 없이 GPU 만 잡는다.
+        if resume_done is not None and not uuids:
             raise SystemExit(0)
         from qwen_runner import run_clip_inference
         # 이 import 가 edge_case_mining 사본을 만든다 - 프레임 소스를 옮겨 심는다
@@ -1922,6 +2151,7 @@ if __name__ == "__main__":
                                         else None),
                            video_input=args.clip_video_input,
                            constrain_tiers=args.constrain_tiers,
+                           resume=args.resume,
                            **({"viz_width": (args.clip_viz_width or None)}
                               if args.clip_viz_width is not None else {}))
         raise SystemExit(0)

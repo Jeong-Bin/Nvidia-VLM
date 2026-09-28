@@ -550,7 +550,7 @@
         "road_surface": 0,
         "atmospheric_obscurants": 0
       },
-      "note": "Obstacle ?"
+      "note": "Obstacle on Road ?"
     },
     "eba8c4ed-a142-4d18-86cb-99d530fa6c64": {
       "categories": {},
@@ -698,7 +698,7 @@
     },
     "dbb2b556-53d6-4612-9478-28f43ac2efb1": {
       "categories": {
-        "Pedestrian on Road": 3
+        "Pedestrian on Road": 2
       },
       "influenced_ego": true,
       "safety_criticality": 1,
@@ -714,7 +714,7 @@
     },
     "dbcf2943-b7d6-4e14-9a5b-9f6a4966731d": {
       "categories": {
-        "Pedestrian on Road": 2
+        "Pedestrian on Road": 1
       },
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -798,7 +798,7 @@
         "road_surface": 0,
         "atmospheric_obscurants": 0
       },
-      "note": "다리 아래, 정면 느린 트럭(Obstacle로 판단할 수도?)"
+      "note": "다리 아래, 정면 느린 트럭(Obstacle on Road로 판단할 수도?)"
     },
     "dc84dd80-5155-4af4-9264-c8f141120e74": {
       "categories": {},
@@ -987,9 +987,7 @@
       "note": ""
     },
     "de7b7ae4-f78d-41a1-bfcf-8646328f5082": {
-      "categories": {
-        "Pedestrian on Road": -1
-      },
+      "categories": {},
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -1060,7 +1058,7 @@
     },
     "de5216af-060b-4c19-9900-7c49ec61fdfb": {
       "categories": {
-        "Cyclist on Road": -1
+        "Cyclist on Road": 1
       },
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -1176,7 +1174,7 @@
     },
     "df0687d0-a2a3-4534-95e0-164f02bec8af": {
       "categories": {
-        "Pedestrian on Road": -1
+        "Pedestrian on Road": 1
       },
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -1290,7 +1288,7 @@
     },
     "e0e3a853-ca7d-4cf1-bc15-7f40ae94b571": {
       "categories": {
-        "Cyclist on Road": -1
+        "Cyclist on Road": 1
       },
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -1322,7 +1320,7 @@
     },
     "e01de701-9d38-47f5-9a7e-35bdc0c3955b": {
       "categories": {
-        "Road Construction": -1
+        "Road Construction": 3
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -1338,7 +1336,7 @@
     },
     "e1f5c31a-7d63-4f70-a32f-3363ebaae006": {
       "categories": {
-        "Pedestrian on Road": -1
+        "Pedestrian on Road": 2
       },
       "influenced_ego": false,
       "safety_criticality": 2,
@@ -1382,7 +1380,7 @@
     },
     "e3adcc67-efc6-48fd-a883-368f30e5aae2": {
       "categories": {
-        "Pedestrian on Road": -1
+        "Pedestrian on Road": 1
       },
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -1412,7 +1410,7 @@
     },
     "e4a8b18e-ca79-434e-a171-07ef638810a7": {
       "categories": {
-        "Pedestrian on Road": -1
+        "Pedestrian on Road": 1
       },
       "influenced_ego": false,
       "safety_criticality": 2,
@@ -1428,7 +1426,7 @@
     },
     "e4b5930a-b00e-4f73-b7d7-9d1e2388310c": {
       "categories": {
-        "Pedestrian on Road": -1
+        "Pedestrian on Road": 3
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -1500,7 +1498,7 @@
     },
     "da28084a-9224-4cae-8f99-a518b984fcdd": {
       "categories": {
-        "Pedestrian on Road": -1
+        "Pedestrian on Road": 2
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -1558,7 +1556,7 @@
     },
     "d1695972-f72c-4ef2-bb22-a496775339c3": {
       "categories": {
-        "Road Construction": -1
+        "Road Construction": 3
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -1574,7 +1572,7 @@
     },
     "d43da341-f39f-45d1-a9fe-a62ac2c9af4a": {
       "categories": {
-        "Pedestrian on Road": -1
+        "Pedestrian on Road": 2
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -1632,7 +1630,7 @@
     },
     "d52e41c5-b20a-4a69-ac56-ef23c9c0ee50": {
       "categories": {
-        "Pedestrian on Road": -1
+        "Pedestrian on Road": 2
       },
       "influenced_ego": false,
       "safety_criticality": 2,
@@ -1678,7 +1676,7 @@
     },
     "d8f30197-6403-4a0b-a815-0fdc0534b77e": {
       "categories": {
-        "Pedestrian on Road": -1
+        "Pedestrian on Road": 1
       },
       "influenced_ego": true,
       "safety_criticality": 1,
@@ -1694,7 +1692,7 @@
     },
     "d1248bb6-a02a-49a1-9018-6e85159ca9e1": {
       "categories": {
-        "Pedestrian on Road": -1
+        "Pedestrian on Road": 2
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -1710,7 +1708,7 @@
     },
     "ca440ae0-2e49-4858-a8e8-57abd28e6962": {
       "categories": {
-        "Road Construction": -1
+        "Road Construction": 4
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -1754,7 +1752,7 @@
     },
     "d912b7d2-1071-4467-9227-28c951485bc0": {
       "categories": {
-        "Pedestrian on Road": -1
+        "Pedestrian on Road": 2
       },
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -1770,7 +1768,7 @@
     },
     "d95ddbc1-8472-47a7-8ede-51ea2321697b": {
       "categories": {
-        "Pedestrian on Road": -1
+        "Pedestrian on Road": 3
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -1782,12 +1780,12 @@
         "road_surface": 0,
         "atmospheric_obscurants": 0
       },
-      "note": ""
+      "note": "무단횡단"
     },
     "d7e1e945-81e5-4efe-9979-5562d199ccbf": {
       "categories": {
-        "Pedestrian on Road": -1,
-        "Road Construction": -1
+        "Pedestrian on Road": 2,
+        "Road Construction": 2
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -1966,7 +1964,7 @@
     },
     "ca0677e3-2024-462b-a5ac-ef37abec9528": {
       "categories": {
-        "Obstacle": -1
+        "Obstacle on Road": -1
       },
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -2129,7 +2127,7 @@
     },
     "c86f0599-a818-474c-a3c0-030c61047d1b": {
       "categories": {
-        "Obstacle": -1
+        "Obstacle on Road": -1
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3913,7 +3911,7 @@
     },
     "14a03c45-4654-4c1d-80f1-23b30fd12370": {
       "categories": {
-        "Obstacle": -1
+        "Barrier arm": -1
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -4207,7 +4205,7 @@
     },
     "0551ed73-b6a1-49bd-afcd-1fe49e13bfc1": {
       "categories": {
-        "Obstacle": -1
+        "Obstacle on Road": -1
       },
       "influenced_ego": true,
       "safety_criticality": 1,
@@ -4239,7 +4237,7 @@
     },
     "04bfec39-17d8-4925-8653-55a0aa66f83c": {
       "categories": {
-        "Obstacle": -1
+        "Obstacle on Road": -1
       },
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -4255,7 +4253,7 @@
     },
     "0b6400fd-378b-445f-8549-c23a83914be0": {
       "categories": {
-        "Obstacle": -1
+        "Barrier arm": -1
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -4297,7 +4295,7 @@
         "road_surface": 0,
         "atmospheric_obscurants": 0
       },
-      "note": "가구 싣고 가는 트럭 때문에 Obstacle 로 오인할 수 있음"
+      "note": "가구 싣고 가는 트럭 때문에 Obstacle on Road 로 오인할 수 있음"
     },
     "0a119fc6-c3e4-4af1-8d00-72d68c3da5c9": {
       "categories": {
@@ -4334,7 +4332,7 @@
     "054c8dba-2f98-4d80-aaae-41bacc76db05": {
       "categories": {
         "Emergency Vehicle": -1,
-        "Obstacle": -1
+        "Obstacle on Road": -1
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -4692,7 +4690,7 @@
     "022ff7db-cfc8-49ad-99a2-a36b17674a97": {
       "categories": {
         "Railway crossing": 2,
-        "Obstacle": -1
+        "Obstacle on Road": -1
       },
       "influenced_ego": true,
       "safety_criticality": 2,
