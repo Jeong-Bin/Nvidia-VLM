@@ -105,7 +105,7 @@
             "templates": [
               "An ambulance, fire engine or police car with its emergency lights flashing",
               "An emergency vehicle is stopped on the roadway, blocking part of it",
-              "A police car is handling the scene of a traffic accident"
+              "Emergency vehicles suddenly cut in front of or pass by ego-vehicles"
             ],
             "template_candidates": [
               "An ambulance with flashing lights",
@@ -122,14 +122,16 @@
               "EMS vehicle"
             ],
             "excludes": [
-              "An emergency vehicle driving with its emergency lights off - that is ordinary traffic, whatever its type."
+              "An emergency vehicle driving with its emergency lights off - that is ordinary traffic, whatever its type.",
+              "An emergency vehicle that stays well away from the ego-vehicle's path the whole time - several lanes away, or stopped off to the side - never entering the path ahead of the ego-vehicle and never coming close alongside it. However clearly it is visible, it adds nothing to how hard the drive is, so it does not count here."
             ]
           },
           {
             "name": "Animal on Road",
             "templates": [
               "A real animal, not a statue, is crossing the road",
-              "A Wildlife is blocking the path of passing vehicles"
+              "A Wildlife is blocking the path of passing vehicles",
+              "An animal suddenly appeared in the driving path of ego-vehicli."
             ],
             "template_candidates": [
               "An animal crossing the road",
@@ -152,6 +154,9 @@
               "wild animal",
               "An animal loose on the road",
               "Wildlife crossing in front of traffic"
+            ],
+            "excludes": [
+              "An animal that stays well away from the ego-vehicle's path the whole time - in a field, behind a fence, or several lanes away - never entering the path ahead of the ego-vehicle and never coming close alongside it. However clearly it is visible, it adds nothing to how hard the drive is, so it does not count here."
             ]
           },
           {
@@ -160,7 +165,8 @@
               "A person crossing between moving vehicles",
               "A person is walking on the roadway, outside the sidewalk",
               "A pedestrian jaywalking across the road where there is no crosswalk",
-              "A pedestrian is waiting for a vehicle to stop at the crosswalk"
+              "A pedestrian brushes close past the side of the ego-vehicle"
+              
             ],
             "template_candidates": [
               "A person crossing between moving vehicles",
@@ -171,17 +177,25 @@
               "The vehicle stopped because a pedestrian was crossing the road outside of a crosswalk",
               "illegal crossing",
               "People are passing between",
-              "A pedestrian suddenly steps onto a road where there is no crosswalk"
+              "A pedestrian suddenly steps onto a road where there is no crosswalk",
+              "A pedestrian is waiting for a vehicle to stop at the crosswalk"
+            ],
+            "excludes": [
+              "A pedestrian who stays well away from the ego-vehicle's path the whole time - on the pavement, or several lanes away - never entering the path ahead of the ego-vehicle and never coming close alongside it. However clearly it is visible, it adds nothing to how hard the drive is, so it does not count here."
             ]
           },
           {
             "name": "Cyclist on Road",
             "templates": [
               "Person on the scooter is crossing the street",
-              "A cyclist is riding very close to the ego vehicle on the roadway"
+              "The cyclist passes in front of the vehicle's path",
+              "A cyclist is riding very close to the ego-vehicle on the roadway"
             ],
             "template_candidates": [
               "A cyclist is riding close to ego vehicle"
+            ],
+            "excludes": [
+              "A cyclist who stays well away from the ego-vehicle's path the whole time - on a cycle path or bike lane away from the vehicle, or several lanes away - never entering the path ahead of the ego-vehicle and never coming close alongside it. However clearly it is visible, it adds nothing to how hard the drive is, so it does not count here."
             ]
           }
         ]

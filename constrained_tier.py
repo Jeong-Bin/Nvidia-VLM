@@ -129,25 +129,40 @@ def tier_menu() -> str:
 
 
 # for Animal on Road, Pedestrian on Road, Cyclist on Road, Emergency Vehicle
+#
+# 이 점수는 edge-case 인지가 아니라 그 객체가 주행 난이도를 얼마나 올렸는지를
+# 잰다. 그래서 자차 경로에 들어오지도 않고 옆을 가깝게 스쳐 가지도 않는 객체
+# (먼 차선, 반대편, 인도, 울타리 너머)는 점수를 매기지 않고 카테고리에서
+# 뺀다 - scene_category 의 excludes. "장면에 없음"과 "있지만 멀리 있음"이 둘
+# 다 난이도 0 이라 한 규칙으로 합쳤고, 다른 rubric 들도 1 부터 시작하므로
+# 눈금이 통일된다.
+#
+# 칸은 자차 상태와 여유로 가른다(횡단보도 여부는 쓰지 않는다):
+#   1 자차가 서 있거나 걷는 속도 이하로 기어가고 있었다(앞이든 옆이든)
+#     - egomotion 의 정지 판정(1.8 km/h 미만)만 정지로 치면 정체 속 2~5 km/h
+#       서행이 "주행 중"으로 읽혀 2 로 간다. 난이도는 정차와 같으므로 묶는다.
+#                                2 달리는 중, 앞쪽에 여유 있게
+#   3 달리는 중, 옆을 가깝게     4 달리는 중, 갑자기 가까이
 IMPACT_RUBRIC = {
-    1: "It is on the roadway, but in another lane well away from the one the "
-       "ego-vehicle is driving in. The vehicle keeps its speed and its line, "
-       "and would have driven the same way had it not been there.",
-    2: "It is right beside the ego-vehicle's lane or passes right beside it, "
-       "or it crosses the road on a crosswalk directly in front of the "
-       "vehicle. When it is beside the lane, carrying straight on would have "
-       "been fine, but to keep a safe gap the vehicle eased off a little or "
-       "edged slightly to one side. When it crosses on a crosswalk, the "
-       "vehicle gradually slowed down or came to a stop for it.",
-    3: "It is in the ego-vehicle's path ahead - crossing the road outside a "
-       "crosswalk, moving along ahead in the ego-vehicle's lane, or stopped on "
-       "the road in the vehicle's way. The vehicle gradually slowed down, "
-       "stopped, or steered around it.",
-    4: "It appeared suddenly in the ego-vehicle's path, on a crosswalk or not, "
-       "and the vehicle had to brake hard, stop, or swerve urgently. A near "
-       "miss avoided only that way, or a collision because it could not be "
-       "avoided, belongs here.",
+    1: "It came into the path ahead of the ego-vehicle, or passed close "
+       "alongside it, while the vehicle was stopped or barely moving - at "
+       "walking pace or slower, as when creeping forward in a queue. The "
+       "vehicle simply waited for it to pass and then moved off.",
+    2: "It came into the path ahead of the ego-vehicle while the vehicle was "
+       "moving, with plenty of distance between them. The vehicle gradually "
+       "slowed, stopped, or steered around it - or kept its speed and its line "
+       "because it moved out of the path on its own first.",
+    3: "It and the moving ego-vehicle came close alongside each other - it moved "
+       "past the vehicle, or it stood still at the edge of the vehicle's lane while "
+       "the vehicle went by. The vehicle steered away from it - or, with no room to "
+       "do so, kept its speed and its line and went by within a very short distance of it.",
+    4: "It got into the ego-vehicle's path at close range with little or no "
+       "warning - it came suddenly out of view, or it had already been seen "
+       "but suddenly turned, swerved or darted in front of or beside the "
+       "moving vehicle. The vehicle had to brake hard, stop, or swerve "
+       "urgently. A near miss avoided only that way, or a collision, belongs here.",
 }
+
 
 # for Road Construction
 CONSTRUCTION_RUBRIC = {
@@ -201,20 +216,6 @@ UNPAVED_RUBRIC = {
 }
 
 # for Obstacle on Road
-#
-# IMPACT 에서 떼어 낸 이유: "경로 위에 있지만 밟고 지나가도 되는 물체" 를
-# IMPACT 로는 채점할 수 없다. IMPACT 는 경로 안에 있으면 자차가 감속/정지/
-# 회피했다는 전제(3)라, 작은 나뭇가지를 그냥 밟고 지나간 클립이 갈 칸이
-# 없다. 여기서는 1 이 그 경우다.
-#
-# 그래서 두 가지를 순서대로 본다 - 먼저 "밟고 지나갈 수 있는가"(1 과 나머지
-# 를 가른다), 그다음 위치와 여유(2~4). 더하지 않고 순서대로 거르므로 한
-# 칸에 두 축이 섞이지 않는다.
-#
-# 자차 주행 경로에서 완전히 벗어난 물체(다른 차선, 갓길 너머)는 카테고리
-# 자체가 아니다 - scene_category 의 excludes 에 적었다. 그래서 1 이 "경로
-# 밖"을 다루지 않아도 빈 칸이 생기지 않는다. 인도 위 보행자가 Pedestrian
-# on Road 가 아닌 것과 같은 구조다.
 OBSTACLE_RUBRIC = {
     1: "A small object - a branch, a bit of debris, a scrap of litter - lies "
        "in the ego-vehicle's path, small enough to drive over. The vehicle "

@@ -698,7 +698,7 @@
     },
     "dbb2b556-53d6-4612-9478-28f43ac2efb1": {
       "categories": {
-        "Pedestrian on Road": 2
+        "Pedestrian on Road": 3
       },
       "influenced_ego": true,
       "safety_criticality": 1,
@@ -714,7 +714,7 @@
     },
     "dbcf2943-b7d6-4e14-9a5b-9f6a4966731d": {
       "categories": {
-        "Pedestrian on Road": 1
+        "Pedestrian on Road": 2
       },
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -829,9 +829,7 @@
       "note": ""
     },
     "dc257402-687c-4a34-a950-8bb6a3c2508d": {
-      "categories": {
-        "Pedestrian on Road": 1
-      },
+      "categories": {},
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -1057,9 +1055,7 @@
       "note": ""
     },
     "de5216af-060b-4c19-9900-7c49ec61fdfb": {
-      "categories": {
-        "Cyclist on Road": 1
-      },
+      "categories": {},
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -1173,9 +1169,7 @@
       "note": ""
     },
     "df0687d0-a2a3-4534-95e0-164f02bec8af": {
-      "categories": {
-        "Pedestrian on Road": 1
-      },
+      "categories": {},
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -1287,9 +1281,7 @@
       "note": ""
     },
     "e0e3a853-ca7d-4cf1-bc15-7f40ae94b571": {
-      "categories": {
-        "Cyclist on Road": 1
-      },
+      "categories": {},
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -1379,9 +1371,7 @@
       "note": ""
     },
     "e3adcc67-efc6-48fd-a883-368f30e5aae2": {
-      "categories": {
-        "Pedestrian on Road": 1
-      },
+      "categories": {},
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -1409,9 +1399,7 @@
       "note": ""
     },
     "e4a8b18e-ca79-434e-a171-07ef638810a7": {
-      "categories": {
-        "Pedestrian on Road": 1
-      },
+      "categories": {},
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
@@ -1426,7 +1414,7 @@
     },
     "e4b5930a-b00e-4f73-b7d7-9d1e2388310c": {
       "categories": {
-        "Pedestrian on Road": 3
+        "Pedestrian on Road": 2
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -1498,7 +1486,7 @@
     },
     "da28084a-9224-4cae-8f99-a518b984fcdd": {
       "categories": {
-        "Pedestrian on Road": 2
+        "Pedestrian on Road": 1
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -1630,7 +1618,7 @@
     },
     "d52e41c5-b20a-4a69-ac56-ef23c9c0ee50": {
       "categories": {
-        "Pedestrian on Road": 2
+        "Pedestrian on Road": 4
       },
       "influenced_ego": false,
       "safety_criticality": 2,
@@ -1676,7 +1664,7 @@
     },
     "d8f30197-6403-4a0b-a815-0fdc0534b77e": {
       "categories": {
-        "Pedestrian on Road": 1
+        "Pedestrian on Road": 2
       },
       "influenced_ego": true,
       "safety_criticality": 1,
@@ -1752,7 +1740,7 @@
     },
     "d912b7d2-1071-4467-9227-28c951485bc0": {
       "categories": {
-        "Pedestrian on Road": 2
+        "Pedestrian on Road": 3
       },
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -1768,7 +1756,7 @@
     },
     "d95ddbc1-8472-47a7-8ede-51ea2321697b": {
       "categories": {
-        "Pedestrian on Road": 3
+        "Pedestrian on Road": 2
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -1801,7 +1789,7 @@
     },
     "d5eef248-a953-4647-9680-3a16f4cfd642": {
       "categories": {
-        "Cyclist on Road": -1
+        "Cyclist on Road": 3
       },
       "influenced_ego": true,
       "safety_criticality": 1,
@@ -1817,9 +1805,9 @@
     },
     "d1a173e1-9653-4af0-abfe-7b95cfe76276": {
       "categories": {
-        "Pedestrian on Road": -1,
-        "Manual Traffic Control": -1,
-        "Animal on Road": -1
+        "Pedestrian on Road": 2,
+        "Manual Traffic Control": 1,
+        "Animal on Road": 3
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -1835,7 +1823,7 @@
     },
     "d0f850c9-3c68-4a20-8163-6da96f2edc38": {
       "categories": {
-        "Cyclist on Road": -1
+        "Cyclist on Road": 3
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -1851,7 +1839,7 @@
     },
     "d0a0cbf0-bcc2-4c72-9a54-f542dc99f560": {
       "categories": {
-        "Pedestrian on Road": -1
+        "Pedestrian on Road": 1
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -1947,8 +1935,8 @@
     },
     "cb01e385-6a7b-4563-9ec6-9aed407cff48": {
       "categories": {
-        "Pedestrian on Road": -1,
-        "Cyclist on Road": -1
+        "Pedestrian on Road": 2,
+        "Cyclist on Road": 3
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -1964,7 +1952,7 @@
     },
     "ca0677e3-2024-462b-a5ac-ef37abec9528": {
       "categories": {
-        "Obstacle on Road": -1
+        "Obstacle on Road": 2
       },
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -2012,7 +2000,7 @@
     },
     "c65726c2-ea4c-47d2-982b-3fe136e177ab": {
       "categories": {
-        "Pedestrian on Road": -1
+        "Pedestrian on Road": 2
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2030,8 +2018,7 @@
     },
     "c7928d92-0df9-4b7e-94cc-8715334830e0": {
       "categories": {
-        "Pedestrian on Road": -1,
-        "Cyclist on Road": -1
+        "Pedestrian on Road": 2
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2061,7 +2048,7 @@
     },
     "c6915a10-9f22-464d-a422-15b8960a57d7": {
       "categories": {
-        "Pedestrian on Road": -1
+        "Pedestrian on Road": 2
       },
       "influenced_ego": true,
       "safety_criticality": 3,
@@ -2079,7 +2066,7 @@
     },
     "c03477b0-117c-4202-b6ff-5fb9d2de65fd": {
       "categories": {
-        "Road Construction": -1
+        "Road Construction": 2
       },
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -2111,7 +2098,7 @@
     },
     "c98e3076-2ec0-4d4c-aa43-f24083f1619e": {
       "categories": {
-        "Animal on Road": -1
+        "Animal on Road": 2
       },
       "influenced_ego": true,
       "safety_criticality": 1,
@@ -2127,7 +2114,7 @@
     },
     "c86f0599-a818-474c-a3c0-030c61047d1b": {
       "categories": {
-        "Obstacle on Road": -1
+        "Obstacle on Road": 2
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2143,7 +2130,7 @@
     },
     "c22bcefd-cece-4baa-8e9e-6842f3254dde": {
       "categories": {
-        "Pedestrian on Road": -1
+        "Pedestrian on Road": 2
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2159,7 +2146,7 @@
     },
     "c9a4cd43-395b-4bec-9072-62b36e2cdb41": {
       "categories": {
-        "Pedestrian on Road": -1
+        "Pedestrian on Road": 3
       },
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -2175,7 +2162,7 @@
     },
     "c6d40267-f8eb-4821-a165-5db37c3e354d": {
       "categories": {
-        "Pedestrian on Road": -1
+        "Pedestrian on Road": 2
       },
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2193,7 +2180,7 @@
     },
     "c6c2beb6-97f3-4afa-b06a-4585f65e2b26": {
       "categories": {
-        "Road Construction": -1
+        "Road Construction": 1
       },
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -2253,9 +2240,9 @@
     },
     "c2a358d1-6e34-4d72-b570-81da80d49836": {
       "categories": {
-        "Pedestrian on Road": -1,
-        "Cyclist on Road": -1,
-        "Road Construction": -1
+        "Pedestrian on Road": 2,
+        "Cyclist on Road": 3,
+        "Road Construction": 2
       },
       "influenced_ego": true,
       "safety_criticality": 2,

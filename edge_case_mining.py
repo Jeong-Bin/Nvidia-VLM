@@ -1040,6 +1040,25 @@ Respond with ONLY a JSON object, no other text:
 {{"observation": "<what the lighting, weather and road surface look like>",
 {tier_fields.rstrip().rstrip(',')}}}"""
 
+    # 카테고리 메뉴 바로 아래의 "무엇을 넣는가" 지시.
+    #
+    # 예전에는 "자차가 반응하지 않았어도 넣어라 - 빼는 이유가 될 수 없다"였다.
+    # 모델이 영향 없는 요소를 "적을 필요 없다"며 빼는 경향이 실측으로 확인돼
+    # 넣은 장치다(점수를 끄자 3단계가 통째로 빈 클립 41 -> 52). 그런데 이제
+    # 경로 밖 객체는 excludes 로 빼므로 "절대 빼지 마라"가 excludes 와 정면으로
+    # 부딪친다.
+    #
+    # "경로 밖이면 빼라"로 바꾸지도 않는다 - 이 문장은 모든 카테고리에 걸리는데,
+    # 도로 밖 공사(CONSTRUCTION 1)나 자차가 안 가는 길의 차단기(GATE 1)는 경로
+    # 밖이어도 카테고리다. 그래서 빼는 기준은 카테고리 설명과 "NOT this
+    # category" 줄에 맡기고, 반응 여부만은 기준이 아니라고 남긴다. 새 IMPACT
+    # 에도 자차가 반응하지 않은 칸(2, 3 의 "그대로 주행")이 있어 이 보호 장치는
+    # 여전히 필요하다.
+    #
+    # "scored in step 4" 는 점수 단계가 있을 때만 붙인다 - 없는데 붙이면 없는
+    # 단계를 가리키거나, 날씨 단계를 점수 단계로 읽게 된다.
+    scored_ref = " and scored in step 4" if score_categories else ""
+
     return f"""{intro}{traj_note}
 {fact_block}
 Your job is to decide whether this clip contains any edge-case element - a rare
@@ -1049,10 +1068,12 @@ You are NOT rating how difficult or how valuable the clip is.
 SCENARIO TYPES:
 {category_menu}
 
-List EVERY type you can actually see. An element still counts even if the
-ego-vehicle drove past it without reacting - whether it changed the driving is
-recorded separately in step 3, and never a reason to leave a type out. If you
-see no unusual element at all, return an empty list.
+List EVERY type you can actually see. What decides whether an element counts is
+the type's description and its "NOT this category" lines - never whether the
+ego-vehicle reacted to it. An element the ego-vehicle drove past without slowing
+or steering can still count; how much it changed the driving is recorded
+separately in step 3{scored_ref}. If you see no unusual element at all, return
+an empty list.
 
 Work through these steps in order:
 {step1}
