@@ -41,7 +41,7 @@ from pathlib import Path
 
 import config
 import evaluate_labels as EV
-from constrained_tier import TIER_VALUES
+from constrained_tier import TIER_VALUES, is_scored
 
 ROOT = Path(__file__).resolve().parent
 RESULTS = ROOT / "results"
@@ -117,7 +117,8 @@ def newest_of(names: list[str], fallback: str) -> str:
 
 
 def taxonomy_categories(scene_path: Path) -> list[dict]:
-    """[{scenario, name, templates, template_candidates}] - 프롬프트 메뉴와 같은 순서."""
+    """[{scenario, name, templates, template_candidates, scored}] - 프롬프트
+    메뉴와 같은 순서. scored=False 는 탐지 전용(점수 없음, 라벨 값 null)."""
     scene = json.loads(Path(scene_path).read_text(encoding="utf-8"))
     out = []
     for scen in scene.get("special", {}).get("scenarios", []):
@@ -127,6 +128,7 @@ def taxonomy_categories(scene_path: Path) -> list[dict]:
                 "name": cat["name"],
                 "templates": cat.get("templates", []),
                 "template_candidates": cat.get("template_candidates", []),
+                "scored": is_scored(cat["name"]),
             })
     return out
 
@@ -373,7 +375,7 @@ def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
     if not labels_path.exists():
         return {"error": f"labels not found: {labels_path}"}
 
-    truth, meta, skipped = EV.load_labels(labels_path)
+    truth, meta, skipped, _ = EV.load_labels(labels_path)
     pred = EV.load_results(run_dir)
     if not pred:
         return {"error": f"no clip_results*.csv in {run_dir.name}"}
@@ -492,7 +494,7 @@ def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
 def clip_detail(uuid: str, run_dir: Path | None, labels_path: Path) -> dict:
     """클립 하나의 GT / 예측 / 시각화 경로."""
     out = {"uuid": uuid}
-    truth, _, _ = EV.load_labels(labels_path)
+    truth, _, _, _ = EV.load_labels(labels_path)
     if uuid in truth:
         t = truth[uuid]
         out["truth"] = {"categories": sorted(t["categories"]),
@@ -573,7 +575,7 @@ def write_labels_file(name: str, data: dict):
 def upsert_label(file_name: str, uuid: str, patch: dict) -> dict:
     data = read_labels_file(file_name)
     clips = data.setdefault("clips", {})
-    # categories 는 {카테고리: 0~4 점수} 딕셔너리다 - GT 라벨과 모델 출력이
+    # categories 는 {카테고리: 1~4 점수, 탐지 전용은 null} 딕셔너리다 - GT 라벨과 모델 출력이
     # 같은 모양이어야 채점이 항목 단위로 붙는다.
     cur = clips.get(uuid, {"categories": {}, "influenced_ego": False,
                            "weather": [], "is_night": False, "note": ""})
@@ -720,7 +722,9 @@ def _parse_scores(raw) -> dict:
             continue
         k, _, v = part.rpartition("=")
         n = _as_int(v)
-        if k.strip() and n is not None:
+        # 탐지 전용으로 바꾸기 전에 돌린 실행에는 그 카테고리 점수가 남아
+        # 있다 - 채점(EV.load_results)과 같이 버린다.
+        if k.strip() and n is not None and is_scored(k.strip()):
             out[k.strip()] = n
     return out
 
@@ -881,7 +885,7 @@ def search_clips(q: dict) -> dict:
     틀렸는지 볼 수 있게 한다.
     """
     labels_name = q.get("labels") or Path(config.LABELS_JSON).name
-    truth, _, _ = EV.load_labels(ROOT / labels_name)
+    truth, _, _, _ = EV.load_labels(ROOT / labels_name)
 
     run = q.get("run")
     pred, pred_rows = {}, {}

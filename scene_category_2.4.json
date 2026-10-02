@@ -1,11 +1,12 @@
 {
   "_meta": {
     "Dynamic object": [
+      "Pedestrian on Road",
+      "Cyclist on Road",
+      "Animal on Road",
       "Manual Traffic Control",
       "Emergency Vehicle",
-      "Animal on Road",
-      "Pedestrian on Road",
-      "Cyclist on Road"
+      "Tram"
     ],
     "Driving environment": [
       "Road Construction",
@@ -79,7 +80,8 @@
             "name": "Manual Traffic Control",
             "templates": [
               "A traffic controller or flagger guiding vehicles",
-              "A police directing traffic"
+              "A police directing traffic",
+              "A traffic controller, flagger or police officer stands at or in the road to control traffic, whether or not they are signalling at that moment"
             ],
             "template_candidates": [
               "A police officer directing traffic",
@@ -123,7 +125,7 @@
             ],
             "excludes": [
               "An emergency vehicle driving with its emergency lights off - that is ordinary traffic, whatever its type.",
-              "An emergency vehicle that stays well away from the ego-vehicle's path the whole time - several lanes away, or stopped off to the side - never entering the path ahead of the ego-vehicle and never coming close alongside it. However clearly it is visible, it adds nothing to how hard the drive is, so it does not count here."
+              "An emergency vehicle that stays off the road altogether the whole time - in a car park, a forecourt, or inside a driveway - however close the ego-vehicle passes; or that stays well away from the vehicle's path, several lanes away. Neither counts here. These are NOT off the road, even when raised or kerbed: a central median or planted island, a motorway hard shoulder, a parking lane or bay along the street. An emergency vehicle there is judged like one on the road - by how close the ego-vehicle comes."
             ]
           },
           {
@@ -156,7 +158,8 @@
               "Wildlife crossing in front of traffic"
             ],
             "excludes": [
-              "An animal that stays well away from the ego-vehicle's path the whole time - in a field, behind a fence, or several lanes away - never entering the path ahead of the ego-vehicle and never coming close alongside it. However clearly it is visible, it adds nothing to how hard the drive is, so it does not count here."
+              "Birds already flying in the sky. ",
+              "An animal that stays behind a fence or out in a field beside the road the whole time, however close the ego-vehicle passes; or that stays well away from the vehicle's path, several lanes away. Neither counts here. An animal that comes toward the road does count. These are NOT off the road, even when raised or kerbed: a central median or planted island, a motorway hard shoulder, a parking lane or bay along the street. An animal there is judged like one on the road - by how close the ego-vehicle comes."
             ]
           },
           {
@@ -181,7 +184,7 @@
               "A pedestrian is waiting for a vehicle to stop at the crosswalk"
             ],
             "excludes": [
-              "A pedestrian who stays well away from the ego-vehicle's path the whole time - on the pavement, or several lanes away - never entering the path ahead of the ego-vehicle and never coming close alongside it. However clearly it is visible, it adds nothing to how hard the drive is, so it does not count here."
+              "A pedestrian who stays on the pavement - the footpath along the side of the road built for people to walk on - the whole time, however close the ego-vehicle passes; or who stays well away from the vehicle's path, several lanes away. Neither counts here. A pedestrian who steps off the pavement toward the road does count. These are NOT the pavement, even when raised or kerbed: a central median or planted island, a motorway hard shoulder, a parking lane or bay along the street. Someone there is judged like someone on the road - by how close the ego-vehicle comes."
             ]
           },
           {
@@ -195,7 +198,21 @@
               "A cyclist is riding close to ego vehicle"
             ],
             "excludes": [
-              "A cyclist who stays well away from the ego-vehicle's path the whole time - on a cycle path or bike lane away from the vehicle, or several lanes away - never entering the path ahead of the ego-vehicle and never coming close alongside it. However clearly it is visible, it adds nothing to how hard the drive is, so it does not count here."
+              "A cyclist who stays on a cycle path separated from the roadway - not a bike lane painted on the road itself - the whole time, however close the ego-vehicle passes; or who stays well away from the vehicle's path, several lanes away. Neither counts here. A cyclist who leaves the cycle path for the road does count. These are NOT a separate cycle path, even when raised or kerbed: a central median or planted island, a motorway hard shoulder, a parking lane or bay along the street. A cyclist there is judged like one on the road - by how close the ego-vehicle comes."
+            ]
+          },
+          {
+            "name": "Tram",
+            "templates": [
+              "A tram or streetcar runs on rails in the roadway, sharing the road with cars",
+              "A tram is stopped at a tram stop in or beside the road",
+              "A tram crosses the road ahead of the ego-vehicle"
+            ],
+            "template_candidates": [],
+            "excludes": [
+              "Tram or rail tracks with no tram on them - the tracks alone are not this category.",
+              "A full-size passenger or freight train on a railway line - this category is the tram that runs through the streets.",
+              "A bus, including an articulated bus or a trolleybus running under overhead wires - it does not run on rails."
             ]
           }
         ]

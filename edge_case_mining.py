@@ -49,6 +49,7 @@ import visualize_clip as VZ
 from constrained_tier import (TIER_LABELS, TIER_VALUES, tier_label,
                               tier_menu, tier_score,
                               rubric_blocks, rubric_name_for, rubric_values,
+                              detect_only_categories, is_scored,
                               contrast_text)
 from prompts import (DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX,
                      difficulty_block)
@@ -391,7 +392,7 @@ def sample_unit_frames(uuid: str, frame_idx: int, max_long_side: int = 896,
 #   - 20장 x 294 = 5,878 토큰. KV 캐시 약 1.0GB 로 24GB 안에 여유 있게 들어간다.
 # ---------------------------------------------------------------------------
 CLIP_FPS = 2.0              # 초당 몇 장 뽑을지
-CLIP_MAX_FRAMES = 40        # 클립당 최대 장수 (20초 x 1fps)
+CLIP_MAX_FRAMES = 80        # 클립당 최대 장수 (20초 x 1fps)
 CLIP_MAX_LONG_SIDE = 896    # 클립 모드 프레임의 긴 변 (896 x 504, 640 x 320, 448 x 252)
 SOURCE_FPS = 30.0           # 실측: 200 클립 중앙값 30.000 fps (33.30 ms)
 
@@ -785,6 +786,19 @@ the CURRENT moment. Each group of three is synchronized camera views
     # 카테고리마다 쓰는 rubric 이 다르다. labels 에 실제로 있는 카테고리만
     # 훑으므로 scene_category.json 을 바꾸면 여기도 따라간다.
     rubric_body = rubric_blocks(labels or [])
+    # 탐지 전용 카테고리(constrained_tier.RUBRIC_BY_CATEGORY 에서 None)는
+    # 3단계에서 이름만 대고 점수는 받지 않는다. 표가 없으니 모델이 다른 표를
+    # 빌려 쓰지 않도록 4단계 첫 문장에서 이름을 들어 뺀다 - 규칙을 따로 한
+    # 단락 두지 않는 건 프롬프트가 길수록 탐지가 떨어졌기 때문이다(실측:
+    # 5,585 -> 6,389자에서 F1 80.4 -> 74.0).
+    _detect_only = detect_only_categories(labels or [])
+    if _detect_only:
+        _names = (_detect_only[0] if len(_detect_only) == 1 else
+                  ", ".join(_detect_only[:-1]) + " and " + _detect_only[-1])
+        score_scope = (f"and to nothing else -\n   except {_names}, which are "
+                       "only named, never scored.\n  ")
+    else:
+        score_scope = "and to nothing else."
 
     # egomotion 을 켠 실행에서는 감속/조향이 100Hz 라벨로 이미 계산돼 있다.
     # 예전에는 이 값을 "급제동은 3등급을 뒷받침한다" 는 식으로 3등급의
@@ -849,7 +863,7 @@ the CURRENT moment. Each group of three is synchronized camera views
     step_no = 4
     if score_categories:
         steps45 = f"""{step_no}. Category Scores: give a score to EVERY scenario type you named in
-   step 3, and to nothing else. Score what each type is DOING in this clip,
+   step 3, {score_scope} Score what each type is DOING in this clip,
    never its name alone - the same object is routine or serious depending on
    what it is doing and where it is:
 {contrasts}
@@ -1306,6 +1320,10 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
             cat = _closest_valid(str(k).strip(), valid)
             if cat is None or cat not in seen:
                 continue
+            # 탐지 전용 카테고리는 지시를 어기고 점수를 달아도 버린다 - 그
+            # 카테고리에는 rubric 이 없어 그 숫자가 무엇을 잰 것인지 모른다.
+            if not is_scored(cat):
+                continue
             n = _coerce_tier(v)
             # 0 은 버린다. 어느 rubric 에도 0 이 없고(모두 1 에서 시작),
             # 여기 적힌 카테고리는 모델이 장면에 있다고 본 것이므로 0 일 수
@@ -1632,7 +1650,8 @@ def _load_gt_labels(path):
     와 ["Pedestrian on Road"] 리스트(점수가 없던 옛 라벨). 어느 쪽이든
     categories 는 이름 리스트가 되고 scores 는 {이름: 점수} 가 된다.
     -1(라벨 보류)은 scores 에서 뺀다 - 시각화에 "(-1/4)" 이 찍히면 0 과
-    구분이 안 된다.
+    구분이 안 된다. null(탐지 전용 카테고리, 점수 없음)도 정수가 아니라
+    자연히 빠지고, 탐지 전용 카테고리에 숫자가 적혀 있어도 뺀다.
     """
     if not path:
         return None
@@ -1643,7 +1662,8 @@ def _load_gt_labels(path):
         raw = v.get("categories") or []
         if isinstance(raw, dict):
             names, scores = list(raw), {k: x for k, x in raw.items()
-                                        if isinstance(x, int) and x >= 0}
+                                        if isinstance(x, int) and x >= 0
+                                        and is_scored(k)}
         else:
             names, scores = list(raw), {}
         out[uuid] = {"categories": names, "scores": scores}

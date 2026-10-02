@@ -1139,10 +1139,17 @@ $('#l-load').onclick = async () => {
 };
 // 카테고리 이름을 DOM id 로 쓸 수 있게 바꾼다(공백/괄호 때문에).
 function cssId(name) { return name.replace(/[^A-Za-z0-9]/g, '_'); }
+// 탐지 전용 카테고리(constrained_tier.RUBRIC_BY_CATEGORY 에서 None)는 점수를
+// 받지 않는다. 분류 체계에 없는 이름은 점수 카테고리로 본다(서버와 같은 규칙).
+function isScored(name) { return (TAX.find(c => c.name === name) || {}).scored !== false; }
 
 function renderLabelScores(scores) {
   const on = $$('#l-cats .pill.on').map(p => p.dataset.cat);
   $('#l-scores').innerHTML = on.length ? on.map(c => {
+    // 탐지 전용은 칸을 아예 그리지 않는다 - 라벨 다는 사람이 숫자/null 을
+    // 고를 일이 없어야 두 뜻(-1 아직 안 매김 / null 점수 없음)이 섞이지 않는다.
+    if (!isScored(c))
+      return `<span style="margin-right:10px">${esc(c)} <span class="muted">(탐지 전용)</span></span>`;
     const v = scores[c];
     // 켜 둔 카테고리는 그 클립에 있다는 뜻이므로 눈금이 1 에서 시작한다 -
     // 0 은 "카테고리 없음"이고, 그건 카테고리를 끄는 것으로 표현한다.
@@ -1156,10 +1163,11 @@ $('#l-save').onclick = async () => {
   const u = $('#l-uuid').value.trim();
   if (!u) return toast('uuid 를 입력하세요');
   const patch = {
-    // categories 는 {카테고리: 0~4 점수} 딕셔너리다. 점수를 비워 두면 -1 로
+    // categories 는 {카테고리: 1~4 점수} 딕셔너리다. 점수를 비워 두면 -1 로
     // 보내 "아직 안 매김"을 0 과 구분한다 - 0 으로 채우면 채점에서 둘이
-    // 같은 값이 되어 왜곡된다.
+    // 같은 값이 되어 왜곡된다. 탐지 전용 카테고리는 null 이다.
     categories: Object.fromEntries($$('#l-cats .pill.on').map(p => {
+      if (!isScored(p.dataset.cat)) return [p.dataset.cat, null];
       const el = $('#l-sc-' + cssId(p.dataset.cat));
       const v = el && el.value !== '' ? +el.value : -1;
       return [p.dataset.cat, v];

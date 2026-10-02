@@ -61,6 +61,8 @@ fi
 # 반영되지 않았다. 미지정이면 아래에서 플래그 자체를 생략한다.
 SCENE_JSON="${SCENE_JSON:-}"
 # --labels 만은 uuid 목록을 뽑아야 해서 셸도 실제 경로를 알아야 한다.
+# 명시했는지를 기억해 둔다 - --resume 은 명시하지 않은 것만 원래 실행에서 가져온다.
+LABELS_SET="${LABELS:+1}"
 LABELS="${LABELS:-$("$PYBIN" -c 'import config; print(config.LABELS_JSON)')}"
 
 usage() {
@@ -71,6 +73,11 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --labels PATH          정답 라벨 json (기본: config.py 의 LABELS_JSON)  [LABELS]
   --scene-json PATH      카테고리 정의 (기본: config.py 의 SCENE_JSON)    [SCENE_JSON]
   --num-shards N         GPU/shard 개수 (기본 8)                     [NSHARDS]
+  --gpus 1,2,3,4,6,7     쓸 GPU 번호. 샤드 수가 이 개수로 정해지고 샤드 k 는
+                         k 번째로 적은 GPU 에서 돈다 (기본: 0..N-1)       [GPUS]
+                         고장 난 GPU(Xid 79 로 버스에서 빠진 0/5번 등)를
+                         피할 때 쓴다. --resume 과 같이 써도 된다 - 샤드
+                         수가 원래 실행과 달라도 끝난 클립은 건너뛴다.
   --model ID             사용할 VLM (기본: edge_case_mining.py 의 8B)      [MODEL]
   --data SRC             프레임 소스 local|nas|경로 (기본 local)          [DATA]
                          27B 는 GPU 여러 장이 필요해 여기서 못 돌린다 -
@@ -102,6 +109,17 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --clip-fps F           초당 몇 장 뽑을지 (기본 1.0)                 [CLIP_FPS]
   --clip-max-frames N    클립당 최대 프레임 (기본 20)                 [CLIP_MAX_FRAMES]
   --eval-only DIR        추론을 건너뛰고 그 폴더의 결과만 채점한다
+  --resume DIR           중단되었거나 일부 샤드가 실패한 실행을 이어받는다.
+                         결과가 있는 클립(n_frames>0)은 건너뛰고, 행이
+                         없거나 n_frames=0 인 클립만 다시 추론한 뒤 기존
+                         결과와 합쳐 전체 클립으로 다시 채점한다
+                         (evaluation.log / aggregate_clip.log 를 새로 쓰고,
+                         이전 것은 DIR/logs_before_resume_<시각>/ 에 남긴다).
+                         원래 실행과 같은 옵션을 줘야 한다 - 모델/카테고리/
+                         프롬프트/fps 등이 다르면 시작 전에 거부한다.
+                         uuid 목록은 DIR/eval_uuids.txt 를 그대로 쓴다.
+                         --labels / --scene-json 은 생략하면 원래 실행이
+                         쓴 파일을 쓴다(config.py 기본값이 아니라).
   -h, --help             이 도움말
 
 Examples:
@@ -111,20 +129,23 @@ Examples:
   bash run_labeled_8b.sh --viz-special                # special 만
   bash run_labeled_8b.sh --use-3dbbox                 # 3D bbox 라벨도 프롬프트에 주입
   bash run_labeled_8b.sh --clip-fps 2.0 --clip-max-frames 40
+  bash run_labeled_8b.sh --resume results/labeld/<실행폴더> --use-egomotion --viz-normal --viz-special
 USAGE
 }
 
 EVAL_ONLY=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --labels=*)          LABELS="${1#*=}" ;;
-    --labels)            shift; LABELS="${1:-}" ;;
+    --labels=*)          LABELS="${1#*=}"; LABELS_SET=1 ;;
+    --labels)            shift; LABELS="${1:-}"; LABELS_SET=1 ;;
     --only-uuids=*)      ONLY_UUIDS="${1#*=}" ;;
     --only-uuids)        shift; ONLY_UUIDS="${1:-}" ;;
     --scene-json=*)      SCENE_JSON="${1#*=}" ;;
     --scene-json)        shift; SCENE_JSON="${1:-}" ;;
-    --num-shards=*)      NSHARDS="${1#*=}" ;;
-    --num-shards)        shift; NSHARDS="${1:-8}" ;;
+    --num-shards=*)      NSHARDS="${1#*=}"; NSHARDS_SET=1 ;;
+    --num-shards)        shift; NSHARDS="${1:-8}"; NSHARDS_SET=1 ;;
+    --gpus=*)            GPUS="${1#*=}" ;;
+    --gpus)              shift; GPUS="${1:-}" ;;
     --data=*)            DATA="${1#*=}" ;;
     --data)              shift; DATA="${1:-}" ;;
     --model=*)           MODEL="${1#*=}" ;;
@@ -162,6 +183,8 @@ while [ $# -gt 0 ]; do
     --clip-max-frames)   shift; CLIP_MAX_FRAMES="${1:-}" ;;
     --eval-only=*)       EVAL_ONLY="${1#*=}" ;;
     --eval-only)         shift; EVAL_ONLY="${1:-}" ;;
+    --resume=*)          RESUME_DIR="${1#*=}" ;;
+    --resume)            shift; RESUME_DIR="${1:-}" ;;
     -h|--help)           usage; exit 0 ;;
     *)
       echo "[error] unknown argument: $1" >&2
@@ -170,7 +193,52 @@ while [ $# -gt 0 ]; do
   shift
 done
 
+# --resume: 정답 라벨과 카테고리 정의는 명시하지 않으면 원래 실행 것을 쓴다.
+#
+# config.py 의 기본값(라벨/카테고리)은 GUI 가 실제로 넘기는 파일과 다르다.
+# 이어받을 때 그 기본값으로 떨어지면 두 가지가 조용히 틀어진다(실측
+# 20261002_165800_eval 이어받기): 카테고리 정의는 설정 대조에서 걸리지만,
+# 라벨은 대조 대상이 아니라 그대로 진행되어 evaluation.log 가 다른 라벨
+# 파일(230클립)로 채점되고, 새로 그린 시각화 82개에 엉뚱한 GT 가 찍혔다.
+# 라벨은 run.log 의 첫 "[info] labels" 줄(원래 실행이 쓴 파일)에서 읽는다.
+if [ -n "${RESUME_DIR:-}" ] && [ -f "${RESUME_DIR%/}/run_config.json" ]; then
+  if [ -z "$LABELS_SET" ]; then
+    _orig_labels="$(sed -n 's/^\[info\] labels *: \(.*\)  ([0-9]* clips)$/\1/p' \
+                    "${RESUME_DIR%/}/run.log" 2>/dev/null | head -1)"
+    if [ -n "$_orig_labels" ]; then
+      LABELS="$_orig_labels"
+      echo "[resume] labels     : $LABELS  (원래 실행에서 가져옴)"
+    else
+      echo "[warn] --resume: 원래 실행의 라벨 파일을 run.log 에서 찾지 못해 기본값을 씁니다: $LABELS" >&2
+    fi
+  fi
+  if [ -z "$SCENE_JSON" ]; then
+    SCENE_JSON="$("$PYBIN" -c 'import json,sys; print(json.load(open(sys.argv[1])).get("key",{}).get("scene_json") or "")' \
+                  "${RESUME_DIR%/}/run_config.json")"
+    [ -n "$SCENE_JSON" ] && echo "[resume] scene-json : $SCENE_JSON  (원래 실행에서 가져옴)"
+  fi
+fi
+
 [ -f "$LABELS" ] || { echo "[error] labels not found: $LABELS" >&2; exit 2; }
+
+# 샤드 k -> GPU 번호. 예전에는 샤드 번호를 그대로 GPU 번호로 써서, GPU
+# 하나가 버스에서 빠지면(Xid 79) 그 샤드가 "No CUDA GPUs are available" 로
+# 죽고 몫의 클립이 통째로 빠졌다(실측 20261002_165800_eval: 82/333).
+if [ -n "${GPUS:-}" ]; then
+  IFS=',' read -r -a GPU_LIST <<< "$GPUS"
+  for x in "${GPU_LIST[@]}"; do
+    case "$x" in
+      ''|*[!0-9]*) echo "[error] --gpus: 숫자를 쉼표로 구분해 주세요: $GPUS" >&2; exit 2 ;;
+    esac
+  done
+  if [ "${NSHARDS_SET:-0}" = "1" ] && [ "$NSHARDS" != "${#GPU_LIST[@]}" ]; then
+    echo "[error] --num-shards $NSHARDS 와 --gpus ($GPUS, ${#GPU_LIST[@]}장) 가 맞지 않습니다" >&2
+    exit 2
+  fi
+  NSHARDS="${#GPU_LIST[@]}"
+else
+  GPU_LIST=($(seq 0 $((NSHARDS-1))))
+fi
 
 # 추론을 건너뛰고 기존 결과만 채점하는 경로
 if [ -n "$EVAL_ONLY" ]; then
@@ -187,15 +255,36 @@ if [ -n "$SCENE_JSON" ] && [ ! -f "$SCENE_JSON" ]; then
   echo "[error] scene json not found: $SCENE_JSON" >&2; exit 2
 fi
 
-RUN_TS="$(date +%Y%m%d_%H%M%S)"
-RUN_DIR="results/labeld/${RUN_TS}_eval"
-mkdir -p "$RUN_DIR"
+if [ -n "${RESUME_DIR:-}" ]; then
+  RUN_DIR="${RESUME_DIR%/}"
+  if ! ls "${RUN_DIR}"/clip_results*.csv >/dev/null 2>&1; then
+    echo "[error] --resume: ${RUN_DIR} 에 이어받을 clip_results*.csv 가 없습니다" >&2
+    exit 2
+  fi
+else
+  RUN_TS="$(date +%Y%m%d_%H%M%S)"
+  RUN_DIR="results/labeld/${RUN_TS}_eval"
+  mkdir -p "$RUN_DIR"
+fi
 
 # 라벨된 uuid 만 뽑아 파일로 넘긴다 (한 줄에 하나)
 # GUI 단일 클립 조회는 uuid 파일을 직접 넘긴다 - 그때는 라벨 전체를 뽑지 않는다.
+#
+# 이어받을 때는 원래 실행의 eval_uuids.txt 를 그대로 쓴다. 라벨 파일에서
+# 다시 뽑으면 안 된다 - 샤드 배정은 이 목록의 순서로 정해지므로(uuids[k::N]),
+# 그 사이 라벨이 추가/삭제되면 순서가 밀려 어떤 클립은 두 번, 어떤 클립은
+# 한 번도 안 돈다. 덮어쓰면 원래 실행의 목록도 사라진다.
 if [ -n "${ONLY_UUIDS:-}" ]; then
   UUID_FILE="$ONLY_UUIDS"
   echo "[info] --only-uuids: $UUID_FILE ($(wc -l < "$UUID_FILE") uuid)"
+elif [ -n "${RESUME_DIR:-}" ]; then
+  UUID_FILE="${RUN_DIR}/eval_uuids.txt"
+  if [ ! -f "$UUID_FILE" ]; then
+    echo "[error] --resume: ${UUID_FILE} 가 없습니다 - 원래 실행의 uuid 목록을" >&2
+    echo "        --only-uuids 로 넘기세요." >&2
+    exit 2
+  fi
+  echo "[info] --resume: $UUID_FILE ($(wc -l < "$UUID_FILE") uuid)"
 else
 UUID_FILE="${RUN_DIR}/eval_uuids.txt"
 "$PYBIN" - "$LABELS" "$UUID_FILE" <<'PY'
@@ -262,25 +351,65 @@ fi
 [ -n "${CLIP_FPS:-}" ]          && OPTS="$OPTS --clip-fps $CLIP_FPS"
 [ -n "${CLIP_MAX_FRAMES:-}" ]   && OPTS="$OPTS --clip-max-frames $CLIP_MAX_FRAMES"
 
+RESUME_FLAG=""
+if [ -n "${RESUME_DIR:-}" ]; then
+  # 준비 단계는 샤드를 띄우기 전에 한 프로세스로 한 번만 한다. 샤드마다
+  # 하면 같은 병합본을 여러 프로세스가 동시에 다시 쓴다. 같은 $OPTS 로
+  # 부르므로 원래 실행과 설정이 다르면 여기서 멈춘다 - 파일을 건드리기 전에.
+  echo "[resume] ${RUN_DIR} 점검/정리 중..."
+  if ! "$PYBIN" -u edge_case_mining.py \
+        --num-shards "$NSHARDS" --shard-id 0 $OPTS --memo "${MEMO:-}" \
+        --out "${RUN_DIR}/clip_results_shard_0.csv" --viz-dir "${RUN_DIR}/viz" \
+        --resume-prepare; then
+    echo "[error] --resume 준비 단계에서 멈췄습니다 - 위 메시지를 확인하세요." >&2
+    echo "        결과 파일은 바뀌지 않았거나, 바뀌었다면 ${RUN_DIR}/resume_backup_*/ 에 원본이 있습니다." >&2
+    exit 1
+  fi
+  RESUME_FLAG="--resume"
+  # 채점 로그는 아래에서 전체 클립 기준으로 새로 쓴다(evaluate_labels.py 가
+  # 덮어쓴다). 일부 클립만 반영된 이전 판과 비교할 수 있게 남겨 둔다.
+  LOG_BAK="${RUN_DIR}/logs_before_resume_$(date +%Y%m%d_%H%M%S)"
+  for f in evaluation.log aggregate_clip.log; do
+    if [ -f "${RUN_DIR}/$f" ]; then
+      mkdir -p "$LOG_BAK" && cp -p "${RUN_DIR}/$f" "$LOG_BAK/"
+    fi
+  done
+  # 샤드 로그는 복사가 아니라 옮긴다. evaluate_labels.py 는 run_shard_*.log
+  # 의 에러를 훑어 "샤드 실패" 를 알리는데, 옛 로그를 남겨 두면 이어받기로
+  # 클립이 다 채워진 뒤에도 원래 실행의 실패를 다시 보고한다(샤드 수를
+  # 줄여 이어받으면 옛 로그는 덮이지도 않는다).
+  for f in "${RUN_DIR}"/run_shard_*.log; do
+    [ -f "$f" ] || continue
+    mkdir -p "$LOG_BAK" && mv "$f" "$LOG_BAK/"
+  done
+  [ -d "$LOG_BAK" ] && echo "[resume] 이전 채점 로그 -> $LOG_BAK/"
+fi
+
 {
+  echo
   echo "[info] run dir     : $RUN_DIR"
+  [ -n "$RESUME_FLAG" ] && echo "[info] resume      : $(date '+%Y-%m-%d %H:%M:%S') 이어받기"
   echo "[info] labels      : $LABELS  ($TOTAL_CLIPS clips)"
   echo "[info] categories  : ${SCENE_JSON:-$("$PYBIN" -c 'import config; print(config.SCENE_JSON.name)') (config.py)}"
   echo "[info] opts        : $OPTS"
+  echo "[info] shards      : $NSHARDS  (GPU ${GPU_LIST[*]})"
   echo "[info] python      : $PYBIN"
   [ -n "${MEMO:-}" ] && echo "[info] memo        : $MEMO"
   echo
 
   pids=()
   for g in $(seq 0 $((NSHARDS-1))); do
-    CUDA_VISIBLE_DEVICES=$g PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+    # PCI_BUS_ID: --gpus 번호를 nvidia-smi 번호와 같게 한다. 기본값
+    # (FASTEST_FIRST)에서는 CUDA 번호가 nvidia-smi 와 다를 수 있어, 피하려던
+    # GPU 를 도리어 잡을 수 있다.
+    CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=${GPU_LIST[$g]} PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
       nohup "$PYBIN" -u edge_case_mining.py \
         --num-shards "$NSHARDS" --shard-id "$g" \
         $OPTS \
         --memo "${MEMO:-}" \
         --out "${RUN_DIR}/clip_results_shard_${g}.csv" \
-        --viz-dir "${RUN_DIR}/viz" \
-        > "${RUN_DIR}/run_shard_${g}.log" 2>&1 &
+        --viz-dir "${RUN_DIR}/viz" $RESUME_FLAG \
+        >> "${RUN_DIR}/run_shard_${g}.log" 2>&1 &
     pids+=($!)
   done
   echo "[info] launched ${#pids[@]} shards, PIDs: ${pids[*]}"
@@ -289,8 +418,9 @@ fi
     alive=0
     for p in "${pids[@]}"; do kill -0 "$p" 2>/dev/null && alive=$((alive+1)); done
     done_n=0
-    for g in $(seq 0 $((NSHARDS-1))); do
-      f="${RUN_DIR}/clip_results_shard_${g}.csv"
+    # 이어받으면 옛 결과는 병합본(clip_results_all.csv)에 있다.
+    for f in "${RUN_DIR}/clip_results_all.csv" \
+             $(for g in $(seq 0 $((NSHARDS-1))); do echo "${RUN_DIR}/clip_results_shard_${g}.csv"; done); do
       # wc -l 로 세면 안 된다. 모델 출력이나 센서 시계열(--ego-track)에
       # 줄바꿈이 들어가면 한 클립이 CSV 여러 줄을 차지해(실측 115클립 ->
       # 460줄) 진행률이 총 개수를 넘어간다. CSV 규격대로 따옴표를 이해하는
@@ -331,7 +461,7 @@ except Exception:
 
   echo
   echo "[info] results saved in: ${RUN_DIR}/"
-} 2>&1 | tee "${RUN_DIR}/run.log"
+} 2>&1 | tee -a "${RUN_DIR}/run.log"
 
 # tee 로 파이프하면 종료 코드가 tee 의 것(항상 0)이 된다. 그래서 샤드가 8개
 # 전부 죽어도 GUI/cron 은 "정상 완료"로 표시한다. 결과 CSV 유무로 판정한다.

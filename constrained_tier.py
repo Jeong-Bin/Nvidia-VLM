@@ -128,7 +128,8 @@ def tier_menu() -> str:
 # }
 
 
-# for Animal on Road, Pedestrian on Road, Cyclist on Road, Emergency Vehicle
+# for Animal on Road, Pedestrian on Road, Cyclist on Road
+# (Emergency Vehicle 은 탐지 전용으로 뺐다 - RUBRIC_BY_CATEGORY 주석)
 #
 # 이 점수는 edge-case 인지가 아니라 그 객체가 주행 난이도를 얼마나 올렸는지를
 # 잰다. 그래서 자차 경로에 들어오지도 않고 옆을 가깝게 스쳐 가지도 않는 객체
@@ -141,26 +142,36 @@ def tier_menu() -> str:
 #   1 자차가 서 있거나 걷는 속도 이하로 기어가고 있었다(앞이든 옆이든)
 #     - egomotion 의 정지 판정(1.8 km/h 미만)만 정지로 치면 정체 속 2~5 km/h
 #       서행이 "주행 중"으로 읽혀 2 로 간다. 난이도는 정차와 같으므로 묶는다.
-#                                2 달리는 중, 앞쪽에 여유 있게
-#   3 달리는 중, 옆을 가깝게     4 달리는 중, 갑자기 가까이
+#   2 달리는 중, 앞쪽인데 차분히 대응할 수 있었다
+#   3 달리는 중, 옆을 가깝게
+#   4 달리는 중, 그것 때문에 급하게 대응해야 했다
+#
+# 2 와 4 는 거리가 아니라 "자차 대응이 급했는가" 로 가른다. 단안 카메라로는
+# 절대 거리를 재기 어렵고, 시간 여유(거리/속도)는 그보다 더 어렵다. 같은
+# 10m 라도 50 km/h 면 4, 10 km/h 면 2 여야 하므로 거리는 "왜 차분할 수
+# 있었나" 의 예시로만 둔다. 4 의 "because of it" 은 빼면 안 된다 - 이
+# 데이터의 급제동은 대개 신호/정체 때문이라, 급제동만 보고 4 를 주면
+# 틀린다(실측: 급제동을 근거로 지정하자 정확도 66% -> 37%).
 IMPACT_RUBRIC = {
     1: "It came into the path ahead of the ego-vehicle, or passed close "
        "alongside it, while the vehicle was stopped or barely moving - at "
        "walking pace or slower, as when creeping forward in a queue. The "
-       "vehicle simply waited for it to pass and then moved off.",
-    2: "It came into the path ahead of the ego-vehicle while the vehicle was "
-       "moving, with plenty of distance between them. The vehicle gradually "
-       "slowed, stopped, or steered around it - or kept its speed and its line "
-       "because it moved out of the path on its own first.",
+       "vehicle simply waited for it to pass.",
+    2: "It came into the path ahead of the moving ego-vehicle, and the "
+       "vehicle could deal with it calmly - whether because it was far away or "
+       "because the vehicle was moving slowly. The vehicle gradually slowed, "
+       "stopped, or steered around it - or kept its speed and its line because "
+       "it moved out of the path on its own or yielded the way first.",
     3: "It and the moving ego-vehicle came close alongside each other - it moved "
        "past the vehicle, or it stood still at the edge of the vehicle's lane while "
        "the vehicle went by. The vehicle steered away from it - or, with no room to "
        "do so, kept its speed and its line and went by within a very short distance of it.",
-    4: "It got into the ego-vehicle's path at close range with little or no "
-       "warning - it came suddenly out of view, or it had already been seen "
-       "but suddenly turned, swerved or darted in front of or beside the "
-       "moving vehicle. The vehicle had to brake hard, stop, or swerve "
-       "urgently. A near miss avoided only that way, or a collision, belongs here.",
+    4: "It got into the ego-vehicle's path with little or no warning - "
+       "it came suddenly out of view, such as from a blind spot or a poorly lit area, "
+       "or it had already been seen but suddenly turned, "
+       "swerved or darted in front of or beside the moving vehicle. "
+       "The vehicle had to brake hard, stop, or swerve urgently because of it. "
+       "A near miss avoided only that way, or a collision, belongs here.",
 }
 
 
@@ -181,39 +192,46 @@ CONSTRUCTION_RUBRIC = {
 
 # for Manual Traffic Control, Railway crossing, Barrier arm
 GATE_RUBRIC = {
-    1: "A barrier, a level crossing, or a person directing traffic is visible "
+    1: "A barrier, a level crossing, or a person controlling traffic is visible "
        "but does not control the ego-vehicle's way - it controls a side "
        "entrance, the opposite carriageway, cross traffic, or a way the "
        "vehicle never takes. The vehicle held its speed and its line.",
     2: "It controls the way the ego-vehicle is taking, but that way was open - "
-       "the barrier was up, or the person directing traffic waved the vehicle "
-       "on - so the vehicle drove straight through without stopping or "
-       "slowing for it.",
+       "the barrier was up, or the person controlling traffic let the vehicle "
+       "through, whether with a wave, by showing a sign that lets traffic go "
+       "(such as SLOW), or simply by standing aside without stopping it - so "
+       "the vehicle drove straight through without stopping or slowing for it.",
     3: "It closed the ego-vehicle's way - the barrier was down; where there is "
        "no barrier, a red light or flashing signal held traffic back; or the "
-       "person directing traffic signalled it to stop - so the vehicle came to "
-       "a stop and waited for the way to clear before going on.",
+       "person controlling traffic signalled it to stop or sent it another way - "
+       "so the vehicle came to a stop and waited for the way to clear, or turned "
+       "off onto the way it was directed to.",
     4: "It closed as the ego-vehicle was about to pass - the barrier came "
-       "down, the signal changed, or the person directing traffic suddenly "
+       "down, the signal changed, or the person controlling traffic suddenly "
        "signalled it to stop - so the vehicle had to stop sharply.",
 }
 
 # for Unpaved road
+#
+# 한 축 - 길의 가장자리(와 차선)가 얼마나 읽히는가 - 로만 가른다. 노면의
+# 요철은 쓰지 않는다: 날씨의 road_surface 축이 이미 노면 상태를 재고 있어
+# (1 = unpaved or dusty road), 여기서 또 재면 두 축이 같은 것을 센다.
+#
+# 1 은 실제로는 포장 도로다. 흙먼지 때문에 모델이 비포장으로 잡는 일이 있어,
+# 그 경우를 가장 낮은 칸으로 받아 둔다 - 난이도는 포장 도로와 같다.
 UNPAVED_RUBRIC = {
-    1: "The surface is unpaved, but it is clear how far the road reaches - the "
-       "track and the ground beside it part cleanly in colour or in material, "
-       "and the surface is reasonably even. The ego-vehicle held its speed and "
-       "its line.",
-    2: "The edges of the track are still clear, but the surface is uneven - "
-       "rutted, or loose with coarse gravel. The ego-vehicle slowed down as it "
-       "went over it.",
-    3: "The track runs on into the ground beside it in the same material, so "
-       "one of its edges cannot be made out. The other edge, or the wheel "
-       "tracks left by whoever went before, still shows which way the road "
-       "goes.",
-    4: "The track and the ground around it read as one, so neither the width "
-       "of the road nor its direction can be told from the terrain.",
+    1: "The road is actually paved, but a thin layer of dirt or dust makes it "
+       "look unpaved. Its lanes and edges stay clearly visible from start to "
+       "finish.",
+    2: "The road is unpaved, but its edges - and its lanes, if it has any - "
+       "stay clearly visible from start to finish.",
+    3: "The road is unpaved, and for most of the clip its edges and lanes "
+       "cannot be made out, but trees, obstacles or wheel tracks along it "
+       "still show roughly where it runs.",
+    4: "The road is unpaved, and for most of the clip its edges and lanes are "
+       "very hard to make out - nothing along it shows clearly where it runs.",
 }
+
 
 # for Obstacle on Road
 OBSTACLE_RUBRIC = {
@@ -298,6 +316,24 @@ RUBRIC_BY_CATEGORY = {
     "Manual Traffic Control": "gate",
     "Unpaved road": "unpaved",
     "Obstacle on Road": "obstacle",
+    # 탐지 전용 - 찾기만 하고 점수는 매기지 않는다(None).
+    #
+    # 이 둘은 VLM 이 아니면 찾을 방법이 없어 탐지할 가치는 있지만, 이
+    # 데이터에서 주행 난이도를 따로 올리지는 않는다. 긴급차량은 3D 라벨에
+    # 클래스가 없고(automobile/heavy_truck 으로 들어간다), 트램은
+    # train_or_tram_car 가 있지만 3D 라벨이 1,954클립뿐이다. 그런데 실제
+    # 장면은 길가에 선 차량이거나 지나가는 차량이라(평가 20260922_151404:
+    # 긴급차량 예측 7건 모두 ego=unaffected), IMPACT 로 재면 같은 자리의
+    # 택배 트럭과 같은 점수가 나온다 - 그 점수는 이 카테고리에 대한 것이
+    # 아니다. 길을 비켜 주는 장면이 데이터에서 나오면 그때 전용 rubric 을
+    # 만든다.
+    #
+    # 여기서 정하는 이유: 탐지 전용 여부는 클립마다 고르는 것이 아니라
+    # 카테고리의 성질이다. GT 라벨에는 {"Emergency Vehicle": null} 로
+    # 적고(-1 은 "아직 안 매김"이라 뜻이 다르다), 읽는 쪽이 이 표와 어긋나는
+    # 라벨을 경고한다.
+    "Emergency Vehicle": None,
+    "Tram": None,
 }
 
 # rubric 본문. 이름 -> (제목, 표).
@@ -307,7 +343,7 @@ RUBRIC_BY_CATEGORY = {
 # 않는다.
 RUBRICS = {
     "impact":       ("how much it affected the ego-vehicle", IMPACT_RUBRIC),
-    "gate":         ("how much the barrier, crossing or person directing "
+    "gate":         ("how much the barrier, crossing or person controlling "
                      "traffic held the ego-vehicle up",
                      GATE_RUBRIC),
     "construction": ("how far the works reached into the ego-vehicle's lane",
@@ -319,11 +355,24 @@ RUBRICS = {
 }
 
 
-def rubric_name_for(category: str, scenario: str = "") -> str:
-    """이 카테고리가 쓸 rubric 이름. 모르는 카테고리는 impact 로 떨어뜨린다."""
+def rubric_name_for(category: str, scenario: str = "") -> str | None:
+    """이 카테고리가 쓸 rubric 이름. 모르는 카테고리는 impact 로 떨어뜨린다.
+    탐지 전용 카테고리는 None."""
     if category in RUBRIC_BY_CATEGORY:
         return RUBRIC_BY_CATEGORY[category]
     return RUBRIC_BY_SCENARIO.get(scenario, "impact")
+
+
+def is_scored(category: str) -> bool:
+    """점수를 매기는 카테고리인가. 탐지 전용(RUBRIC_BY_CATEGORY 에서 None)만
+    False 다 - 모르는 이름도 impact 로 떨어지므로 True."""
+    return RUBRIC_BY_CATEGORY.get(category, "") is not None
+
+
+def detect_only_categories(labels) -> list[str]:
+    """labels(load_labels 결과) 중 탐지 전용 카테고리 이름, 메뉴 순서대로."""
+    return [lab["category"] for lab in labels
+            if not lab.get("is_normal") and not is_scored(lab["category"])]
 
 
 def rubric_values(name: str) -> tuple[int, ...]:
@@ -349,6 +398,8 @@ def rubric_blocks(labels) -> str:
         if lab.get("is_normal"):
             continue
         name = rubric_name_for(lab["category"], lab.get("scenario", ""))
+        if name is None:
+            continue
         used.setdefault(name, []).append(lab["category"])
 
     out = []

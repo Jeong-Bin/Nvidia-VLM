@@ -1,94 +1,3 @@
-
-
-DEFAULT_PROMPT = (
-    "You are assessing how difficult this driving scene is for an autonomous "
-    "vehicle, based on this front-facing camera image.\n"
-    "Rate the DRIVING DIFFICULTY on an integer scale from 0 to 4:\n"
-    "  0 = very easy (clear, bright, empty road)\n"
-    "  1 = easy\n"
-    "  2 = moderate\n"
-    "  3 = hard\n"
-    "  4 = very hard (severe adverse conditions / very complex)\n"
-    "Consider factors such as scene brightness / low light, rain, snow, fog, "
-    "glare, road clutter, and traffic density.\n"
-    "Answer with the single difficulty integer on the first line, then one short "
-    "sentence justifying it."
-)
-
-
-ILLUMINATION_PROMPT = (
-    "You are assessing the ILLUMINATION difficulty of this driving scene for an "
-    "autonomous vehicle (time of day / ambient light), based on this front-facing "
-    "camera image.\n"
-    "Rate the ILLUMINATION difficulty on an integer scale from 0 to 4:\n"
-    "  0 = full daylight, evenly lit, scene clearly readable everywhere\n"
-    "  1 = overcast or flat daylight; reduced contrast but full visibility, or a brief moment shading caused by an overpass\n"
-    "  2 = twilight (dusk/dawn) or well-lit night with dense street lighting or city Lights, or tunnel, or strong contrast caused by backlighting\n"
-    "  3 = night with partial or dim street lights, or the street lights make the road visible but the surrounding areas are dark\n"
-    "  4 = only the ego-vehicle's headlights illuminate the road, or near-total darkness (unlit road) where much of the scene is not resolvable\n"
-    "Judge ONLY illumination / ambient light, not weather or road condition.\n"
-    "Answer with the single difficulty integer on the first line, then one short "
-    "sentence justifying it."
-)
-
-
-PRECIPITATION_PROMPT = (
-    "You are assessing the PRECIPITATION difficulty of this driving scene for an "
-    "autonomous vehicle (falling weather), based on this front-facing camera "
-    "image.\n"
-    "Rate the PRECIPITATION difficulty on an integer scale from 0 to 4:\n"
-    "  0 = none / clear\n"
-    "  1 = drizzle or very light rain or snowfall; occasional drops on lens\n"
-    "  2 = moderate rain or snowfall, raindrops or snow partially obscuring the camera\n"
-    "  3 = heavy rain or snowfall, raindrops or snow largely obscuring the camera\n"
-    "  4 = visibility is severely restricted because the camera is completely covered by raindrops or snow\n"
-    "Judge ONLY falling precipitation, not ambient light, road surface, or fog.\n"
-    "Answer with the single difficulty integer on the first line, then one short "
-    "sentence justifying it."
-)
-
-
-ROAD_SURFACE_PROMPT = (
-    "You are assessing the ROAD SURFACE STATE difficulty of this driving scene "
-    "for an autonomous vehicle, based on this front-facing camera image.\n"
-    "Rate the ROAD SURFACE difficulty on an integer scale from 0 to 4:\n"
-    "  0 = dry\n"
-    "  1 = damp, no standing water, or snow only off the roadway, unpaved or dusty road\n"
-    "  2 = clearly wet and reflective; light spray; or thin snow on the roadway but lane markings still discernible\n"
-    "  3 = standing water, puddles, slush, or snow covers most of the roadway or the lane markings are faint\n"
-    "  4 = deep snow-covered, icy, or flooded; lane markings entirely obscured\n"
-    "Judge ONLY the state of the road surface, not the falling weather or sky.\n"
-    "Answer with the single difficulty integer on the first line, then one short "
-    "sentence justifying it."
-)
-
-
-ATMOSPHERIC_OBSCURANTS_PROMPT = (
-    "You are assessing the ATMOSPHERIC OBSCURANTS difficulty of this driving "
-    "scene for an autonomous vehicle (fog / haze / spray), based on this "
-    "front-facing camera image.\n"
-    "Rate the ATMOSPHERIC OBSCURANTS difficulty on an integer scale from 0 to 4:\n"
-    "  0 = clear, long sight line\n"
-    "  1 = slight haze\n"
-    "  2 = moderate fog/haze/spray; distant objects blurred\n"
-    "  3 = dense fog/spray; only the near field visible\n"
-    "  4 = very dense; minimal visibility beyond the immediate foreground\n"
-    "Judge ONLY airborne obscurants (fog/haze/spray), not darkness or rain "
-    "intensity itself.\n"
-    "Answer with the single difficulty integer on the first line, then one short "
-    "sentence justifying it."
-)
-
-
-# Factor key -> prompt, for iterating over the four difficulty factors and
-# weighted-summing their scores into a final difficulty level.
-FACTOR_PROMPTS = {
-    "illumination": ILLUMINATION_PROMPT,
-    "precipitation": PRECIPITATION_PROMPT,
-    "road_surface": ROAD_SURFACE_PROMPT,
-    "atmospheric_obscurants": ATMOSPHERIC_OBSCURANTS_PROMPT,
-}
-
 # ---------------------------------------------------------------------------
 # 클립 모드 통합용.
 #
@@ -137,10 +46,10 @@ DIFFICULTY_SCALES = {
         "   3 = heavy rain or snowfall, raindrops or snow largely obscuring the camera\n"
         "   4 = visibility is severely restricted because the camera is completely covered by raindrops or snow"),
     "road_surface": (
-        "   0 = dry\n"
-        "   1 = damp, no standing water, or snow only off the roadway, unpaved or dusty road\n"
-        "   2 = clearly wet and reflective; light spray; or thin snow on the roadway but lane markings still discernible\n"
-        "   3 = standing water, puddles, slush, or snow covers most of the roadway or the lane markings are faint\n"
+        "   0 = dry and clean\n"
+        "   1 = damp, no standing water, or snow only off the roadway, dusty but flat road\n"
+        "   2 = clearly wet and reflective; light spray; or thin snow on the roadway but lane markings still discernible, or surface of soil and gravel\n"
+        "   3 = standing water, puddles, slush, or snow covers most of the roadway or the lane markings are faint, or very rough due to mud or coarse gravel\n"
         "   4 = deep snow-covered, icy, or flooded; lane markings entirely obscured"),
     "atmospheric_obscurants": (
         "   0 = clear, long sight line\n"

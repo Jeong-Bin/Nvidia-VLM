@@ -26,7 +26,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from constrained_tier import rubric_name_for, rubric_values
+from constrained_tier import rubric_name_for, rubric_values, is_scored
 from prompts import DIFFICULTY_AXES, DIFFICULTY_MAX
 
 # 하단 패널에 표시할 단계. (result 의 키들, 화면에 쓸 제목) 순서가 곧 표시
@@ -172,7 +172,9 @@ def category_score_lines(result: dict, gt: dict | None) -> list[str]:
         out = []
         for c in cats:
             v = (scores or {}).get(c)
-            if v is None or v < 0:
+            # 탐지 전용은 rubric 이 없어 분모를 못 구한다. 탐지 전용으로
+            # 바꾸기 전에 돌린 실행의 CSV 에는 점수가 남아 있어 이름만 적는다.
+            if v is None or v < 0 or not is_scored(c):
                 out.append(c)
             else:
                 out.append(f"{c} ({v}/{max(rubric_values(rubric_name_for(c, SCENARIO_OF.get(c, ''))))})")

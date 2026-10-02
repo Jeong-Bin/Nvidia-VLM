@@ -51,7 +51,7 @@ from pathlib import Path
 import pandas as pd
 
 from config import SCENE_JSON as CONFIG_SCENE_JSON, LABELS_JSON
-from constrained_tier import TIER_VALUES, rubric_name_for
+from constrained_tier import TIER_VALUES, rubric_name_for, is_scored
 from prompts import DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX
 
 # 난이도 축의 눈금. 등급(TIER_VALUES)과 따로 두는 이유는 두 척도가 서로
@@ -79,6 +79,11 @@ def load_labels(path: Path):
     0 으로 채우면 "영향 없음"과 "아직 안 매김"이 같은 값이 되어 채점이
     왜곡된다.
 
+    탐지 전용 카테고리(constrained_tier.RUBRIC_BY_CATEGORY 에서 None)는 값이
+    null 이다. 그 카테고리에 숫자가 있거나, 점수 카테고리에 null 이 있으면
+    라벨이 카테고리 정의와 어긋난 것이라 mismatches 에 모아 돌려준다 -
+    앞의 것은 점수에서 빼고, 뒤의 것은 -1(아직 안 매김)과 같이 다룬다.
+
     난이도는 없어도 건너뛰지 않는다 - 예전 라벨 파일에는 difficulty 키가
     아예 없고, 그것 때문에 클립을 빼면 1~4 번 채점의 표본까지 조용히 줄어든다.
     없는 축은 None 으로 두고 5) 섹션에서만 제외한다.
@@ -86,6 +91,7 @@ def load_labels(path: Path):
     data = json.loads(path.read_text(encoding="utf-8"))
     clips = data.get("clips", data)
     out, skipped = {}, []
+    mismatches = {"detect_scored": [], "score_null": []}
     for uuid, v in clips.items():
         raw = v.get("categories")
         if raw is None:
@@ -93,8 +99,18 @@ def load_labels(path: Path):
             continue
         if isinstance(raw, dict):
             names = set(raw)
-            scores = {k: int(x) for k, x in raw.items()
-                      if _int_or_none(x) is not None and int(x) >= 0}
+            scores = {}
+            for k, x in raw.items():
+                if not is_scored(k):
+                    if x is not None:
+                        mismatches["detect_scored"].append((uuid, k))
+                    continue
+                if x is None:
+                    mismatches["score_null"].append((uuid, k))
+                    continue
+                n = _int_or_none(x)
+                if n is not None and n >= 0:
+                    scores[k] = n
         else:
             names = set(raw)
             scores = {}
@@ -109,7 +125,7 @@ def load_labels(path: Path):
         for key, _ in DIFFICULTY_AXES:
             rec[key] = _int_or_none(diff.get(key, v.get(key)))
         out[uuid] = rec
-    return out, data.get("_meta", {}), skipped
+    return out, data.get("_meta", {}), skipped, mismatches
 
 
 def load_results(run_dir: Path):
@@ -136,7 +152,9 @@ def load_results(run_dir: Path):
                     continue
                 k, _, v = part.rpartition("=")
                 n = _int_or_none(v)
-                if k.strip() and n is not None:
+                # 탐지 전용 카테고리는 점수를 버린다 - 그 카테고리를 탐지
+                # 전용으로 바꾸기 전에 돌린 실행에는 점수가 남아 있다.
+                if k.strip() and n is not None and is_scored(k.strip()):
                     scores[k.strip()] = n
         rec = {"categories": cats, "scores": scores}
         # --difficulty 를 끈 실행에는 이 칸이 아예 없거나 빈 값이다.
@@ -439,7 +457,7 @@ def main():
     args = ap.parse_args()
 
     run_dir = Path(args.run_dir)
-    labels, meta, skipped = load_labels(Path(args.labels))
+    labels, meta, skipped, mismatches = load_labels(Path(args.labels))
     results = load_results(run_dir)
     log = Tee(Path(args.out) if args.out else run_dir / "evaluation.log")
 
@@ -465,6 +483,13 @@ def main():
             f"date={meta.get('date','?')}")
     if skipped:
         log(f"[warn] {len(skipped)} label(s) missing categories - skipped")
+    for kind, msg in (("detect_scored", "탐지 전용 카테고리에 점수가 있어 무시"),
+                      ("score_null", "점수 카테고리에 null 이 있어 -1 로 처리")):
+        hits = mismatches[kind]
+        if hits:
+            log(f"[warn] 라벨 {len(hits)}건: {msg} - "
+                + ", ".join(f"{u[:8]}:{c}" for u, c in hits[:10])
+                + (" ..." if len(hits) > 10 else ""))
 
     common = [u for u in labels if u in results]
     missing = [u for u in labels if u not in results]

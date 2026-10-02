@@ -53,6 +53,7 @@ from obstacle import obstacle_summary, describe_obstacles, path_intrusion
 from visualize import render_scene_card
 from visualize_clip import render_clip_result, VIZ_WIDTH
 from constrained_tier import (make_tier_processor, tier_label, score_dirname,
+                              is_scored,
                               TIER_FIELDS)
 from prompts import DIFFICULTY_AXES
 
@@ -732,8 +733,11 @@ def run_clip_inference(uuids, labels, category_menu,
                     # "자차에 영향 없음"으로 본 것이다. 점수를 끈 실행에서는
                     # tier_score 가 None 이라 이 조건이 성립하지 않아 필터가
                     # 저절로 무력화된다.
+                    # 탐지 전용 카테고리는 점수가 없어 이 기준에 걸리지
+                    # 않는다 - 찾은 것 자체가 목적이므로 있으면 저장한다.
                     top = result.get("tier_score")
-                    want_viz = top is None or top > 1
+                    want_viz = (top is None or top > 1
+                                or not all(is_scored(c) for c in cats))
             else:
                 want_viz = (viz_special if is_special else viz_normal) or False
 

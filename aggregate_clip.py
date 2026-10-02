@@ -38,7 +38,7 @@ from pathlib import Path
 import pandas as pd
 
 from config import SCENE_JSON as CONFIG_SCENE_JSON
-from constrained_tier import TIER_VALUES, TIER_LABELS, tier_label
+from constrained_tier import TIER_VALUES, TIER_LABELS, tier_label, is_scored
 from prompts import DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX
 
 ROOT = Path(__file__).resolve().parent
@@ -356,7 +356,9 @@ def main():
                     n = int(str(v).strip())
                 except (TypeError, ValueError):
                     continue
-                if n in TIER_LABELS:
+                # 탐지 전용 카테고리는 빼고 센다 - 탐지 전용으로 바꾸기
+                # 전에 돌린 실행에는 그 점수가 남아 있다.
+                if n in TIER_LABELS and is_scored(k.strip()):
                     by_cat.setdefault(k.strip(), []).append(n)
     if by_cat:
         allv = [n for v in by_cat.values() for n in v]
