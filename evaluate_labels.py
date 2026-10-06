@@ -51,7 +51,7 @@ from pathlib import Path
 import pandas as pd
 
 from config import SCENE_JSON as CONFIG_SCENE_JSON, LABELS_JSON
-from constrained_tier import TIER_VALUES, rubric_name_for, is_scored
+from constrained_tier import TIER_VALUES, rubric_name_for, rubric_values, is_scored
 from prompts import DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX
 
 # 난이도 축의 눈금. 등급(TIER_VALUES)과 따로 두는 이유는 두 척도가 서로
@@ -188,7 +188,7 @@ def f1_set(truth: set, pred: set) -> float:
     return prf(tp, len(pred - truth), len(truth - pred))[2]
 
 
-def confusion(pairs, values=None):
+def confusion(pairs, values=None, rows=None):
     """[(truth, pred), ...] -> 문자열 혼동행렬 (행 합계 total 포함).
 
     values 를 안 주면 TIER_VALUES 를 쓴다 - 등급 개수가 바뀌어도(1~3 -> 1~4)
@@ -202,14 +202,19 @@ def confusion(pairs, values=None):
     정답의 45~87%가 0점). 행별로 나눠 두면 쏠린 등급과 희소한 등급의
     성능이 갈라져 보인다. 행 합계가 0 이면(그 등급의 정답이 없으면)
     비율을 낼 수 없으므로 '-' 로 둔다.
+
+    rows 를 주면 행(정답)은 그 눈금만 그린다. 카테고리 점수는 정답이 1~4
+    뿐인데 예측에는 0(못 찾음)이 있어, 열과 행의 폭이 다르다.
     """
     if values is None:
         values = TIER_VALUES
+    if rows is None:
+        rows = values
     c = Counter(pairs)
     w = 9                                    # 열 너비
     head = "       " + "".join(f"{'pred'+str(v):>{w}}" for v in values)
     lines = [head + f"{'total':>{w}}" + f"{'Acc':>{w}}"]
-    for t in values:
+    for t in rows:
         row = "".join(f"{c.get((t, p), 0):>{w}}" for p in values)
         total = sum(c.get((t, p), 0) for p in values)
         acc = f"{c.get((t, t), 0) / total * 100:.1f}%" if total else "-"
@@ -222,7 +227,7 @@ def _mse(pairs) -> float:
     return (sum((a - b) ** 2 for a, b in pairs) / len(pairs)) if pairs else 0.0
 
 
-def tier_block(name, pairs, log, values=None):
+def tier_block(name, pairs, log, values=None, rows=None):
     """한 축(safety/rarity/난이도)의 MSE / 정확일치 / 혼동행렬 / 기준선.
 
     values 로 눈금을 넘기면 혼동행렬이 그 폭으로 그려진다. 안 주면 등급
@@ -255,7 +260,7 @@ def tier_block(name, pairs, log, values=None):
     log(f"  exact match    : {exact:6.1%}    baseline: {base_exact:6.1%}")
     log(f"  within +-1     : {sum(abs(t-p)<=1 for t,p in pairs)/n:6.1%}")
     log("")
-    log(confusion(pairs, values))
+    log(confusion(pairs, values, rows))
 
 
 def write_category_lists(run_dir, per_cat, log):
@@ -631,7 +636,7 @@ def main():
     write_category_lists(run_dir, per_cat, log)
 
     # ---------------- 3) CATEGORY SCORES ----------------
-    # 카테고리마다 붙은 0~4 점수. 예전의 safety/rarity 를 대체한다.
+    # 카테고리마다 붙은 1~4 점수. 예전의 safety/rarity 를 대체한다.
     #
     # 예전 두 축은 클립 하나에 값 하나라, 요소가 여럿인 클립에서 무엇이
     # 그 점수를 받았는지 알 수 없었고 실제로 뭉개졌다(실측 20260904,
@@ -639,49 +644,87 @@ def main():
     # 카테고리에 붙이면 그 뭉개짐이 구조적으로 불가능해지고, 채점도
     # 항목 단위로 붙는다.
     #
-    # 채점 대상은 GT 와 예측이 '둘 다' 그 카테고리를 찍은 항목뿐이다.
-    # 한쪽만 찍은 것은 2) CATEGORIES 에서 이미 FP/FN 으로 세었으므로,
-    # 여기서 또 벌점을 주면 같은 오류를 두 번 세게 된다. 즉 이 절은
-    # "맞게 찾은 카테고리에 점수를 제대로 매겼는가"만 본다.
+    # 채점 대상은 GT 가 점수를 매긴 항목 전부다. 예측이 그 카테고리를 찾지
+    # 못했으면 pred0 으로 넣는다 - rubric 에서 0 은 "그 카테고리가 없음"
+    # 이라, 놓친 것은 "0 점이라고 답한 것"과 같다. 예전에는 둘 다 찍은
+    # 항목만 채점해 "찾은 것에 점수를 잘 매겼나"만 봤는데, 그러면 높은
+    # 점수의 요소를 놓쳐도 MSE 에 드러나지 않는다. 2) CATEGORIES 의 FN 과
+    # 겹쳐 세는 셈이지만, 이 절의 질문이 "그 요소의 심각도를 얼마나 맞게
+    # 읽었나"로 바뀌었으므로 의도한 것이다.
+    #
+    # 반대로 예측에만 있는 항목(정답 0 행)은 넣지 않는다. GT 는 없는
+    # 카테고리에 점수를 적지 않으므로 그 행은 정의상 비어 있다 - 그
+    # 오류는 2) CATEGORIES 의 FP 로만 센다.
     score_pairs = []          # (gt, pred) 전체
     by_cat = {}               # 카테고리별
-    n_pred_only = n_gt_only = 0
-    for u in common:
+    n_pred_only = n_unscored = 0
+    n_miss_normal = n_miss_other = 0
+    # 점수를 끈 실행은 예측 점수가 하나도 없다. 그때 놓친 것만 pred0 으로
+    # 채우면 "모두 0 점으로 답했다"는 가짜 표가 나오므로 이 절을 건너뛴다.
+    any_pred_scores = any(results[u]["scores"] for u in common)
+    for u in common if any_pred_scores else []:
         g, pr = labels[u]["scores"], results[u]["scores"]
+        pc = results[u]["categories"]
         for c, gv in g.items():
             if c in pr:
-                score_pairs.append((gv, pr[c]))
-                by_cat.setdefault(c, []).append((gv, pr[c]))
+                pv = pr[c]
+            elif c not in pc:
+                pv = 0
+                if pc:
+                    n_miss_other += 1
+                else:
+                    n_miss_normal += 1
             else:
-                n_gt_only += 1
-        n_pred_only += sum(1 for c in pr if c not in g)
+                # 카테고리는 찾았는데 점수가 없다(모델이 빠뜨림) - 0 으로
+                # 채우면 "못 찾음"과 섞이므로 뺀다.
+                n_unscored += 1
+                continue
+            score_pairs.append((gv, pv))
+            by_cat.setdefault(c, []).append((gv, pv))
+        n_pred_only += sum(1 for c in pr if c not in labels[u]["categories"])
 
     if score_pairs:
+        score_vals = [v for v in TIER_VALUES if v > 0]
         log("")
         log("=" * 68)
-        log("3) CATEGORY SCORES  (0-4, per matched category)")
+        log("3) CATEGORY SCORES  (GT 1-4 per labelled category, pred 0-4)")
         log("=" * 68)
-        log(f"  채점 대상 {len(score_pairs)}건 - GT 와 예측이 둘 다 찍은 카테고리.")
-        log(f"  GT 에만 있어 제외 {n_gt_only}건 / 예측에만 있어 제외 {n_pred_only}건")
-        log("  (그 둘은 2) CATEGORIES 에서 FN/FP 로 이미 세었다)")
+        log(f"  채점 대상 {len(score_pairs)}건 - GT 가 점수를 매긴 카테고리 전부.")
+        log(f"  pred0 = 그 카테고리를 예측에서 찾지 못함 "
+            f"({n_miss_normal + n_miss_other}건: Normal 로 예측 {n_miss_normal}"
+            f" / 다른 카테고리만 찾음 {n_miss_other})")
+        log(f"  제외: 예측에만 있음 {n_pred_only}건(2) 의 FP) / "
+            f"찾았지만 점수 없음 {n_unscored}건")
         log("")
-        log(" ALL matched categories")
-        tier_block("score", score_pairs, log)
+        log(" ALL categories")
+        tier_block("score", score_pairs, log, rows=score_vals)
 
         # 카테고리마다 쓰는 rubric 이 다르므로(IMPACT/GATE/CONSTRUCTION/
-        # UNPAVED) 표본이 모이는 것부터 따로 낸다 - 어느 rubric 이 안 먹는지
-        # 전체 평균으로는 안 보인다.
-        rows = [(c, len(v), _mse(v), sum(1 for a, b in v if a == b) / len(v))
+        # UNPAVED/OBSTACLE) 따로 낸다 - 어느 rubric 이 안 먹는지 전체
+        # 평균으로는 안 보인다.
+        def rubric_of(c):
+            return rubric_name_for(c, scenario_of.get(c, ""))
+
+        rows = [(c, len(v), _mse(v), sum(1 for a, b in v if a == b) / len(v),
+                 sum(1 for _, b in v if b == 0))
                 for c, v in by_cat.items()]
-        rows = [r for r in rows if r[1] >= args.min_support]
-        if rows:
+        rows.sort(key=lambda x: -x[1])
+        log("")
+        log(f"  {'category':<32}{'rubric':>14}{'n':>5}{'pred0':>7}"
+            f"{'MSE':>8}{'Acc':>7}")
+        log("  " + "-" * 73)
+        for c, n, mse, acc, n0 in rows:
+            log(f" {c:<32}{rubric_of(c):>14}{n:>5}{n0:>7}"
+                f"{mse:>8.3f}{acc:>7.2f}")
+
+        # 카테고리마다 혼동행렬. 표본이 적은 카테고리도 빼지 않는다 - 몇
+        # 건 안 되는 카테고리일수록 어느 칸에서 틀렸는지 직접 봐야 한다.
+        for c, n, *_ in rows:
+            vals = rubric_values(rubric_of(c))
             log("")
-            log(f"  {'category':<32}{'rubric':>14}{'n':>5}{'MSE':>8}{'Acc':>7}")
-            log("  " + "-" * 66)
-            for c, n, mse, acc in sorted(rows, key=lambda x: -x[1]):
-                log(f" {c:<32}"
-                    f"{rubric_name_for(c, scenario_of.get(c, '')):>14}{n:>5}"
-                    f"{mse:>8.3f}{acc:>7.2f}")
+            log(f" {c}  ({rubric_of(c)}, GT {min(vals)}-{max(vals)})")
+            tier_block("score", by_cat[c], log,
+                       values=(0,) + tuple(vals), rows=vals)
 
     # ---------------- 5) WEATHER ----------------
     # 등급과 달리 edge-case 여부와 무관한 축이라(평범한 클립도 비가 오면

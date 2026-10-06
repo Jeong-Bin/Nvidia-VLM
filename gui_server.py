@@ -637,6 +637,9 @@ def upsert_category(scene_name: str, scenario: str, cat: dict,
     for s in scenarios:
         for i, c in enumerate(s.get("categories", [])):
             if c["name"] == look:
+                # GUI 가 편집하지 않는 필드(excludes, score_examples)는 기존
+                # 값을 살린다 - 예전에는 편집 한 번에 조용히 지워졌다.
+                entry = {**c, **entry}
                 if s is target:
                     target["categories"][i] = entry
                 else:      # 시나리오가 바뀐 경우 - 옮긴다

@@ -144,6 +144,11 @@ if [ -n "${EVAL_ONLY:-}" ]; then
   exit $?
 fi
 
+# GPU 점검 - 실행 폴더를 만들기 전에 한다. 한 장이라도 이상하면 여기서 멈춘다
+# (빈 결과 폴더가 남지 않게). 기준은 gpu_check.sh 한 곳에만 있다.
+source "$(dirname "${BASH_SOURCE[0]}")/gpu_check.sh"
+gpu_preflight "$GPUS" || exit 3
+
 RUN_TS="$(date +%Y%m%d_%H%M%S)"
 RUN_DIR="results/labeld/${RUN_TS}_labeled27b"
 mkdir -p "$RUN_DIR"

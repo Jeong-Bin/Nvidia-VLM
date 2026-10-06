@@ -142,9 +142,25 @@ def tier_menu() -> str:
 #   1 자차가 서 있거나 걷는 속도 이하로 기어가고 있었다(앞이든 옆이든)
 #     - egomotion 의 정지 판정(1.8 km/h 미만)만 정지로 치면 정체 속 2~5 km/h
 #       서행이 "주행 중"으로 읽혀 2 로 간다. 난이도는 정차와 같으므로 묶는다.
-#   2 달리는 중, 앞쪽인데 차분히 대응할 수 있었다
+#   2 달리는 중, 앞쪽인데 미리 감속/정지하거나 비켜 갔다
 #   3 달리는 중, 옆을 가깝게
 #   4 달리는 중, 그것 때문에 급하게 대응해야 했다
+#
+# 1 과 2 는 "원래 서 있었나(already stopped)"와 "달리다가 그것 때문에
+# 섰나"로 가른다. 예전 1 은 "서 있는 동안 들어왔다"는 시점만 말해, 보행자를
+# 보고 미리 감속해 멈춘 뒤 보행자가 건넌 장면도 "선 뒤에 건넜다"로 읽혀
+# 1 이 됐다(실측 20261006_104238: GT2->P1 10건 중 근거가 "while the
+# vehicle was stopped" 인 것 7건, 그중 d1248bb6 등은 보행자 때문에 선 것).
+# 신호가 바뀌어 섰는데 보행자도 함께 원인이면 2 로 둔다 - 라벨이 그 기준이다.
+# 신호는 덧붙이는 조건으로만 적는다: 2 의 근거가 "신호에 섰다" 자체가 되면
+# 멀리 있는 자전거/동물도 빨간불 정차만으로 2 가 된다.
+#
+# 그 덧붙임을 처음에 "even when a light turning amber or red also made the
+# vehicle stop" 으로 썼더니 반대로 무너졌다(실측 20261006_125459: IMPACT
+# GT1->P2 7건, 근거가 "was stopped at the red light while cyclists crossed").
+# 이미 빨간불에 서 있던 장면까지 2 로 끌어온 것이다. 그래서 1 에 "원래 왜
+# 서 있었나(red light/queue/stop line)"를 적고, 2 의 신호 문장은 "달리다가
+# 그것을 보고 섰는데 '그 순간' 신호도 바뀐 경우"로 좁혔다.
 #
 # 2 와 4 는 거리가 아니라 "자차 대응이 급했는가" 로 가른다. 단안 카메라로는
 # 절대 거리를 재기 어렵고, 시간 여유(거리/속도)는 그보다 더 어렵다. 같은
@@ -153,15 +169,15 @@ def tier_menu() -> str:
 # 데이터의 급제동은 대개 신호/정체 때문이라, 급제동만 보고 4 를 주면
 # 틀린다(실측: 급제동을 근거로 지정하자 정확도 66% -> 37%).
 IMPACT_RUBRIC = {
-    1: "It came into the path ahead of the ego-vehicle, or passed close "
-       "alongside it, while the vehicle was stopped or barely moving - at "
-       "walking pace or slower, as when creeping forward in a queue. The "
-       "vehicle simply waited for it to pass.",
-    2: "It came into the path ahead of the moving ego-vehicle, and the "
-       "vehicle could deal with it calmly - whether because it was far away or "
-       "because the vehicle was moving slowly. The vehicle gradually slowed, "
-       "stopped, or steered around it - or kept its speed and its line because "
-       "it moved out of the path on its own or yielded the way first.",
+    1: "The ego-vehicle was already stopped - for a red light, a queue or a "
+       "stop line - or barely moving at walking pace or slower, as when "
+       "creeping forward in a queue, before it came into the path ahead or "
+       "passed close alongside. The vehicle simply waited for it to pass.",
+    2: "The ego-vehicle was still moving when it saw it coming into the path "
+       "ahead, and slowed down or came to a stop for it in good time, or "
+       "steered around it - even if the light also turned amber or red at "
+       "that moment. Or the vehicle kept its speed and its line because it "
+       "moved out of the path on its own or yielded the way first.",
     3: "It and the moving ego-vehicle came close alongside each other - it moved "
        "past the vehicle, or it stood still at the edge of the vehicle's lane while "
        "the vehicle went by. The vehicle steered away from it - or, with no room to "
@@ -176,18 +192,30 @@ IMPACT_RUBRIC = {
 
 
 # for Road Construction
+#
+# 칸은 "공사가 어디까지 들어왔나"로 가른다 - 모델이 화면에서 확인할 수 있는
+# 위치이고, 회피 정도나 "주의해서" 같은 판단어를 쓰지 않는다.
+#   2/3 경계: 공사 옆이 차가 달릴 수 있는 곳인가. 예전 3("그 방향으로 차로를
+#     바꿀 수 없다")은 옆 차로가 없는 좁은 도로에서 늘 참이라 2 를 3 으로
+#     끌어갔다(실측 20261002_175140: GT2->P3 4건 중 메모 "Narrow road" 다수).
+#   3/4 경계: 자차 차로 안으로 일부라도 들어왔는가. 예전 4 는 "차로가 닫혀
+#     옮겨야 했다"만 받아, 콘이 차로에 일부 들어와 감속/정지만 한 경우를
+#     모델이 3 으로 읽었다(GT4->P3 9건 중 "cones directly in the lane" 3건).
 CONSTRUCTION_RUBRIC = {
     1: "A construction site, traffic cone, or traffic barricade is located very far from the ego-vehicle's lane. "
        "Therefore, the ego-vehicle maintained its speed and route regardless of its presence.",
     2: "The construction site or traffic cone is located next to the ego-vehicle. "
        "However, since this is an area where the ego-vehicle is normally unable to go "
        "—such as a pedestrian walkway, parking area, or the first lane of the opposite direction—there is no direct impact.",
-    3: "The construction site or traffic cone is restricting the lane directly next to the ego-vehicle. "
-       "Although the construction equipment or traffic cones are not blocking the lane the ego-vehicle is currently traveling in, "
-       "the vehicle cannot currently change lanes in that direction. ",
-    4: "The lane the ego-vehicle was in is closed off - cones or barricades block it "
-       "and guide traffic onto another way. The vehicle had to give up that lane "
-       "and move into the next one or onto a temporary lane laid out for it.",
+    3: "The works sit right beside the ego-vehicle's lane, on a lane or road "
+       "surface the ego-vehicle itself could otherwise drive on, such as a "
+       "neighbouring lane going the same way. None of them - no cone, "
+       "equipment or work area - comes into the ego-vehicle's own lane. The "
+       "vehicle stayed in its lane and went past alongside them.",
+    4: "Cones, equipment or the work area come into the ego-vehicle's own "
+       "lane, even partly. Because of that the vehicle had to steer around "
+       "them, slow down or stop, or follow the cones into another lane or onto "
+       "a temporary lane laid out for it.",
 }
 
 # for Manual Traffic Control, Railway crossing, Barrier arm
@@ -252,39 +280,22 @@ OBSTACLE_RUBRIC = {
 
 
 
-# 등급은 "무엇이 있는가"가 아니라 "그것이 무엇을 하는가"로 갈린다.
+# 점수 예시는 코드가 아니라 scene_category.json 의 카테고리별
+# "score_examples" 에서 읽는다 - rubric_blocks 가 그 rubric 표 바로 아래에 싣는다.
 #
-# 실측(20260812)에서 이걸 안 가르치면 모델이 객체 이름으로 패턴 매칭한다:
-# Animal 7건이 내용과 무관하게 전부 rarity=2 였다 - 길 위의 새(흔함)와
-# 도로를 건너는 칠면조, 말을 탄 기마경찰(매우 드묾)이 같은 등급이었다.
-# Jaywalking 도 횡단보도를 언급하지 않은 189건 중 134건(71%)이 rarity=1 로,
-# 정상 횡단과 무단횡단을 구분하지 못했다.
+# 예전에는 여기 CONTRAST_EXAMPLES 4쌍("... -> low / ... -> high")을 두고 4단계
+# 머리에 실었다. 원래 목적은 객체 이름으로 점수를 정하는 패턴 매칭을 막는
+# 것이었다(실측 20260812: Animal 7건이 내용과 무관하게 전부 rarity=2). 그런데
+# safety 등급 시절의 예시라 지금 rubric 과 정면으로 충돌했다 - 4쌍 중 3쌍
+# (인도 위 개, 자전거 도로 위 자전거, 신호 받고 건너는 보행자 -> low)이 이제는
+# excludes 로 빠지거나 다른 점수여야 하는 장면이고, "low/high" 라는 말은 어느
+# rubric 에도 없다. 실측(20261006_134008): IMPACT 근거에 "-> low/high" 를 쓴
+# 7건이 전부 틀렸고, sidewalk/bike lane 을 쓴 21건 중 13건, "stepped into"
+# 를 쓴 12건 중 8건이 틀렸다.
 #
-# rubric 에 객체 목록을 주면 그 목록을 외우므로, 대신 "같은 객체 x 다른
-# 행동 = 다른 등급" 대비쌍을 준다.
-#
-# 요소가 여럿이면 최댓값을 쓴다(프롬프트 steps45 헤더에 명시). rubric 문장이
-# 전부 단수 주어라 그냥 두면 모델이 장면을 하나로 뭉뚱그려 평균을 낸다 -
-# 실측(20260904, 27,024클립): 특이요소가 1개든 3개든 rarity 평균이 2.00 으로
-# 고정이고, safety 는 요소 3개 그룹이 오히려 낮았다(2개 1.53 -> 3개 1.36).
-# 최댓값 규칙이 작동하면 요소가 늘수록 상한을 칠 확률이 올라가 평균이
-# 올라가야 하므로, 이 고정은 평균내기의 흔적이다.
-CONTRAST_EXAMPLES = [
-    ("a pedestrian using a crosswalk with the signal",
-     "a pedestrian stepping into the lane from between parked cars"),
-    ("a dog on a leash walking beside its owner on the sidewalk",
-     "a loose animal wandering into the roadway"),
-    ("a car parked at the kerb",
-     "a car stopped across the driving lane"),
-    ("a cyclist riding in a bike lane",
-     "a cyclist swerving into the traffic lane"),
-]
-
-
-def contrast_text() -> str:
-    """대비쌍을 프롬프트 문구로. 왼쪽이 1, 오른쪽이 3 쪽으로 간다."""
-    return "\n".join(f"     {low}  ->  low;   {high}  ->  high"
-                     for low, high in CONTRAST_EXAMPLES)
+# 예시를 카테고리 정의 파일로 옮긴 이유: 예시는 rubric 을 고칠 때마다 같이
+# 고쳐야 하는 데이터이고, 파일을 바꿔 끼우는 것만으로 "예시 없음"(파일에
+# 없으면 블록이 빠진다)과 "새 예시"를 A/B 할 수 있다.
 
 
 def _fmt_rubric(rubric: dict) -> str:
@@ -402,6 +413,24 @@ def rubric_blocks(labels) -> str:
             continue
         used.setdefault(name, []).append(lab["category"])
 
+    # 카테고리별 점수 예시(scene_category.json 의 score_examples). 그
+    # 카테고리가 쓰는 rubric 표 아래에 붙인다 - 숫자가 어느 눈금의 것인지
+    # 모델이 헷갈리지 않게.
+    examples = {}
+    for lab in labels:
+        if lab.get("is_normal"):
+            continue
+        name = rubric_name_for(lab["category"], lab.get("scenario", ""))
+        for ex in lab.get("score_examples") or []:
+            situation, score = ex
+            if name is None or score not in RUBRICS[name][1]:
+                # 잘못된 예시가 조용히 프롬프트에 들어가면 모델에게 없는 칸을
+                # 가르치게 된다 - 실행 전에 멈춘다.
+                raise ValueError(
+                    f"score_examples of {lab['category']!r}: {score!r} is not "
+                    f"a score of the {name!r} rubric")
+            examples.setdefault(name, []).append((situation, score))
+
     out = []
     # RUBRICS 에 등록된 순서대로 돈다. 이름을 여기 따로 적어 두면 새 rubric
     # 을 등록하고도 이 목록에 빠뜨렸을 때 프롬프트에서 조용히 사라진다.
@@ -410,10 +439,13 @@ def rubric_blocks(labels) -> str:
             continue
         title, rubric = RUBRICS[name]
         vals = tuple(sorted(rubric))
-        out.append(
-            f"   For {', '.join(used[name])} - {title} "
-            f"({min(vals)}-{max(vals)}):\n"
-            + "\n".join(f"     {v} = {rubric[v]}" for v in vals))
+        block = (f"   For {', '.join(used[name])} - {title} "
+                 f"({min(vals)}-{max(vals)}):\n"
+                 + "\n".join(f"     {v} = {rubric[v]}" for v in vals))
+        if examples.get(name):
+            block += "\n     For example:\n" + "\n".join(
+                f"       {sit} -> {sc}" for sit, sc in examples[name])
+        out.append(block)
     return "\n".join(out)
 
 

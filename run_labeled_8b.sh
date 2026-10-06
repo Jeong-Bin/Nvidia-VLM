@@ -255,6 +255,11 @@ if [ -n "$SCENE_JSON" ] && [ ! -f "$SCENE_JSON" ]; then
   echo "[error] scene json not found: $SCENE_JSON" >&2; exit 2
 fi
 
+# GPU 점검 - 실행 폴더를 만들기 전에 한다. 한 장이라도 이상하면 여기서 멈춘다
+# (빈 결과 폴더가 남지 않게). 기준은 gpu_check.sh 한 곳에만 있다.
+source "$(dirname "${BASH_SOURCE[0]}")/gpu_check.sh"
+gpu_preflight "${GPU_LIST[*]}" || exit 3
+
 if [ -n "${RESUME_DIR:-}" ]; then
   RUN_DIR="${RESUME_DIR%/}"
   if ! ls "${RUN_DIR}"/clip_results*.csv >/dev/null 2>&1; then

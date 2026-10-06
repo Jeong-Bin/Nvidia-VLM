@@ -4751,7 +4751,7 @@
     },
     "05357b27-5b6b-446e-9a91-94fe5147e082": {
       "categories": {
-        "Railway crossing": 0
+        "Railway crossing": 1
       },
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -5145,7 +5145,7 @@
     },
     "00ad193a-444d-4212-8913-1650ff2dfe41": {
       "categories": {
-        "Railway crossing": 0
+        "Railway crossing": 1
       },
       "influenced_ego": false,
       "safety_criticality": 1,

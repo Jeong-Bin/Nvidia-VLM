@@ -265,6 +265,11 @@ OPTS="--clip-mode --single-view --data $DATA"
 # 든 zip 만 찾아 열므로, NAS 에서도 몇 초~30초 안에 시작한다.
 [ -n "${ONLY_UUIDS:-}" ]        && OPTS="$OPTS --only-uuids $ONLY_UUIDS"
 
+# GPU 점검 - 실행 폴더를 만들기 전에 한다. 한 장이라도 이상하면 여기서 멈춘다
+# (빈 결과 폴더가 남지 않게). 기준은 gpu_check.sh 한 곳에만 있다.
+source "$(dirname "${BASH_SOURCE[0]}")/gpu_check.sh"
+gpu_preflight "$(seq -s, 0 $((NSHARDS-1)))" || exit 3
+
 RESUME_FLAG=""
 if [ -n "${RESUME_DIR:-}" ]; then
   RUN_DIR="${RESUME_DIR%/}"

@@ -161,6 +161,16 @@
             "excludes": [
               "Birds already flying in the sky. ",
               "An animal that stays behind a fence or out in a field beside the road the whole time, however close the ego-vehicle passes; or that stays well away from the vehicle's path, several lanes away. Neither counts here. An animal that comes toward the road does count. These are NOT off the road, even when raised or kerbed: a central median or planted island, a motorway hard shoulder, a parking lane or bay along the street. An animal there is judged like one on the road - by how close the ego-vehicle comes."
+            ],
+            "score_examples": [
+              [
+                "A dog walks into the road far ahead and the moving ego-vehicle slows down in good time",
+                2
+              ],
+              [
+                "A deer jumps out of the dark right in front of the moving ego-vehicle, which brakes hard",
+                4
+              ]
             ]
           },
           {
@@ -170,7 +180,6 @@
               "A person is walking on the roadway, outside the sidewalk",
               "A pedestrian jaywalking across the road where there is no crosswalk",
               "A pedestrian brushes close past the side of the ego-vehicle"
-              
             ],
             "template_candidates": [
               "A person crossing between moving vehicles",
@@ -186,6 +195,16 @@
             ],
             "excludes": [
               "A pedestrian who stays on the pavement - the footpath along the side of the road built for people to walk on - the whole time, however close the ego-vehicle passes; or who stays well away from the vehicle's path, several lanes away. Neither counts here. A pedestrian who steps off the pavement toward the road does count. These are NOT the pavement, even when raised or kerbed: a central median or planted island, a motorway hard shoulder, a parking lane or bay along the street. Someone there is judged like someone on the road - by how close the ego-vehicle comes."
+            ],
+            "score_examples": [
+              [
+                "Pedestrians cross in front while the ego-vehicle is already stopped at a red light",
+                1
+              ],
+              [
+                "The moving ego-vehicle sees a pedestrian heading for the crossing and slows to a stop for them in good time",
+                2
+              ]
             ]
           },
           {
@@ -200,6 +219,16 @@
             ],
             "excludes": [
               "A cyclist who stays on a cycle path separated from the roadway - not a bike lane painted on the road itself - the whole time, however close the ego-vehicle passes; or who stays well away from the vehicle's path, several lanes away. Neither counts here. A cyclist who leaves the cycle path for the road does count. These are NOT a separate cycle path, even when raised or kerbed: a central median or planted island, a motorway hard shoulder, a parking lane or bay along the street. A cyclist there is judged like one on the road - by how close the ego-vehicle comes."
+            ],
+            "score_examples": [
+              [
+                "A cyclist rides close alongside the moving ego-vehicle in its lane and the vehicle edges away from them",
+                3
+              ],
+              [
+                "A cyclist swerves out in front of the moving ego-vehicle and it has to brake hard",
+                4
+              ]
             ]
           },
           {
@@ -253,6 +282,16 @@
               "barricade",
               "warning sign",
               "construction worker"
+            ],
+            "score_examples": [
+              [
+                "Cones close the neighbouring lane going the same way while the ego-vehicle stays in its own lane",
+                3
+              ],
+              [
+                "Cones take up part of the ego-vehicle's lane and it steers around them",
+                4
+              ]
             ]
           },
           {
@@ -338,7 +377,7 @@
             ],
             "excludes": [
               "A barrier arm at a railway crossing, car park or toll plaza - a barrier arm is a control device that lifts to let traffic through, not an object left on the road. That is the Barrier arm category.",
-        "An object lying entirely outside the ego-vehicle's path - in another lane, on the verge or beyond the kerb - that the vehicle never has to drive over or around. Only an object in the ego-vehicle's path, or at the very edge of its lane, is this category."
+              "An object lying entirely outside the ego-vehicle's path - in another lane, on the verge or beyond the kerb - that the vehicle never has to drive over or around. Only an object in the ego-vehicle's path, or at the very edge of its lane, is this category."
             ]
           }
         ]

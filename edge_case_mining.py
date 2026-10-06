@@ -49,8 +49,7 @@ import visualize_clip as VZ
 from constrained_tier import (TIER_LABELS, TIER_VALUES, tier_label,
                               tier_menu, tier_score,
                               rubric_blocks, rubric_name_for, rubric_values,
-                              detect_only_categories, is_scored,
-                              contrast_text)
+                              detect_only_categories, is_scored)
 from prompts import (DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX,
                      difficulty_block)
 
@@ -113,6 +112,9 @@ def load_labels(scene_json: Path):
                         # 이 카테고리가 "아닌" 경우. 긍정 예시만으로는 경계가
                         # 안 잡히는 카테고리에만 쓴다 (없으면 빈 리스트).
                         "excludes": cat.get("excludes", []),
+                        # [[상황, 점수], ...] - 4단계 rubric 표 아래에 싣는
+                        # 예시(constrained_tier.rubric_blocks). 없으면 빈 리스트.
+                        "score_examples": cat.get("score_examples", []),
                         "is_normal": is_normal,
                     }
                 )
@@ -782,7 +784,6 @@ the CURRENT moment. Each group of three is synchronized camera views
     # 적히지 않는다).
     _score_vals = rubric_values("impact")
     tier_min, tier_max = min(_score_vals), max(_score_vals)
-    contrasts = contrast_text()
     # 카테고리마다 쓰는 rubric 이 다르다. labels 에 실제로 있는 카테고리만
     # 훑으므로 scene_category.json 을 바꾸면 여기도 따라간다.
     rubric_body = rubric_blocks(labels or [])
@@ -865,10 +866,9 @@ the CURRENT moment. Each group of three is synchronized camera views
         steps45 = f"""{step_no}. Category Scores: give a score to EVERY scenario type you named in
    step 3, {score_scope} Score what each type is DOING in this clip,
    never its name alone - the same object is routine or serious depending on
-   what it is doing and where it is:
-{contrasts}
-   So "there is an animal" or "there is a pedestrian" tells you nothing on its
-   own - look at what it is doing relative to the ego-vehicle's path.
+   what it is doing and where it is. "There is an animal" or "there is a
+   pedestrian" tells you nothing on its own - look at what it is doing
+   relative to the ego-vehicle's path.
    Score each type on its own. When two types are both present, one being
    serious does not raise the other, and one being harmless does not lower it.
    When one type is there more than once - two pedestrians, say - score each of
@@ -911,10 +911,18 @@ the CURRENT moment. Each group of three is synchronized camera views
     if score_categories and not difficulty_only:
         # 카테고리 이름이 키, 점수가 값. scenario_types 와 같은 이름을 써야
         # 채점이 붙으므로 그 점을 스키마에서 한 번 더 말한다.
+        #
+        # 근거를 점수보다 먼저 쓰게 한다. JSON 필드 순서가 곧 생성 순서라,
+        # 점수가 앞이면 숫자를 먼저 정하고 근거는 그 숫자를 사후에 설명하게
+        # 된다. 실측(20261002_175140_eval): IMPACT 142건 중 17건이 근거에는
+        # 1점 문장("while it was stopped ... waited")을 쓰고 숫자는 2였다 -
+        # 숫자가 근거를 따르지 않았다. 또 예측의 75% 가 2점이고 GT 와의
+        # 상관이 0 근처(Pedestrian 0.15, Construction 0.02)라, 숫자를
+        # 장면이 아니라 습관으로 고르고 있었다.
         tier_fields += (
+            ''' "score_reason": "<one short sentence per type, separated by '|'>",\n'''
             f''' "category_scores": {{"<exact scenario type name>": <integer '''
-            f'''{tier_min}-{tier_max}>, ...}},\n'''
-            ''' "score_reason": "<one short sentence per type, separated by '|'>",\n''')
+            f'''{tier_min}-{tier_max}>, ...}},\n''')
     if difficulty:
         # 프롬프트 본문과 같은 순서. JSON 필드 순서가 곧 생성 순서다.
         for key, name in DIFFICULTY_AXES:
@@ -954,6 +962,15 @@ the CURRENT moment. Each group of three is synchronized camera views
    one state whether it changed the ego-vehicle's behaviour. Also name the
    matching scenario types from the list above, copying the names EXACTLY."""
         observation_field = "<scene description, one or two sentences>"
+
+    # 노면도 요소로 센다. "unusual element" 를 모델이 물체로만 읽어, 1단계에
+    # "unpaved dirt road" 라고 써 놓고 3단계에서 빠뜨렸다(실측
+    # 20261002_175140: Unpaved road FN 11건 중 8건이 1단계에 unpaved/dirt 를
+    # 적었다). 한 줄로만 둔다 - 3단계 지시가 길어질 때마다 다른 요소를
+    # 빠뜨리는 쪽으로 무너졌다(5585 -> 6389자에서 FN 10 -> 35).
+    step3_head += """
+   The road itself counts as an element when its surface is unusual - an
+   unpaved, dirt or gravel road is listed here like any object."""
 
     # ------------------------------------------------------------------
     # --no-tiers-elements (A안): 등급을 빼는 대신 3단계를 속성 표로 만든다.

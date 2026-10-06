@@ -1,1 +1,6 @@
+# 1. NAS 마운트
 sudo mount -t cifs //10.254.92.171/OPEN_DATASET /mnt/nas -o username=E2E_DATA,vers=3.0,uid=$(id -u),gid=$(id -g),cache=loose,nounix,serverino,iocharset=utf8
+
+# 2. GUI 서버 실행
+cd /home/etri/Jeongbin/Nvidia-VLM
+setsid nohup python3 gui_server.py --port 8000 --data nas >> gui.log 2>&1 &
