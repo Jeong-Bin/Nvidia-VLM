@@ -16,7 +16,7 @@
                  카테고리만 채점한다 - 한쪽만 찍은 것은 2) 에서 이미
                  FP/FN 으로 세었으므로 여기서 또 벌점을 주면 같은 오류를
                  두 번 세게 된다. 카테고리마다 쓰는 rubric 이 다르므로
-                 (IMPACT/GATE/CONSTRUCTION/UNPAVED) 카테고리별 표를 함께
+                 (DYNAMIC/GATE/CONSTRUCTION/UNPAVED) 카테고리별 표를 함께
                  낸다.
   5) WEATHER     날씨 4축(조도/강수/노면/대기가림). 목표 지표와
                  같은 방식으로 채점한다. 등급과 달리 edge-case 여부와 무관한
@@ -84,7 +84,7 @@ def load_labels(path: Path):
     라벨이 카테고리 정의와 어긋난 것이라 mismatches 에 모아 돌려준다 -
     앞의 것은 점수에서 빼고, 뒤의 것은 -1(아직 안 매김)과 같이 다룬다.
 
-    난이도는 없어도 건너뛰지 않는다 - 예전 라벨 파일에는 difficulty 키가
+    날씨는 없어도 건너뛰지 않는다 - 예전 라벨 파일에는 weather 키가
     아예 없고, 그것 때문에 클립을 빼면 1~4 번 채점의 표본까지 조용히 줄어든다.
     없는 축은 None 으로 두고 5) 섹션에서만 제외한다.
     """
@@ -119,13 +119,24 @@ def load_labels(path: Path):
             "scores": scores,
             "note": v.get("note", ""),
         }
-        # 난이도는 {"difficulty": {...}} 중첩이 정식이지만, 손으로 만든
-        # 파일에는 최상위에 평평하게 적힌 것도 있어 둘 다 받는다.
-        diff = v.get("difficulty") or {}
+        # 날씨 점수는 {"weather": {...}} 한 곳에서만 읽는다. 옛 라벨의
+        # "difficulty" 키와 최상위 평평한 형식은 지원을 끊었다 - 라벨 파일을
+        # 모두 "weather" 로 옮겼고(2026-10-07), 키가 둘이던 동안 채점이
+        # 엉뚱한 쪽만 읽어 5) WEATHER 절이 통째로 빠졌다(20261006_203002).
+        weather = _weather_of(v)
         for key, _ in DIFFICULTY_AXES:
-            rec[key] = _int_or_none(diff.get(key, v.get(key)))
+            rec[key] = _int_or_none(weather.get(key))
         out[uuid] = rec
     return out, data.get("_meta", {}), skipped, mismatches
+
+
+def _weather_of(v: dict) -> dict:
+    """라벨 한 건의 날씨 4축 딕셔너리({"illumination": 0, ...}). 없으면 {}.
+
+    비/눈/안개 태그 목록은 "rain_snow_fog" 에 따로 있다.
+    """
+    w = v.get("weather")
+    return w if isinstance(w, dict) else {}
 
 
 def load_results(run_dir: Path):
@@ -699,7 +710,7 @@ def main():
         log(" ALL categories")
         tier_block("score", score_pairs, log, rows=score_vals)
 
-        # 카테고리마다 쓰는 rubric 이 다르므로(IMPACT/GATE/CONSTRUCTION/
+        # 카테고리마다 쓰는 rubric 이 다르므로(DYNAMIC/GATE/CONSTRUCTION/
         # UNPAVED/OBSTACLE) 따로 낸다 - 어느 rubric 이 안 먹는지 전체
         # 평균으로는 안 보인다.
         def rubric_of(c):

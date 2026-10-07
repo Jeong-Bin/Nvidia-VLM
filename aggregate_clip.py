@@ -339,7 +339,7 @@ def main():
     #
     # 점수는 클립이 아니라 (클립 x 카테고리) 항목마다 붙으므로 분모가
     # 클립 수가 아니다. 카테고리마다 나눠 내는 이유는 rubric 이 서로 다르고
-    # (IMPACT/GATE/CONSTRUCTION/UNPAVED) 한 카테고리가 한 칸에 몰리는 것이
+    # (DYNAMIC/GATE/CONSTRUCTION/UNPAVED) 한 카테고리가 한 칸에 몰리는 것이
     # 전체 분포에서는 안 보이기 때문이다.
     edge_df = df[labeled]
     tier_labels = {v: tier_label(v) for v in TIER_VALUES}

@@ -11,9 +11,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 0,
         "illumination": 0,
         "precipitation": 0,
@@ -27,9 +27,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 0,
         "illumination": 0,
         "precipitation": 0,
@@ -43,11 +43,11 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 2,
         "illumination": 1,
         "precipitation": 1,
@@ -61,9 +61,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 1,
         "illumination": 0,
         "precipitation": 0,
@@ -77,9 +77,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 0,
         "illumination": 0,
         "precipitation": 0,
@@ -93,9 +93,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 1,
         "illumination": 0,
         "precipitation": 0,
@@ -109,9 +109,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 1,
         "illumination": 0,
         "precipitation": 0,
@@ -125,11 +125,11 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "fog"
       ],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 2,
         "illumination": 1,
         "precipitation": 0,
@@ -143,9 +143,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 2,
         "illumination": 3,
         "precipitation": 0,
@@ -159,9 +159,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 1,
         "illumination": 0,
         "precipitation": 0,
@@ -175,9 +175,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 0,
         "illumination": 0,
         "precipitation": 0,
@@ -191,9 +191,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 0,
         "illumination": 0,
         "precipitation": 0,
@@ -207,9 +207,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 2,
         "illumination": 0,
         "precipitation": 0,
@@ -223,9 +223,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 1,
         "illumination": 0,
         "precipitation": 0,
@@ -239,9 +239,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 2,
         "illumination": 0,
         "precipitation": 0,
@@ -255,9 +255,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 0,
         "illumination": 0,
         "precipitation": 0,
@@ -271,9 +271,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 0,
         "illumination": 0,
         "precipitation": 0,
@@ -287,8 +287,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "driving_difficulty": 1,
         "illumination": 0,
         "precipitation": 0,
@@ -303,9 +303,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 0,
         "illumination": 0,
         "precipitation": 0,
@@ -319,9 +319,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 0,
         "illumination": 0,
         "precipitation": 0,
@@ -335,9 +335,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 0,
         "illumination": 0,
         "precipitation": 0,
@@ -351,10 +351,10 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 2,
         "illumination": 1,
         "precipitation": 2,
@@ -369,9 +369,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 1,
         "illumination": 0,
         "precipitation": 0,
@@ -385,9 +385,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 1,
         "illumination": 1,
         "precipitation": 0,
@@ -401,9 +401,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 1,
         "illumination": 1,
         "precipitation": 0,
@@ -417,9 +417,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 0,
         "illumination": 0,
         "precipitation": 0,
@@ -433,10 +433,10 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "fog"
       ],
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 2,
         "illumination": 1,
         "precipitation": 0,
@@ -451,9 +451,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 2,
         "illumination": 0,
         "precipitation": 0,
@@ -467,9 +467,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 0,
         "illumination": 0,
         "precipitation": 0,
@@ -483,9 +483,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 1,
         "illumination": 2,
         "precipitation": 0,
@@ -499,9 +499,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 3,
         "illumination": 4,
         "precipitation": 0,
@@ -515,10 +515,10 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 2,
         "illumination": 1,
         "precipitation": 2,
@@ -533,9 +533,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 1,
         "illumination": 0,
         "precipitation": 0,
@@ -549,9 +549,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 1,
         "illumination": 2,
         "precipitation": 0,
@@ -565,10 +565,10 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 0,
         "illumination": 0,
         "precipitation": 0,
@@ -583,10 +583,10 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 3,
         "illumination": 3,
         "precipitation": 3,
@@ -601,9 +601,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 0,
         "illumination": 0,
         "precipitation": 0,
@@ -617,9 +617,9 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
-      "difficulty": {
+      "weather": {
         "driving_difficulty": 0,
         "illumination": 0,
         "precipitation": 0,
@@ -633,7 +633,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -642,7 +642,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -651,7 +651,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": false,
@@ -662,7 +662,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "낙엽"
     },
@@ -671,7 +671,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -680,7 +680,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "바닥 차선 대신 포인트 마커(Cat's eye, Stud)? obstacle로 인지할 수 있음"
     },
@@ -689,7 +689,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -698,7 +698,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -707,7 +707,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -716,7 +716,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -727,7 +727,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -738,7 +738,7 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "safety_criticality 1도 괜찮을지도?"
     },
@@ -749,7 +749,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -758,7 +758,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -767,7 +767,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -776,7 +776,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -785,7 +785,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "다리 아래, 정면 느린 트럭(Stationary Vehicle Obstruction라고 판단할 수도?)"
     },
@@ -794,7 +794,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -803,7 +803,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -814,7 +814,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -823,7 +823,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "바닥 차선 대신 포인트 마커(Cat's eye, Stud)? obstacle로 인지할 수 있음"
     },
@@ -832,7 +832,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -841,7 +841,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -850,7 +850,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -859,7 +859,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -868,7 +868,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "급경사 오르막길"
     },
@@ -877,7 +877,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "급경사 오르막길"
     },
@@ -886,7 +886,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": true,
@@ -897,7 +897,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -906,7 +906,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -917,7 +917,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -926,7 +926,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -935,7 +935,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -944,7 +944,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "바닥 차선 대신 포인트 마커(Cat's eye, Stud)? obstacle로 인지할 수 있음"
     },
@@ -953,7 +953,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -964,7 +964,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "버스를 tram으로 인식할 수도 있음, 스쿨버스"
     },
@@ -973,7 +973,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -982,7 +982,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -991,7 +991,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -1000,7 +1000,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1009,7 +1009,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1018,7 +1018,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1027,7 +1027,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": false,
@@ -1040,7 +1040,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1049,7 +1049,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1058,7 +1058,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1067,7 +1067,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -1076,7 +1076,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1085,7 +1085,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1094,7 +1094,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "바닥 차선 대신 포인트 마커(Cat's eye, Stud)? obstacle로 인지할 수 있음"
     },
@@ -1103,7 +1103,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1114,7 +1114,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": false,
@@ -1125,7 +1125,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1136,7 +1136,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -1147,7 +1147,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1158,7 +1158,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1167,7 +1167,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1178,7 +1178,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1187,7 +1187,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "바닥 차선 대신 포인트 마커(Cat's eye, Stud)? obstacle로 인지할 수 있음"
     },
@@ -1198,7 +1198,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1209,7 +1209,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1218,7 +1218,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1227,7 +1227,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1236,7 +1236,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1245,7 +1245,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1257,7 +1257,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -1266,7 +1266,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1275,7 +1275,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1286,7 +1286,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1297,7 +1297,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1308,7 +1308,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "강아지 animal 나올 수도 있음"
     },
@@ -1317,7 +1317,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1326,7 +1326,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1335,7 +1335,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -1346,7 +1346,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1355,7 +1355,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -1364,7 +1364,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": true,
@@ -1378,7 +1378,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1389,7 +1389,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "바닥 차선 대신 포인트 마커(Cat's eye, Stud)? obstacle로 인지할 수 있음"
     },
@@ -1400,7 +1400,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1409,7 +1409,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "바닥 차선 대신 포인트 마커(Cat's eye, Stud)? obstacle로 인지할 수 있음"
     },
@@ -1418,7 +1418,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "트럭 짐 칸 오토바이"
     },
@@ -1429,7 +1429,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1440,7 +1440,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1452,7 +1452,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1463,7 +1463,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1476,7 +1476,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1487,7 +1487,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1498,7 +1498,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "강아지 animal 나올 수도 있음"
     },
@@ -1507,7 +1507,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
       "is_night": false,
@@ -1518,7 +1518,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": false,
@@ -1529,7 +1529,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": false,
@@ -1540,7 +1540,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "fog"
       ],
       "is_night": false,
@@ -1551,7 +1551,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "fog"
       ],
       "is_night": false,
@@ -1565,7 +1565,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1576,7 +1576,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "낙엽"
     },
@@ -1585,7 +1585,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": false,
@@ -1596,7 +1596,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": false,
@@ -1609,7 +1609,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": false,
@@ -1623,7 +1623,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1632,7 +1632,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "스쿨버스"
     },
@@ -1643,7 +1643,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": false,
@@ -1656,7 +1656,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1665,7 +1665,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": false,
@@ -1678,7 +1678,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1689,7 +1689,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "낙엽"
     },
@@ -1700,7 +1700,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1711,7 +1711,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -1722,7 +1722,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": true,
@@ -1735,7 +1735,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1744,7 +1744,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": false,
@@ -1755,7 +1755,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -1764,7 +1764,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -1777,7 +1777,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": true,
@@ -1788,7 +1788,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": true,
@@ -1799,7 +1799,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1810,7 +1810,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1821,7 +1821,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1830,7 +1830,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1839,7 +1839,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
       "is_night": false,
@@ -1853,7 +1853,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "포크레인이 있지만 공사현장은 아님"
     },
@@ -1862,7 +1862,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": true,
@@ -1875,7 +1875,7 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -1886,7 +1886,7 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1897,7 +1897,7 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1908,7 +1908,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1920,7 +1920,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1931,7 +1931,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1943,7 +1943,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "5~6초에 중앙분리에대 꽃?파는 사람"
     },
@@ -1954,7 +1954,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -1965,7 +1965,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1976,7 +1976,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "우측 팬스 안에 염소들"
     },
@@ -1987,7 +1987,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -1998,7 +1998,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2009,7 +2009,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2020,7 +2020,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "Elevated road, not Tunnel"
     },
@@ -2031,7 +2031,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2042,7 +2042,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2053,7 +2053,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -2064,7 +2064,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2075,7 +2075,7 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2086,7 +2086,7 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2097,7 +2097,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -2108,7 +2108,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -2119,7 +2119,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2130,7 +2130,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2141,7 +2141,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -2152,7 +2152,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -2163,7 +2163,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2174,7 +2174,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "스쿨버스"
     },
@@ -2185,7 +2185,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "킥보드 2대가 직진 신호에 갔기 때문에 무단횡단은 아님"
     },
@@ -2196,7 +2196,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2207,7 +2207,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "칠면조"
     },
@@ -2220,7 +2220,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "말"
     },
@@ -2231,7 +2231,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2242,7 +2242,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "스쿨버스, "
     },
@@ -2253,7 +2253,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2264,7 +2264,7 @@
       "influenced_ego": true,
       "safety_criticality": 3,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2276,7 +2276,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2288,7 +2288,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2299,7 +2299,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2310,7 +2310,7 @@
       "influenced_ego": true,
       "safety_criticality": 3,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2322,7 +2322,7 @@
       "influenced_ego": true,
       "safety_criticality": 3,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ", Road Construction(?)"
     },
@@ -2333,7 +2333,7 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "Abnormal Vehicle Behavior ?"
     },
@@ -2345,7 +2345,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2357,7 +2357,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "이거 시각화 보여주기"
     },
@@ -2368,7 +2368,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2379,7 +2379,7 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2390,7 +2390,7 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -2401,7 +2401,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "스쿨버스"
     },
@@ -2413,7 +2413,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2425,7 +2425,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2436,7 +2436,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2447,7 +2447,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
       "is_night": false,
@@ -2460,7 +2460,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2471,7 +2471,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2482,7 +2482,7 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2494,7 +2494,7 @@
       "influenced_ego": true,
       "safety_criticality": 3,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "조도 강함"
     },
@@ -2507,7 +2507,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2518,7 +2518,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2529,7 +2529,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -2542,7 +2542,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2553,7 +2553,7 @@
       "influenced_ego": true,
       "safety_criticality": 3,
       "rarity": 3,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2566,7 +2566,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": ""
     },
@@ -2577,7 +2577,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "보행자가 아직 지나가는데도 자차가 횡단보도로 진입함"
     },
@@ -2588,7 +2588,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2600,7 +2600,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": true,
       "note": "강한 헤드라이트, 반대편 차량들이 중앙선 넘어옴"
     },
@@ -2612,7 +2612,7 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "엄밀히 말하면 도로 공사가 아니라 학교 앞 주차 금지용 라바콘임"
     },
@@ -2623,7 +2623,7 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     },
@@ -2634,7 +2634,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "Elevated road, not Tunnel"
     },
@@ -2645,7 +2645,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": "주황불에서 빨간불로 바뀌기 직전에 보행자들이 횡단보도 앞에 있음"
     },
@@ -2656,7 +2656,7 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
+      "rain_snow_fog": [],
       "is_night": false,
       "note": ""
     }

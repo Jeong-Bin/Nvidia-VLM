@@ -136,7 +136,7 @@ def difficulty_lines(result: dict) -> list[str]:
 # 카테고리 -> 묶음 이름. rubric 을 고를 때 쓴다.
 #
 # scene_category.json 을 읽어 채우되, 못 읽으면 빈 채로 둔다 - 그러면
-# rubric_name_for 가 impact 로 떨어뜨리므로 분모가 4 로 나온다. 시각화가
+# rubric_name_for 가 dynamic 으로 떨어뜨리므로 분모가 4 로 나온다. 시각화가
 # 씬 파일을 못 찾았다고 해서 영상 생성이 실패하면 안 된다.
 SCENARIO_OF = {}
 

@@ -384,7 +384,7 @@ video{width:100%;background:#000;border-radius:6px}
       <!-- 켠 카테고리마다 0~4 점수 칸이 여기 생긴다. 점수는 카테고리에
            붙으므로 클립 단위 입력 칸을 둘 수 없다. -->
       <div id="l-scores" style="margin-bottom:10px"></div>
-      <h3>날씨 (쉼표 구분)</h3>
+      <h3>비/눈/안개 (쉼표 구분)</h3>
       <input type="text" id="l-weather" style="width:100%;margin-bottom:10px">
       <h3>note</h3>
       <textarea id="l-note" rows="3"></textarea>
@@ -464,7 +464,7 @@ video{width:100%;background:#000;border-radius:6px}
         데이터<select id="r-data">
         <option value="local">local (pav_sample)</option>
         <option value="nas">nas (NAS 청크 zip)</option></select></label>
-      <label class="chk" title="프롬프트 4) Category Scores 항목을 물어본다. 영상에 등장한 카테고리마다 0~4 점을 매긴다(카테고리별 rubric: Dynamic object=IMPACT, Road Construction=CONSTRUCTION, Railway crossing/Barrier arm=GATE, Unpaved road=UNPAVED). 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
+      <label class="chk" title="프롬프트 4) Category Scores 항목을 물어본다. 영상에 등장한 카테고리마다 0~4 점을 매긴다(카테고리별 rubric: Dynamic object=DYNAMIC, Road Construction=CONSTRUCTION, Railway crossing/Barrier arm=GATE, Unpaved road=UNPAVED). 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
         <input type="checkbox" id="r-scores" checked> 카테고리 점수 켜기</label>
       <label class="chk" title="날씨 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
         <input type="checkbox" id="r-difficulty" checked> 날씨 4축 켜기</label>
@@ -576,7 +576,7 @@ video{width:100%;background:#000;border-radius:6px}
         <option value="width">width</option></select></label>
       <label>egomotion<select id="sg-ego">
         <option value="1">사용</option><option value="0">사용 안 함</option></select></label>
-      <label class="chk" title="프롬프트 4) Category Scores 항목을 물어본다. 영상에 등장한 카테고리마다 0~4 점을 매긴다(카테고리별 rubric: Dynamic object=IMPACT, Road Construction=CONSTRUCTION, Railway crossing/Barrier arm=GATE, Unpaved road=UNPAVED). 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
+      <label class="chk" title="프롬프트 4) Category Scores 항목을 물어본다. 영상에 등장한 카테고리마다 0~4 점을 매긴다(카테고리별 rubric: Dynamic object=DYNAMIC, Road Construction=CONSTRUCTION, Railway crossing/Barrier arm=GATE, Unpaved road=UNPAVED). 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
         <input type="checkbox" id="sg-scores" checked> 카테고리 점수 켜기</label>
       <label class="chk" title="날씨 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
         <input type="checkbox" id="sg-difficulty" checked> 날씨 4축 켜기</label>
@@ -633,7 +633,7 @@ video{width:100%;background:#000;border-radius:6px}
         데이터<select id="n-data">
         <option value="nas">nas (NAS 청크 zip)</option>
         <option value="local">local (pav_sample)</option></select></label>
-      <label class="chk" title="프롬프트 4) Category Scores 항목을 물어본다. 영상에 등장한 카테고리마다 0~4 점을 매긴다(카테고리별 rubric: Dynamic object=IMPACT, Road Construction=CONSTRUCTION, Railway crossing/Barrier arm=GATE, Unpaved road=UNPAVED). 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
+      <label class="chk" title="프롬프트 4) Category Scores 항목을 물어본다. 영상에 등장한 카테고리마다 0~4 점을 매긴다(카테고리별 rubric: Dynamic object=DYNAMIC, Road Construction=CONSTRUCTION, Railway crossing/Barrier arm=GATE, Unpaved road=UNPAVED). 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
         <input type="checkbox" id="n-scores" checked> 카테고리 점수 켜기</label>
       <label class="chk" title="날씨 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
         <input type="checkbox" id="n-difficulty" checked> 날씨 4축 켜기</label>
@@ -940,7 +940,7 @@ function cmpTable(g, p, pd) {
     rows.push(['점수: ' + c, gsc[c] ?? '-', psc[c] ?? '-',
                gsc[c] != null && gsc[c] === psc[c]]);
   }
-  const gd = g.difficulty || {}, pdd = (pd && pd.difficulty) || {};
+  const gd = g.weather || {}, pdd = (pd && pd.difficulty) || {};
   for (const [k, label] of DIFF_AXES_UI) {
     const a = gd[k], b = pdd[k];
     if (a == null && b == null) continue;
@@ -1128,6 +1128,10 @@ $('#l-load').onclick = async () => {
     const t = d.truth;
     $('#l-status').textContent = t ? '기존 라벨을 불러왔습니다' : '새 라벨입니다(저장 시 추가)';
     $('#l-note').value = t?.note ?? '';
+    // 저장 때 그대로 다시 쓰이는 칸들 - 불러오지 않으면 기본값이 덮어쓴다.
+    $('#l-infl').value = String(!!t?.influenced_ego);
+    $('#l-night').value = String(!!t?.is_night);
+    $('#l-weather').value = (t?.rain_snow_fog || []).join(', ');
     $$('#l-cats .pill').forEach(p =>
       p.classList.toggle('on', (t?.categories || []).includes(p.dataset.cat)));
     renderLabelScores(t?.scores || {});
@@ -1174,7 +1178,8 @@ $('#l-save').onclick = async () => {
     })),
     influenced_ego: $('#l-infl').value === 'true',
     is_night: $('#l-night').value === 'true',
-    weather: $('#l-weather').value.split(',').map(s => s.trim()).filter(Boolean),
+    // 라벨의 weather 는 날씨 4축 점수라 여기서 쓰지 않는다(gui_server LABEL_FIELDS).
+    rain_snow_fog: $('#l-weather').value.split(',').map(s => s.trim()).filter(Boolean),
     note: $('#l-note').value,
   };
   try {
@@ -1653,7 +1658,7 @@ function distPanel(title, d, lo, hi, labels) {
 function tierPanel(title, t, labels) {
   // 카테고리 점수 분포. 단위가 클립이 아니라 (클립 x 카테고리) 항목이라
   // 전체를 먼저 내고, 그 아래에 카테고리마다 따로 쌓는다 - rubric 이
-  // 카테고리마다 다르므로(IMPACT/GATE/CONSTRUCTION/UNPAVED) 한 카테고리가
+  // 카테고리마다 다르므로(DYNAMIC/GATE/CONSTRUCTION/UNPAVED) 한 카테고리가
   // 한 칸에 몰리는 것이 전체 분포에서는 보이지 않는다.
   const per = (t.by_category || []).map(b => `
     <div class="scen">${esc(b.category)} <span class="muted">(${b.n}건)</span></div>

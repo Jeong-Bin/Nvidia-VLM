@@ -782,7 +782,7 @@ the CURRENT moment. Each group of three is synchronized camera views
     # 를 그대로 쓰면 0 이 들어가는데, 어느 rubric 에도 0 이 없어 모델에게 설명
     # 없는 칸을 제시하게 된다(0 은 "카테고리 없음"이고, 없는 카테고리는 여기
     # 적히지 않는다).
-    _score_vals = rubric_values("impact")
+    _score_vals = rubric_values("dynamic")
     tier_min, tier_max = min(_score_vals), max(_score_vals)
     # 카테고리마다 쓰는 rubric 이 다르다. labels 에 실제로 있는 카테고리만
     # 훑으므로 scene_category.json 을 바꾸면 여기도 따라간다.
@@ -858,6 +858,12 @@ the CURRENT moment. Each group of three is synchronized camera views
     # 통일하지 않는 이유는 Driving environment 쪽을 "무엇이 다가왔는가"로 잴
     # 수 없기 때문이다 - 비포장 도로는 다가오지 않고, 차단기는 열림/닫힘이
     # 기준이며, 공사는 차선을 얼마나 먹었는지가 기준이다.
+    #
+    # 제외된 인스턴스(excludes)는 점수를 정하지 못한다고 한 문장 둔다. 모델이
+    # 인도 위 보행자를 Pedestrian on Road 로 올린 뒤 "not in the road" 라며
+    # 1 을 주고, 같은 클립의 GT3 보행자 대신 그 점수를 냈다(실측: DYNAMIC 근거에
+    # sidewalk/bike lane 이 나온 오답 D 13 / E 13 / F 10건, 정답은 1~8건).
+    # 대비 예시를 빼도 그대로라 예시 탓이 아니었다.
     steps45 = ""
     # 난이도 단계도 이 번호를 이어받으므로 조건 밖에 둔다 - 점수를 끄고
     # 난이도만 켜면 난이도가 4번이 되어야 한다.
@@ -874,7 +880,10 @@ the CURRENT moment. Each group of three is synchronized camera views
    When one type is there more than once - two pedestrians, say - score each of
    them against the scale and report the HIGHEST, never an average and never an
    overall impression. One serious instance decides that type's score on its
-   own, no matter how many harmless ones surround it.
+   own, no matter how many harmless ones surround it. An instance that the
+   type's "NOT this category" lines exclude - on the pavement, on a separate
+   cycle path, behind a fence - is not scored and never sets the type's
+   score; if every instance is excluded, the type does not belong in the list.
    These scores are INDEPENDENT of weather, lighting, or road/atmospheric
    conditions - rain, nighttime, fog, or a wet road do not by themselves raise
    any score. Score what actually happened in the scene, not how hard the
@@ -914,7 +923,7 @@ the CURRENT moment. Each group of three is synchronized camera views
         #
         # 근거를 점수보다 먼저 쓰게 한다. JSON 필드 순서가 곧 생성 순서라,
         # 점수가 앞이면 숫자를 먼저 정하고 근거는 그 숫자를 사후에 설명하게
-        # 된다. 실측(20261002_175140_eval): IMPACT 142건 중 17건이 근거에는
+        # 된다. 실측(20261002_175140_eval): DYNAMIC 142건 중 17건이 근거에는
         # 1점 문장("while it was stopped ... waited")을 쓰고 숫자는 2였다 -
         # 숫자가 근거를 따르지 않았다. 또 예측의 75% 가 2점이고 GT 와의
         # 상관이 0 근처(Pedestrian 0.15, Construction 0.02)라, 숫자를
@@ -1082,7 +1091,7 @@ Respond with ONLY a JSON object, no other text:
     # "경로 밖이면 빼라"로 바꾸지도 않는다 - 이 문장은 모든 카테고리에 걸리는데,
     # 도로 밖 공사(CONSTRUCTION 1)나 자차가 안 가는 길의 차단기(GATE 1)는 경로
     # 밖이어도 카테고리다. 그래서 빼는 기준은 카테고리 설명과 "NOT this
-    # category" 줄에 맡기고, 반응 여부만은 기준이 아니라고 남긴다. 새 IMPACT
+    # category" 줄에 맡기고, 반응 여부만은 기준이 아니라고 남긴다. 새 DYNAMIC
     # 에도 자차가 반응하지 않은 칸(2, 3 의 "그대로 주행")이 있어 이 보호 장치는
     # 여전히 필요하다.
     #

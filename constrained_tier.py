@@ -107,7 +107,7 @@ def tier_menu() -> str:
 # 애초에 categories 에 적히지 않으므로 점수를 받을 일이 없다. 빈 칸을 두면
 # 모델이 그것을 채우려 하므로(실측 20260812: Animal 7건이 내용과 무관하게
 # 전부 rarity=2) 아예 없앤다.
-# IMPACT_RUBRIC_0 = {
+# DYNAMIC_RUBRIC_0 = {
 #     1: "It is on the roadway, but in another lane well away from the one the "
 #        "ego-vehicle is driving in. The vehicle keeps its speed and its line, "
 #        "and would have driven the same way had it not been there.",
@@ -144,7 +144,7 @@ def tier_menu() -> str:
 #       서행이 "주행 중"으로 읽혀 2 로 간다. 난이도는 정차와 같으므로 묶는다.
 #   2 달리는 중, 앞쪽인데 미리 감속/정지하거나 비켜 갔다
 #   3 달리는 중, 옆을 가깝게
-#   4 달리는 중, 그것 때문에 급하게 대응해야 했다
+#   4 예고 없이 경로에 들어왔다(자차가 어떻게 대응했든)
 #
 # 1 과 2 는 "원래 서 있었나(already stopped)"와 "달리다가 그것 때문에
 # 섰나"로 가른다. 예전 1 은 "서 있는 동안 들어왔다"는 시점만 말해, 보행자를
@@ -156,19 +156,61 @@ def tier_menu() -> str:
 # 멀리 있는 자전거/동물도 빨간불 정차만으로 2 가 된다.
 #
 # 그 덧붙임을 처음에 "even when a light turning amber or red also made the
-# vehicle stop" 으로 썼더니 반대로 무너졌다(실측 20261006_125459: IMPACT
+# vehicle stop" 으로 썼더니 반대로 무너졌다(실측 20261006_125459: DYNAMIC
 # GT1->P2 7건, 근거가 "was stopped at the red light while cyclists crossed").
 # 이미 빨간불에 서 있던 장면까지 2 로 끌어온 것이다. 그래서 1 에 "원래 왜
 # 서 있었나(red light/queue/stop line)"를 적고, 2 의 신호 문장은 "달리다가
 # 그것을 보고 섰는데 '그 순간' 신호도 바뀐 경우"로 좁혔다.
 #
-# 2 와 4 는 거리가 아니라 "자차 대응이 급했는가" 로 가른다. 단안 카메라로는
-# 절대 거리를 재기 어렵고, 시간 여유(거리/속도)는 그보다 더 어렵다. 같은
-# 10m 라도 50 km/h 면 4, 10 km/h 면 2 여야 하므로 거리는 "왜 차분할 수
-# 있었나" 의 예시로만 둔다. 4 의 "because of it" 은 빼면 안 된다 - 이
-# 데이터의 급제동은 대개 신호/정체 때문이라, 급제동만 보고 4 를 주면
-# 틀린다(실측: 급제동을 근거로 지정하자 정확도 66% -> 37%).
-IMPACT_RUBRIC = {
+# 2 와 4 는 "다가오는 것을 미리 볼 수 있었나" 로 가른다 - 자차 대응의 세기가
+# 아니다. 예전 4 는 "brake hard, stop, or swerve urgently" 를 요구했는데,
+# 라벨의 4 는 실제 도로에서 반응이 일상 수준인 "예고 없는 등장"이었다
+# (무단횡단, 눈길의 사슴, 뛰어든 개, 밤길 자전거 - 최대 감속 1.7~3.7 m/s^2).
+# 모델은 egomotion 의 3 m/s^2 대 감속을 보고 "in good time" 이라며 2 를
+# 줬다(실측 20261006_134008/143241/152641: DYNAMIC 4 예측 0건). 감속이 큰
+# GT4 3건(9.5~11.6 m/s^2)은 인형과 천천히 부딪히는 모의 실험 영상의 충격
+# 값이라 제동 신호로 쓰지 않는다 - 대신 충돌은 속도와 상관없이 4 로 둔다.
+#
+# 급제동을 근거로 쓰지 않는 원칙은 그대로다 - 이 데이터의 급제동은 대개
+# 신호/정체 때문이라 급제동만 보고 4 를 주면 틀린다(실측: 급제동을
+# 근거로 지정하자 정확도 66% -> 37%). 단안 카메라로는 절대 거리도, 시간
+# 여유(거리/속도)도 재기 어려워 거리로 가르지도 않는다.
+#
+# 무단횡단을 4 의 조건으로 적지 않는다. 예전에 Jaywalking 과탐이 가장 큰
+# 오류원이었다 - 건널목 밖에서 건너도 멀리서부터 보였으면 2 다.
+# 대상은 "it" 대신 "the pedestrian, cyclist or animal" 로 적는다. 1 칸의
+# "The ego-vehicle was already stopped ... before it came into the path" 처럼
+# 앞 문장 주어가 자차면 it 이 문법상 자차를 가리키고, 4 칸의 "even if it only
+# slowed down" 은 실제로 자차를 뜻해 같은 표 안에서 it 의 대상이 섞였다.
+# "object" 는 쓰지 않는다 - 사람/동물에 어색하고 Obstacle on Road 의
+# "Unknown object" 와 겹친다. 이 rubric 을 쓰는 카테고리가 정확히 이 셋이다.
+
+# DYNAMIC_RUBRIC = {
+#     1: "The ego-vehicle was already stopped - for a red light, a queue or a "
+#        "stop line - or barely moving at walking pace or slower, as when "
+#        "creeping forward in a queue, before the pedestrian, cyclist or animal "
+#        "came into the path ahead or passed close alongside. The vehicle "
+#        "simply waited for it to pass.",
+#     2: "The ego-vehicle was still moving when it saw the pedestrian, cyclist "
+#        "or animal coming into the path ahead, and slowed down or came to a "
+#        "stop for it in good time, or steered around it - even if the light "
+#        "also turned amber or red at that moment. Or the vehicle kept its "
+#        "speed and its line because the pedestrian, cyclist or animal moved "
+#        "out of the path on its own or yielded the way first.",
+#     3: "The pedestrian, cyclist or animal and the moving ego-vehicle came close "
+#        "alongside each other - it moved past the vehicle, or it stood still at "
+#        "the edge of the vehicle's lane while the vehicle went by. The vehicle "
+#        "steered away from it - or, with no room to do so, kept its speed and "
+#        "its line and went by within a very short distance of it.",
+#     4: "The pedestrian, cyclist or animal got into the path of the moving "
+#        "ego-vehicle without warning - it stepped, ran or darted out, came out "
+#        "from behind something or out of the dark, or suddenly turned or "
+#        "swerved in front of or beside the vehicle - so there was no chance to "
+#        "see it coming. This counts whatever the vehicle then did, even if the "
+#        "vehicle only slowed down. A collision, at any speed, belongs here too.",
+# }
+
+DYNAMIC_RUBRIC = {
     1: "The ego-vehicle was already stopped - for a red light, a queue or a "
        "stop line - or barely moving at walking pace or slower, as when "
        "creeping forward in a queue, before it came into the path ahead or "
@@ -182,12 +224,12 @@ IMPACT_RUBRIC = {
        "past the vehicle, or it stood still at the edge of the vehicle's lane while "
        "the vehicle went by. The vehicle steered away from it - or, with no room to "
        "do so, kept its speed and its line and went by within a very short distance of it.",
-    4: "It got into the ego-vehicle's path with little or no warning - "
-       "it came suddenly out of view, such as from a blind spot or a poorly lit area, "
-       "or it had already been seen but suddenly turned, "
-       "swerved or darted in front of or beside the moving vehicle. "
-       "The vehicle had to brake hard, stop, or swerve urgently because of it. "
-       "A near miss avoided only that way, or a collision, belongs here.",
+    4: "It got into the path of the moving ego-vehicle without warning - it "
+       "stepped, ran or darted out, came out from behind something or out of "
+       "the dark, or suddenly turned or swerved in front of or beside the "
+       "vehicle - so there was no chance to see it coming. This counts "
+       "whatever the vehicle then did, even if it only slowed down. A "
+       "collision, at any speed, belongs here too.",
 }
 
 
@@ -289,7 +331,7 @@ OBSTACLE_RUBRIC = {
 # safety 등급 시절의 예시라 지금 rubric 과 정면으로 충돌했다 - 4쌍 중 3쌍
 # (인도 위 개, 자전거 도로 위 자전거, 신호 받고 건너는 보행자 -> low)이 이제는
 # excludes 로 빠지거나 다른 점수여야 하는 장면이고, "low/high" 라는 말은 어느
-# rubric 에도 없다. 실측(20261006_134008): IMPACT 근거에 "-> low/high" 를 쓴
+# rubric 에도 없다. 실측(20261006_134008): DYNAMIC 근거에 "-> low/high" 를 쓴
 # 7건이 전부 틀렸고, sidewalk/bike lane 을 쓴 21건 중 13건, "stepped into"
 # 를 쓴 12건 중 8건이 틀렸다.
 #
@@ -308,7 +350,7 @@ def _fmt_rubric(rubric: dict) -> str:
 # 카테고리 -> rubric 배정.
 #
 # scene_category.json 의 scenario 이름이 그대로 묶음 단위다 - Dynamic object
-# 6종은 "무엇이 다가왔는가"라 IMPACT 하나를 공유하고, Driving environment 는
+# 6종은 "무엇이 다가왔는가"라 DYNAMIC 하나를 공유하고, Driving environment 는
 # 카테고리마다 성격이 달라 따로 준다.
 #
 # 이름이 아니라 묶음으로 배정하는 이유: 카테고리마다 rubric 을 따로 주면
@@ -316,13 +358,13 @@ def _fmt_rubric(rubric: dict) -> str:
 # Animal 7건이 내용과 무관하게 전부 rarity=2). 같은 rubric 을 공유하면
 # "같은 객체 x 다른 행동 = 다른 점수" 가 유지된다.
 RUBRIC_BY_SCENARIO = {
-    "Dynamic object": "impact",
+    "Dynamic object": "dynamic",
 }
 RUBRIC_BY_CATEGORY = {
     "Road Construction": "construction",
     "Railway crossing": "gate",
     "Barrier arm": "gate",
-    # Dynamic object 묶음이지만 IMPACT 가 아니라 GATE 를 쓴다(GATE_RUBRIC
+    # Dynamic object 묶음이지만 DYNAMIC 가 아니라 GATE 를 쓴다(GATE_RUBRIC
     # 위 주석). 카테고리 이름 배정이 묶음 배정보다 먼저 적용된다.
     "Manual Traffic Control": "gate",
     "Unpaved road": "unpaved",
@@ -334,7 +376,7 @@ RUBRIC_BY_CATEGORY = {
     # 클래스가 없고(automobile/heavy_truck 으로 들어간다), 트램은
     # train_or_tram_car 가 있지만 3D 라벨이 1,954클립뿐이다. 그런데 실제
     # 장면은 길가에 선 차량이거나 지나가는 차량이라(평가 20260922_151404:
-    # 긴급차량 예측 7건 모두 ego=unaffected), IMPACT 로 재면 같은 자리의
+    # 긴급차량 예측 7건 모두 ego=unaffected), DYNAMIC 로 재면 같은 자리의
     # 택배 트럭과 같은 점수가 나온다 - 그 점수는 이 카테고리에 대한 것이
     # 아니다. 길을 비켜 주는 장면이 데이터에서 나오면 그때 전용 rubric 을
     # 만든다.
@@ -344,16 +386,21 @@ RUBRIC_BY_CATEGORY = {
     # 적고(-1 은 "아직 안 매김"이라 뜻이 다르다), 읽는 쪽이 이 표와 어긋나는
     # 라벨을 경고한다.
     "Emergency Vehicle": None,
+    # 2.5 부터 "Tram vehicle". "Tram" 한 단어면 모델이 "tram tracks" 를 쓰는
+    # 순간 이름으로 매칭해 선로만 있는 장면을 올렸다(실측 20261006_143241:
+    # 28d7fbd1, c7928d92, dc257402 - excludes 에 "tracks alone" 이 있는데도).
+    # 옛 이름은 2.4 이하 파일을 계속 돌릴 수 있게 남긴다.
+    "Tram vehicle": None,
     "Tram": None,
 }
 
 # rubric 본문. 이름 -> (제목, 표).
 #
-# 네 rubric 모두 1~4 로 폭이 같다. 시작이 1 인 이유는 IMPACT_RUBRIC 위
+# 네 rubric 모두 1~4 로 폭이 같다. 시작이 1 인 이유는 DYNAMIC_RUBRIC 위
 # 주석에 적었다 - 0 은 "카테고리가 없음"이고, 없는 카테고리는 점수를 받지
 # 않는다.
 RUBRICS = {
-    "impact":       ("how much it affected the ego-vehicle", IMPACT_RUBRIC),
+    "dynamic":       ("how much it affected the ego-vehicle", DYNAMIC_RUBRIC),
     "gate":         ("how much the barrier, crossing or person controlling "
                      "traffic held the ego-vehicle up",
                      GATE_RUBRIC),
@@ -367,16 +414,16 @@ RUBRICS = {
 
 
 def rubric_name_for(category: str, scenario: str = "") -> str | None:
-    """이 카테고리가 쓸 rubric 이름. 모르는 카테고리는 impact 로 떨어뜨린다.
+    """이 카테고리가 쓸 rubric 이름. 모르는 카테고리는 dynamic 으로 떨어뜨린다.
     탐지 전용 카테고리는 None."""
     if category in RUBRIC_BY_CATEGORY:
         return RUBRIC_BY_CATEGORY[category]
-    return RUBRIC_BY_SCENARIO.get(scenario, "impact")
+    return RUBRIC_BY_SCENARIO.get(scenario, "dynamic")
 
 
 def is_scored(category: str) -> bool:
     """점수를 매기는 카테고리인가. 탐지 전용(RUBRIC_BY_CATEGORY 에서 None)만
-    False 다 - 모르는 이름도 impact 로 떨어지므로 True."""
+    False 다 - 모르는 이름도 dynamic 으로 떨어지므로 True."""
     return RUBRIC_BY_CATEGORY.get(category, "") is not None
 
 

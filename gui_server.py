@@ -500,8 +500,14 @@ def clip_detail(uuid: str, run_dir: Path | None, labels_path: Path) -> dict:
         out["truth"] = {"categories": sorted(t["categories"]),
                         "scores": t["scores"],
                         "note": t["note"],
-                        # 난이도는 EV.load_labels 가 버리므로 따로 읽는다.
-                        "difficulty": gt_difficulty(labels_path).get(uuid)}
+                        # 날씨는 EV.load_labels 가 버리므로 따로 읽는다.
+                        "weather": gt_weather(labels_path).get(uuid)}
+        # 편집기가 다시 저장할 필드는 원래 값을 채워 보낸다 - 안 채우면
+        # 입력칸의 기본값(false, 빈 칸)이 저장 때 기존 값을 덮어쓴다.
+        raw = (json.loads(Path(labels_path).read_text(encoding="utf-8"))
+               .get("clips", {}).get(uuid, {}))
+        for k in ("influenced_ego", "is_night", "rain_snow_fog"):
+            out["truth"][k] = raw.get(k)
     if run_dir is not None:
         rows = EV.load_results(run_dir)
         if uuid in rows:
@@ -543,8 +549,11 @@ def clip_detail(uuid: str, run_dir: Path | None, labels_path: Path) -> dict:
 # ---------------------------------------------------------------------------
 # 라벨 편집
 # ---------------------------------------------------------------------------
+# "weather" 는 넣지 않는다 - 라벨 파일의 weather 는 날씨 4축 점수
+# 딕셔너리인데, 편집기의 쉼표 구분 입력칸이 예전에 그 키에 리스트를 써서
+# 저장 한 번에 날씨 점수를 지웠다. 그 입력칸은 rain_snow_fog(리스트)에 쓴다.
 LABEL_FIELDS = ("categories", "influenced_ego",
-                "weather", "is_night", "note")
+                "rain_snow_fog", "is_night", "note")
 
 
 def read_labels_file(name: str) -> dict:
@@ -578,7 +587,7 @@ def upsert_label(file_name: str, uuid: str, patch: dict) -> dict:
     # categories 는 {카테고리: 1~4 점수, 탐지 전용은 null} 딕셔너리다 - GT 라벨과 모델 출력이
     # 같은 모양이어야 채점이 항목 단위로 붙는다.
     cur = clips.get(uuid, {"categories": {}, "influenced_ego": False,
-                           "weather": [], "is_night": False, "note": ""})
+                           "rain_snow_fog": [], "is_night": False, "note": ""})
     for k in LABEL_FIELDS:
         if k in patch:
             cur[k] = patch[k]
@@ -832,10 +841,10 @@ def search_nas_clips(q: dict) -> dict:
                 for v in r["difficulty"].values())}
 
 
-def gt_difficulty(labels_path: Path) -> dict:
+def gt_weather(labels_path: Path) -> dict:
     """{uuid: {축: 점수}} - 정답 라벨의 난이도.
 
-    EV.load_labels 는 채점에 쓰는 필드만 돌려주고 difficulty 는 버린다.
+    EV.load_labels 는 채점에 쓰는 필드만 돌려주고 weather 는 버린다.
     그 함수는 CLI 채점도 같이 쓰므로 반환값을 늘리는 대신 여기서 따로 읽는다.
     라벨마다 축이 다 채워져 있지는 않다(실측 286개 중 208개).
     """
@@ -848,8 +857,8 @@ def gt_difficulty(labels_path: Path) -> dict:
     for uuid, v in clips.items():
         if uuid.startswith("_") or not isinstance(v, dict):
             continue
-        d = v.get("difficulty")
-        if isinstance(d, dict):
+        d = EV._weather_of(v)
+        if d:
             out[uuid] = {k: _as_int(d.get(k)) for k in DIFF_KEYS}
     return out
 
@@ -916,7 +925,7 @@ def search_clips(q: dict) -> dict:
     # 않는다.
     gt_smin = q.get("score_min", q.get("gt_score_min"))
     gt_smax = q.get("score_max", q.get("gt_score_max"))
-    gt_diff = gt_difficulty(ROOT / labels_name)
+    gt_diff = gt_weather(ROOT / labels_name)
 
     # 예측 기준 조건이 하나라도 걸렸나. 실행을 안 골랐으면 대조할 예측이
     # 없으므로 조용히 무시한다 - 조건을 걸었는데 전부 탈락하는 것보다 낫다.
@@ -959,7 +968,7 @@ def search_clips(q: dict) -> dict:
         row = {"uuid": u, "categories": sorted(tc), "scores": t["scores"],
                "score_max": _max_or_none(t["scores"]),
                "note": t.get("note", ""),
-               "gt_difficulty": gt_diff.get(u)}
+               "gt_weather": gt_diff.get(u)}
         if u in pred_rows:
             row["difficulty"] = pred_rows[u]["difficulty"]
         if u in pred:
@@ -985,7 +994,7 @@ def search_clips(q: dict) -> dict:
             "has_difficulty": any(
                 v is not None for r in list(pred_rows.values())[:50]
                 for v in r["difficulty"].values()),
-            "has_gt_difficulty": bool(gt_diff)}
+            "has_gt_weather": bool(gt_diff)}
 
 
 # ---------------------------------------------------------------------------

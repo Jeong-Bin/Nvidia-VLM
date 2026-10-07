@@ -11,8 +11,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -25,8 +25,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -39,10 +39,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 2,
         "road_surface": 2,
@@ -55,8 +55,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -69,8 +69,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -83,8 +83,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -97,8 +97,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -111,10 +111,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "fog"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -127,8 +127,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
@@ -141,8 +141,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -155,8 +155,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -169,8 +169,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -183,8 +183,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -197,8 +197,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -211,8 +211,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -225,8 +225,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -239,8 +239,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -253,8 +253,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -267,8 +267,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -281,8 +281,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -295,8 +295,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -309,10 +309,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 2,
         "road_surface": 2,
@@ -325,8 +325,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -339,8 +339,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -353,8 +353,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -367,8 +367,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -381,10 +381,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "fog"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 1,
@@ -397,8 +397,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -411,8 +411,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -425,8 +425,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -439,8 +439,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
@@ -453,10 +453,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 2,
         "road_surface": 2,
@@ -469,8 +469,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -483,8 +483,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -497,10 +497,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 1,
@@ -513,10 +513,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 3,
         "precipitation": 2,
         "road_surface": 2,
@@ -529,8 +529,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -543,8 +543,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -557,8 +557,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
@@ -571,8 +571,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -585,10 +585,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 2,
         "road_surface": 1,
@@ -601,8 +601,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 1,
@@ -615,8 +615,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -629,8 +629,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -643,8 +643,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -657,8 +657,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -671,10 +671,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 1,
         "road_surface": 1,
@@ -687,8 +687,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -703,8 +703,8 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -719,8 +719,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -735,8 +735,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -749,8 +749,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -763,8 +763,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
@@ -777,8 +777,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -791,8 +791,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -805,8 +805,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -819,8 +819,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -835,8 +835,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -849,8 +849,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -863,8 +863,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -877,8 +877,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -891,8 +891,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -905,8 +905,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -919,8 +919,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -933,8 +933,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -949,10 +949,10 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 3,
         "road_surface": 2,
@@ -965,8 +965,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -979,8 +979,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -995,8 +995,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -1009,8 +1009,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
@@ -1023,8 +1023,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -1037,8 +1037,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -1051,8 +1051,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1067,8 +1067,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1081,8 +1081,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1095,8 +1095,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -1109,8 +1109,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -1123,8 +1123,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1137,8 +1137,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -1151,8 +1151,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1165,10 +1165,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 1,
         "road_surface": 1,
@@ -1183,8 +1183,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1197,8 +1197,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1211,8 +1211,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 1,
@@ -1225,8 +1225,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -1239,8 +1239,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1253,8 +1253,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1267,8 +1267,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1281,8 +1281,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1297,10 +1297,10 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 1,
         "road_surface": 2,
@@ -1313,8 +1313,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -1329,8 +1329,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -1345,8 +1345,8 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1359,8 +1359,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1373,8 +1373,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1389,8 +1389,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1403,8 +1403,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1419,8 +1419,8 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1435,8 +1435,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1449,8 +1449,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1463,8 +1463,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1477,8 +1477,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1491,8 +1491,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1507,8 +1507,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -1521,8 +1521,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1535,8 +1535,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -1549,8 +1549,8 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1565,8 +1565,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1581,8 +1581,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1595,8 +1595,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1609,8 +1609,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1623,8 +1623,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -1639,8 +1639,8 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -1653,8 +1653,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -1667,10 +1667,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 3,
         "road_surface": 2,
@@ -1686,8 +1686,8 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -1702,8 +1702,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -1718,8 +1718,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1732,8 +1732,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1746,8 +1746,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -1762,8 +1762,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1778,8 +1778,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1795,8 +1795,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1811,8 +1811,8 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1829,8 +1829,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -1845,8 +1845,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -1861,8 +1861,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1875,10 +1875,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 1,
@@ -1891,10 +1891,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 0,
         "precipitation": 2,
         "road_surface": 1,
@@ -1907,10 +1907,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 2,
         "road_surface": 2,
@@ -1923,10 +1923,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "fog"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -1939,10 +1939,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "fog"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -1958,8 +1958,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1974,8 +1974,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -1988,10 +1988,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 2,
         "road_surface": 2,
@@ -2004,10 +2004,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 3,
         "road_surface": 2,
@@ -2022,10 +2022,10 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 2,
         "road_surface": 2,
@@ -2041,8 +2041,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 1,
         "road_surface": 0,
@@ -2055,8 +2055,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2071,10 +2071,10 @@
       "influenced_ego": true,
       "safety_criticality": 3,
       "rarity": 2,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 1,
         "road_surface": 2,
@@ -2089,8 +2089,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2103,10 +2103,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 4,
         "road_surface": 1,
@@ -2121,8 +2121,8 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2137,8 +2137,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2153,8 +2153,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2169,8 +2169,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -2185,17 +2185,16 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 1,
         "atmospheric_obscurants": 0
       },
-      "note": "Narrow road"       
-
+      "note": "Narrow road"
     },
     "c6c2beb6-97f3-4afa-b06a-4585f65e2b26": {
       "categories": [
@@ -2204,8 +2203,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2218,10 +2217,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 2,
         "road_surface": 1,
@@ -2234,8 +2233,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -2248,8 +2247,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -2266,10 +2265,10 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 1,
         "road_surface": 2,
@@ -2282,10 +2281,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 4,
         "road_surface": 2,
@@ -2298,8 +2297,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2314,8 +2313,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -2330,8 +2329,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2344,8 +2343,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2358,10 +2357,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 1,
         "road_surface": 1,
@@ -2377,8 +2376,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2391,10 +2390,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 2,
         "road_surface": 2,
@@ -2409,8 +2408,8 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -2425,8 +2424,8 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -2441,8 +2440,8 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2457,8 +2456,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2474,8 +2473,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2490,8 +2489,8 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2507,8 +2506,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2523,8 +2522,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -2539,8 +2538,8 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2555,8 +2554,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2571,8 +2570,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2587,8 +2586,8 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2603,8 +2602,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -2619,8 +2618,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -2633,8 +2632,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2649,8 +2648,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 1,
@@ -2665,8 +2664,8 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -2681,8 +2680,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -2697,8 +2696,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2713,8 +2712,8 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2729,8 +2728,8 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -2745,8 +2744,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
@@ -2761,8 +2760,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2777,8 +2776,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -2793,8 +2792,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -2809,8 +2808,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -2825,8 +2824,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2841,8 +2840,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2857,8 +2856,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2873,8 +2872,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2889,8 +2888,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2906,8 +2905,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2922,8 +2921,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2938,8 +2937,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2954,8 +2953,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2970,8 +2969,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -2987,8 +2986,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -3004,8 +3003,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3020,8 +3019,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3036,8 +3035,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3053,8 +3052,8 @@
       "influenced_ego": true,
       "safety_criticality": 3,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3069,8 +3068,8 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3085,8 +3084,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3102,8 +3101,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3118,8 +3117,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3134,8 +3133,8 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3150,8 +3149,8 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -3167,8 +3166,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3184,8 +3183,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -3201,8 +3200,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -3217,8 +3216,8 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 1,
@@ -3233,10 +3232,10 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 2,
         "road_surface": 3,
@@ -3251,8 +3250,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3267,8 +3266,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3283,8 +3282,8 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3299,8 +3298,8 @@
       "influenced_ego": true,
       "safety_criticality": 3,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -3317,8 +3316,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -3333,8 +3332,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3347,8 +3346,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -3365,8 +3364,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3381,8 +3380,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3398,8 +3397,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -3414,8 +3413,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3430,8 +3429,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3446,8 +3445,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -3463,8 +3462,8 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3479,8 +3478,8 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3495,8 +3494,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -3511,8 +3510,8 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -3527,8 +3526,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -3536,22 +3535,19 @@
       },
       "note": ""
     },
-
-
-
-
-
     "02bd345f-cdc5-4c74-8025-0bc34f265af1": {
       "categories": [
-        "Road Construction", "Manual Traffic Control"
+        "Road Construction",
+        "Manual Traffic Control"
       ],
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [
-        "rain","fog"
+      "rain_snow_fog": [
+        "rain",
+        "fog"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 2,
         "road_surface": 1,
@@ -3561,15 +3557,16 @@
     },
     "01c146ff-5524-40f1-a814-34ce1b4e3a4b": {
       "categories": [
-        "Pedestrian on Road", "Tram or Railroad"
+        "Pedestrian on Road",
+        "Tram or Railroad"
       ],
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 1,
         "road_surface": 2,
@@ -3579,15 +3576,16 @@
     },
     "002f9a80-2b50-4d83-b5d6-326b4b7fe361": {
       "categories": [
-        "Pedestrian on Road", "Tram or Railroad"
+        "Pedestrian on Road",
+        "Tram or Railroad"
       ],
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 3,
         "precipitation": 3,
         "road_surface": 2,
@@ -3600,8 +3598,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -3614,10 +3612,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 3,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 3,
         "precipitation": 0,
         "road_surface": 1,
@@ -3632,8 +3630,8 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 4,
         "precipitation": 0,
         "road_surface": 0,
@@ -3646,8 +3644,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 4,
         "precipitation": 0,
         "road_surface": 1,
@@ -3662,10 +3660,10 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 4,
@@ -3678,10 +3676,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 3,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 3,
         "precipitation": 3,
         "road_surface": 3,
@@ -3696,10 +3694,10 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 3,
@@ -3712,10 +3710,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 3,
         "precipitation": 3,
         "road_surface": 3,
@@ -3730,10 +3728,10 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 3,
@@ -3746,10 +3744,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 2,
         "road_surface": 3,
@@ -3762,10 +3760,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 2,
         "road_surface": 3,
@@ -3780,10 +3778,10 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 2,
         "road_surface": 2,
@@ -3796,10 +3794,11 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
-        "snow", "fog"
+      "rain_snow_fog": [
+        "snow",
+        "fog"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 1,
         "road_surface": 1,
@@ -3812,10 +3811,11 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
-        "snow", "fog"
+      "rain_snow_fog": [
+        "snow",
+        "fog"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 4,
         "precipitation": 0,
         "road_surface": 4,
@@ -3828,10 +3828,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 4,
@@ -3844,10 +3844,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 3,
         "precipitation": 2,
         "road_surface": 4,
@@ -3862,10 +3862,10 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 2,
         "road_surface": 4,
@@ -3880,10 +3880,10 @@
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 4,
@@ -3898,10 +3898,10 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 4,
@@ -3914,10 +3914,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 3,
         "precipitation": 4,
         "road_surface": 1,
@@ -3932,10 +3932,10 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [
+      "rain_snow_fog": [
         "fog"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
@@ -3948,10 +3948,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "fog"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
@@ -3964,10 +3964,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "fog"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
@@ -3980,10 +3980,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "fog"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 3,
         "precipitation": 4,
         "road_surface": 0,
@@ -3996,10 +3996,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "fog"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 2,
         "road_surface": 2,
@@ -4012,10 +4012,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "fog"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 1,
@@ -4028,10 +4028,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 4,
         "road_surface": 3,
@@ -4044,10 +4044,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 2,
         "road_surface": 2,
@@ -4057,15 +4057,16 @@
     },
     "1572d86b-a18c-42ad-a3ac-9c4f9f099aaa": {
       "categories": [
-        "Pedestrian on Road", "Traffic Accident"
+        "Pedestrian on Road",
+        "Traffic Accident"
       ],
       "influenced_ego": true,
       "safety_criticality": 4,
       "rarity": 3,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 4,
         "precipitation": 1,
         "road_surface": 1,
@@ -4075,15 +4076,16 @@
     },
     "160373f3-04bd-4b21-a084-4be279969ddf": {
       "categories": [
-        "Pedestrian on Road", "Traffic Accident"
+        "Pedestrian on Road",
+        "Traffic Accident"
       ],
       "influenced_ego": true,
       "safety_criticality": 4,
       "rarity": 3,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 4,
         "precipitation": 1,
         "road_surface": 1,
@@ -4098,10 +4100,10 @@
       "influenced_ego": true,
       "safety_criticality": 3,
       "rarity": 3,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 3,
         "precipitation": 2,
         "road_surface": 2,
@@ -4114,22 +4116,22 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 4,
         "precipitation": 0,
         "road_surface": 0,
         "atmospheric_obscurants": 0
       },
       "note": ""
-    },  
+    },
     "0601e06d-e0b1-4315-b0dc-07aa99ef1981": {
       "categories": [],
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 4,
         "precipitation": 0,
         "road_surface": 0,
@@ -4144,8 +4146,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 1,
@@ -4160,8 +4162,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 1,
@@ -4177,8 +4179,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 1,
@@ -4194,8 +4196,8 @@
       "influenced_ego": true,
       "safety_criticality": 3,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 4,
         "precipitation": 0,
         "road_surface": 1,
@@ -4210,8 +4212,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 4,
         "precipitation": 0,
         "road_surface": 3,
@@ -4219,7 +4221,6 @@
       },
       "note": "웅덩이, 풀, Narrow road"
     },
-
     "0551ed73-b6a1-49bd-afcd-1fe49e13bfc1": {
       "categories": [
         "Obstacle"
@@ -4227,8 +4228,8 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 1,
@@ -4241,10 +4242,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 3,
@@ -4259,8 +4260,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -4275,8 +4276,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 1,
@@ -4291,8 +4292,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -4305,8 +4306,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -4321,8 +4322,8 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 2,
@@ -4337,8 +4338,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -4353,8 +4354,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
@@ -4369,8 +4370,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -4386,8 +4387,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -4403,8 +4404,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 1,
@@ -4419,8 +4420,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
@@ -4430,15 +4431,15 @@
     },
     "0d7556a6-264f-4b2b-a25b-367bcd1e22b2": {
       "categories": [
-        "Animal on Road", 
-        "Cyclist on Road", 
+        "Animal on Road",
+        "Cyclist on Road",
         "Pedestrian on Road"
       ],
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -4448,13 +4449,14 @@
     },
     "0d968855-c8ae-43d4-8e91-6660ffc185d4": {
       "categories": [
-        "Animal on Road", "Cyclist on Road"
+        "Animal on Road",
+        "Cyclist on Road"
       ],
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
@@ -4469,8 +4471,8 @@
       "influenced_ego": true,
       "safety_criticality": 3,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -4483,10 +4485,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 3,
         "precipitation": 3,
         "road_surface": 2,
@@ -4499,9 +4501,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
-        "snow"],
-      "difficulty": {
+      "rain_snow_fog": [
+        "snow"
+      ],
+      "weather": {
         "illumination": 2,
         "precipitation": 3,
         "road_surface": 4,
@@ -4514,10 +4517,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 3,
         "road_surface": 2,
@@ -4530,10 +4533,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 3,
         "road_surface": 2,
@@ -4546,8 +4549,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -4560,8 +4563,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
@@ -4574,8 +4577,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 4,
         "precipitation": 0,
         "road_surface": 0,
@@ -4588,8 +4591,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
@@ -4604,10 +4607,10 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 1,
         "road_surface": 0,
@@ -4623,10 +4626,10 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 1,
@@ -4641,10 +4644,10 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 1,
         "road_surface": 3,
@@ -4660,8 +4663,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -4674,10 +4677,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 1,
         "road_surface": 2,
@@ -4690,10 +4693,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 1,
         "road_surface": 1,
@@ -4709,8 +4712,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -4725,8 +4728,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -4741,8 +4744,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -4757,8 +4760,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 3,
         "precipitation": 3,
         "road_surface": 3,
@@ -4773,8 +4776,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 4,
         "precipitation": 0,
         "road_surface": 0,
@@ -4789,8 +4792,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 3,
         "precipitation": 0,
         "road_surface": 0,
@@ -4805,8 +4808,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -4819,8 +4822,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 4,
         "precipitation": 0,
         "road_surface": 0,
@@ -4833,8 +4836,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 4,
         "precipitation": 0,
         "road_surface": 0,
@@ -4849,8 +4852,8 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -4863,8 +4866,8 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -4880,8 +4883,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -4896,8 +4899,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -4912,8 +4915,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -4928,8 +4931,8 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 0,
@@ -4944,8 +4947,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -4960,8 +4963,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 0,
         "precipitation": 0,
         "road_surface": 0,
@@ -4976,10 +4979,10 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 2,
         "road_surface": 2,
@@ -4994,8 +4997,8 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 2,
         "precipitation": 0,
         "road_surface": 0,
@@ -5010,8 +5013,8 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 1,
@@ -5026,10 +5029,10 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 4,
         "precipitation": 0,
         "road_surface": 4,
@@ -5045,10 +5048,10 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [
+      "rain_snow_fog": [
         "snow"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 1,
@@ -5063,8 +5066,8 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [],
-      "difficulty": {
+      "rain_snow_fog": [],
+      "weather": {
         "illumination": 1,
         "precipitation": 0,
         "road_surface": 3,
@@ -5079,10 +5082,10 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 2,
         "road_surface": 3,
@@ -5097,10 +5100,10 @@
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 3,
         "precipitation": 2,
         "road_surface": 3,
@@ -5113,10 +5116,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 2,
         "road_surface": 2,
@@ -5129,10 +5132,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 1,
         "road_surface": 2,
@@ -5147,10 +5150,10 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 1,
         "road_surface": 1,
@@ -5165,10 +5168,10 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 2,
         "road_surface": 1,
@@ -5183,10 +5186,10 @@
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 2,
         "precipitation": 2,
         "road_surface": 2,
@@ -5199,10 +5202,10 @@
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 1,
         "road_surface": 1,
@@ -5217,10 +5220,10 @@
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
-      "weather": [
+      "rain_snow_fog": [
         "rain"
       ],
-      "difficulty": {
+      "weather": {
         "illumination": 1,
         "precipitation": 1,
         "road_surface": 1,

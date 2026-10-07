@@ -6,7 +6,7 @@
       "Animal on Road",
       "Manual Traffic Control",
       "Emergency Vehicle",
-      "Tram"
+      "Tram vehicle"
     ],
     "Driving environment": [
       "Road Construction",
@@ -164,11 +164,15 @@
             ],
             "score_examples": [
               [
+                "Ducks cross in front while the ego-vehicle is already waiting in a queue",
+                1
+              ],
+              [
                 "A dog walks into the road far ahead and the moving ego-vehicle slows down in good time",
                 2
               ],
               [
-                "A deer jumps out of the dark right in front of the moving ego-vehicle, which brakes hard",
+                "A dog darts across the road just ahead of the moving ego-vehicle, which only eases off",
                 4
               ]
             ]
@@ -204,6 +208,10 @@
               [
                 "The moving ego-vehicle sees a pedestrian heading for the crossing and slows to a stop for them in good time",
                 2
+              ],
+              [
+                "A pedestrian walks along the edge of the ego-vehicle's lane and the moving ego-vehicle passes close by, edging away",
+                3
               ]
             ]
           },
@@ -222,26 +230,30 @@
             ],
             "score_examples": [
               [
+                "A cyclist rides ahead in the ego-vehicle's lane and the moving ego-vehicle slows and follows them in good time",
+                2
+              ],
+              [
                 "A cyclist rides close alongside the moving ego-vehicle in its lane and the vehicle edges away from them",
                 3
               ],
               [
-                "A cyclist swerves out in front of the moving ego-vehicle and it has to brake hard",
+                "A cyclist swerves out in front of the moving ego-vehicle without warning",
                 4
               ]
             ]
           },
           {
-            "name": "Tram",
+            "name": "Tram vehicle",
             "templates": [
-              "A tram or streetcar runs on rails in the roadway, sharing the road with cars",
-              "A tram is stopped at a tram stop in or beside the road",
-              "A tram crosses the road ahead of the ego-vehicle"
+              "A tram vehicle or streetcar runs on rails in the roadway, sharing the road with cars",
+              "A tram vehicle is stopped at a tram vehicle stop in or beside the road",
+              "A tram vehicle crosses the road ahead of the ego-vehicle"
             ],
             "template_candidates": [],
             "excludes": [
-              "Tram or rail tracks with no tram on them - the tracks alone are not this category.",
-              "A full-size passenger or freight train on a railway line - this category is the tram that runs through the streets.",
+              "Tram or rail tracks with no tram vehicle on them - the tracks alone are not this category.",
+              "A full-size passenger or freight train on a railway line - this category is the tram vehicle that runs through the streets.",
               "A bus, including an articulated bus or a trolleybus running under overhead wires - it does not run on rails."
             ]
           }
@@ -354,7 +366,8 @@
               "Debris scattered on the road",
               "Some objects are occupying one side of the lane",
               "A fallen tree or large branch lies across the roadway",
-              "An object suddenly fell or flew in front of the ego-vehicle."
+              "An object suddenly fell or flew in front of the ego-vehicle",
+              "Loaded goods placed between the sidewalk and the road"
             ],
             "template_candidates": [
               "An unknown object blocking the road",
@@ -377,7 +390,10 @@
             ],
             "excludes": [
               "A barrier arm at a railway crossing, car park or toll plaza - a barrier arm is a control device that lifts to let traffic through, not an object left on the road. That is the Barrier arm category.",
-              "An object lying entirely outside the ego-vehicle's path - in another lane, on the verge or beyond the kerb - that the vehicle never has to drive over or around. Only an object in the ego-vehicle's path, or at the very edge of its lane, is this category."
+              "An object lying entirely outside the ego-vehicle's path - in another lane, on the verge or beyond the kerb - that the vehicle never has to drive over or around. Only an object in the ego-vehicle's path, or at the very edge of its lane, is this category.",
+              "A vehicle - moving, parked, or stopped in traffic ahead - is never an obstacle.",
+              "Road markings such as a crosswalk or painted lines are not objects.",
+              "Cat's eyes or road studs - the small reflectors set into the road surface along the lane lines - are part of the road, not objects on it."
             ]
           }
         ]
