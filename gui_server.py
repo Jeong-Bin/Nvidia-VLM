@@ -41,7 +41,7 @@ from pathlib import Path
 
 import config
 import evaluate_labels as EV
-from constrained_tier import TIER_VALUES, is_scored
+from constrained_tier import TIER_VALUES, GROUP_RUBRICS
 
 ROOT = Path(__file__).resolve().parent
 RESULTS = ROOT / "results"
@@ -117,8 +117,8 @@ def newest_of(names: list[str], fallback: str) -> str:
 
 
 def taxonomy_categories(scene_path: Path) -> list[dict]:
-    """[{scenario, name, templates, template_candidates, scored}] - 프롬프트
-    메뉴와 같은 순서. scored=False 는 탐지 전용(점수 없음, 라벨 값 null)."""
+    """[{scenario, name, templates, template_candidates}] - 프롬프트 메뉴와
+    같은 순서. scenario 가 곧 묶음 점수(Dynamic object 등)의 이름이다."""
     scene = json.loads(Path(scene_path).read_text(encoding="utf-8"))
     out = []
     for scen in scene.get("special", {}).get("scenarios", []):
@@ -128,7 +128,6 @@ def taxonomy_categories(scene_path: Path) -> list[dict]:
                 "name": cat["name"],
                 "templates": cat.get("templates", []),
                 "template_candidates": cat.get("template_candidates", []),
-                "scored": is_scored(cat["name"]),
             })
     return out
 
@@ -253,20 +252,18 @@ def aggregate_run(run_dir: Path) -> dict:
         if cats:
             per_clip[len(cats)] = per_clip.get(len(cats), 0) + 1
 
-    # 카테고리 점수 분포. 클립이 아니라 (클립 x 카테고리) 항목이 단위라
-    # 분모가 클립 수가 아니다.
-    per_cat_scores = {}
+    # 묶음 점수 분포(Dynamic object / Driving environment, 클립당 0~4).
+    per_group = {}
     for r in rows:
-        for cat, v in _parse_scores(r.get("category_scores")).items():
-            per_cat_scores.setdefault(cat, []).append(v)
-    allv = [v for vs in per_cat_scores.values() for v in vs]
+        for g, v in _parse_scores(r.get("group_scores")).items():
+            per_group.setdefault(g, []).append(v)
+    allv = [v for vs in per_group.values() for v in vs]
     tiers = {"score": {
         "all": _dist(allv, min(TIER_VALUES), max(TIER_VALUES)),
-        "by_category": [
+        "by_group": [
             dict(_dist(vs, min(TIER_VALUES), max(TIER_VALUES)),
-                 category=cat, n=len(vs))
-            for cat, vs in sorted(per_cat_scores.items(),
-                                  key=lambda kv: -len(kv[1]))]}}
+                 group=g, n=len(vs))
+            for g, vs in per_group.items()]}}
 
     diff = []
     for key, label in DIFF_AXES:
@@ -438,17 +435,16 @@ def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
     per_clip = sum(EV.f1_set(truth[u]["categories"], pred[u]["categories"])
                    for u in common) / n
 
-    # --- 3) 카테고리 점수 ---
-    # GT 와 예측이 둘 다 찍은 카테고리만 채점한다 - 한쪽만 찍은 것은 2) 에서
-    # FP/FN 으로 이미 세었으므로 여기서 또 벌점을 주면 같은 오류를 두 번
-    # 세게 된다(evaluate_labels.py 3) 절과 같은 규칙).
-    pairs, by_cat = [], {}
+    # --- 3) 묶음 점수 ---
+    # 묶음마다 GT 와 예측이 둘 다 점수를 가진 클립을 채점한다(evaluate_labels.py
+    # 3) 절과 같은 규칙). 0 이 "그 묶음 없음"이라 Normal 클립도 들어간다.
+    pairs, by_group = [], {}
     for u in common:
         g, pr_ = truth[u]["scores"], pred[u]["scores"]
-        for c, gv in g.items():
-            if c in pr_:
-                pairs.append((gv, pr_[c]))
-                by_cat.setdefault(c, []).append((gv, pr_[c]))
+        for grp, gv in g.items():
+            if grp in pr_:
+                pairs.append((gv, pr_[grp]))
+                by_group.setdefault(grp, []).append((gv, pr_[grp]))
     tiers = {}
     if pairs:
         # evaluate_labels.py 의 tier_block() 과 같은 지표를 쓴다 - CLI 로그와
@@ -460,9 +456,8 @@ def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
                     "exact": sum(a == b for a, b in ps) / len(ps),
                     "within1": sum(abs(a - b) <= 1 for a, b in ps) / len(ps)}
         tiers["score"] = _stat(pairs)
-        tiers["score"]["by_category"] = [
-            dict(_stat(v), category=c)
-            for c, v in sorted(by_cat.items(), key=lambda kv: -len(kv[1]))]
+        tiers["score"]["by_group"] = [
+            dict(_stat(v), group=grp) for grp, v in by_group.items()]
     else:
         tiers["score"] = {"n": 0}
 
@@ -552,8 +547,9 @@ def clip_detail(uuid: str, run_dir: Path | None, labels_path: Path) -> dict:
 # "weather" 는 넣지 않는다 - 라벨 파일의 weather 는 날씨 4축 점수
 # 딕셔너리인데, 편집기의 쉼표 구분 입력칸이 예전에 그 키에 리스트를 써서
 # 저장 한 번에 날씨 점수를 지웠다. 그 입력칸은 rain_snow_fog(리스트)에 쓴다.
+# 묶음 점수(GROUP_RUBRICS 의 이름: "Dynamic object" 등)는 라벨 최상위 키다.
 LABEL_FIELDS = ("categories", "influenced_ego",
-                "rain_snow_fog", "is_night", "note")
+                "rain_snow_fog", "is_night", "note", *GROUP_RUBRICS)
 
 
 def read_labels_file(name: str) -> dict:
@@ -584,9 +580,9 @@ def write_labels_file(name: str, data: dict):
 def upsert_label(file_name: str, uuid: str, patch: dict) -> dict:
     data = read_labels_file(file_name)
     clips = data.setdefault("clips", {})
-    # categories 는 {카테고리: 1~4 점수, 탐지 전용은 null} 딕셔너리다 - GT 라벨과 모델 출력이
-    # 같은 모양이어야 채점이 항목 단위로 붙는다.
-    cur = clips.get(uuid, {"categories": {}, "influenced_ego": False,
+    # categories 는 그 클립에 나온 카테고리 이름 리스트이고, 점수는 묶음마다
+    # 최상위 키("Dynamic object": 0~4)에 따로 둔다.
+    cur = clips.get(uuid, {"categories": [], "influenced_ego": False,
                            "rain_snow_fog": [], "is_night": False, "note": ""})
     for k in LABEL_FIELDS:
         if k in patch:
@@ -702,7 +698,7 @@ def load_pred_rows(run_dir: Path) -> dict:
                 out[u] = {
                     "uuid": u,
                     "categories": [c for c in raw.split("|") if c.strip()],
-                    "scores": _parse_scores(r.get("category_scores")),
+                    "scores": _parse_scores(r.get("group_scores")),
                     "score_max": None,   # 아래에서 채운다
                     "difficulty": {k: _as_int(r.get(k)) for k in DIFF_KEYS},
                     # 축마다 근거 문장이 따로 있다(<축>_reason). 점수만 보면
@@ -721,9 +717,9 @@ def load_pred_rows(run_dir: Path) -> dict:
 
 
 def _parse_scores(raw) -> dict:
-    """CSV 의 category_scores 칸 -> {카테고리: 점수}.
+    """CSV 의 group_scores 칸 -> {묶음: 점수}.
 
-    "Pedestrian on Road=2|Unpaved road=1" 형식이다. 카테고리 이름에 '=' 가
+    "Dynamic object=2|Driving environment=0" 형식이다. 이름에 '=' 가
     들어갈 일은 없지만 rpartition 으로 갈라 마지막 '=' 만 구분자로 본다.
     """
     out = {}
@@ -734,9 +730,7 @@ def _parse_scores(raw) -> dict:
             continue
         k, _, v = part.rpartition("=")
         n = _as_int(v)
-        # 탐지 전용으로 바꾸기 전에 돌린 실행에는 그 카테고리 점수가 남아
-        # 있다 - 채점(EV.load_results)과 같이 버린다.
-        if k.strip() and n is not None and is_scored(k.strip()):
+        if k.strip() and n is not None:
             out[k.strip()] = n
     return out
 

@@ -48,8 +48,8 @@ from trajectory import (TRAJ_HORIZON_S as _TRAJ_HORIZON_S,
 import visualize_clip as VZ
 from constrained_tier import (TIER_LABELS, TIER_VALUES, tier_label,
                               tier_menu, tier_score,
-                              rubric_blocks, rubric_name_for, rubric_values,
-                              detect_only_categories, is_scored)
+                              group_rubric_blocks, group_key,
+                              score_groups, GROUP_RUBRICS)
 from prompts import (DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX,
                      difficulty_block)
 
@@ -113,7 +113,7 @@ def load_labels(scene_json: Path):
                         # 안 잡히는 카테고리에만 쓴다 (없으면 빈 리스트).
                         "excludes": cat.get("excludes", []),
                         # [[상황, 점수], ...] - 4단계 rubric 표 아래에 싣는
-                        # 예시(constrained_tier.rubric_blocks). 없으면 빈 리스트.
+                        # 예시(constrained_tier.group_rubric_blocks). 없으면 빈 리스트.
                         "score_examples": cat.get("score_examples", []),
                         "is_normal": is_normal,
                     }
@@ -778,28 +778,12 @@ the CURRENT moment. Each group of three is synchronized camera views
                  if explain_traj else "")
 
     tier_scale = tier_menu()
-    # 스키마에 적을 범위는 rubric 이 실제로 쓰는 눈금에서 가져온다. TIER_VALUES
-    # 를 그대로 쓰면 0 이 들어가는데, 어느 rubric 에도 0 이 없어 모델에게 설명
-    # 없는 칸을 제시하게 된다(0 은 "카테고리 없음"이고, 없는 카테고리는 여기
-    # 적히지 않는다).
-    _score_vals = rubric_values("dynamic")
-    tier_min, tier_max = min(_score_vals), max(_score_vals)
-    # 카테고리마다 쓰는 rubric 이 다르다. labels 에 실제로 있는 카테고리만
-    # 훑으므로 scene_category.json 을 바꾸면 여기도 따라간다.
-    rubric_body = rubric_blocks(labels or [])
-    # 탐지 전용 카테고리(constrained_tier.RUBRIC_BY_CATEGORY 에서 None)는
-    # 3단계에서 이름만 대고 점수는 받지 않는다. 표가 없으니 모델이 다른 표를
-    # 빌려 쓰지 않도록 4단계 첫 문장에서 이름을 들어 뺀다 - 규칙을 따로 한
-    # 단락 두지 않는 건 프롬프트가 길수록 탐지가 떨어졌기 때문이다(실측:
-    # 5,585 -> 6,389자에서 F1 80.4 -> 74.0).
-    _detect_only = detect_only_categories(labels or [])
-    if _detect_only:
-        _names = (_detect_only[0] if len(_detect_only) == 1 else
-                  ", ".join(_detect_only[:-1]) + " and " + _detect_only[-1])
-        score_scope = (f"and to nothing else -\n   except {_names}, which are "
-                       "only named, never scored.\n  ")
-    else:
-        score_scope = "and to nothing else."
+    # 묶음(Dynamic object / Driving environment)마다 점수 하나. 묶음과 그
+    # 기준표는 labels(scene_category.json)와 constrained_tier.GROUP_RUBRICS
+    # 에서 오므로 카테고리 파일을 바꾸면 여기도 따라간다. 기준표 칸이 비어
+    # 있으면 group_rubric_blocks 가 멈춘다.
+    groups = score_groups(labels or []) if score_categories else []
+    rubric_body = group_rubric_blocks(labels or []) if groups else ""
 
     # egomotion 을 켠 실행에서는 감속/조향이 100Hz 라벨로 이미 계산돼 있다.
     # 예전에는 이 값을 "급제동은 3등급을 뒷받침한다" 는 식으로 3등급의
@@ -829,67 +813,70 @@ the CURRENT moment. Each group of three is synchronized camera views
             "\n   so treat it as evidence only when the video shows what caused it."
             if behavior_facts else "")
 
-    # 4단계: 영상에 등장한 카테고리마다 점수를 하나씩 매긴다.
+    # 4단계: 클립에 나온 카테고리 이름을 명시적으로 고른다(scenario_types).
     #
-    # 예전에는 클립 하나에 safety/rarity 두 값을 받았다. 바꾼 이유는 그 두
-    # 값이 클립 전체를 하나로 뭉뚱그린 값이라, 요소가 여럿인 클립에서 무엇이
-    # 그 점수를 받았는지 알 수 없었기 때문이다. 최댓값을 쓰라고 명시해도
-    # 지켜지지 않았다 - 실측(20260904, 27,024클립): 특이요소가 1개든 3개든
-    # rarity 평균이 2.00 으로 고정이고, safety 는 요소 3개 그룹이 오히려
-    # 낮았다(2개 1.53 -> 3개 1.36). 카테고리마다 칸을 따로 두면 그 뭉개짐이
-    # 구조적으로 불가능해진다.
+    # 예전에는 3단계 끝의 "Also name the matching scenario types" 한 문장과
+    # JSON 맨 끝의 scenario_types 로 이름을 받았다. 점수가 카테고리가 아니라
+    # 묶음에 붙게 되면서, 어느 카테고리가 나왔는지는 이 목록만 말해 준다
+    # (GUI 카테고리 검색과 탐지 채점이 이것을 쓴다). 그래서 단계로 올리고,
+    # JSON 에서도 점수보다 앞에 둔다 - 5단계의 "이름을 댄 묶음은 1 이상,
+    # 대지 않은 묶음은 0" 규칙이 생성 순서상 이미 적은 목록을 참조하게.
     #
-    # GT 라벨의 categories 도 같은 모양(딕셔너리)이라 채점이 항목 단위로
-    # 그대로 붙는다.
+    # 5단계: 묶음마다 0~4 점수 하나와 그 근거.
     #
-    # 같은 카테고리가 여러 번 나오면 최댓값을 쓴다. 이 지시를 rubric 표
-    # '앞'에 두는 이유: 뒤에 두면 모델이 표를 읽고 점수를 정한 다음에야
-    # 규칙을 만난다. 또 "가장 영향이 큰 것을 골라라" 같은 완곡한 표현 대신
-    # HIGHEST 를 대문자로 못박는다 - 예전 safety/rarity 판에서 최댓값 규칙을
-    # 약하게 썼을 때 모델이 평균을 냈다(실측 20260904, 27,024클립: 특이요소가
-    # 1개든 3개든 rarity 평균이 2.00 고정, safety 는 요소 3개 그룹이 오히려
-    # 낮았다 - 2개 1.53 -> 3개 1.36).
+    # 카테고리마다 점수를 매기던 방식에서 바꾼 이유는 새 카테고리가 생겨도
+    # 기준표를 늘리지 않고 한 통합 기준으로 재기 위해서다. 대가는 요소가
+    # 여럿일 때 무엇이 점수를 정했는지 숫자만으로 알 수 없다는 것 - 그래서
+    # 근거에 "어느 종류가, 무엇을 해서" 그 점수인지 적게 한다.
     #
-    # 카테고리별로 칸을 나눈 지금은 '서로 다른 카테고리 간' 뭉개짐은
-    # 구조적으로 막혔지만, '같은 카테고리 안 여러 인스턴스'는 여전히 모델의
-    # 한 판단에 달려 있어 이 문장이 유일한 장치다.
+    # 가장 어려웠던 요소(또는 상황)로 매기고 평균은 금지한다 - 예전
+    # safety/rarity 에서 모델이 평균을 냈다(실측 20260904, 27,024클립: 요소 수와
+    # 무관하게 rarity 평균 2.00 고정, safety 는 요소 2개 1.53 -> 3개 1.36).
+    # "여러 요소가 있으면 HIGHEST" 로만 쓰면 요소 수가 점수와 관련 있다는
+    # 인상을 주므로, 하나로도 4 가 될 수 있고 개수 자체는 점수를 정하지
+    # 않는다고 못박는다. 다만 여러 도로 사용자를 "동시에" 상대해야 했던
+    # 장면(인파 사이를 조율하며 서행)은 개별 최고점보다 어렵다 - 그 경우만
+    # 하나의 상황으로 묶어 매기게 한다. Dynamic object 3 점 문구와 맞물리는
+    # 규칙이라 그 문구를 고칠 때 함께 본다.
     #
-    # rubric 은 카테고리마다 다르다(constrained_tier.rubric_blocks). 하나로
-    # 통일하지 않는 이유는 Driving environment 쪽을 "무엇이 다가왔는가"로 잴
-    # 수 없기 때문이다 - 비포장 도로는 다가오지 않고, 차단기는 열림/닫힘이
-    # 기준이며, 공사는 차선을 얼마나 먹었는지가 기준이다.
+    # 제외된 인스턴스(excludes)는 점수를 정하지 못한다는 문장도 남긴다 -
+    # 인도 위 보행자에 점수를 주던 오답이 이 문장으로 13 -> 8건이 됐다
+    # (20261006_143241 -> 163205).
     #
-    # 제외된 인스턴스(excludes)는 점수를 정하지 못한다고 한 문장 둔다. 모델이
-    # 인도 위 보행자를 Pedestrian on Road 로 올린 뒤 "not in the road" 라며
-    # 1 을 주고, 같은 클립의 GT3 보행자 대신 그 점수를 냈다(실측: DYNAMIC 근거에
-    # sidewalk/bike lane 이 나온 오답 D 13 / E 13 / F 10건, 정답은 1~8건).
-    # 대비 예시를 빼도 그대로라 예시 탓이 아니었다.
-    steps45 = ""
-    # 난이도 단계도 이 번호를 이어받으므로 조건 밖에 둔다 - 점수를 끄고
-    # 난이도만 켜면 난이도가 4번이 되어야 한다.
+    # 근거를 점수보다 먼저 쓰게 하는 것도 그대로다(JSON 순서 = 생성 순서).
+    # 점수가 앞이면 숫자를 먼저 정하고 근거는 사후 설명이 됐다(실측
+    # 20261002_175140: 근거는 1점 문장인데 숫자는 2인 경우 17건 -> 순서를
+    # 바꾼 뒤 3건).
     step_no = 4
-    if score_categories:
-        steps45 = f"""{step_no}. Category Scores: give a score to EVERY scenario type you named in
-   step 3, {score_scope} Score what each type is DOING in this clip,
-   never its name alone - the same object is routine or serious depending on
-   what it is doing and where it is. "There is an animal" or "there is a
-   pedestrian" tells you nothing on its own - look at what it is doing
-   relative to the ego-vehicle's path.
-   Score each type on its own. When two types are both present, one being
-   serious does not raise the other, and one being harmless does not lower it.
-   When one type is there more than once - two pedestrians, say - score each of
-   them against the scale and report the HIGHEST, never an average and never an
-   overall impression. One serious instance decides that type's score on its
-   own, no matter how many harmless ones surround it. An instance that the
-   type's "NOT this category" lines exclude - on the pavement, on a separate
-   cycle path, behind a fence - is not scored and never sets the type's
-   score; if every instance is excluded, the type does not belong in the list.
+    steps45 = f"""{step_no}. Scenario Types: name every scenario type from the list above that
+   matches an element in step 3, copying the names EXACTLY. An element that a
+   type's "NOT this category" lines exclude is not named. If none matches,
+   give an empty list.
+"""
+    step_no += 1
+    if groups:
+        _gnames = " and ".join(groups) if len(groups) <= 2 else (
+            ", ".join(groups[:-1]) + " and " + groups[-1])
+        steps45 += f"""{step_no}. Difficulty Scores: give each group - {_gnames} -
+   one score from 0 to 4 for how much the types of that group made driving
+   harder for the ego-vehicle in this clip. A group none of whose types you named in step
+   {step_no - 1} scores 0; a group whose types you named scores at least 1.
+   Score what each element is DOING, never its name alone - the same object is
+   routine or serious depending on what it is doing and where it is.
+   Score the element, or the situation, that made driving hardest. A single
+   element can earn any score, up to 4 - the number of elements never sets the
+   score by itself. When there are several, never average them: a harmless one
+   never lowers the score. Several elements count together only when the
+   vehicle had to deal with them at the same moment - weaving through a crowd,
+   say - and then that situation is scored as one. An element that its type's
+   "NOT this category" lines exclude never sets the score.
    These scores are INDEPENDENT of weather, lighting, or road/atmospheric
    conditions - rain, nighttime, fog, or a wet road do not by themselves raise
    any score. Score what actually happened in the scene, not how hard the
    conditions were to drive in.
-   Each type has its OWN scale. Use the one listed for the type you are
-   scoring, and pick the integer whose description fits best:
+   Before each score, give its reason: name the type that decided it and say
+   what that element did, or what the situation was, that earned the score.
+   Use the scale listed for each group:
 {rubric_body}{behavior_hint}
 """
         step_no += 1
@@ -917,21 +904,14 @@ the CURRENT moment. Each group of three is synchronized camera views
     # 모델이 카테고리를 지어내거나 빈 딕셔너리를 채우느라 예산을 쓴다.
     # main() 이 --weather-only 에 score_categories=False 를 함의시키지만,
     # 함수를 직접 부르는 경로(테스트/다른 호출부)도 있어 여기서 막는다.
-    if score_categories and not difficulty_only:
-        # 카테고리 이름이 키, 점수가 값. scenario_types 와 같은 이름을 써야
-        # 채점이 붙으므로 그 점을 스키마에서 한 번 더 말한다.
-        #
-        # 근거를 점수보다 먼저 쓰게 한다. JSON 필드 순서가 곧 생성 순서라,
-        # 점수가 앞이면 숫자를 먼저 정하고 근거는 그 숫자를 사후에 설명하게
-        # 된다. 실측(20261002_175140_eval): DYNAMIC 142건 중 17건이 근거에는
-        # 1점 문장("while it was stopped ... waited")을 쓰고 숫자는 2였다 -
-        # 숫자가 근거를 따르지 않았다. 또 예측의 75% 가 2점이고 GT 와의
-        # 상관이 0 근처(Pedestrian 0.15, Construction 0.02)라, 숫자를
-        # 장면이 아니라 습관으로 고르고 있었다.
+    # 묶음마다 근거 -> 점수 순서. 키는 묶음 이름에서 만든다
+    # (constrained_tier.group_key: "Dynamic object" -> "dynamic_object").
+    for g in groups:
+        k = group_key(g)
         tier_fields += (
-            ''' "score_reason": "<one short sentence per type, separated by '|'>",\n'''
-            f''' "category_scores": {{"<exact scenario type name>": <integer '''
-            f'''{tier_min}-{tier_max}>, ...}},\n''')
+            f' "{k}_reason": "<which {g} type decided the score, and what '
+            f'it did or what the situation was>",\n'
+            f' "{k}": <integer 0-4>,\n')
     if difficulty:
         # 프롬프트 본문과 같은 순서. JSON 필드 순서가 곧 생성 순서다.
         for key, name in DIFFICULTY_AXES:
@@ -960,16 +940,14 @@ the CURRENT moment. Each group of three is synchronized camera views
    appears in only part of the clip counts exactly as much as one that lasts
    throughout, so a type you named in step 1 must not disappear here. List
    every unusual element, and for each one state whether it changed the
-   ego-vehicle's behaviour. Also name the matching scenario types from the
-   list above, copying the names EXACTLY."""
+   ego-vehicle's behaviour."""
         observation_field = ("<the clip in time order, each situation with "
                              "its rough timestamp>")
     else:
         step1 = """1. Scene Description: the road environment and the visible agents or objects.
    Do not describe lighting or weather."""
         step3_head = """3. Unusual Elements and Ego Influence: list every unusual element, and for each
-   one state whether it changed the ego-vehicle's behaviour. Also name the
-   matching scenario types from the list above, copying the names EXACTLY."""
+   one state whether it changed the ego-vehicle's behaviour."""
         observation_field = "<scene description, one or two sentences>"
 
     # 노면도 요소로 센다. "unusual element" 를 모델이 물체로만 읽어, 1단계에
@@ -1095,15 +1073,23 @@ Respond with ONLY a JSON object, no other text:
     # 에도 자차가 반응하지 않은 칸(2, 3 의 "그대로 주행")이 있어 이 보호 장치는
     # 여전히 필요하다.
     #
-    # "scored in step 4" 는 점수 단계가 있을 때만 붙인다 - 없는데 붙이면 없는
+    # "scored in step 5" 는 점수 단계가 있을 때만 붙인다 - 없는데 붙이면 없는
     # 단계를 가리키거나, 날씨 단계를 점수 단계로 읽게 된다.
-    scored_ref = " and scored in step 4" if score_categories else ""
+    scored_ref = " and scored in step 5" if groups else ""
+    # 머리말의 "You are NOT rating how difficult" 는 점수 단계가 있으면 5단계와
+    # 정면으로 모순된다. 탐지는 난이도와 무관하게 한다는 뜻만 남긴다.
+    if groups:
+        job_note = ("Whether an element counts never depends on how difficult "
+                    "it made the\ndriving - that is scored separately, after "
+                    "the types are named.")
+    else:
+        job_note = "You are NOT rating how difficult or how valuable the clip is."
 
     return f"""{intro}{traj_note}
 {fact_block}
 Your job is to decide whether this clip contains any edge-case element - a rare
 or unusual road situation - and to name which of the types below it matches.
-You are NOT rating how difficult or how valuable the clip is.
+{job_note}
 
 SCENARIO TYPES:
 {category_menu}
@@ -1126,7 +1112,8 @@ Respond with ONLY a JSON object, no other text:
 {{"observation": "{observation_field}",
  "ego_behavior": "<how the ego-vehicle is behaving and whether it changed>",
  "unusual_elements": "{elements_field}",
-{tier_fields} "scenario_types": ["<exact scenario type name>", ...]}}"""
+ "scenario_types": ["<exact scenario type name>", ...],
+{tier_fields.rstrip().rstrip(',')}}}"""
 
 
 def _flatten_field(v) -> str:
@@ -1264,10 +1251,10 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
       verdict        -> categories 가 비어 있지 않으면 "Special"
       observation 등 -> evidence 에 요약, 원본 단계별 답도 모두 보존
 
-    category_scores 는 {카테고리명: 0~4 정수} - 영상에 등장했다고 모델이
-    판단한 카테고리마다 하나씩이다. GT 라벨의 categories 와 같은 모양이라
-    채점이 항목 단위로 붙는다. 키는 categories 와 같은 정규화를 거치므로
-    (대소문자 흡수, 없는 이름 폐기) 두 필드의 이름은 항상 일치한다.
+    group_scores 는 {묶음 이름: 0~4 정수} - Dynamic object / Driving
+    environment 처럼 scene_category.json 의 묶음마다 하나다. GT 라벨의 같은
+    이름 키와 바로 비교된다. score_reason 은 묶음별 근거를
+    "Dynamic object: ... | Driving environment: ..." 로 이은 것.
 
     tier_score 는 그중 최댓값 - 시각화 폴더를 나누는 데만 쓴다.
 
@@ -1279,7 +1266,7 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
     out = {"verdict": "Normal", "categories": [], "blocks_path": None,
            "evidence": "", "parse_ok": False,
            "observation": "", "ego_behavior": "", "unusual_elements": "",
-           "category_scores": {}, "score_reason": "",
+           "group_scores": {}, "score_reason": "",
            "tier_score": None}
     # 날씨 축은 --weather 를 껐으면 모델이 내지 않는다. 그래도 키는
     # 항상 만들어 둔다 - 없으면 CSV 열 개수가 실행마다 달라져 병합이 깨진다.
@@ -1299,7 +1286,6 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
     for k in ("observation", "ego_behavior", "unusual_elements"):
         out[k] = _flatten_field(obj.get(k, ""))
 
-    out["score_reason"] = _flatten_field(obj.get("score_reason", ""))
 
     # 난이도 4축. 값과 근거 문장을 따로 받는다.
     for key, _ in DIFFICULTY_AXES:
@@ -1333,30 +1319,26 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
             seen.add(cat)
             out["categories"].append(cat)
 
-    # 카테고리별 점수. categories 를 확정한 뒤에 붙인다 - 모델이 쓰는 키는
-    # scenario_types 와 같은 이름이므로 같은 정규화(_closest_valid)를 거쳐야
-    # 두 필드가 어긋나지 않는다.
+    # 묶음 점수(0~4). 묶음마다 "<키>_reason" 과 "<키>" 를 받는다
+    # (constrained_tier.group_key). 0 도 그대로 담는다 - 이제 0 은 "그 묶음의
+    # 특수 카테고리 없음"이라는 기준표의 칸이다.
     #
-    # categories 에 없는 이름에 점수를 매기면 버린다. 반대로 categories 에
-    # 있는데 점수가 없으면 비워 둔다 - 0 으로 채우면 "영향 없음"과 "안 매겼음"
-    # 이 같은 값이 되어 채점에서 구분할 수 없다.
-    raw_scores = obj.get("category_scores", {})
-    if isinstance(raw_scores, dict):
-        for k, v in raw_scores.items():
-            cat = _closest_valid(str(k).strip(), valid)
-            if cat is None or cat not in seen:
-                continue
-            # 탐지 전용 카테고리는 지시를 어기고 점수를 달아도 버린다 - 그
-            # 카테고리에는 rubric 이 없어 그 숫자가 무엇을 잰 것인지 모른다.
-            if not is_scored(cat):
-                continue
-            n = _coerce_tier(v)
-            # 0 은 버린다. 어느 rubric 에도 0 이 없고(모두 1 에서 시작),
-            # 여기 적힌 카테고리는 모델이 장면에 있다고 본 것이므로 0 일 수
-            # 없다. 그대로 담으면 "없음"과 "1점"이 같은 칸에 섞인다.
-            if n:
-                out["category_scores"][cat] = n
-    out["tier_score"] = tier_score(out["category_scores"])
+    # 점수와 카테고리 목록이 어긋나도(이름을 댄 묶음이 0, 대지 않은 묶음이
+    # 1 이상) 여기서 고치지 않는다. 고치면 모델의 실제 판단이 결과에서
+    # 사라진다 - 어긋남은 채점(evaluate_labels)이 따로 센다.
+    reasons = []
+    for g in score_groups(labels):
+        k = group_key(g)
+        if k not in obj:
+            continue
+        n = _coerce_tier(obj.get(k))
+        if n is not None:
+            out["group_scores"][g] = n
+        why = _flatten_field(obj.get(f"{k}_reason", ""))
+        if why:
+            reasons.append(f"{g}: {why}")
+    out["score_reason"] = " | ".join(reasons)
+    out["tier_score"] = tier_score(out["group_scores"])
 
     # 판정은 오직 "edge-case 요소를 하나라도 나열했는가". 별도 질문을 두지
     # 않는 이유는 20260728 실험 - verdict 를 따로 물어 categories 와 묶으면
@@ -1672,12 +1654,10 @@ def _check_resume(args, run_dir, n_views, prompt_sha):
 def _load_gt_labels(path):
     """test_label.json -> {uuid: {categories, scores}}. 없으면 None.
 
-    categories 는 두 모양을 받는다 - {"Pedestrian on Road": 2} 딕셔너리(정식)
-    와 ["Pedestrian on Road"] 리스트(점수가 없던 옛 라벨). 어느 쪽이든
-    categories 는 이름 리스트가 되고 scores 는 {이름: 점수} 가 된다.
-    -1(라벨 보류)은 scores 에서 뺀다 - 시각화에 "(-1/4)" 이 찍히면 0 과
-    구분이 안 된다. null(탐지 전용 카테고리, 점수 없음)도 정수가 아니라
-    자연히 빠지고, 탐지 전용 카테고리에 숫자가 적혀 있어도 뺀다.
+    categories 는 이름 리스트다(옛 라벨의 {이름: 점수} 딕셔너리도 이름만
+    받는다). scores 는 묶음 점수 {묶음 이름: 0~4} - 라벨의 최상위
+    "Dynamic object" / "Driving environment" 키에서 읽는다. 아직 안 매긴
+    묶음(키 없음, null, -1)은 빠진다.
     """
     if not path:
         return None
@@ -1685,13 +1665,12 @@ def _load_gt_labels(path):
     clips = data.get("clips", data)
     out = {}
     for uuid, v in clips.items():
-        raw = v.get("categories") or []
-        if isinstance(raw, dict):
-            names, scores = list(raw), {k: x for k, x in raw.items()
-                                        if isinstance(x, int) and x >= 0
-                                        and is_scored(k)}
-        else:
-            names, scores = list(raw), {}
+        if not isinstance(v, dict):
+            continue
+        names = list(v.get("categories") or [])
+        scores = {g: v[g] for g in GROUP_RUBRICS
+                  if isinstance(v.get(g), int) and not isinstance(v.get(g), bool)
+                  and 0 <= v[g] <= 4}
         out[uuid] = {"categories": names, "scores": scores}
     return out
 
@@ -1879,7 +1858,7 @@ if __name__ == "__main__":
                     help="시각화 영상 폭 (기본 1280). 0 을 주면 원본 해상도.")
     ap.add_argument("--not-save-low", type=lambda s: s not in ("0", "false", "False"),
                     default=True,
-                    help="카테고리 점수가 전부 0/1 인 클립은 시각화에서 "
+                    help="묶음 점수가 전부 0/1 인 Special 클립은 시각화에서 "
                          "제외한다 (기본 True). 카테고리가 나열됐지만 모델 "
                          "스스로 '자차에 영향 없음'으로 판단한 경우다. "
                          "CSV/scenario_types 에는 영향 없음 - 시각화 대상만 "
@@ -1889,10 +1868,11 @@ if __name__ == "__main__":
                          "(놓치는 것보다 더 보는 쪽).")
     ap.add_argument("--no-category-scores", dest="score_categories",
                     action="store_false",
-                    help="카테고리별 점수 단계(4단계)를 프롬프트와 출력 "
-                         "스키마에서 뺀다. category_scores/score_reason 은 CSV "
-                         "에서 빈 값이 되고, tier_score 도 빈 값이 된다. "
-                         "1~3단계(요소 탐지)만 남으므로 VERDICT/CATEGORIES 만 "
+                    help="묶음 점수 단계(5단계: Dynamic object / Driving "
+                         "environment 0~4)를 프롬프트와 출력 스키마에서 뺀다. "
+                         "group_scores/score_reason 은 CSV 에서 빈 값이 되고, "
+                         "tier_score 도 빈 값이 된다. "
+                         "1~4단계(요소 탐지)만 남으므로 VERDICT/CATEGORIES 만 "
                          "보려는 A/B 에 쓴다. 옛 이름 --no-safety-tier / "
                          "--no-rarity-tier 도 같은 뜻으로 받는다.")
     # 옛 플래그. 점수가 클립당 두 개에서 카테고리별 하나로 바뀌면서 두 축을

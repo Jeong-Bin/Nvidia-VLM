@@ -26,7 +26,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from constrained_tier import rubric_name_for, rubric_values, is_scored
+from constrained_tier import GROUP_RUBRICS, group_values
 from prompts import DIFFICULTY_AXES, DIFFICULTY_MAX
 
 # 하단 패널에 표시할 단계. (result 의 키들, 화면에 쓸 제목) 순서가 곧 표시
@@ -133,11 +133,10 @@ def difficulty_lines(result: dict) -> list[str]:
     return lines
 
 
-# 카테고리 -> 묶음 이름. rubric 을 고를 때 쓴다.
+# 카테고리 -> 묶음 이름.
 #
-# scene_category.json 을 읽어 채우되, 못 읽으면 빈 채로 둔다 - 그러면
-# rubric_name_for 가 dynamic 으로 떨어뜨리므로 분모가 4 로 나온다. 시각화가
-# 씬 파일을 못 찾았다고 해서 영상 생성이 실패하면 안 된다.
+# scene_category.json 을 읽어 채우되, 못 읽으면 빈 채로 둔다. 시각화가 씬
+# 파일을 못 찾았다고 해서 영상 생성이 실패하면 안 된다.
 SCENARIO_OF = {}
 
 
@@ -154,40 +153,36 @@ def load_scenario_map(scene_json) -> None:
 
 
 def category_score_lines(result: dict, gt: dict | None) -> list[str]:
-    """카테고리별 점수를 패널에 넣을 문자열 줄로 만든다.
+    """카테고리와 묶음 점수를 패널에 넣을 문자열 줄로 만든다.
 
-        GT   : Pedestrian on Road (1/4), Railway crossing (2/4)
-        Pred : Pedestrian on Road (2/4), Railway crossing (3/4)
-        <근거 문장>
+        GT   : Pedestrian on Road | Dynamic object 2/4, Driving environment 0/4
+        Pred : Pedestrian on Road | Dynamic object 3/4, Driving environment 0/4
+        Dynamic object: <근거> | Driving environment: <근거>
 
-    분모는 그 카테고리가 쓰는 rubric 의 상한이다. 지금은 네 rubric 이 모두
-    1~4 라 항상 4 지만, rubric 마다 폭이 달라질 수 있으므로 표에서 읽어
-    온다.
+    점수는 카테고리가 아니라 묶음(scene_category.json 의 special scenario)
+    마다 하나다. 분모는 그 묶음 기준표의 상한이다.
 
-    GT 가 없으면(라벨 없는 실행) Pred 줄만 낸다. 점수를 끈 실행에서는
-    카테고리 이름만 남아 빈 괄호가 붙지 않도록 점수 없는 항목은 이름만
-    적는다.
+    GT 가 없으면(라벨 없는 실행) Pred 줄만 낸다. 점수를 끈 실행이면 카테고리
+    이름만 적는다.
     """
     def fmt(cats, scores):
-        out = []
-        for c in cats:
-            v = (scores or {}).get(c)
-            # 탐지 전용은 rubric 이 없어 분모를 못 구한다. 탐지 전용으로
-            # 바꾸기 전에 돌린 실행의 CSV 에는 점수가 남아 있어 이름만 적는다.
-            if v is None or v < 0 or not is_scored(c):
-                out.append(c)
-            else:
-                out.append(f"{c} ({v}/{max(rubric_values(rubric_name_for(c, SCENARIO_OF.get(c, ''))))})")
-        return ", ".join(out) if out else "None"
+        names = ", ".join(cats) if cats else "None"
+        parts = []
+        for g, v in (scores or {}).items():
+            if v is None or v < 0:
+                continue
+            top = max(group_values(g)) if g in GROUP_RUBRICS else 4
+            parts.append(f"{g} {v}/{top}")
+        return names + (" | " + ", ".join(parts) if parts else "")
 
     pred_cats = sorted(result.get("categories") or [])
-    pred_scores = result.get("category_scores") or {}
+    pred_scores = result.get("group_scores") or {}
     lines = []
     if gt is not None:
         gt_cats = sorted(gt.get("categories") or [])
         lines.append("GT   : " + fmt(gt_cats, gt.get("scores")))
         lines.append("Pred : " + fmt(pred_cats, pred_scores))
-    elif pred_cats:
+    elif pred_cats or pred_scores:
         lines.append("Pred : " + fmt(pred_cats, pred_scores))
     if not lines:
         return []
@@ -511,7 +506,7 @@ def save_clip_json(result: dict, out_path, extra: dict | None = None) -> Path:
         "categories": result.get("categories", []),
         "reasoning": {k: result.get(k, "")
                       for keys, _ in PANEL_STEPS for k in keys},
-        "category_scores": result.get("category_scores") or {},
+        "group_scores": result.get("group_scores") or {},
         "score_reason": result.get("score_reason", ""),
         "tier_score": result.get("tier_score"),
         "parse_ok": bool(result.get("parse_ok", False)),

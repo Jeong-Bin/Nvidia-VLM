@@ -53,7 +53,6 @@ from obstacle import obstacle_summary, describe_obstacles, path_intrusion
 from visualize import render_scene_card
 from visualize_clip import render_clip_result, VIZ_WIDTH
 from constrained_tier import (make_tier_processor, tier_label, score_dirname,
-                              is_scored,
                               TIER_FIELDS)
 from prompts import DIFFICULTY_AXES
 
@@ -151,10 +150,11 @@ CLIP_CSV_COLUMNS = [
     "uuid", "n_frames", "verdict", "n_categories",
     "categories", "parse_ok", "observation", "ego_behavior",
     "unusual_elements",
-    # 카테고리별 점수. "Pedestrian on Road=2|Unpaved road=1" 형태로 한 칸에
-    # 담는다 - 카테고리마다 열을 만들면 scene_category.json 을 고칠 때마다
-    # 열 구성이 달라져 실행 간 병합이 깨진다.
-    "category_scores", "score_reason",
+    # 묶음 점수(0~4). "Dynamic object=2|Driving environment=0" 형태로 한 칸에
+    # 담는다 - 묶음마다 열을 만들면 scene_category.json 의 묶음을 고칠 때마다
+    # 열 구성이 달라져 실행 간 병합이 깨진다. score_reason 은 묶음별 근거를
+    # "Dynamic object: ... | Driving environment: ..." 로 이은 것.
+    "group_scores", "score_reason",
     # 그중 최댓값. 시각화 폴더를 나누는 데만 쓴다.
     "tier_score",
     "ego_speed_kmh", "ego_motion", "ego_behavior_measured",
@@ -176,8 +176,8 @@ def _lp_list(proc):
 
 
 # 판정을 담는 JSON 키 - 이 값들이 바뀌면 채점 결과가 바뀐다.
-DECISION_KEYS = ("scenario_types", "category_scores", "verdict",
-                 "scenario_type", "influenced_ego")
+DECISION_KEYS = ("scenario_types", "dynamic_object", "driving_environment",
+                 "verdict", "scenario_type", "influenced_ego")
 
 
 def _decision_steps(gen_ids, tokenizer):
@@ -522,13 +522,13 @@ def run_clip_inference(uuids, labels, category_menu,
     <viz_dir>/{normal,special}/score_<N>/<uuid>/ 로 나눠 담는다. 둘 다 None
     이면 예전 방식(viz_only_edge + not_save_low)으로 동작한다.
 
-    not_save_low=True(기본)면 거기서 한 번 더 거른다: 카테고리 점수가 전부
-    1(다른 차선, 자차 무반응)인 클립은 저장하지 않는다 - 카테고리는 나열됐지만 자차에 영향이
+    not_save_low=True(기본)면 거기서 한 번 더 거른다: 묶음 점수가 전부
+    1 이하인 Special 클립은 저장하지 않는다 - 카테고리는 나열됐지만 자차에 영향이
     없다고 모델 스스로 판단한 경우다. 탐지(scenario_types, CSV)는 건드리지
     않고 시각화 대상만 줄인다 - 이 필터가 틀려도 재추론 없이 CSV 로 다시
     뽑을 수 있다.
 
-    score_categories 는 4단계(카테고리별 점수)를 끈다. 끄면 프롬프트와 출력
+    score_categories 는 5단계(묶음 점수)를 끈다. 끄면 프롬프트와 출력
     스키마에서 빠지고 CSV 에서 빈 칸이 되며 tier_score 도 비게 된다. 값이
     없으면 not_save_low 조건이 성립하지 않아 그 필터는 저절로 무력화된다.
     """
@@ -696,9 +696,9 @@ def run_clip_inference(uuids, labels, category_menu,
                 len(cats), "|".join(cats), int(result["parse_ok"]),
                 result.get("observation", ""), result.get("ego_behavior", ""),
                 result.get("unusual_elements", ""),
-                # {"Pedestrian on Road": 2} -> "Pedestrian on Road=2"
+                # {"Dynamic object": 2} -> "Dynamic object=2"
                 "|".join(f"{k}={v}" for k, v in
-                         (result.get("category_scores") or {}).items()),
+                         (result.get("group_scores") or {}).items()),
                 result.get("score_reason", ""),
                 result.get("tier_score", ""),
                 # 클립 요약이므로 한 시점의 속도가 아니라 구간 범위를 적는다
@@ -729,15 +729,12 @@ def run_clip_inference(uuids, labels, category_menu,
                 # 예전 방식으로 호출된 경우 - 기존 동작을 그대로 유지한다.
                 want_viz = is_special or not viz_only_edge
                 if want_viz and not_save_low and is_special:
-                    # 점수가 전부 1(다른 차선, 자차 무반응)이면 모델이
-                    # "자차에 영향 없음"으로 본 것이다. 점수를 끈 실행에서는
-                    # tier_score 가 None 이라 이 조건이 성립하지 않아 필터가
-                    # 저절로 무력화된다.
-                    # 탐지 전용 카테고리는 점수가 없어 이 기준에 걸리지
-                    # 않는다 - 찾은 것 자체가 목적이므로 있으면 저장한다.
+                    # 묶음 점수가 전부 1 이하면 모델이 "카테고리는 있지만 자차에
+                    # 영향 없음"으로 본 것이다. 점수를 끈 실행에서는 tier_score
+                    # 가 None 이라 이 조건이 성립하지 않아 필터가 저절로
+                    # 무력화된다.
                     top = result.get("tier_score")
-                    want_viz = (top is None or top > 1
-                                or not all(is_scored(c) for c in cats))
+                    want_viz = top is None or top > 1
             else:
                 want_viz = (viz_special if is_special else viz_normal) or False
 
@@ -757,7 +754,7 @@ def run_clip_inference(uuids, labels, category_menu,
                                 for c in targets]
                 else:
                     # <viz_dir>/{normal,special}/score_<N>/<uuid>/ 로 나눈다.
-                    # 점수는 safety+rarity 합계(2~8), 못 읽으면 score_unknown.
+                    # 묶음 점수의 최댓값(0~4). 점수를 끈 실행이면 score_unknown.
                     bucket = "special" if is_special else "normal"
                     score_dir = score_dirname(result.get("tier_score"))
                     out_dirs = [viz_path / bucket / score_dir / uuid
@@ -949,7 +946,7 @@ def run_inference(units, labels, category_menu,
                         ("observation", "ego_behavior", "unusual_elements",
                          "score_reason")
                     }
-                    payload["category_scores"] = result.get("category_scores") or {}
+                    payload["group_scores"] = result.get("group_scores") or {}
                     if behavior:
                         payload["ego_behavior_measured"] = behavior
                 if ego:

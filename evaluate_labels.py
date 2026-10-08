@@ -12,12 +12,10 @@
                  정답이 [Jaywalking] 인데 모델이 4개를 다 찍어도 1.0 이 되어,
                  "전부 찍기"가 최적 전략이 되어버린다. F1 은 precision 을
                  함께 보므로 그 문제가 없다.
-  3) SCORES      카테고리마다 붙은 0~4 점수. GT 와 예측이 둘 다 찍은
-                 카테고리만 채점한다 - 한쪽만 찍은 것은 2) 에서 이미
-                 FP/FN 으로 세었으므로 여기서 또 벌점을 주면 같은 오류를
-                 두 번 세게 된다. 카테고리마다 쓰는 rubric 이 다르므로
-                 (DYNAMIC/GATE/CONSTRUCTION/UNPAVED) 카테고리별 표를 함께
-                 낸다.
+  3) SCORES      묶음(Dynamic object / Driving environment)마다 클립당
+                 0~4 점수 하나. 0 은 "그 묶음의 특수 카테고리 없음"이라
+                 Normal 클립도 채점에 들어간다. 묶음마다 표를 따로 내고,
+                 묶음 점수와 카테고리 목록이 어긋난 건수도 센다.
   5) WEATHER     날씨 4축(조도/강수/노면/대기가림). 목표 지표와
                  같은 방식으로 채점한다. 등급과 달리 edge-case 여부와 무관한
                  축이라(평범한 클립도 비가 오면 높다) SPECIAL 만 따로 내지
@@ -51,7 +49,7 @@ from pathlib import Path
 import pandas as pd
 
 from config import SCENE_JSON as CONFIG_SCENE_JSON, LABELS_JSON
-from constrained_tier import TIER_VALUES, rubric_name_for, rubric_values, is_scored
+from constrained_tier import TIER_VALUES, GROUP_RUBRICS, group_values
 from prompts import DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX
 
 # 난이도 축의 눈금. 등급(TIER_VALUES)과 따로 두는 이유는 두 척도가 서로
@@ -69,53 +67,42 @@ DEFAULT_PREVALENCE = 375 / 1998
 
 
 def load_labels(path: Path):
-    """정답 라벨 -> {uuid: {categories, scores, note, <난이도 4축>}}.
+    """정답 라벨 -> {uuid: {categories, scores, note, <날씨 4축>}}.
 
-    categories 는 두 가지 모양을 받는다:
-      - 딕셔너리 {"Pedestrian on Road": 2}  - 카테고리마다 점수가 붙은 정식
-      - 리스트 ["Pedestrian on Road"]        - 점수가 없던 옛 라벨
-    어느 쪽이든 categories 는 이름 집합이 되고, scores 는 {이름: 점수} 가
-    된다. 리스트였거나 값이 -1(라벨 보류)이면 그 항목은 scores 에서 빠진다 -
-    0 으로 채우면 "영향 없음"과 "아직 안 매김"이 같은 값이 되어 채점이
-    왜곡된다.
+    categories 는 그 클립에 나온 특수 카테고리 이름 리스트다. 옛 라벨의
+    {이름: 점수} 딕셔너리도 받되 이름만 쓴다.
 
-    탐지 전용 카테고리(constrained_tier.RUBRIC_BY_CATEGORY 에서 None)는 값이
-    null 이다. 그 카테고리에 숫자가 있거나, 점수 카테고리에 null 이 있으면
-    라벨이 카테고리 정의와 어긋난 것이라 mismatches 에 모아 돌려준다 -
-    앞의 것은 점수에서 빼고, 뒤의 것은 -1(아직 안 매김)과 같이 다룬다.
+    scores 는 묶음 점수 {묶음 이름: 0~4} - 라벨 최상위의 "Dynamic object",
+    "Driving environment" 키(constrained_tier.GROUP_RUBRICS)에서 읽는다.
+    키가 없거나 null/-1 이면 아직 안 매긴 것이라 빠진다. 0~4 밖의 정수는
+    mismatches["out_of_range"] 에 모아 돌려주고 채점에서 뺀다.
 
     날씨는 없어도 건너뛰지 않는다 - 예전 라벨 파일에는 weather 키가
-    아예 없고, 그것 때문에 클립을 빼면 1~4 번 채점의 표본까지 조용히 줄어든다.
+    아예 없고, 그것 때문에 클립을 빼면 1~3 번 채점의 표본까지 조용히 줄어든다.
     없는 축은 None 으로 두고 5) 섹션에서만 제외한다.
     """
     data = json.loads(path.read_text(encoding="utf-8"))
     clips = data.get("clips", data)
     out, skipped = {}, []
-    mismatches = {"detect_scored": [], "score_null": []}
+    mismatches = {"out_of_range": []}
     for uuid, v in clips.items():
+        if not isinstance(v, dict):
+            continue
         raw = v.get("categories")
         if raw is None:
             skipped.append(uuid)
             continue
-        if isinstance(raw, dict):
-            names = set(raw)
-            scores = {}
-            for k, x in raw.items():
-                if not is_scored(k):
-                    if x is not None:
-                        mismatches["detect_scored"].append((uuid, k))
-                    continue
-                if x is None:
-                    mismatches["score_null"].append((uuid, k))
-                    continue
-                n = _int_or_none(x)
-                if n is not None and n >= 0:
-                    scores[k] = n
-        else:
-            names = set(raw)
-            scores = {}
+        scores = {}
+        for g in GROUP_RUBRICS:
+            n = _int_or_none(v.get(g))
+            if n is None or n == -1:
+                continue
+            if n not in group_values(g):
+                mismatches["out_of_range"].append((uuid, g, n))
+                continue
+            scores[g] = n
         rec = {
-            "categories": names,
+            "categories": set(raw),
             "scores": scores,
             "note": v.get("note", ""),
         }
@@ -140,11 +127,11 @@ def _weather_of(v: dict) -> dict:
 
 
 def load_results(run_dir: Path):
-    """모델 결과 CSV(샤드 병합) -> {uuid: {categories, scores, <난이도>}}.
+    """모델 결과 CSV(샤드 병합) -> {uuid: {categories, scores, <날씨>}}.
 
-    category_scores 열은 "Pedestrian on Road=2|Unpaved road=1" 형태다.
-    점수를 끈 실행에서는 빈 칸이라 scores 가 비고, 그러면 3) 섹션이
-    통째로 빠진다.
+    group_scores 열은 "Dynamic object=2|Driving environment=0" 형태다.
+    점수를 끈 실행이나 묶음 점수 이전(카테고리별 점수) 실행에는 이 열이
+    없거나 비어 있어 scores 가 비고, 그러면 3) 섹션이 통째로 빠진다.
     """
     files = sorted(glob.glob(str(run_dir / "clip_results*.csv")))
     if not files:
@@ -155,7 +142,7 @@ def load_results(run_dir: Path):
     for _, r in df.iterrows():
         cats = r.get("categories")
         cats = set(str(cats).split("|")) if isinstance(cats, str) and cats.strip() else set()
-        raw = r.get("category_scores")
+        raw = r.get("group_scores")
         scores = {}
         if isinstance(raw, str) and raw.strip():
             for part in raw.split("|"):
@@ -163,12 +150,10 @@ def load_results(run_dir: Path):
                     continue
                 k, _, v = part.rpartition("=")
                 n = _int_or_none(v)
-                # 탐지 전용 카테고리는 점수를 버린다 - 그 카테고리를 탐지
-                # 전용으로 바꾸기 전에 돌린 실행에는 점수가 남아 있다.
-                if k.strip() and n is not None and is_scored(k.strip()):
+                if k.strip() and n is not None:
                     scores[k.strip()] = n
         rec = {"categories": cats, "scores": scores}
-        # --difficulty 를 끈 실행에는 이 칸이 아예 없거나 빈 값이다.
+        # --weather 를 끈 실행에는 이 칸이 아예 없거나 빈 값이다.
         for key, _name in DIFFICULTY_AXES:
             rec[key] = _int_or_none(r.get(key))
         out[str(r["uuid"])] = rec
@@ -499,13 +484,11 @@ def main():
             f"date={meta.get('date','?')}")
     if skipped:
         log(f"[warn] {len(skipped)} label(s) missing categories - skipped")
-    for kind, msg in (("detect_scored", "탐지 전용 카테고리에 점수가 있어 무시"),
-                      ("score_null", "점수 카테고리에 null 이 있어 -1 로 처리")):
-        hits = mismatches[kind]
-        if hits:
-            log(f"[warn] 라벨 {len(hits)}건: {msg} - "
-                + ", ".join(f"{u[:8]}:{c}" for u, c in hits[:10])
-                + (" ..." if len(hits) > 10 else ""))
+    hits = mismatches["out_of_range"]
+    if hits:
+        log(f"[warn] 라벨 {len(hits)}건: 묶음 점수가 0~4 밖이라 채점에서 뺌 - "
+            + ", ".join(f"{u[:8]}:{g}={n}" for u, g, n in hits[:10])
+            + (" ..." if len(hits) > 10 else ""))
 
     common = [u for u in labels if u in results]
     missing = [u for u in labels if u not in results]
@@ -646,96 +629,71 @@ def main():
             f"{ctp:>5}{cfp:>5}{cfn:>5}")
     write_category_lists(run_dir, per_cat, log)
 
-    # ---------------- 3) CATEGORY SCORES ----------------
-    # 카테고리마다 붙은 1~4 점수. 예전의 safety/rarity 를 대체한다.
+    # ---------------- 3) GROUP SCORES ----------------
+    # 묶음(Dynamic object / Driving environment)마다 클립당 0~4 점수 하나.
     #
-    # 예전 두 축은 클립 하나에 값 하나라, 요소가 여럿인 클립에서 무엇이
-    # 그 점수를 받았는지 알 수 없었고 실제로 뭉개졌다(실측 20260904,
-    # 27,024클립: 요소가 1개든 3개든 rarity 평균 2.00 고정). 점수를
-    # 카테고리에 붙이면 그 뭉개짐이 구조적으로 불가능해지고, 채점도
-    # 항목 단위로 붙는다.
+    # 0 은 "그 묶음의 특수 카테고리 없음"이라는 기준표의 칸이다. 그래서
+    # Normal 클립도 0/0 으로 채점에 들어가고, 탐지를 놓친 것도 예측 0 으로
+    # 자연히 잡힌다 - 예전 카테고리별 점수에서 따로 만들던 pred0 이 이제
+    # 기준표 안에 있다.
     #
-    # 채점 대상은 GT 가 점수를 매긴 항목 전부다. 예측이 그 카테고리를 찾지
-    # 못했으면 pred0 으로 넣는다 - rubric 에서 0 은 "그 카테고리가 없음"
-    # 이라, 놓친 것은 "0 점이라고 답한 것"과 같다. 예전에는 둘 다 찍은
-    # 항목만 채점해 "찾은 것에 점수를 잘 매겼나"만 봤는데, 그러면 높은
-    # 점수의 요소를 놓쳐도 MSE 에 드러나지 않는다. 2) CATEGORIES 의 FN 과
-    # 겹쳐 세는 셈이지만, 이 절의 질문이 "그 요소의 심각도를 얼마나 맞게
-    # 읽었나"로 바뀌었으므로 의도한 것이다.
+    # 채점 대상은 GT 와 예측이 둘 다 그 묶음 점수를 가진 클립이다. GT 를
+    # 아직 안 매긴 클립(키 없음/null/-1)은 빠진다.
     #
-    # 반대로 예측에만 있는 항목(정답 0 행)은 넣지 않는다. GT 는 없는
-    # 카테고리에 점수를 적지 않으므로 그 행은 정의상 비어 있다 - 그
-    # 오류는 2) CATEGORIES 의 FP 로만 센다.
-    score_pairs = []          # (gt, pred) 전체
-    by_cat = {}               # 카테고리별
-    n_pred_only = n_unscored = 0
-    n_miss_normal = n_miss_other = 0
-    # 점수를 끈 실행은 예측 점수가 하나도 없다. 그때 놓친 것만 pred0 으로
-    # 채우면 "모두 0 점으로 답했다"는 가짜 표가 나오므로 이 절을 건너뛴다.
-    any_pred_scores = any(results[u]["scores"] for u in common)
-    for u in common if any_pred_scores else []:
-        g, pr = labels[u]["scores"], results[u]["scores"]
-        pc = results[u]["categories"]
-        for c, gv in g.items():
-            if c in pr:
-                pv = pr[c]
-            elif c not in pc:
-                pv = 0
-                if pc:
-                    n_miss_other += 1
-                else:
-                    n_miss_normal += 1
-            else:
-                # 카테고리는 찾았는데 점수가 없다(모델이 빠뜨림) - 0 으로
-                # 채우면 "못 찾음"과 섞이므로 뺀다.
-                n_unscored += 1
+    # 묶음 점수와 카테고리 목록의 어긋남도 센다: 그 묶음 카테고리를 적고도
+    # 0 이거나, 하나도 적지 않고 1 이상인 경우. 프롬프트가 "이름을 댄 묶음은
+    # 1 이상, 대지 않은 묶음은 0" 을 요구하므로, 이 수가 크면 모델이 그
+    # 규칙을 못 지키는 것이다. 라벨 쪽 어긋남도 함께 내 라벨 실수를 잡는다.
+    groups = list(dict.fromkeys(
+        [g for u in common for g in labels[u]["scores"]]
+        + [g for u in common for g in results[u]["scores"]]))
+    if groups and any(results[u]["scores"] for u in common):
+        log("")
+        log("=" * 68)
+        log("3) GROUP SCORES  (0-4 per group; 0 = no type of that group)")
+        log("=" * 68)
+
+        def conflicts(rec):
+            bad = []
+            for g, n in rec["scores"].items():
+                has = any(scenario_of.get(c) == g for c in rec["categories"])
+                if (n == 0 and has) or (n >= 1 and not has):
+                    bad.append(g)
+            return bad
+
+        all_pairs = []
+        rows = []
+        for g in groups:
+            pairs = [(labels[u]["scores"][g], results[u]["scores"][g])
+                     for u in common
+                     if g in labels[u]["scores"] and g in results[u]["scores"]]
+            if not pairs:
                 continue
-            score_pairs.append((gv, pv))
-            by_cat.setdefault(c, []).append((gv, pv))
-        n_pred_only += sum(1 for c in pr if c not in labels[u]["categories"])
-
-    if score_pairs:
-        score_vals = [v for v in TIER_VALUES if v > 0]
-        log("")
-        log("=" * 68)
-        log("3) CATEGORY SCORES  (GT 1-4 per labelled category, pred 0-4)")
-        log("=" * 68)
-        log(f"  채점 대상 {len(score_pairs)}건 - GT 가 점수를 매긴 카테고리 전부.")
-        log(f"  pred0 = 그 카테고리를 예측에서 찾지 못함 "
-            f"({n_miss_normal + n_miss_other}건: Normal 로 예측 {n_miss_normal}"
-            f" / 다른 카테고리만 찾음 {n_miss_other})")
-        log(f"  제외: 예측에만 있음 {n_pred_only}건(2) 의 FP) / "
-            f"찾았지만 점수 없음 {n_unscored}건")
-        log("")
-        log(" ALL categories")
-        tier_block("score", score_pairs, log, rows=score_vals)
-
-        # 카테고리마다 쓰는 rubric 이 다르므로(DYNAMIC/GATE/CONSTRUCTION/
-        # UNPAVED/OBSTACLE) 따로 낸다 - 어느 rubric 이 안 먹는지 전체
-        # 평균으로는 안 보인다.
-        def rubric_of(c):
-            return rubric_name_for(c, scenario_of.get(c, ""))
-
-        rows = [(c, len(v), _mse(v), sum(1 for a, b in v if a == b) / len(v),
-                 sum(1 for _, b in v if b == 0))
-                for c, v in by_cat.items()]
-        rows.sort(key=lambda x: -x[1])
-        log("")
-        log(f"  {'category':<32}{'rubric':>14}{'n':>5}{'pred0':>7}"
-            f"{'MSE':>8}{'Acc':>7}")
-        log("  " + "-" * 73)
-        for c, n, mse, acc, n0 in rows:
-            log(f" {c:<32}{rubric_of(c):>14}{n:>5}{n0:>7}"
-                f"{mse:>8.3f}{acc:>7.2f}")
-
-        # 카테고리마다 혼동행렬. 표본이 적은 카테고리도 빼지 않는다 - 몇
-        # 건 안 되는 카테고리일수록 어느 칸에서 틀렸는지 직접 봐야 한다.
-        for c, n, *_ in rows:
-            vals = rubric_values(rubric_of(c))
+            all_pairs += pairs
             log("")
-            log(f" {c}  ({rubric_of(c)}, GT {min(vals)}-{max(vals)})")
-            tier_block("score", by_cat[c], log,
-                       values=(0,) + tuple(vals), rows=vals)
+            log(f" {g}")
+            tier_block(g, pairs, log, values=group_values(g)
+                       if g in GROUP_RUBRICS else TIER_VALUES)
+            rows.append((g, len(pairs), _mse(pairs),
+                         sum(a == b for a, b in pairs) / len(pairs)))
+        if len(rows) > 1:
+            log("")
+            log(" ALL groups")
+            tier_block("all", all_pairs, log)
+        if rows:
+            log("")
+            log(f"  {'group':<28}{'n':>5}{'MSE':>8}{'Acc':>7}")
+            log("  " + "-" * 48)
+            for g, n, mse, acc in rows:
+                log(f"  {g:<28}{n:>5}{mse:>8.3f}{acc:>7.2f}")
+
+        if scenario_of:
+            for tag, src in (("pred", results), ("GT", labels)):
+                hits = [(u, g) for u in common for g in conflicts(src[u])]
+                log("")
+                log(f"  [{tag}] 묶음 점수 <-> 카테고리 어긋남: {len(hits)}건"
+                    + (" - " + ", ".join(f"{u[:8]}:{g}" for u, g in hits[:8])
+                       + (" ..." if len(hits) > 8 else "") if hits else ""))
 
     # ---------------- 5) WEATHER ----------------
     # 등급과 달리 edge-case 여부와 무관한 축이라(평범한 클립도 비가 오면

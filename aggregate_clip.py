@@ -38,7 +38,7 @@ from pathlib import Path
 import pandas as pd
 
 from config import SCENE_JSON as CONFIG_SCENE_JSON
-from constrained_tier import TIER_VALUES, TIER_LABELS, tier_label, is_scored
+from constrained_tier import TIER_VALUES, TIER_LABELS, tier_label
 from prompts import DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX
 
 ROOT = Path(__file__).resolve().parent
@@ -334,18 +334,17 @@ def main():
         for (a, b), n in pairs.most_common(args.top_pairs):
             log(f"   {n:4d}  {a} + {b}")
 
-    # --- 4) 카테고리 점수 분포 ---
+    # --- 4) 묶음 점수 분포 ---
     # 라벨 없는 실행에서는 evaluate_labels.py 를 못 돌리므로 여기서 본다.
     #
-    # 점수는 클립이 아니라 (클립 x 카테고리) 항목마다 붙으므로 분모가
-    # 클립 수가 아니다. 카테고리마다 나눠 내는 이유는 rubric 이 서로 다르고
-    # (DYNAMIC/GATE/CONSTRUCTION/UNPAVED) 한 카테고리가 한 칸에 몰리는 것이
-    # 전체 분포에서는 안 보이기 때문이다.
-    edge_df = df[labeled]
+    # 점수는 클립마다 묶음(Dynamic object / Driving environment)별로 하나씩
+    # 붙는다. 0 은 "그 묶음의 특수 카테고리 없음"이라 Normal 클립도 0 으로
+    # 들어온다 - 그래서 분모는 점수를 읽은 클립 수다. 묶음마다 기준표가
+    # 달라 따로 낸다.
     tier_labels = {v: tier_label(v) for v in TIER_VALUES}
-    by_cat = {}
-    if "category_scores" in df.columns:
-        for raw in df["category_scores"]:
+    by_group = {}
+    if "group_scores" in df.columns:
+        for raw in df["group_scores"]:
             if not isinstance(raw, str) or not raw.strip():
                 continue
             for part in raw.split("|"):
@@ -356,17 +355,11 @@ def main():
                     n = int(str(v).strip())
                 except (TypeError, ValueError):
                     continue
-                # 탐지 전용 카테고리는 빼고 센다 - 탐지 전용으로 바꾸기
-                # 전에 돌린 실행에는 그 점수가 남아 있다.
-                if n in TIER_LABELS and is_scored(k.strip()):
-                    by_cat.setdefault(k.strip(), []).append(n)
-    if by_cat:
-        allv = [n for v in by_cat.values() for n in v]
-        dist_block(log, "CATEGORY SCORES - all scored items", allv,
-                   len(allv), TIER_VALUES, tier_labels)
-        for cat in sorted(by_cat, key=lambda c: -len(by_cat[c])):
-            dist_block(log, f"CATEGORY SCORES - {cat}", by_cat[cat],
-                       len(by_cat[cat]), TIER_VALUES, tier_labels)
+                if n in TIER_LABELS:
+                    by_group.setdefault(k.strip(), []).append(n)
+    for g in by_group:
+        dist_block(log, f"GROUP SCORES - {g}", by_group[g],
+                   len(by_group[g]), TIER_VALUES, tier_labels)
 
     # --- 5) 날씨 분포 ---
     # 등급과 달리 edge-case 여부와 무관한 축이다 - 평범한 클립도 비가 오면

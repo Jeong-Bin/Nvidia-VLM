@@ -464,8 +464,8 @@ video{width:100%;background:#000;border-radius:6px}
         데이터<select id="r-data">
         <option value="local">local (pav_sample)</option>
         <option value="nas">nas (NAS 청크 zip)</option></select></label>
-      <label class="chk" title="프롬프트 4) Category Scores 항목을 물어본다. 영상에 등장한 카테고리마다 0~4 점을 매긴다(카테고리별 rubric: Dynamic object=DYNAMIC, Road Construction=CONSTRUCTION, Railway crossing/Barrier arm=GATE, Unpaved road=UNPAVED). 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
-        <input type="checkbox" id="r-scores" checked> 카테고리 점수 켜기</label>
+      <label class="chk" title="프롬프트 5) Difficulty Scores 항목을 물어본다. 묶음(Dynamic object / Driving environment)마다 0~4 점 하나를 매긴다(0 = 그 묶음의 카테고리 없음). 점수를 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어졌다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
+        <input type="checkbox" id="r-scores" checked> 묶음 점수 켜기</label>
       <label class="chk" title="날씨 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
         <input type="checkbox" id="r-difficulty" checked> 날씨 4축 켜기</label>
       <label class="chk" title="날씨 4축만 추론한다. edge-case 탐지(VERDICT/CATEGORIES)와 카테고리 점수를 전부 빼고, 프롬프트를 날씨 전용으로 바꾼다.">
@@ -576,8 +576,8 @@ video{width:100%;background:#000;border-radius:6px}
         <option value="width">width</option></select></label>
       <label>egomotion<select id="sg-ego">
         <option value="1">사용</option><option value="0">사용 안 함</option></select></label>
-      <label class="chk" title="프롬프트 4) Category Scores 항목을 물어본다. 영상에 등장한 카테고리마다 0~4 점을 매긴다(카테고리별 rubric: Dynamic object=DYNAMIC, Road Construction=CONSTRUCTION, Railway crossing/Barrier arm=GATE, Unpaved road=UNPAVED). 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
-        <input type="checkbox" id="sg-scores" checked> 카테고리 점수 켜기</label>
+      <label class="chk" title="프롬프트 5) Difficulty Scores 항목을 물어본다. 묶음(Dynamic object / Driving environment)마다 0~4 점 하나를 매긴다(0 = 그 묶음의 카테고리 없음). 점수를 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어졌다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
+        <input type="checkbox" id="sg-scores" checked> 묶음 점수 켜기</label>
       <label class="chk" title="날씨 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
         <input type="checkbox" id="sg-difficulty" checked> 날씨 4축 켜기</label>
       <label class="chk" title="날씨 4축만 추론한다. edge-case 탐지(VERDICT/CATEGORIES)와 카테고리 점수를 전부 빼고, 프롬프트를 날씨 전용으로 바꾼다.">
@@ -633,8 +633,8 @@ video{width:100%;background:#000;border-radius:6px}
         데이터<select id="n-data">
         <option value="nas">nas (NAS 청크 zip)</option>
         <option value="local">local (pav_sample)</option></select></label>
-      <label class="chk" title="프롬프트 4) Category Scores 항목을 물어본다. 영상에 등장한 카테고리마다 0~4 점을 매긴다(카테고리별 rubric: Dynamic object=DYNAMIC, Road Construction=CONSTRUCTION, Railway crossing/Barrier arm=GATE, Unpaved road=UNPAVED). 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어진다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
-        <input type="checkbox" id="n-scores" checked> 카테고리 점수 켜기</label>
+      <label class="chk" title="프롬프트 5) Difficulty Scores 항목을 물어본다. 묶음(Dynamic object / Driving environment)마다 0~4 점 하나를 매긴다(0 = 그 묶음의 카테고리 없음). 점수를 끄면 3단계 요소 나열이 비어 VERDICT/CATEGORIES 성능이 떨어졌다 - 실측 20260921: F1 77.5%→73.0%. 켜 두는 것을 권장.">
+        <input type="checkbox" id="n-scores" checked> 묶음 점수 켜기</label>
       <label class="chk" title="날씨 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
         <input type="checkbox" id="n-difficulty" checked> 날씨 4축 켜기</label>
       <label class="chk" title="날씨 4축만 추론한다. edge-case 탐지(VERDICT/CATEGORIES)와 카테고리 점수를 전부 빼고, 프롬프트를 날씨 전용으로 바꾼다.">
@@ -804,18 +804,8 @@ async function loadTax(scene) {
   $('#ns-cats').innerHTML = html;
   $$('#s-cats .pill,#l-cats .pill,#ns-cats .pill').forEach(p =>
     p.onclick = () => p.classList.toggle('on'));
-  // 라벨 탭은 카테고리를 켜고 끌 때마다 점수 칸을 다시 그린다. 이미 넣은
-  // 점수는 살린다 - 실수로 토글했다가 값을 잃으면 다시 매겨야 한다.
-  $$('#l-cats .pill').forEach(p => p.addEventListener('click', () => {
-    const keep = {};
-    $$('#l-scores input').forEach(el => { if (el.value !== '') keep[el.id.slice(5)] = +el.value; });
-    const scores = {};
-    $$('#l-cats .pill.on').forEach(q => {
-      const v = keep[cssId(q.dataset.cat)];
-      if (v != null) scores[q.dataset.cat] = v;
-    });
-    renderLabelScores(scores);
-  }));
+  // 점수는 카테고리가 아니라 묶음(Dynamic object 등)마다 하나라, 카테고리를
+  // 켜고 끄는 것과 무관하게 묶음 칸을 늘 그려 둔다.
   renderLabelScores({});
 }
 
@@ -849,11 +839,14 @@ function renderEval() {
     `라벨 ${EV.n_labels}개 중 ${EV.n_matched}개 채점` +
     (EV.n_missing ? ` · <span style="color:var(--warn)">결과에 없는 라벨 ${EV.n_missing}개</span>` : '') +
     ` · GT special ${v.n_special_truth} / normal ${v.n_normal_truth}<br>` +
-    `<span class="muted">카테고리 점수: ${tier('score')}</span>`;
+    `<span class="muted">묶음 점수: ${tier('score')}` +
+    ((t.score && t.score.by_group) || []).map(b =>
+      ` · ${esc(b.group)} MSE ${b.mse.toFixed(3)} / 정확일치 ${pct(b.exact)} (${b.n})`).join('') +
+    `</span>`;
   const c = EV.config || {};
   $('#ev-cfg').innerHTML = `<span class="mono">${esc(c.model || '')}</span>` +
     (c.use_egomotion ? ' · egomotion' : '') + (c.traj ? ' · traj=' + esc(c.traj) : '') +
-    (c.score_categories === false ? ' · <span style="color:var(--warn)">카테고리 점수 off</span>' : '') +
+    (c.score_categories === false ? ' · <span style="color:var(--warn)">묶음 점수 off</span>' : '') +
     (c.memo ? ' · ' + esc(c.memo) : '');
 
   $('#ev-cats').innerHTML = EV.categories.map((c, i) => `
@@ -890,14 +883,10 @@ function renderCatList() {
       const d = await api(`/api/clip?uuid=${u}&run=${encodeURIComponent(EV.run)}&labels=${encodeURIComponent(EV.labels_name)}`);
       const td = $(`#ev-list [data-fill="${u}"]`); if (!td) return;
       const g = d.truth || {}, p = d.pred || {};
-      // 카테고리 뒤에 그 카테고리의 점수를 붙인다 - 점수가 카테고리마다
-      // 따로 붙으므로 한 칸에 모아 찍으면 어느 점수가 어느 것인지 알 수 없다.
-      const gs = g.scores || {}, ps = p.scores || {};
-      const tag = (x, cls, sc) =>
-        `<span class="tag ${cls}">${esc(x)}${sc[x] != null ? ' ' + sc[x] : ''}</span>`;
+      // 카테고리 태그 뒤에 묶음 점수를 붙인다.
       td.outerHTML =
-        `<td class="cats">${(g.categories || []).map(x => tag(x, '', gs)).join('') || '<span class="muted">없음</span>'}</td>
-         <td class="cats">${(p.categories || []).map(x => tag(x, (g.categories || []).includes(x) ? 'tp' : 'fp', ps)).join('') || '<span class="muted">없음</span>'}</td>`;
+        `<td class="cats">${(g.categories || []).map(x => scTag(x, '')).join('') || '<span class="muted">없음</span>'}${grpTags(g.scores)}</td>
+         <td class="cats">${(p.categories || []).map(x => scTag(x, (g.categories || []).includes(x) ? 'tp' : 'fp')).join('') || '<span class="muted">없음</span>'}${grpTags(p.scores)}</td>`;
     } catch (e) {}
   });
 }
@@ -932,13 +921,11 @@ function cmpTable(g, p, pd) {
     // 집합이 정확히 같을 때만 일치로 본다.
     allCats.every(x => gc.has(x) === pc.has(x))]);
 
-  // 카테고리마다 한 줄. GT 와 예측 중 한쪽에만 있는 카테고리도 줄을 만든다 -
-  // 그 경우가 바로 검수 대상이라 빠지면 안 된다.
+  // 묶음마다 한 줄. 한쪽에만 값이 있어도 줄을 만든다 - 그 경우가 검수 대상이다.
   const gsc = g.scores || {}, psc = (p && p.scores) || {};
-  for (const c of allCats) {
-    if (gsc[c] == null && psc[c] == null) continue;
-    rows.push(['점수: ' + c, gsc[c] ?? '-', psc[c] ?? '-',
-               gsc[c] != null && gsc[c] === psc[c]]);
+  for (const grp of new Set([...Object.keys(gsc), ...Object.keys(psc)])) {
+    rows.push(['점수: ' + grp, gsc[grp] ?? '-', psc[grp] ?? '-',
+               gsc[grp] != null && gsc[grp] === psc[grp]]);
   }
   const gd = g.weather || {}, pdd = (pd && pd.difficulty) || {};
   for (const [k, label] of DIFF_AXES_UI) {
@@ -1013,10 +1000,10 @@ async function openClip(uuid, run, labels) {
     ${cmpTable(g, p, pd)}
     <div class="split">
       <div><h3>정답(GT)</h3>
-        <p>${(g.categories || []).map(x => `<span class="tag">${esc(x)}${(g.scores || {})[x] != null ? ' (' + g.scores[x] + '/4)' : ''}</span>`).join('') || '<span class="muted">카테고리 없음</span>'}</p>
+        <p>${(g.categories || []).map(x => scTag(x, '')).join('') || '<span class="muted">카테고리 없음</span>'}${grpTags(g.scores)}</p>
         ${g.note ? `<p class="muted">note: ${esc(g.note)}</p>` : ''}</div>
       <div><h3>모델 예측</h3>
-        <p>${(p.categories || []).map(x => `<span class="tag ${(g.categories || []).includes(x) ? 'tp' : 'fp'}">${esc(x)}${(p.scores || {})[x] != null ? ' (' + p.scores[x] + '/4)' : ''}</span>`).join('') || '<span class="muted">카테고리 없음</span>'}</p></div>
+        <p>${(p.categories || []).map(x => scTag(x, (g.categories || []).includes(x) ? 'tp' : 'fp')).join('') || '<span class="muted">카테고리 없음</span>'}${grpTags(p.scores)}</p></div>
     </div>
     ${fields.length ? `<h3 style="margin-top:12px">모델 서술</h3>
       ${fields.map(([k, v]) =>
@@ -1041,11 +1028,15 @@ window.editLabel = u => {
 };
 
 /* ---------- 2. 검색 ---------- */
-// 카테고리 태그 뒤에 그 카테고리의 점수를 붙인다. 점수가 없으면(아직 안
-// 매겼거나 -1) 이름만 찍는다 - 0 으로 보이면 "영향 없음"과 구분이 안 된다.
-function scTag(name, cls, scores) {
-  const v = (scores || {})[name];
-  return `<span class="tag ${cls}">${esc(name)}${v != null && v >= 0 ? ' ' + v : ''}</span>`;
+// 카테고리 태그. 점수는 카테고리가 아니라 묶음에 붙으므로 grpTags 로 따로 찍는다.
+function scTag(name, cls) {
+  return `<span class="tag ${cls}">${esc(name)}</span>`;
+}
+// 묶음 점수 태그("Dynamic object 2/4"). 아직 안 매긴 묶음(null/-1)은 빼고,
+// 0 은 "그 묶음 없음"이라는 값이므로 찍는다.
+function grpTags(scores) {
+  return Object.entries(scores || {}).filter(([, v]) => v != null && v >= 0)
+    .map(([g, v]) => `<span class="tag" style="opacity:.8">${esc(g)} ${v}/4</span>`).join('');
 }
 
 
@@ -1078,9 +1069,9 @@ $('#s-go').onclick = async () => {
     $('#s-count').textContent = `${j.total}개 중 ${j.rows.length}개 표시`;
     $('#s-rows').innerHTML = j.rows.map(r => `
       <tr><td class="mono">${esc(r.uuid.slice(0, 18))}…</td>
-        <td class="cats">${r.categories.map(x => scTag(x, '', r.scores)).join('') || '<span class="muted">-</span>'}</td>
-        <td class="cats">${r.pred_categories ? r.pred_categories.map(x =>
-          scTag(x, r.categories.includes(x) ? 'tp' : 'fp', r.pred_scores)).join('') || '<span class="muted">없음</span>' : ''}</td>
+        <td class="cats">${r.categories.map(x => scTag(x, '')).join('') || '<span class="muted">-</span>'}${grpTags(r.scores)}</td>
+        <td class="cats">${r.pred_categories ? (r.pred_categories.map(x =>
+          scTag(x, r.categories.includes(x) ? 'tp' : 'fp')).join('') || '<span class="muted">없음</span>') + grpTags(r.pred_scores) : ''}</td>
         <td class="muted">${esc((r.note || '').slice(0, 30))}</td>
         <td><button data-clip="${esc(r.uuid)}">열기</button></td></tr>`).join('');
     const openRow = uuid => tr => {
@@ -1143,38 +1134,30 @@ $('#l-load').onclick = async () => {
 };
 // 카테고리 이름을 DOM id 로 쓸 수 있게 바꾼다(공백/괄호 때문에).
 function cssId(name) { return name.replace(/[^A-Za-z0-9]/g, '_'); }
-// 탐지 전용 카테고리(constrained_tier.RUBRIC_BY_CATEGORY 에서 None)는 점수를
-// 받지 않는다. 분류 체계에 없는 이름은 점수 카테고리로 본다(서버와 같은 규칙).
-function isScored(name) { return (TAX.find(c => c.name === name) || {}).scored !== false; }
+// 묶음 이름들(분류 체계의 scenario, 메뉴 순서) - 라벨의 묶음 점수 키다.
+function groupNames() { return [...new Set(TAX.map(c => c.scenario))]; }
 
 function renderLabelScores(scores) {
-  const on = $$('#l-cats .pill.on').map(p => p.dataset.cat);
-  $('#l-scores').innerHTML = on.length ? on.map(c => {
-    // 탐지 전용은 칸을 아예 그리지 않는다 - 라벨 다는 사람이 숫자/null 을
-    // 고를 일이 없어야 두 뜻(-1 아직 안 매김 / null 점수 없음)이 섞이지 않는다.
-    if (!isScored(c))
-      return `<span style="margin-right:10px">${esc(c)} <span class="muted">(탐지 전용)</span></span>`;
-    const v = scores[c];
-    // 켜 둔 카테고리는 그 클립에 있다는 뜻이므로 눈금이 1 에서 시작한다 -
-    // 0 은 "카테고리 없음"이고, 그건 카테고리를 끄는 것으로 표현한다.
-    return `<label style="margin-right:10px">${esc(c)}(1-4)
-      <input type="number" id="l-sc-${cssId(c)}" min="1" max="4" size="2"
-             value="${v != null && v >= 1 ? v : ''}" placeholder="-"></label>`;
-  }).join('') : '<span class="muted">카테고리를 켜면 점수 칸이 생깁니다.</span>';
+  // 묶음마다 0~4 칸 하나. 0 은 "그 묶음의 카테고리 없음", 비워 두면 아직 안
+  // 매긴 것(null)으로 저장해 0 과 구분한다.
+  $('#l-scores').innerHTML = groupNames().map(g => {
+    const v = scores[g];
+    return `<label style="margin-right:10px">${esc(g)}(0-4)
+      <input type="number" id="l-sc-${cssId(g)}" min="0" max="4" size="2"
+             value="${v != null && v >= 0 ? v : ''}" placeholder="-"></label>`;
+  }).join('');
 }
 
 $('#l-save').onclick = async () => {
   const u = $('#l-uuid').value.trim();
   if (!u) return toast('uuid 를 입력하세요');
   const patch = {
-    // categories 는 {카테고리: 1~4 점수} 딕셔너리다. 점수를 비워 두면 -1 로
-    // 보내 "아직 안 매김"을 0 과 구분한다 - 0 으로 채우면 채점에서 둘이
-    // 같은 값이 되어 왜곡된다. 탐지 전용 카테고리는 null 이다.
-    categories: Object.fromEntries($$('#l-cats .pill.on').map(p => {
-      if (!isScored(p.dataset.cat)) return [p.dataset.cat, null];
-      const el = $('#l-sc-' + cssId(p.dataset.cat));
-      const v = el && el.value !== '' ? +el.value : -1;
-      return [p.dataset.cat, v];
+    // categories 는 그 클립에 나온 카테고리 이름 리스트다. 점수는 묶음마다
+    // 최상위 키로 따로 보낸다(아래 ...groupScores).
+    categories: $$('#l-cats .pill.on').map(p => p.dataset.cat),
+    ...Object.fromEntries(groupNames().map(g => {
+      const el = $('#l-sc-' + cssId(g));
+      return [g, el && el.value !== '' ? +el.value : null];
     })),
     influenced_ego: $('#l-infl').value === 'true',
     is_night: $('#l-night').value === 'true',
@@ -1656,12 +1639,10 @@ function distPanel(title, d, lo, hi, labels) {
 }
 
 function tierPanel(title, t, labels) {
-  // 카테고리 점수 분포. 단위가 클립이 아니라 (클립 x 카테고리) 항목이라
-  // 전체를 먼저 내고, 그 아래에 카테고리마다 따로 쌓는다 - rubric 이
-  // 카테고리마다 다르므로(DYNAMIC/GATE/CONSTRUCTION/UNPAVED) 한 카테고리가
-  // 한 칸에 몰리는 것이 전체 분포에서는 보이지 않는다.
-  const per = (t.by_category || []).map(b => `
-    <div class="scen">${esc(b.category)} <span class="muted">(${b.n}건)</span></div>
+  // 묶음 점수 분포. 전체를 먼저 내고 그 아래에 묶음(Dynamic object 등)마다
+  // 따로 쌓는다 - 묶음마다 기준표가 달라 전체 분포만으로는 쏠림이 안 보인다.
+  const per = (t.by_group || []).map(b => `
+    <div class="scen">${esc(b.group)} <span class="muted">(${b.n}건)</span></div>
     ${distBody(b, labels)}`).join('');
   return `<div class="panel chartpanel">
     <h2>${esc(title)}</h2>
@@ -1857,8 +1838,8 @@ async function nasSearch() {
     $('#ns-rows').innerHTML = j.rows.map((r, i) => `
       <tr data-i="${i}">
         <td class="mono">${esc(r.uuid.slice(0, 8))}</td>
-        <td class="cats">${(r.categories || []).map(c => scTag(c, '', r.scores)).join('')
-             || '<span class="muted">없음</span>'}</td>
+        <td class="cats">${((r.categories || []).map(c => scTag(c, '')).join('')
+             || '<span class="muted">없음</span>') + grpTags(r.scores)}</td>
         <td class="num">${diffCell(r.difficulty)}</td>
         <td class="muted">${esc((r.observation || '').slice(0, 70))}</td>
         <td><button data-open="${i}">열기</button></td>
@@ -1902,8 +1883,8 @@ function nasOpen(i) {
       <a class="pill" href="/clip/${encodeURIComponent(r.uuid)}" download>영상 다운로드</a>
       <span class="muted">NAS 원본 (시각화 오버레이 없음)</span>
     </div>
-    <p>${(r.categories || []).map(c => scTag(c, '', r.scores)).join('')
-        || '<span class="muted">카테고리 없음</span>'}</p>
+    <p>${((r.categories || []).map(c => scTag(c, '')).join('')
+        || '<span class="muted">카테고리 없음</span>') + grpTags(r.scores)}</p>
     <p class="muted">날씨 ${diff}</p>
     ${fields.map(([k, v]) =>
       `<h3 style="margin:10px 0 2px">${esc(k)}</h3>
