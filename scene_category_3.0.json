@@ -5,7 +5,8 @@
       "Cyclist on Road",
       "Animal on Road",
       "Emergency Vehicle",
-      "Tram vehicle"
+      "Tram vehicle",
+      "Unknown but abnormal moving object"
     ],
     "Driving environment": [
       "Road Construction",
@@ -13,7 +14,8 @@
       "Railway crossing",
       "Barrier arm",
       "Unpaved road",
-      "Obstacle on Road"
+      "Obstacle on Road",
+      "Unknown but abnormal driving environment"
     ]
   },
   "normal": {
@@ -251,6 +253,20 @@
                 2
               ]
             ]
+          },
+          {
+            "name": "Unknown but abnormal moving object",
+            "unknown": true,
+            "templates": [
+              "A moving road user or machine that is none of the types above - a delivery robot, a person on a mobility scooter, a ride-on machine - is in or near the ego-vehicle's path",
+              "A vehicle moves in a way traffic normally never does - driving the wrong way, reversing along the lane, or crossing the road at a place with no junction",
+              "Something is being carried, towed or pushed along the road in an unusual way, sticking out into the ego-vehicle's path"
+            ],
+            "template_candidates": [],
+            "excludes": [
+              "Anything that fits one of the types above - a pedestrian, cyclist, animal, emergency vehicle or tram - is that type, not this one.",
+              "Ordinary traffic - cars, buses, trucks or motorbikes driving, turning, stopping or parking the way traffic normally does - is not this category, however busy it is."
+            ]
           }
         ]
       },
@@ -415,6 +431,21 @@
               "A vehicle - moving, parked, or stopped in traffic ahead - is never an obstacle.",
               "Road markings such as a crosswalk or painted lines are not objects.",
               "Cat's eyes or road studs - the small reflectors set into the road surface along the lane lines - are part of the road, not objects on it."
+            ]
+          },
+          {
+            "name": "Unknown but abnormal driving environment",
+            "unknown": true,
+            "templates": [
+              "The road or its surroundings are unusual in a way none of the types above describes",
+              "A stretch of road is flooded, washed out, collapsed or ends abruptly",
+              "The ego-vehicle drives somewhere roads do not normally go - through a ford, onto a ferry, through a car wash, or through a gap only just wide enough"
+            ],
+            "template_candidates": [],
+            "excludes": [
+              "Anything that fits one of the types above - road works, a person controlling traffic, a railway crossing, a barrier arm, an unpaved road or an object on the road - is that type, not this one.",
+              "Ordinary road layout - junctions, roundabouts, lane merges, speed bumps, tunnels, bridges - is not this category.",
+              "Weather, darkness, glare or a wet or snowy road surface is not this category - those are rated separately."
             ]
           }
         ]

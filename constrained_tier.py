@@ -223,7 +223,7 @@ DIFFICULTY_RUBRIC_FOR_DYNAMIC_OBJECT = {
        "or steered around the road user in good time - even if a light also "
        "turned amber or red at that moment - or kept its speed and line "
        "because the road user moved aside or yielded first.", 
-       # 자차는 주행 중,피하거나 감속 시간 충분.
+       # 자차는 주행 중. 피하거나 감속 시간 충분.
        # 혹은 상대가 먼저 비켜줘서 속도와 차선 유지한 경우.
        
     3: "The ego-vehicle saw the road user coming, but there was little room. "
@@ -232,7 +232,8 @@ DIFFICULTY_RUBRIC_FOR_DYNAMIC_OBJECT = {
        "beside it where it could swerve or wobble into the vehicle's way; or "
        "the vehicle had to squeeze past, pull aside, or work its way through "
        "several road users at the same moment.",
-       # 다가오는 상대를 발견했지만 공간 부족. 자차 바로 옆을 지나가거나 차선 가장자리에 서 있음
+       # 다가오는 상대를 발견했지만 공간 부족.
+       # 자차 바로 옆을 지나가거나 차선 가장자리에 서 있음
        # 갑자기 방향을 틀거나 비틀거릴 가능성 있음
        # 또는 자차가 여러 객체들 사이를 비집고 지나가거나 갓길에서 그 사이를 지나가야 함
        

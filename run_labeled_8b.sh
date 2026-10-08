@@ -94,7 +94,9 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --use-egomotion-c      [대조군C] 헤더/hint 유지, 센서 수치만 제거         [EGO_ABLATION=c]
   --use-egomotion-d      [대조군D] hint 만 남기고 헤더/수치 제거            [EGO_ABLATION=d]
   --header-style v1|v2   자차 행동 블록 헤더 문구 (기본 v1)              [HEADER_STYLE]
-  --no-category-scores    카테고리별 점수(4단계)를 프롬프트에서 끈다  [CAT_SCORES=0]
+  --no-category-scores    상위 카테고리 점수(5단계)를 프롬프트에서 끈다  [CAT_SCORES=0]
+  --unknown-categories    Unknown 카테고리(예상 못한 동적 객체/주행 환경)를
+                          메뉴에 넣는다 (기본 off, ablation 용)   [UNKNOWN_CATS=1]
   --weather              날씨 4축(조도/강수/노면/대기가림)을
                          0~4 로 함께 매긴다. 시각화 패널과
                          aggregate_clip.log 분포에 실린다        [WEATHER=1]
@@ -172,6 +174,7 @@ while [ $# -gt 0 ]; do
                          WEATHER_ONLY=1 ;;
     --no-tiers-elements) TIERS_ELEMENTS=1 ;;
     --explain-traj)      EXPLAIN_TRAJ=1 ;;
+    --unknown-categories) UNKNOWN_CATS=1 ;;
     --viz-per-category=*) VIZ_PER_CAT="${1#*=}" ;;
     --viz-per-category)  shift; VIZ_PER_CAT="${1:-}" ;;
     --no-egomotion)      USE_EGOMOTION=0 ;;   # 옛 이름 - 이제 기본이 off 라 무의미하지만 받아준다
@@ -337,6 +340,7 @@ esac
 [ "${WEATHER_ONLY:-0}" = "1" ]    && OPTS="$OPTS --weather-only"
 [ "${TIERS_ELEMENTS:-0}" = "1" ] && OPTS="$OPTS --no-tiers-elements"
 [ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
+[ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-categories"
 [ -n "${VIZ_PER_CAT:-}" ]        && OPTS="$OPTS --viz-per-category $VIZ_PER_CAT"
 [ "${USE_3DBBOX:-0}" = "1" ]    && OPTS="$OPTS --use-3dbbox"
 [ "${VIDEO_INPUT:-1}" = "0" ]   && OPTS="$OPTS --clip-no-video-input"

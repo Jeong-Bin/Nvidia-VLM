@@ -115,6 +115,9 @@ def load_labels(scene_json: Path):
                         # [[상황, 점수], ...] - 4단계 rubric 표 아래에 싣는
                         # 예시(constrained_tier.group_rubric_blocks). 없으면 빈 리스트.
                         "score_examples": cat.get("score_examples", []),
+                        # "unknown": true 인 카테고리(예상 못한 새 종류)는
+                        # --unknown-categories 를 줄 때만 메뉴에 넣는다.
+                        "unknown": bool(cat.get("unknown")),
                         "is_normal": is_normal,
                     }
                 )
@@ -1515,6 +1518,7 @@ def _config_key(args, n_views=1, prompt_sha=None) -> dict:
         "difficulty_only": bool(args.difficulty_only),
         "tiers_elements": bool(args.tiers_elements),
         "explain_traj": bool(args.explain_traj),
+        "unknown_categories": bool(args.unknown_categories),
         "num_shards": args.num_shards,
     }
 
@@ -1896,6 +1900,15 @@ if __name__ == "__main__":
                          "값과 근거 문장이 CSV 열로 나가고 시각화 패널과 "
                          "aggregate_clip.log 분포에 실린다. 기본 off - "
                          "출력 토큰이 늘어 느려지므로 필요한 실행에서만 켠다.")
+    ap.add_argument("--unknown-categories", action="store_true",
+                    help="scene_category.json 에서 \"unknown\": true 인 카테고리"
+                         "(예상 못한 동적 객체 / 주행 환경)를 카테고리 메뉴에 "
+                         "넣는다. 기본 off - "
+                         "넣었다 뺐다 하며 효과를 보는 ablation 용이다. 메뉴가 "
+                         "길어지면 다른 카테고리 탐지가 떨어진 전례가 있어 "
+                         "(5,585 -> 6,389자에서 F1 80.4 -> 74.0) 기본은 뺀다. "
+                         "점수는 그 카테고리가 속한 상위 카테고리(Dynamic object "
+                         "/ Driving environment) 기준표로 잰다.")
     ap.add_argument("--explain-traj", action="store_true",
                     help="--traj 로 그린 초록 선이 자차의 미래 궤적임을 "
                          "프롬프트에 한 문장으로 알린다. 기본 off - 예전에 "
@@ -2018,6 +2031,12 @@ if __name__ == "__main__":
         args.viz_dir = str(Path(args.out).parent)
 
     labels = load_labels(SCENE_JSON)
+    # Unknown 카테고리(scene_category.json 에서 "unknown": true - 예상 못한
+    # 동적 객체 / 주행 환경)는 기본으로 메뉴에서 뺀다. 넣었다 뺐다 하며 효과를
+    # 보는 ablation 용이다. 빼는 위치가 여기여야 메뉴, 기준표 머리의 카테고리
+    # 목록, 파싱의 유효 이름이 모두 함께 따라간다.
+    if not args.unknown_categories:
+        labels = [l for l in labels if not l.get("unknown")]
     # 시각화 패널이 카테고리마다 쓰는 rubric 의 상한(분모)을 알아야 하므로,
     # 카테고리->묶음 표를 여기서 한 번 넘겨 둔다.
     VZ.load_scenario_map(SCENE_JSON)

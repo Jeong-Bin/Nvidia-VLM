@@ -45,7 +45,9 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --viz-special            Special(카테고리 있음) 클립을 시각화          [VIZ_SPECIAL=1]
   --use-egomotion          egomotion 사실을 주입 (기본 off)              [USE_EGOMOTION=1]
   --traj center|width      자차 미래 궤적을 프레임에 그린다 (기본 off)   [TRAJ]
-  --no-category-scores    카테고리별 점수(4단계)를 프롬프트에서 끈다  [CAT_SCORES=0]
+  --no-category-scores    상위 카테고리 점수(5단계)를 프롬프트에서 끈다  [CAT_SCORES=0]
+  --unknown-categories    Unknown 카테고리(예상 못한 동적 객체/주행 환경)를
+                          메뉴에 넣는다 (기본 off, ablation 용)   [UNKNOWN_CATS=1]
   --weather                날씨 4축을 0~4 로 함께 매긴다               [WEATHER=1]
   --weather-only           날씨 4축만 추론한다 (탐지/점수 전부 off)    [WEATHER_ONLY=1]
   --viz-per-category N     카테고리마다 최초 N개 클립만 시각화           [VIZ_PER_CAT]
@@ -89,6 +91,7 @@ while [ $# -gt 0 ]; do
                              WEATHER_ONLY=1 ;;
     --no-tiers-elements)     TIERS_ELEMENTS=1 ;;
     --explain-traj)          EXPLAIN_TRAJ=1 ;;
+    --unknown-categories)   UNKNOWN_CATS=1 ;;
     --viz-per-category=*)  VIZ_PER_CAT="${1#*=}" ;;
     --viz-per-category)    shift; VIZ_PER_CAT="${1:-}" ;;
     --traj=*)                TRAJ="${1#*=}" ;;
@@ -170,6 +173,7 @@ OPTS="--clip-mode --single-view --num-shards 1 --shard-id 0 --model $MODEL"
 [ "${WEATHER_ONLY:-0}" = "1" ]    && OPTS="$OPTS --weather-only"
 [ "${TIERS_ELEMENTS:-0}" = "1" ] && OPTS="$OPTS --no-tiers-elements"
 [ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
+[ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-categories"
 [ -n "${VIZ_PER_CAT:-}" ]        && OPTS="$OPTS --viz-per-category $VIZ_PER_CAT"
 [ -n "${TRAJ:-}" ]              && OPTS="$OPTS --traj $TRAJ"
 # --viz-per-category 는 그 자체가 "시각화하라"는 뜻이다 - 로컬 스크립트는
