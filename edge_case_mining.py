@@ -1870,24 +1870,16 @@ if __name__ == "__main__":
                          "스스로 '자차에 영향 없음'으로 판단한 경우다. "
                          "CSV/scenario_types 에는 영향 없음 - 시각화 대상만 "
                          "줄인다. --not-save-low=0 으로 끌 수 있다. "
-                         "--no-category-scores 로 점수를 끄면 값이 없어 이 "
-                         "조건이 성립하지 않으므로, 필터는 저절로 무력화된다"
+                         "점수 단계가 없는 실행(--weather-only, "
+                         "--no-tiers-elements)은 값이 없어 이 조건이 성립하지 "
+                         "않으므로, 필터는 저절로 무력화된다"
                          "(놓치는 것보다 더 보는 쪽).")
-    ap.add_argument("--no-category-scores", dest="score_categories",
-                    action="store_false",
-                    help="묶음 점수 단계(5단계: Dynamic object / Driving "
-                         "environment 0~4)를 프롬프트와 출력 스키마에서 뺀다. "
-                         "group_scores/score_reason 은 CSV 에서 빈 값이 되고, "
-                         "tier_score 도 빈 값이 된다. "
-                         "1~4단계(요소 탐지)만 남으므로 VERDICT/CATEGORIES 만 "
-                         "보려는 A/B 에 쓴다. 옛 이름 --no-safety-tier / "
-                         "--no-rarity-tier 도 같은 뜻으로 받는다.")
-    # 옛 플래그. 점수가 클립당 두 개에서 카테고리별 하나로 바뀌면서 두 축을
-    # 따로 끌 대상이 없어졌지만, 셸 스크립트와 GUI 가 아직 이 이름을 보낼 수
-    # 있어 같은 dest 로 받아 준다.
-    ap.add_argument("--no-safety-tier", "--no-rarity-tier", "--no-score-tiers",
-                    dest="score_categories", action="store_false",
-                    help=argparse.SUPPRESS)
+    # 상위 카테고리 점수(5단계)는 항상 묻는다 - 이제 이것이 기본 평가다.
+    # 예전의 --no-category-scores(와 옛 이름 --no-safety-tier 등)는 없앴다.
+    # 점수 단계가 빠지는 경우는 --weather-only(탐지까지 뺌)와
+    # --no-tiers-elements(3단계를 속성 표로 대체) 둘뿐이고, 둘 다 아래에서
+    # score_categories 를 끈다.
+    ap.set_defaults(score_categories=True)
     ap.add_argument("--viz-per-category", type=int, default=None,
                     metavar="N",
                     help="카테고리마다 최초 N개 클립만 시각화한다. 폴더를 "
@@ -1936,7 +1928,7 @@ if __name__ == "__main__":
                          "점수가 탐지를 돕는 이유가 rubric 의 내용이 아니라 "
                          "'요소마다 무언가 채워야 한다'는 압력이라고 보고, "
                          "그 압력을 목표 지표에 직접 쓰이는 속성으로 바꾼 "
-                         "것이다. --no-category-scores 를 자동으로 켠다.")
+                         "것이다. 상위 카테고리 점수 단계(5단계)를 함께 뺀다.")
     ap.add_argument("--weather-only", "--difficulty-only",
                     dest="difficulty_only", action="store_true",
                     help="날씨 4축만 추론한다. edge-case 탐지"

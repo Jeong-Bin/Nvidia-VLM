@@ -99,7 +99,6 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --use-egomotion-c      [대조군C] 헤더/hint 유지, 센서 수치만 제거          [EGO_ABLATION=c]
   --use-egomotion-d      [대조군D] hint 만 남기고 헤더/수치 제거             [EGO_ABLATION=d]
   --header-style v1|v2   자차 행동 블록 헤더 문구 (기본 v1)              [HEADER_STYLE]
-  --no-category-scores    상위 카테고리 점수(5단계)를 프롬프트에서 끈다  [CAT_SCORES=0]
   --unknown-categories    Unknown 카테고리(예상 못한 동적 객체/주행 환경)를
                           메뉴에 넣는다 (기본 off, ablation 용)   [UNKNOWN_CATS=1]
   --group G               다룰 상위 카테고리: all(기본) / dynamic_object /
@@ -160,8 +159,6 @@ while [ $# -gt 0 ]; do
     --use-egomotion-d)   EGO_ABLATION=d ;;
     --header-style=*)    HEADER_STYLE="${1#*=}" ;;
     --header-style)      shift; HEADER_STYLE="${1:-v1}" ;;
-    --no-category-scores|--no-safety-tier|--no-rarity-tier|--no-score-tiers)
-                         CAT_SCORES=0 ;;
     --weather|--difficulty)
                          WEATHER=1 ;;
     --weather-only|--difficulty-only)
@@ -241,12 +238,6 @@ OPTS="--clip-mode --single-view --data $DATA"
 [ "${USE_EGOMOTION:-0}" = "1" ] && OPTS="$OPTS --use-egomotion"
 [ -n "${EGO_ABLATION:-}" ]      && OPTS="$OPTS --use-egomotion-${EGO_ABLATION}"
 [ -n "${HEADER_STYLE:-}" ]      && OPTS="$OPTS --header-style $HEADER_STYLE"
-# SCORE_TIERS=0 은 옛 이름 - 둘 다 끄는 뜻으로 계속 받아준다.
-# 옛 환경변수 이름. 점수가 두 축에서 카테고리별 하나로 바뀌었어도
-# 스크립트를 부르는 쪽이 아직 이 이름을 쓸 수 있어 받아 준다.
-[ "${SCORE_TIERS:-1}" = "0" ] || [ "${SAFETY_TIER:-1}" = "0" ] \
-  || [ "${RARITY_TIER:-1}" = "0" ] && CAT_SCORES=0
-[ "${CAT_SCORES:-1}" = "0" ]    && OPTS="$OPTS --no-category-scores"
 # 옛 환경변수 이름(DIFFICULTY/DIFFICULTY_ONLY)도 계속 받는다.
 [ "${DIFFICULTY:-0}" = "1" ]      && WEATHER=1
 [ "${DIFFICULTY_ONLY:-0}" = "1" ] && WEATHER_ONLY=1
