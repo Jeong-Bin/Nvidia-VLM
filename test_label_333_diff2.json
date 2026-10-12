@@ -8,7 +8,7 @@
   "clips": {
     "00ce9071-ecee-45f8-acc9-9267a7814af7": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -24,7 +24,7 @@
     },
     "1ab5a557-0374-4db3-99ae-dc28595f7520": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -40,7 +40,7 @@
     },
     "2cbaccdb-207e-4873-8b8e-1ef265671139": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -58,7 +58,7 @@
     },
     "f8b70942-59d7-45df-873c-0d13a6d0b3af": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -74,7 +74,7 @@
     },
     "1e8f7dcf-2a12-4fdd-b73a-2e414f239c1a": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -89,8 +89,10 @@
       "note": ""
     },
     "b6c103d4-dc37-464d-974a-089c2d9a66e1": {
-      "categories": {},
-      "Dynamic object": -2,
+      "categories": {
+        "Cyclist on Road": 1
+      },
+      "Dynamic object": 1,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -106,7 +108,7 @@
     },
     "53e33f31-a21c-4b0d-b24f-ef8381c60e04": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -122,7 +124,7 @@
     },
     "34860342-d420-4ec4-8353-6d79ae77f83c": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -140,7 +142,7 @@
     },
     "ed4763d7-dce0-440d-9a66-ad218e3867e3": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -156,7 +158,7 @@
     },
     "28d7fbd1-4006-49cf-b161-403c360590bc": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -172,7 +174,7 @@
     },
     "450ebd63-d7e6-44c8-b1b4-87c9d2ae900a": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -188,7 +190,7 @@
     },
     "0019ded5-41bf-48da-9f66-0e46e31e234e": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -204,7 +206,7 @@
     },
     "01b5167c-0fa2-499b-b761-f6ed78897d22": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -220,7 +222,7 @@
     },
     "04084cd0-ae09-4f79-8365-d41fe3490433": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -236,7 +238,7 @@
     },
     "04b08c41-326f-4cef-af21-359643f3b3d8": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -252,7 +254,7 @@
     },
     "05095b2e-d0c2-4b0b-ab73-b35c138044ad": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -268,7 +270,7 @@
     },
     "0bfb5463-5949-4505-a81c-47c7043da9de": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -284,7 +286,7 @@
     },
     "0de620cf-fcc7-4243-95d7-d8c80e048de7": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -300,7 +302,7 @@
     },
     "0ec20b83-bba6-4713-a560-41c074453212": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -316,7 +318,7 @@
     },
     "102123c5-a2e7-4ba9-af4b-1e32e851ceda": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -332,7 +334,7 @@
     },
     "1229b67d-3141-4ba9-b0ad-16df315627bb": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -348,7 +350,7 @@
     },
     "fa12ea2c-3912-49c9-9a30-0fda4599a49e": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -366,7 +368,7 @@
     },
     "ff9df15f-adbf-4eb1-9f6b-6783cbb34dd3": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -382,7 +384,7 @@
     },
     "f09f6944-8dba-4f79-a7ed-2d06f7fa52a6": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -398,7 +400,7 @@
     },
     "596ab2a6-c52a-4b10-b4df-cebcb56642d3": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -414,7 +416,7 @@
     },
     "91a87f11-bf0f-452c-8273-36f724a12adc": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -430,7 +432,7 @@
     },
     "064967a7-08a1-4cf0-b55b-5fcde3d91f67": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -448,7 +450,7 @@
     },
     "07514f46-9e4f-4a18-80d0-5a937d6314ed": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -464,7 +466,7 @@
     },
     "09214f36-6825-464a-a4f3-22c5f71d46ec": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -480,7 +482,7 @@
     },
     "09c889da-2e2e-47f5-99bd-893a59be5c66": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -496,7 +498,7 @@
     },
     "0a68b99a-efdd-4433-aa58-ec1fa8d50908": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -512,7 +514,7 @@
     },
     "48d5f0e5-5686-4c57-a709-24c0ac634c67": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -530,7 +532,7 @@
     },
     "7464068e-ce2f-4d2d-b769-40d4852f8709": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -546,7 +548,7 @@
     },
     "e3337771-9415-4cad-9c7c-4b4be35645f6": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -562,7 +564,7 @@
     },
     "e5874477-deef-4360-b030-42a1cb37e110": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -580,7 +582,7 @@
     },
     "e7414939-026f-48ad-bc68-8b698814c4b6": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -598,7 +600,7 @@
     },
     "e7733739-d7bc-478f-8995-54ce96fc46a4": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -613,8 +615,10 @@
       "note": ""
     },
     "eae68c9b-45c7-4326-b35f-d8e6a3967596": {
-      "categories": {},
-      "Dynamic object": -2,
+      "categories": {
+        "Obstacle on Road": 2
+      },
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -626,11 +630,11 @@
         "road_surface": 0,
         "atmospheric_obscurants": 0
       },
-      "note": "Obstacle on Road ?"
+      "note": ""
     },
     "eba8c4ed-a142-4d18-86cb-99d530fa6c64": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -646,7 +650,7 @@
     },
     "ebfc7083-501d-4eec-825d-a0984433365c": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -662,7 +666,7 @@
     },
     "ec6ca7a8-0df6-4de5-988b-cc3ccabb76c8": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -680,7 +684,7 @@
     },
     "ed238f40-5664-4729-b55e-d7edcbcb57fd": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -696,7 +700,7 @@
     },
     "ed4c0c5e-258e-4326-ae8e-b7b9728bdf13": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -712,7 +716,7 @@
     },
     "ecafce84-447d-43a6-aff1-b385fbc71f15": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -728,7 +732,7 @@
     },
     "4c8fe364-4ad1-4e32-b94a-f3478502cab4": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -744,7 +748,7 @@
     },
     "db997f6d-81ec-44d9-9a37-bbc6c25c07e3": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -760,7 +764,7 @@
     },
     "db891736-b803-422b-a473-872fdd1af6a6": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -778,7 +782,7 @@
     },
     "dba53e8e-6a67-4d5e-bd37-df12a56730da": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -830,9 +834,9 @@
     },
     "dc1cfa04-9245-4637-b0df-f40e5107ced1": {
       "categories": {
-        "Cyclist on Road": 3
+        "Cyclist on Road": 2
       },
-      "Dynamic object": 3,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -848,7 +852,7 @@
     },
     "dc1f6f0c-3710-4e63-abe8-e155b86b719f": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -864,7 +868,7 @@
     },
     "dc2d3805-1054-49db-8594-e9ef2f99fb06": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -880,7 +884,7 @@
     },
     "dc8ebc88-bc59-4346-9267-a2b5d8d3e7db": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -896,7 +900,7 @@
     },
     "dc9d34f1-9118-4acc-b0a9-7057a3f69eb5": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -912,7 +916,7 @@
     },
     "dc84dd80-5155-4af4-9264-c8f141120e74": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -928,7 +932,7 @@
     },
     "dc3417c6-3ebb-4671-bbd1-848c39886576": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -944,7 +948,7 @@
     },
     "dc257402-687c-4a34-a950-8bb6a3c2508d": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -960,7 +964,7 @@
     },
     "dc952848-d8ec-4554-971c-149209474fc5": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -976,7 +980,7 @@
     },
     "dca87480-3ad4-4250-99ae-256d80eeafbd": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -992,7 +996,7 @@
     },
     "dcddb033-8f0c-4e63-b255-c123f2b30308": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1008,7 +1012,7 @@
     },
     "dcf9e678-7244-4ac3-9032-8471a49e0c4d": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1024,7 +1028,7 @@
     },
     "dd0ac327-1841-4a0b-a98e-30517673d80d": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1040,7 +1044,7 @@
     },
     "dd1b6121-dec2-4163-adde-b3f09f0a66d8": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1056,7 +1060,7 @@
     },
     "dd6ccd25-b55c-4b1b-b90c-fc93f5961fce": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1092,7 +1096,7 @@
     },
     "dda85121-239e-41b6-be67-b66a48131cc2": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1108,7 +1112,7 @@
     },
     "de7accd0-c21f-47c2-8888-3f56d8fc31c8": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1124,7 +1128,7 @@
     },
     "de7b7ae4-f78d-41a1-bfcf-8646328f5082": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -1140,7 +1144,7 @@
     },
     "de28db2c-c209-42c1-8bac-f468fdfb6fcb": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1156,7 +1160,7 @@
     },
     "de42d859-937c-442a-98dd-2b210be12d31": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1172,7 +1176,7 @@
     },
     "de52f7df-db55-4cb0-bc44-18b632dec3be": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1188,7 +1192,7 @@
     },
     "de04755e-4bab-4618-b13b-ae84a528028a": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1204,7 +1208,7 @@
     },
     "de5216af-060b-4c19-9900-7c49ec61fdfb": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -1220,7 +1224,7 @@
     },
     "de7693ec-1346-4378-a541-cc54b3dc0817": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1236,7 +1240,7 @@
     },
     "de865495-017f-4e8d-a6b6-8c24de4425dd": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1252,7 +1256,7 @@
     },
     "dea8d46d-f228-4a21-969e-4a59daf8a981": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1268,7 +1272,7 @@
     },
     "decb242c-71c1-4781-994d-83e90d839164": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1284,7 +1288,7 @@
     },
     "dee31965-6103-4ad8-badf-989d823e4e9a": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1300,7 +1304,7 @@
     },
     "df4be630-17ab-44ff-b0ea-34f5f7205ffa": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1316,7 +1320,7 @@
     },
     "df5e634f-198d-4211-9d39-b672bdd4dd48": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1334,7 +1338,7 @@
     },
     "df0687d0-a2a3-4534-95e0-164f02bec8af": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -1350,7 +1354,7 @@
     },
     "df3775a1-2573-496a-9f29-dfdb16ec811f": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1366,7 +1370,7 @@
     },
     "df554762-6475-4d4f-9c23-e6db986d9a2c": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1382,7 +1386,7 @@
     },
     "dfb6db91-d361-4ede-a41e-1d5086b650f8": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1398,7 +1402,7 @@
     },
     "dfc7106d-935e-45af-ac23-de15e343e2d5": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1414,7 +1418,7 @@
     },
     "e00aa654-f7c1-4c76-9bdc-5fa354c9bffe": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1430,7 +1434,7 @@
     },
     "e0d9a6ac-409f-44a3-b329-6737d839666d": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1446,7 +1450,7 @@
     },
     "e0d93b80-40b1-4b34-b07e-531845552447": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1462,7 +1466,7 @@
     },
     "e0e3a853-ca7d-4cf1-bc15-7f40ae94b571": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -1480,7 +1484,7 @@
     },
     "e1b35e94-91a4-48de-91cf-a1e65c96319b": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1517,7 +1521,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": 0,
+      "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
@@ -1532,7 +1536,7 @@
     },
     "e2ab4702-a9d6-4ad8-b830-102418d09ccf": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1548,7 +1552,7 @@
     },
     "e2dfdef1-67e2-485d-a621-24a5e5dbe5aa": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1564,7 +1568,7 @@
     },
     "e3adcc67-efc6-48fd-a883-368f30e5aae2": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -1580,7 +1584,7 @@
     },
     "e4a6a32e-eb74-463b-9b06-d117b5f1f2c4": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1596,7 +1600,7 @@
     },
     "e4a8b18e-ca79-434e-a171-07ef638810a7": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 2,
@@ -1615,7 +1619,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": 0,
+      "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -1630,7 +1634,7 @@
     },
     "db4bbc52-252c-4767-80ec-31480b6ab2d2": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1646,7 +1650,7 @@
     },
     "db2c5fbe-1903-4b8e-8df3-a7d02cff1893": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1662,7 +1666,7 @@
     },
     "daa2f43c-d32a-438b-9a1a-58a2f1d3106c": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1678,7 +1682,7 @@
     },
     "da221591-bd5a-46e3-a68f-537886db641e": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1697,7 +1701,7 @@
         "Pedestrian on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": 0,
+      "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -1712,7 +1716,7 @@
     },
     "da122d23-9fa6-4b81-9a3a-bd5a74e87c9e": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1728,7 +1732,7 @@
     },
     "d4190223-c9fd-4671-a0f1-cc7424171971": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -1744,7 +1748,7 @@
     },
     "d3323549-763d-4809-a728-ef9e8eb65f90": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 2,
@@ -1781,7 +1785,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": 0,
+      "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -1796,7 +1800,7 @@
     },
     "d30658ba-8a7c-4e0c-b5a0-9bd7f84d7734": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1812,7 +1816,7 @@
     },
     "d12352ce-3b24-4212-b59a-1909f19463b4": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1828,7 +1832,7 @@
     },
     "d9521c51-3da1-4503-86d0-4d668cabf028": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1862,7 +1866,7 @@
     },
     "d4148fa7-0a35-4f83-a5dd-4cf702578927": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1878,7 +1882,7 @@
     },
     "d3c54942-9af0-49c3-a125-81960d6a16f8": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1897,9 +1901,9 @@
     "d8f30197-6403-4a0b-a815-0fdc0534b77e": {
       "categories": {
         "Pedestrian on Road": 2,
-        "Tram vehicle": null
+        "Tram vehicle": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 1,
@@ -1951,7 +1955,7 @@
     },
     "d963eb97-d0fb-4980-be7b-69c66c5794c5": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1967,7 +1971,7 @@
     },
     "d28e64a7-dece-454e-950e-449435ad5796": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -1985,7 +1989,7 @@
       "categories": {
         "Pedestrian on Road": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -2003,7 +2007,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2022,7 +2026,7 @@
         "Pedestrian on Road": 2,
         "Road Construction": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2040,7 +2044,7 @@
       "categories": {
         "Cyclist on Road": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 1,
@@ -2058,9 +2062,9 @@
       "categories": {
         "Pedestrian on Road": 2,
         "Manual Traffic Control": 1,
-        "Animal on Road": 3
+        "Animal": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2078,7 +2082,7 @@
       "categories": {
         "Cyclist on Road": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2096,7 +2100,7 @@
       "categories": {
         "Pedestrian on Road": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2112,7 +2116,7 @@
     },
     "ceb52996-af8c-4953-8962-a3cb2ddb986f": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -2130,7 +2134,7 @@
     },
     "cd43c62f-fd9f-4064-abb3-bfd926f39a65": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -2148,7 +2152,7 @@
     },
     "cd0d9929-989a-4116-9ae1-27f0f27938a6": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -2166,7 +2170,7 @@
     },
     "cccc6b04-884d-4a4e-991a-0a0d500bbf74": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -2184,7 +2188,7 @@
     },
     "c74801b3-d02e-4d09-b53a-c5f5b71107cc": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -2205,7 +2209,7 @@
         "Pedestrian on Road": 2,
         "Cyclist on Road": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2239,7 +2243,7 @@
     },
     "c91072f7-603f-42f7-9f87-1d5439059b5f": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -2257,7 +2261,7 @@
     },
     "c69229fa-c8f7-485c-83dc-ba9e0058cea4": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -2277,7 +2281,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2297,7 +2301,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2313,7 +2317,7 @@
     },
     "c7146aff-54dd-471b-bd90-1db9ec7590e6": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -2329,9 +2333,9 @@
     },
     "c6915a10-9f22-464d-a422-15b8960a57d7": {
       "categories": {
-        "Pedestrian on Road": 2
+        "Pedestrian on Road": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 3,
@@ -2367,7 +2371,7 @@
     },
     "c442f54e-823a-4ab5-8fe5-c23e483a2382": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -2385,9 +2389,9 @@
     },
     "c98e3076-2ec0-4d4c-aa43-f24083f1619e": {
       "categories": {
-        "Animal on Road": 2
+        "Animal": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 1,
@@ -2423,7 +2427,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2439,9 +2443,9 @@
     },
     "c9a4cd43-395b-4bec-9072-62b36e2cdb41": {
       "categories": {
-        "Pedestrian on Road": 2
+        "Pedestrian on Road": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -2460,7 +2464,7 @@
         "Pedestrian on Road": 2,
         "Obstacle on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2496,7 +2500,7 @@
     },
     "c4ff17f1-6a90-4b76-9bf2-ce4c0dfcadb8": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -2514,7 +2518,7 @@
     },
     "c4ae9ece-a2db-4912-8f22-5825f730f25e": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -2530,7 +2534,7 @@
     },
     "c4a1a453-b7d2-4fb0-adf7-3aec7a0fa2e0": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -2550,7 +2554,7 @@
         "Cyclist on Road": 3,
         "Road Construction": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2568,7 +2572,7 @@
     },
     "0afeeb82-21d2-421a-9f30-240b2db0a0cf": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -2586,7 +2590,7 @@
     },
     "0b4ddc9a-b25e-4cfb-b00f-716d9b7b08ec": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -2605,7 +2609,7 @@
         "Pedestrian on Road": 3,
         "Barrier arm": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2623,7 +2627,7 @@
       "categories": {
         "Pedestrian on Road": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2639,7 +2643,7 @@
     },
     "0ff5439a-4178-4153-ab25-61367be0a0a8": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -2655,7 +2659,7 @@
     },
     "1a1ee658-0cd0-4848-b72f-f90b824a0758": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -2676,7 +2680,7 @@
         "Pedestrian on Road": 2,
         "Cyclist on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2692,7 +2696,7 @@
     },
     "1c731638-c07f-433c-94aa-f9f647f72d5c": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -2712,7 +2716,7 @@
       "categories": {
         "Cyclist on Road": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 2,
@@ -2730,7 +2734,7 @@
       "categories": {
         "Pedestrian on Road": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 2,
@@ -2748,7 +2752,7 @@
       "categories": {
         "Cyclist on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 2,
@@ -2819,9 +2823,10 @@
     },
     "b85701de-15a1-4fc5-b996-06e48432b99a": {
       "categories": {
-        "Pedestrian on Road": 3
+        "Pedestrian on Road": 3,
+        "Emergency Vehicle": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -2837,7 +2842,7 @@
     },
     "5bc20bbe-e124-4695-b748-0d191378a7a8": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -2853,9 +2858,9 @@
     },
     "bc712e0d-cc45-40b0-991c-f554ba5c1812": {
       "categories": {
-        "Emergency Vehicle": null
+        "Emergency Vehicle": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 1,
@@ -2870,8 +2875,10 @@
       "note": ""
     },
     "6f2eb974-c7fd-4c48-9786-40b766655765": {
-      "categories": {},
-      "Dynamic object": -2,
+      "categories": {
+        "Animal": 1
+      },
+      "Dynamic object": 1,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -2923,9 +2930,9 @@
     },
     "1758a9e5-34b5-4789-8c98-b9c413319ced": {
       "categories": {
-        "Animal on Road": 2
+        "Animal": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -2941,7 +2948,7 @@
     },
     "a84a5e42-89e9-4a2c-b0f7-8173b0176970": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -2957,7 +2964,7 @@
     },
     "56c703f3-2274-4740-8000-85ff1cad21b7": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -2973,9 +2980,10 @@
     },
     "0d66f9c7-b691-4328-8616-a22c38e6c7db": {
       "categories": {
-        "Tram vehicle": null
+        "Pedestrian on Road": 1,
+        "Tram vehicle": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -2991,9 +2999,9 @@
     },
     "6edfc385-4702-4099-a053-29a3b46f1525": {
       "categories": {
-        "Tram vehicle": null
+        "Tram vehicle": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 2,
@@ -3009,9 +3017,9 @@
     },
     "9717031a-c73c-4045-830c-09283bc1f489": {
       "categories": {
-        "Tram vehicle": null
+        "Tram vehicle": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -3027,9 +3035,9 @@
     },
     "2cc8ab5d-2eda-4193-aef2-535a54176759": {
       "categories": {
-        "Tram vehicle": null
+        "Tram vehicle": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -3045,9 +3053,9 @@
     },
     "076fce0d-41fc-41a3-b085-88c7b20f2689": {
       "categories": {
-        "Tram vehicle": null
+        "Tram vehicle": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 2,
@@ -3062,8 +3070,10 @@
       "note": ""
     },
     "48f47f26-d14c-4be2-838e-03ebff3f4806": {
-      "categories": {},
-      "Dynamic object": -2,
+      "categories": {
+        "Cyclist on Road": 1
+      },
+      "Dynamic object": 1,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 2,
@@ -3081,7 +3091,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3099,7 +3109,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3117,7 +3127,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3135,7 +3145,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3151,9 +3161,9 @@
     },
     "2e4cc94f-decb-431f-9000-9cbb33c179a4": {
       "categories": {
-        "Pedestrian on Road": 2
+        "Pedestrian on Road": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3171,7 +3181,7 @@
       "categories": {
         "Pedestrian on Road": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3189,7 +3199,7 @@
       "categories": {
         "Cyclist on Road": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3207,7 +3217,7 @@
       "categories": {
         "Cyclist on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3219,13 +3229,13 @@
         "road_surface": 0,
         "atmospheric_obscurants": 0
       },
-      "note": "킥보드 2대가 직진 신호에 갔기 때문에 무단횡단은 아님"
+      "note": ""
     },
     "fcc8b351-0e29-41fa-8129-682006aab6ae": {
       "categories": {
         "Cyclist on Road": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3241,9 +3251,9 @@
     },
     "1ce86e13-03cf-4cb5-99b2-a65400650117": {
       "categories": {
-        "Animal on Road": 2
+        "Animal": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3259,10 +3269,10 @@
     },
     "0f2ebc67-bd15-4b3a-ad6a-40846ad480bc": {
       "categories": {
-        "Animal on Road": 2,
+        "Animal": 2,
         "Cyclist on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3280,7 +3290,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3298,7 +3308,7 @@
       "categories": {
         "Pedestrian on Road": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3316,7 +3326,7 @@
       "categories": {
         "Pedestrian on Road": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3332,9 +3342,9 @@
     },
     "027c10f0-ca30-414a-8fdd-d4200b736b9f": {
       "categories": {
-        "Pedestrian on Road": 4
+        "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3353,7 +3363,7 @@
         "Railway crossing": 1,
         "Cyclist on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3372,7 +3382,7 @@
         "Pedestrian on Road": 1,
         "Cyclist on Road": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3390,7 +3400,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3408,7 +3418,7 @@
       "categories": {
         "Pedestrian on Road": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3427,7 +3437,7 @@
         "Pedestrian on Road": 3,
         "Road Construction": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 3,
@@ -3445,7 +3455,7 @@
       "categories": {
         "Pedestrian on Road": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 1,
@@ -3482,7 +3492,7 @@
         "Pedestrian on Road": 2,
         "Road Construction": 4
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3515,8 +3525,10 @@
       "note": ""
     },
     "a525440d-577b-43f6-a739-00e3bc4af729": {
-      "categories": {},
-      "Dynamic object": -2,
+      "categories": {
+        "Emergency Vehicle": 1
+      },
+      "Dynamic object": 1,
       "Driving environment": -2,
       "influenced_ego": true,
       "safety_criticality": 1,
@@ -3528,13 +3540,13 @@
         "road_surface": 0,
         "atmospheric_obscurants": 0
       },
-      "note": "Emergency Vehicle"
+      "note": "경광등 꺼짐"
     },
     "841f4737-b5ac-4519-88e2-5490df99a7df": {
       "categories": {
-        "Emergency Vehicle": null
+        "Emergency Vehicle": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 1,
@@ -3626,7 +3638,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3700,7 +3712,7 @@
       "categories": {
         "Cyclist on Road": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 3,
@@ -3720,7 +3732,7 @@
         "Cyclist on Road": 2,
         "Road Construction": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3754,7 +3766,7 @@
     },
     "fa6c3c98-6f54-431f-8ac8-1fcee7cc6261": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -3771,10 +3783,10 @@
     "f9189583-e419-4e67-a075-cbc197133e4a": {
       "categories": {
         "Cyclist on Road": 1,
-        "Pedestrian on Road": 2,
+        "Pedestrian on Road": 1,
         "Manual Traffic Control": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3792,7 +3804,7 @@
       "categories": {
         "Pedestrian on Road": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3809,9 +3821,9 @@
     "1503c87e-5429-4311-b9b3-acfa438bd382": {
       "categories": {
         "Pedestrian on Road": 2,
-        "Tram vehicle":null
+        "Tram vehicle":1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3829,7 +3841,7 @@
       "categories": {
         "Cyclist on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3865,7 +3877,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3884,7 +3896,7 @@
         "Pedestrian on Road": 2,
         "Road Construction": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 2,
@@ -3935,8 +3947,10 @@
       "note": "Elevated road, not Tunnel"
     },
     "0b5b8ddd-6f27-43f2-b1d0-5b44acc695f3": {
-      "categories": {},
-      "Dynamic object": -2,
+      "categories": {
+        "Cyclist on Road": 1
+      },
+      "Dynamic object": 1,
       "Driving environment": -2,
       "influenced_ego": true,
       "safety_criticality": 1,
@@ -3954,7 +3968,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -3993,7 +4007,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -4031,7 +4045,7 @@
     },
     "01cd10de-5f4f-461d-bdeb-2fd3ecaa505c": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4047,7 +4061,7 @@
     },
     "0042c573-2f2e-4362-a5ea-a097b2faa29c": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4065,9 +4079,9 @@
     },
     "00ca869d-de83-4d79-b469-48cfe0bead17": {
       "categories": {
-        "Animal on Road": 2
+        "Animal": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 2,
@@ -4083,7 +4097,7 @@
     },
     "032f5ad6-5ab6-4a6a-accb-a475f175e563": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4119,7 +4133,7 @@
     },
     "089f9b45-e587-499e-971f-ee3a1ab51e30": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4137,9 +4151,9 @@
     },
     "03ad4096-12a1-499d-bf53-70c6f6426b88": {
       "categories": {
-        "Animal on Road": 4
+        "Animal": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -4157,7 +4171,7 @@
     },
     "09b51942-dfc4-4fd6-b801-2cde708588bb": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4177,7 +4191,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -4195,7 +4209,7 @@
     },
     "08f76480-d3b8-48d3-b066-5fa09335053d": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4213,7 +4227,7 @@
     },
     "00b13ae7-5568-49f4-bef4-7ab34532db77": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4233,7 +4247,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 2,
@@ -4251,7 +4265,7 @@
     },
     "09427475-a738-4365-968b-b00e77b0b751": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4270,7 +4284,7 @@
     },
     "00b59461-b71c-446b-ad46-449649d4a4a3": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4289,7 +4303,7 @@
     },
     "01ac2960-7cef-4040-9450-de3ac889ad82": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4307,7 +4321,7 @@
     },
     "01a7d0a1-1042-4754-ac0f-ea29418fd61d": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4347,7 +4361,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 2,
@@ -4385,7 +4399,7 @@
     },
     "07f341d6-a8c4-423a-8bf2-05897afa30a1": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4423,7 +4437,7 @@
     },
     "0b3e9f90-232d-4f5b-8c01-748fe5ad3015": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4441,7 +4455,7 @@
     },
     "095537cd-4eb7-4340-bf95-5bb1daecbbc4": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4459,7 +4473,7 @@
     },
     "12570e99-a2f1-4807-bb18-43867fe74a1f": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4477,7 +4491,7 @@
     },
     "1833bc1a-81bf-401a-83f3-71a12b3f066e": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4495,7 +4509,7 @@
     },
     "09b40a55-11d4-4086-b6f2-36097d6d1fcd": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4513,7 +4527,7 @@
     },
     "02bb4b61-ed4c-478d-9496-61c30c9ab8c0": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4531,7 +4545,7 @@
     },
     "142174d4-3692-41ce-a9f9-b7ed5b234922": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4551,7 +4565,7 @@
       "categories": {
         "Pedestrian on Road": 4
       },
-      "Dynamic object": -1,
+      "Dynamic object": 4,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 4,
@@ -4571,7 +4585,7 @@
       "categories": {
         "Pedestrian on Road": 4
       },
-      "Dynamic object": -1,
+      "Dynamic object": 4,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 4,
@@ -4591,7 +4605,7 @@
       "categories": {
         "Pedestrian on Road": 4
       },
-      "Dynamic object": -1,
+      "Dynamic object": 4,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 3,
@@ -4609,7 +4623,7 @@
     },
     "01cdb509-de18-4ca9-b405-666efdfe05c9": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4625,7 +4639,7 @@
     },
     "0601e06d-e0b1-4315-b0dc-07aa99ef1981": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4696,10 +4710,10 @@
     },
     "16ab31a3-36b8-40f1-bf36-132fd0c8f4e5": {
       "categories": {
-        "Cyclist on Road": 4,
+        "Cyclist on Road": 3,
         "Unpaved road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 3,
@@ -4711,7 +4725,7 @@
         "road_surface": 1,
         "atmospheric_obscurants": 0
       },
-      "note": "Narrow road"
+      "note": "Narrow road, 어둠 속에서 자전거 튀어나옴"
     },
     "0c1c2c9a-086e-46e8-9e42-054526c873b7": {
       "categories": {
@@ -4826,7 +4840,7 @@
     },
     "06aba58d-a48c-4d45-9a6b-8855310a97dc": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -4860,7 +4874,7 @@
     },
     "00c359b2-5f68-41c2-b0d7-94d9e071037b": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -4876,9 +4890,9 @@
     },
     "054c8dba-2f98-4d80-aaae-41bacc76db05": {
       "categories": {
-        "Emergency Vehicle": null
+        "Emergency Vehicle": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -4894,9 +4908,9 @@
     },
     "0f8865ed-8fba-4d37-82c4-c3c763e9f325": {
       "categories": {
-        "Animal on Road": 1
+        "Animal": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -4913,9 +4927,9 @@
     "0809db09-d475-46a9-9276-68acb32ea2a0": {
       "categories": {
         "Pedestrian on Road": 2,
-        "Animal on Road": 2
+        "Animal": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -4931,9 +4945,10 @@
     },
     "086134f9-87c2-4283-bc98-e1469b221a21": {
       "categories": {
+        "Animal": 1,
         "Unpaved road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -4945,11 +4960,13 @@
         "road_surface": 2,
         "atmospheric_obscurants": 0
       },
-      "note": "Narrow road, Animal 옆에 있긴 함"
+      "note": "Narrow road"
     },
     "08bf8ca5-9b4c-4984-812e-ae8c16fbca5c": {
-      "categories": {},
-      "Dynamic object": -2,
+      "categories": {
+        "Animal": 1
+      },
+      "Dynamic object": 1,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -4965,11 +4982,11 @@
     },
     "0d7556a6-264f-4b2b-a25b-367bcd1e22b2": {
       "categories": {
-        "Animal on Road": 3,
+        "Animal": 3,
         "Cyclist on Road": 3,
         "Pedestrian on Road": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -4985,10 +5002,10 @@
     },
     "0d968855-c8ae-43d4-8e91-6660ffc185d4": {
       "categories": {
-        "Animal on Road": 3,
-        "Cyclist on Road": 3
+        "Animal": 2,
+        "Cyclist on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -5004,9 +5021,9 @@
     },
     "0e2eee58-f571-491f-ab71-582bef7e07cc": {
       "categories": {
-        "Animal on Road": 4
+        "Animal": 4
       },
-      "Dynamic object": -1,
+      "Dynamic object": 4,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 3,
@@ -5022,7 +5039,7 @@
     },
     "1554319e-7ca1-452a-9894-1f3efdb4e08d": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -5040,7 +5057,7 @@
     },
     "166757d1-179f-4b3d-9d7b-416a1e44a2e0": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -5058,7 +5075,7 @@
     },
     "15dcb06f-6b0a-42f1-9d67-5b4557872f93": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -5076,7 +5093,7 @@
     },
     "14e3c07c-9c6f-4128-a8a5-310dfb072e6e": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -5094,7 +5111,7 @@
     },
     "08982c9f-00aa-4719-9a5d-3aa392ca3364": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -5110,7 +5127,7 @@
     },
     "08902e32-1f71-4fa4-ba39-de1015823751": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -5126,7 +5143,7 @@
     },
     "092d0d57-be65-419a-9fd5-d8b264fd7b27": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -5142,7 +5159,7 @@
     },
     "09e43bda-21f2-4f68-af81-5c8aff7898c4": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -5160,7 +5177,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -5181,7 +5198,7 @@
         "Road Construction": 4,
         "Pedestrian on Road": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -5201,7 +5218,7 @@
       "categories": {
         "Pedestrian on Road": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -5238,7 +5255,7 @@
     },
     "004bfe84-cf53-494b-9ba3-2beaefab5499": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -5256,7 +5273,7 @@
     },
     "0102b9de-e10f-4cea-a803-bd6f887c2e62": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -5403,7 +5420,7 @@
     },
     "048ea8f1-8781-4acb-90ca-d91bf888a25d": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -5419,7 +5436,7 @@
     },
     "04b9bd2d-b7d7-4c84-b2ed-0177419b5fb9": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -5435,9 +5452,9 @@
     },
     "04d1b9d4-7455-49b8-b7d0-1f68784db02f": {
       "categories": {
-        "Emergency Vehicle": null
+        "Emergency Vehicle": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -5453,7 +5470,7 @@
     },
     "0ac7a5c0-b604-4613-85bb-4d9ea43ef9f0": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -5490,7 +5507,7 @@
       "categories": {
         "Pedestrian on Road": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -5657,7 +5674,7 @@
         "Unpaved road": 2,
         "Pedestrian on Road": 3
       },
-      "Dynamic object": -1,
+      "Dynamic object": 3,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 1,
@@ -5733,7 +5750,7 @@
     },
     "11582507-46a4-4477-aa89-1abc77d4855c": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -5751,7 +5768,7 @@
     },
     "11a938da-7e3b-4c70-aaa0-3ea15d3e311c": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -5771,7 +5788,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -5791,7 +5808,7 @@
       "categories": {
         "Pedestrian on Road": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -5829,7 +5846,7 @@
     },
     "00afe5b9-0c0e-411b-9e65-765996feb7a1": {
       "categories": {},
-      "Dynamic object": -2,
+      "Dynamic object": 0,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -5849,7 +5866,7 @@
       "categories": {
         "Pedestrian on Road": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,

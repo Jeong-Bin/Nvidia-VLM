@@ -860,7 +860,9 @@ the CURRENT moment. Each group of three is synchronized camera views
     if groups:
         _gnames = " and ".join(groups) if len(groups) <= 2 else (
             ", ".join(groups[:-1]) + " and " + groups[-1])
-        steps45 += f"""{step_no}. Difficulty Scores: give each group - {_gnames} -
+        _who = (f"each group - {_gnames} -" if len(groups) > 1
+                else f"the group {_gnames}")
+        steps45 += f"""{step_no}. Difficulty Scores: give {_who}
    one score from 0 to 4 for how much the types of that group made driving
    harder for the ego-vehicle in this clip. A group none of whose types you named in step
    {step_no - 1} scores 0; a group whose types you named scores at least 1.
@@ -1519,6 +1521,7 @@ def _config_key(args, n_views=1, prompt_sha=None) -> dict:
         "tiers_elements": bool(args.tiers_elements),
         "explain_traj": bool(args.explain_traj),
         "unknown_categories": bool(args.unknown_categories),
+        "group": args.group,
         "num_shards": args.num_shards,
     }
 
@@ -1900,6 +1903,13 @@ if __name__ == "__main__":
                          "값과 근거 문장이 CSV 열로 나가고 시각화 패널과 "
                          "aggregate_clip.log 분포에 실린다. 기본 off - "
                          "출력 토큰이 늘어 느려지므로 필요한 실행에서만 켠다.")
+    ap.add_argument("--group", default="all",
+                    help="다룰 상위 카테고리: all(기본) / dynamic_object / "
+                         "driving_environment (scene_category.json 의 special "
+                         "scenario 이름을 소문자_밑줄로 쓴 것). 하나를 고르면 "
+                         "그 상위 카테고리의 카테고리만 메뉴에 넣고, 점수도 그 "
+                         "상위 카테고리 하나만 매긴다. 채점은 GT 를 같은 범위로 "
+                         "줄여서 한다.")
     ap.add_argument("--unknown-categories", action="store_true",
                     help="scene_category.json 에서 \"unknown\": true 인 카테고리"
                          "(예상 못한 동적 객체 / 주행 환경)를 카테고리 메뉴에 "
@@ -2037,6 +2047,19 @@ if __name__ == "__main__":
     # 목록, 파싱의 유효 이름이 모두 함께 따라간다.
     if not args.unknown_categories:
         labels = [l for l in labels if not l.get("unknown")]
+    # --group: 상위 카테고리 하나만 다룬다(all / dynamic_object /
+    # driving_environment). 다른 상위 카테고리의 카테고리는 메뉴에서 빠지고,
+    # 5단계도 그 상위 카테고리 점수 하나만 묻는다 - 아직 기준표를 다 채우지
+    # 않은 상위 카테고리를 빼고 돌릴 수 있다. 채점(evaluate_labels)도
+    # run_config 의 group 을 보고 GT 를 같은 범위로 줄인다.
+    if args.group != "all":
+        _known = {group_key(l["scenario"]) for l in labels if not l["is_normal"]}
+        if args.group not in _known:
+            raise SystemExit(f"[error] --group {args.group}: {SCENE_JSON.name} "
+                             f"에 없는 상위 카테고리입니다 (가능: all, "
+                             f"{', '.join(sorted(_known))})")
+        labels = [l for l in labels
+                  if l["is_normal"] or group_key(l["scenario"]) == args.group]
     # 시각화 패널이 카테고리마다 쓰는 rubric 의 상한(분모)을 알아야 하므로,
     # 카테고리->묶음 표를 여기서 한 번 넘겨 둔다.
     VZ.load_scenario_map(SCENE_JSON)

@@ -208,6 +208,7 @@ def tier_menu() -> str:
 DIFFICULTY_RUBRIC_FOR_DYNAMIC_OBJECT = {
     0: "None of the road users listed for this group is in the clip. This is "
        "ordinary driving.",
+       # 특수 객체 없음
        
     1: "A road user of this group is there, but it asked nothing of the "
        "ego-vehicle. It kept to its own lane, track or path at an ordinary "
@@ -217,34 +218,43 @@ DIFFICULTY_RUBRIC_FOR_DYNAMIC_OBJECT = {
        "for the road user to pass.", 
        # 특수 객체 있지만 자차에 영향 없음. 
        # 혹은 자차가 이미 정지해 있음.
+       # 동일 방향 옆 차선의 자전거 등.
        
     2: "The ego-vehicle was moving and saw the road user coming into its path "
        "ahead, with time and room to spare. It slowed down, stopped, gave way "
        "or steered around the road user in good time - even if a light also "
        "turned amber or red at that moment - or kept its speed and line "
-       "because the road user moved aside or yielded first.", 
+       "because the road user moved aside or yielded first. This level also "
+       "covers a road user that could swerve or wobble, such as a cyclist, "
+       "coming towards the moving vehicle in the next lane.",
        # 자차는 주행 중. 피하거나 감속 시간 충분.
        # 혹은 상대가 먼저 비켜줘서 속도와 차선 유지한 경우.
+       # 역방향 옆 차선의 자전거 등.
        
     3: "The ego-vehicle saw the road user coming, but there was little room. "
-       "The road user moved past, or stood at the edge of the vehicle's lane, "
-       "within a short distance of the moving vehicle; or rode or walked right "
-       "beside it where it could swerve or wobble into the vehicle's way; or "
-       "the vehicle had to squeeze past, pull aside, or work its way through "
-       "several road users at the same moment.",
+       "The road user moved past, or stood at the edge of the vehicle's lane "
+       "while the vehicle went by, closer than traffic in the next lane "
+       "normally is; or rode or walked right beside it, with no lane between "
+       "them, where it could swerve or wobble into the vehicle's way; or the "
+       "vehicle had to squeeze past, "
+       "pull aside, or work its way through several road users at the same moment.",
        # 다가오는 상대를 발견했지만 공간 부족.
-       # 자차 바로 옆을 지나가거나 차선 가장자리에 서 있음
-       # 갑자기 방향을 틀거나 비틀거릴 가능성 있음
+       # "가깝다"는 보통 옆 차로 간격보다 가까운 것 - 옆 차로는 평범하게
+       # 자차가 주행 중일때 자차 바로 옆을 지나가거나 차선 가장자리에 서 있음
+       # 갑자기 방향을 틀거나 비틀거릴 가능성 있음 - 사이에 차로가 없을 만큼
+       # 붙은 경우만(방향 무관). 옆 차로면 같은 방향 1, 마주 오면 2.
        # 또는 자차가 여러 객체들 사이를 비집고 지나가거나 갓길에서 그 사이를 지나가야 함
        
     4: "The road user got into the path of the moving ego-vehicle without "
        "warning - it stepped, ran, darted or pulled out, came out from behind "
        "something or out of the dark, or suddenly turned or swerved in front "
        "of or beside the vehicle - so there was no chance to see it coming. "
-       "This counts whatever the vehicle then did, even if it only slowed "
-       "down. A near miss or a collision, at any speed, belongs here too.",
+       "This counts whatever the vehicle then did, even if it only slowed down. "
+       "A near miss or a collision belongs here too, at any speed - even if "
+       "the ego-vehicle was creeping - and this outranks every lower level.",
        # 아무 예고 없이 갑자기 자차 앞으로 뛰어듦
        # 아슬아슬한 충돌 혹은 진짜 충돌
+       # 서행 중 충돌도 포함. 단, 정지 중 충돌은 포함하지 않음
 }
 
 DIFFICULTY_RUBRIC_FOR_DRIVING_ENVIRONMENT = {

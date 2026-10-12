@@ -102,6 +102,8 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --no-category-scores    상위 카테고리 점수(5단계)를 프롬프트에서 끈다  [CAT_SCORES=0]
   --unknown-categories    Unknown 카테고리(예상 못한 동적 객체/주행 환경)를
                           메뉴에 넣는다 (기본 off, ablation 용)   [UNKNOWN_CATS=1]
+  --group G               다룰 상위 카테고리: all(기본) / dynamic_object /
+                          driving_environment               [TARGET_GROUP]
   --weather              날씨 4축(조도/강수/노면/대기가림)을
                          0~4 로 함께 매긴다. 시각화 패널과
                          aggregate_clip.log 분포에 실린다        [WEATHER=1]
@@ -167,6 +169,8 @@ while [ $# -gt 0 ]; do
     --no-tiers-elements) TIERS_ELEMENTS=1 ;;
     --explain-traj)      EXPLAIN_TRAJ=1 ;;
     --unknown-categories) UNKNOWN_CATS=1 ;;
+    --group=*)           TARGET_GROUP="${1#*=}" ;;
+    --group)             shift; TARGET_GROUP="${1:-all}" ;;
     --viz-per-category=*) VIZ_PER_CAT="${1#*=}" ;;
     --viz-per-category)  shift; VIZ_PER_CAT="${1:-}" ;;
     --no-egomotion)      USE_EGOMOTION=0 ;;   # 옛 이름 - 이제 기본이 off 라 무의미하지만 받아준다
@@ -251,6 +255,7 @@ OPTS="--clip-mode --single-view --data $DATA"
 [ "${TIERS_ELEMENTS:-0}" = "1" ] && OPTS="$OPTS --no-tiers-elements"
 [ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
 [ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-categories"
+[ -n "${TARGET_GROUP:-}" ] && [ "$TARGET_GROUP" != "all" ] && OPTS="$OPTS --group $TARGET_GROUP"
 [ -n "${VIZ_PER_CAT:-}" ]        && OPTS="$OPTS --viz-per-category $VIZ_PER_CAT"
 [ "${VIDEO_INPUT:-1}" = "0" ]   && OPTS="$OPTS --clip-no-video-input"
 # --viz-per-category 는 그 자체가 "시각화하라"는 뜻이다 - 로컬 스크립트는

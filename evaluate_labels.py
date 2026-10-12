@@ -49,7 +49,7 @@ from pathlib import Path
 import pandas as pd
 
 from config import SCENE_JSON as CONFIG_SCENE_JSON, LABELS_JSON
-from constrained_tier import TIER_VALUES, GROUP_RUBRICS, group_values
+from constrained_tier import TIER_VALUES, GROUP_RUBRICS, group_values, group_key
 from prompts import DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX
 
 # 난이도 축의 눈금. 등급(TIER_VALUES)과 따로 두는 이유는 두 척도가 서로
@@ -115,6 +115,34 @@ def load_labels(path: Path):
             rec[key] = _int_or_none(weather.get(key))
         out[uuid] = rec
     return out, data.get("_meta", {}), skipped, mismatches
+
+
+def restrict_to_group(labels: dict, run_cfg: dict, scene_path: Path):
+    """실행이 상위 카테고리 하나만 다뤘으면(--group) GT 를 그 범위로 줄인다.
+
+    Dynamic object 만 찾은 실행을 GT 전체로 채점하면, 그 실행이 애초에 찾을
+    수 없던 Driving environment 카테고리가 전부 놓침이 되고, 환경 카테고리만
+    있는 클립은 Special 인데 Normal 로 판정한 것으로 세진다. 그래서 GT 의
+    카테고리와 묶음 점수를 실행이 다룬 상위 카테고리로 줄인다(labels 를 바로
+    고친다). 반환: (group, 뺀 카테고리 수, 그 결과 Normal 이 된 클립 수).
+    """
+    group = (((run_cfg or {}).get("key") or {}).get("group")) or "all"
+    if group == "all" or not Path(scene_path).exists():
+        return group, 0, 0
+    scene = json.loads(Path(scene_path).read_text(encoding="utf-8"))
+    keep = {c["name"] for s in scene["special"]["scenarios"]
+            if group_key(s["name"]) == group for c in s["categories"]}
+    n_drop = n_normal = 0
+    for rec in labels.values():
+        drop = rec["categories"] - keep
+        if drop:
+            n_drop += len(drop)
+            rec["categories"] = rec["categories"] & keep
+            if not rec["categories"]:
+                n_normal += 1
+        rec["scores"] = {g: v for g, v in rec["scores"].items()
+                         if group_key(g) == group}
+    return group, n_drop, n_normal
 
 
 def _weather_of(v: dict) -> dict:
@@ -484,11 +512,6 @@ def main():
             f"date={meta.get('date','?')}")
     if skipped:
         log(f"[warn] {len(skipped)} label(s) missing categories - skipped")
-    hits = mismatches["out_of_range"]
-    if hits:
-        log(f"[warn] 라벨 {len(hits)}건: 묶음 점수가 0~4 밖이라 채점에서 뺌 - "
-            + ", ".join(f"{u[:8]}:{g}={n}" for u, g, n in hits[:10])
-            + (" ..." if len(hits) > 10 else ""))
 
     common = [u for u in labels if u in results]
     missing = [u for u in labels if u not in results]
@@ -515,6 +538,20 @@ def main():
                       or CONFIG_SCENE_JSON)
     if not SCENE_JSON.is_absolute():
         SCENE_JSON = ROOT / SCENE_JSON
+    group, n_drop, n_normal = restrict_to_group(labels, run_cfg, SCENE_JSON)
+    if group != "all":
+        log(f"[info] group   : {group} - 이 실행이 다루지 않은 상위 카테고리의 "
+            f"GT 카테고리 {n_drop}개를 채점에서 뺌(그 결과 Normal 이 된 클립 "
+            f"{n_normal}개)")
+    # 0~4 밖의 묶음 점수 경고는 이 실행이 다룬 상위 카테고리 것만 낸다 -
+    # Dynamic object 만 돌린 실행에서 아직 안 매긴 Driving environment 라벨
+    # 경고가 수백 줄 나오면 정작 봐야 할 경고가 묻힌다.
+    hits = [h for h in mismatches["out_of_range"]
+            if group == "all" or group_key(h[1]) == group]
+    if hits:
+        log(f"[warn] 라벨 {len(hits)}건: 묶음 점수가 0~4 밖이라 채점에서 뺌 - "
+            + ", ".join(f"{u[:8]}:{g}={n}" for u, g, n in hits[:10])
+            + (" ..." if len(hits) > 10 else ""))
     taxonomy = set()
     # 카테고리 -> 묶음. 3) 절에서 그 카테고리가 어느 rubric 으로 채점됐는지
     # 함께 찍으려고 들고 있는다.

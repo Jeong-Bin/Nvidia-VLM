@@ -376,6 +376,11 @@ def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
     pred = EV.load_results(run_dir)
     if not pred:
         return {"error": f"no clip_results*.csv in {run_dir.name}"}
+    # 상위 카테고리 하나만 다룬 실행(--group)은 GT 도 그 범위로 줄인다 -
+    # CLI 채점(evaluate_labels.py)과 같은 숫자가 나와야 한다.
+    _cfg = run_config_of(run_dir)
+    _scene = Path((_cfg.get("key") or {}).get("scene_json") or config.SCENE_JSON)
+    EV.restrict_to_group(truth, _cfg, _scene if _scene.is_absolute() else ROOT / _scene)
 
     common = sorted(set(truth) & set(pred))
     if not common:
@@ -1187,6 +1192,13 @@ def build_command(opts: dict, jid: str = "adhoc") -> list[str]:
         # 난이도 4축은 등급과 별개 축이라 기본 off - 켤 때만 넘긴다.
         if opts.get("difficulty"):
             cmd += ["--weather"]
+    # Unknown 카테고리(예상 못한 새 종류)를 메뉴에 넣는다. 화면 기본값은 켜짐,
+    # CLI 기본값은 꺼짐이다. 날씨만 추론하면 카테고리를 다루지 않으므로 뺀다.
+    if opts.get("unknown_categories") and not opts.get("difficulty_only"):
+        cmd += ["--unknown-categories"]
+    # 다룰 상위 카테고리(all / dynamic_object / driving_environment).
+    if opts.get("group") and opts["group"] != "all" and not opts.get("difficulty_only"):
+        cmd += ["--group", opts["group"]]
     # 프레임 소스. 스크립트마다 기본값이 다르므로(labeled=local, nas=nas)
     # 기본과 같을 때만 생략한다 - run.log 에 남는 명령이 짧을수록 낫다.
     data = opts.get("data")

@@ -3,7 +3,7 @@
     "Dynamic object": [
       "Pedestrian on Road",
       "Cyclist on Road",
-      "Animal on Road",
+      "Animal",
       "Emergency Vehicle",
       "Tram vehicle",
       "Unknown but abnormal moving object"
@@ -81,9 +81,9 @@
           {
             "name": "Emergency Vehicle",
             "templates": [
-              "An ambulance, fire engine or police car with its emergency lights flashing",
-              "An emergency vehicle with its emergency lights flashing is stopped on the roadway",
-              "An emergency vehicle with its emergency lights flashing drives past or towards the ego-vehicle"
+              "An ambulance, fire engine or police car on or beside the road, whether or not its emergency lights are on",
+              "An emergency vehicle is stopped on the roadway",
+              "An emergency vehicle drives past or towards the ego-vehicle"
             ],
             "template_candidates": [
               "An ambulance with flashing lights",
@@ -100,7 +100,6 @@
               "EMS vehicle"
             ],
             "excludes": [
-              "An emergency vehicle with its emergency lights off, whether moving or parked - that is ordinary traffic, whatever its type.",
               "A bus, school bus, car or truck that is not an ambulance, fire engine or police car - however it moves or wherever it stops.",
               "An emergency vehicle that stays off the road altogether the whole time - in a car park, a forecourt, or inside a driveway - however close the ego-vehicle passes; or that stays well away from the vehicle's path, several lanes away. Neither counts here. These are NOT off the road, even when raised or kerbed: a central median or planted island, a motorway hard shoulder, a parking lane or bay along the street. An emergency vehicle there is judged like one on the road."
             ],
@@ -116,11 +115,12 @@
             ]
           },
           {
-            "name": "Animal on Road",
+            "name": "Animal",
             "templates": [
-              "A real animal, not a statue, is crossing the road",
+              "A real animal, is crossing the road",
               "Wildlife is blocking the path of passing vehicles",
-              "An animal suddenly appeared in the driving path of ego-vehicle."
+              "An animal suddenly appeared in the driving path of ego-vehicle.",
+              "An animal is in view beside the road - behind a fence, out in a field, or well away from the ego-vehicle's path"
             ],
             "template_candidates": [
               "An animal crossing the road",
@@ -145,10 +145,14 @@
               "Wildlife crossing in front of traffic"
             ],
             "excludes": [
-              "Birds already flying in the sky. ",
-              "An animal that stays behind a fence or out in a field beside the road the whole time, however close the ego-vehicle passes; or that stays well away from the vehicle's path, several lanes away. Neither counts here. An animal that comes toward the road does count. These are NOT off the road, even when raised or kerbed: a central median or planted island, a motorway hard shoulder, a parking lane or bay along the street. An animal there is judged like one on the road."
+              "Birds already flying in the sky.",
+              "An animal that is not a real, free animal in the scene - a statue, a picture or sign of an animal, or an animal carried inside a vehicle or a trailer."
             ],
             "score_examples": [
+              [
+                "Horses graze behind a fence beside the road while the ego-vehicle drives past",
+                1
+              ],
               [
                 "Ducks cross in front while the ego-vehicle is already waiting in a queue",
                 1
@@ -207,7 +211,8 @@
             "templates": [
               "Person on the scooter is crossing the street",
               "The cyclist passes in front of the vehicle's path",
-              "A cyclist is riding very close to the ego-vehicle on the roadway"
+              "A cyclist is riding very close to the ego-vehicle on the roadway",
+              "A motorcyclist or moped rider rides on the roadway near the ego-vehicle's path"
             ],
             "template_candidates": [
               "A cyclist is riding close to ego vehicle"
@@ -265,7 +270,7 @@
             "template_candidates": [],
             "excludes": [
               "Anything that fits one of the types above - a pedestrian, cyclist, animal, emergency vehicle or tram - is that type, not this one.",
-              "Ordinary traffic - cars, buses, trucks or motorbikes driving, turning, stopping or parking the way traffic normally does - is not this category, however busy it is."
+              "Ordinary traffic - cars, buses, or trucks driving, turning, stopping or parking the way traffic normally does - is not this category, however busy it is."
             ]
           }
         ]

@@ -472,6 +472,9 @@ video{width:100%;background:#000;border-radius:6px}
         <input type="checkbox" id="r-diffonly"> 날씨만 추론</label>
       <label class="chk" title="[A안] 카테고리 점수를 빼고, 3단계 요소 나열을 속성 표(position/ego)로 강제한다. 실측 20260922(333클립): VERDICT F1 80.4%, recall 94.3%, micro F1 0.679 로 등급 방식(80.0%/81.8%/0.655)보다 놓치는 클립이 적다(FN 32→10). 대신 오탐은 는다(FP 40→71).">
         <input type="checkbox" id="r-notiers"> 등급 대신 요소 속성표</label>
+      <label class="chk" title="Unknown 카테고리(예상 못한 동적 객체 / 주행 환경, scene_category 에서 &quot;unknown&quot;: true)를 카테고리 메뉴에 넣는다(--unknown-categories). 끄면 기존 카테고리만 찾는다. 켜면 프롬프트가 약 1,700자 길어지고, GT 에 Unknown 이 없으면 그 예측은 오탐으로 세진다.">
+        <input type="checkbox" id="r-unknown" checked> Unknown 카테고리 찾기</label>
+      <label title="다룰 상위 카테고리(--group). 하나를 고르면 그 상위 카테고리의 카테고리만 찾고 점수도 그것 하나만 매긴다. 채점도 GT 를 같은 범위로 줄여서 한다.">상위 카테고리<select id="r-group"><option value="all">All</option><option value="dynamic_object">Dynamic object</option><option value="driving_environment">Driving environment</option></select></label>
       <label id="r-gpuwrap" class="hide">GPU<input type="text" id="r-gpus" value="0,1,2" size="8"></label>
       <label id="r-shardwrap">샤드 수<input type="number" id="r-shards" value="8" min="1" max="8" size="2"></label>
       <label>메모<input type="text" id="r-memo" size="26" placeholder="이 실행이 무엇을 시험하는지"></label>
@@ -582,6 +585,9 @@ video{width:100%;background:#000;border-radius:6px}
         <input type="checkbox" id="sg-difficulty" checked> 날씨 4축 켜기</label>
       <label class="chk" title="날씨 4축만 추론한다. edge-case 탐지(VERDICT/CATEGORIES)와 카테고리 점수를 전부 빼고, 프롬프트를 날씨 전용으로 바꾼다.">
         <input type="checkbox" id="sg-diffonly"> 날씨만 추론</label>
+      <label class="chk" title="Unknown 카테고리(예상 못한 동적 객체 / 주행 환경, scene_category 에서 &quot;unknown&quot;: true)를 카테고리 메뉴에 넣는다(--unknown-categories). 끄면 기존 카테고리만 찾는다. 켜면 프롬프트가 약 1,700자 길어지고, GT 에 Unknown 이 없으면 그 예측은 오탐으로 세진다.">
+        <input type="checkbox" id="sg-unknown" checked> Unknown 카테고리 찾기</label>
+      <label title="다룰 상위 카테고리(--group). 하나를 고르면 그 상위 카테고리의 카테고리만 찾고 점수도 그것 하나만 매긴다. 채점도 GT 를 같은 범위로 줄여서 한다.">상위 카테고리<select id="sg-group"><option value="all">All</option><option value="dynamic_object">Dynamic object</option><option value="driving_environment">Driving environment</option></select></label>
     </div>
     <div class="row" style="margin-top:12px">
       <button id="sg-go" class="primary">이 클립 추론</button>
@@ -641,6 +647,9 @@ video{width:100%;background:#000;border-radius:6px}
         <input type="checkbox" id="n-diffonly"> 날씨만 추론</label>
       <label class="chk" title="[A안] 카테고리 점수를 빼고, 3단계 요소 나열을 속성 표(position/ego)로 강제한다. 실측 20260922(333클립): VERDICT F1 80.4%, recall 94.3%, micro F1 0.679 로 등급 방식(80.0%/81.8%/0.655)보다 놓치는 클립이 적다(FN 32→10). 대신 오탐은 는다(FP 40→71).">
         <input type="checkbox" id="n-notiers"> 등급 대신 요소 속성표</label>
+      <label class="chk" title="Unknown 카테고리(예상 못한 동적 객체 / 주행 환경, scene_category 에서 &quot;unknown&quot;: true)를 카테고리 메뉴에 넣는다(--unknown-categories). 끄면 기존 카테고리만 찾는다. 켜면 프롬프트가 약 1,700자 길어지고, GT 에 Unknown 이 없으면 그 예측은 오탐으로 세진다.">
+        <input type="checkbox" id="n-unknown" checked> Unknown 카테고리 찾기</label>
+      <label title="다룰 상위 카테고리(--group). 하나를 고르면 그 상위 카테고리의 카테고리만 찾고 점수도 그것 하나만 매긴다. 채점도 GT 를 같은 범위로 줄여서 한다.">상위 카테고리<select id="n-group"><option value="all">All</option><option value="dynamic_object">Dynamic object</option><option value="driving_environment">Driving environment</option></select></label>
       <label id="n-gpuwrap" class="hide">GPU<input type="text" id="n-gpus" value="0,1,2" size="8"></label>
       <label id="n-shardwrap">샤드 수<input type="number" id="n-shards" value="8" min="1" max="8" size="2"></label>
       <label>메모<input type="text" id="n-memo" size="26" placeholder="이 실행이 무엇을 시험하는지"></label>
@@ -1321,11 +1330,13 @@ function previewCmd() {
     if (!$('#r-scores').checked) parts.push('--no-category-scores');
     if ($('#r-difficulty').checked) parts.push('--weather');
   }
+  if ($('#r-unknown').checked && !$('#r-diffonly').checked) parts.push('--unknown-categories');
+  if ($('#r-group').value !== 'all' && !$('#r-diffonly').checked) parts.push('--group ' + $('#r-group').value);
   if ($('#r-memo').value) parts.push(`--memo "${$('#r-memo').value}"`);
   $('#r-cmd').textContent = '$ ' + parts.join(' ');
 }
 ['#r-model', '#r-labels', '#r-scene', '#r-traj', '#r-ego', '#r-viz', '#r-data',
- '#r-vpc', '#r-scores', '#r-difficulty', '#r-diffonly', '#r-notiers', '#r-gpus', '#r-shards', '#r-memo'].forEach(s => {
+ '#r-vpc', '#r-scores', '#r-difficulty', '#r-diffonly', '#r-notiers', '#r-unknown', '#r-group', '#r-gpus', '#r-shards', '#r-memo'].forEach(s => {
   $(s).addEventListener('input', previewCmd); $(s).addEventListener('change', previewCmd);
 });
 $('#r-model').addEventListener('change', onModelChange);
@@ -1375,11 +1386,13 @@ function previewNasCmd() {
     if (!$('#n-scores').checked) parts.push('--no-category-scores');
     if ($('#n-difficulty').checked) parts.push('--weather');
   }
+  if ($('#n-unknown').checked && !$('#n-diffonly').checked) parts.push('--unknown-categories');
+  if ($('#n-group').value !== 'all' && !$('#n-diffonly').checked) parts.push('--group ' + $('#n-group').value);
   if ($('#n-memo').value) parts.push(`--memo "${$('#n-memo').value}"`);
   $('#n-cmd').textContent = '$ ' + parts.join(' ');
 }
 ['#n-model', '#n-scene', '#n-limit', '#n-traj', '#n-ego', '#n-viz', '#n-data',
- '#n-vpc', '#n-scores', '#n-difficulty', '#n-diffonly', '#n-notiers', '#n-gpus', '#n-shards', '#n-memo'].forEach(s => {
+ '#n-vpc', '#n-scores', '#n-difficulty', '#n-diffonly', '#n-notiers', '#n-unknown', '#n-group', '#n-gpus', '#n-shards', '#n-memo'].forEach(s => {
   $(s).addEventListener('input', previewNasCmd); $(s).addEventListener('change', previewNasCmd);
 });
 $('#n-model').addEventListener('change', onNasModelChange);
@@ -1405,6 +1418,8 @@ $('#n-go').onclick = async () => {
         difficulty: $('#n-difficulty').checked,
         difficulty_only: $('#n-diffonly').checked,
         tiers_elements: $('#n-notiers').checked,
+        unknown_categories: $('#n-unknown').checked,
+        group: $('#n-group').value,
         gpus: $('#n-gpus').value, shards: +$('#n-shards').value,
         memo: $('#n-memo').value,
       })
@@ -1427,6 +1442,8 @@ $('#r-go').onclick = async () => {
         difficulty: $('#r-difficulty').checked,
         difficulty_only: $('#r-diffonly').checked,
         tiers_elements: $('#r-notiers').checked,
+        unknown_categories: $('#r-unknown').checked,
+        group: $('#r-group').value,
         gpus: $('#r-gpus').value, shards: +$('#r-shards').value,
         memo: $('#r-memo').value,
       })
@@ -1454,6 +1471,8 @@ function sgOpts() {
     no_category_scores: !$('#sg-scores').checked,
     difficulty: $('#sg-difficulty').checked,
     difficulty_only: $('#sg-diffonly').checked,
+    unknown_categories: $('#sg-unknown').checked,
+    group: $('#sg-group').value,
   };
 }
 
@@ -1512,7 +1531,7 @@ async function sgShow(uuid, runDir) {
 }
 
 ['#sg-uuid', '#sg-model', '#sg-scene', '#sg-data', '#sg-traj', '#sg-ego',
- '#sg-scores', '#sg-difficulty', '#sg-diffonly'].forEach(sel => {
+ '#sg-scores', '#sg-difficulty', '#sg-diffonly', '#sg-unknown', '#sg-group'].forEach(sel => {
   const el = $(sel); if (!el) return;
   el.addEventListener('input', sgPreview); el.addEventListener('change', sgPreview);
 });
@@ -1529,6 +1548,8 @@ function sgPreview() {
   if (o.use_egomotion) parts.push('--use-egomotion');
   if (o.no_category_scores) parts.push('--no-category-scores');
   if (o.difficulty) parts.push('--weather');
+  if (o.unknown_categories && !o.difficulty_only) parts.push('--unknown-categories');
+  if (o.group !== 'all' && !o.difficulty_only) parts.push('--group ' + o.group);
   parts.push('--only-uuids <' + o.single_uuid + '>');
   $('#sg-cmd').textContent = '$ bash ' + parts.join(' ');
 }
