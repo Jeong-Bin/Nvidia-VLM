@@ -268,6 +268,7 @@ OPTS="--clip-mode --single-view --data $DATA"
 # GPU 점검 - 실행 폴더를 만들기 전에 한다. 한 장이라도 이상하면 여기서 멈춘다
 # (빈 결과 폴더가 남지 않게). 기준은 gpu_check.sh 한 곳에만 있다.
 source "$(dirname "${BASH_SOURCE[0]}")/gpu_check.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/run_naming.sh"
 gpu_preflight "$(seq -s, 0 $((NSHARDS-1)))" || exit 3
 
 RESUME_FLAG=""
@@ -292,7 +293,7 @@ if [ -n "${RESUME_DIR:-}" ]; then
   RESUME_FLAG="--resume"
 else
   RUN_TS="$(date +%Y%m%d_%H%M%S)"
-  RUN_DIR="results/unlabeled/${RUN_TS}_video8b"
+  RUN_DIR="results/unlabeled/${RUN_TS}_video8b$(memo_suffix "${MEMO:-}")"
   mkdir -p "$RUN_DIR"
 fi
 
