@@ -1691,7 +1691,11 @@ def _load_gt_labels(path):
         scores = {g: v[g] for g in GROUP_RUBRICS
                   if isinstance(v.get(g), int) and not isinstance(v.get(g), bool)
                   and 0 <= v[g] <= 4}
-        out[uuid] = {"categories": names, "scores": scores}
+        # 날씨 4축 GT - 시각화 패널이 "Weather score" 로 나란히 적는다.
+        w = v.get("weather") if isinstance(v.get("weather"), dict) else {}
+        weather = {k: w[k] for k, _ in DIFFICULTY_AXES
+                   if isinstance(w.get(k), int) and not isinstance(w.get(k), bool)}
+        out[uuid] = {"categories": names, "scores": scores, "weather": weather}
     return out
 
 

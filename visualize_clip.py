@@ -106,32 +106,31 @@ def _wrap(text, width_chars):
     return lines
 
 
-def difficulty_lines(result: dict) -> list[str]:
-    """날씨 4축을 패널에 넣을 문자열 줄로 만든다.
+def _num(v):
+    """점수 표기. 값이 없으면(라벨 없음, 그 축을 안 잰 실행) "-"."""
+    return "-" if v is None else str(v)
 
-        WEATHER : (2 / 4) <근거 문장>
-        - Illumination: (1 / 4) <근거 문장>
+
+def difficulty_lines(result: dict, gt: dict | None = None) -> list[str]:
+    """날씨 4축을 패널에 넣을 문자열 줄로 만든다. 점수마다 GT 와 Pred 를
+    이름을 붙여 나란히 적는다.
+
+        • Illumination (GT:1, Pred:2): <근거 문장>
+        • Precipitation (GT:0, Pred:0): <근거 문장>
         ...
 
-    전체 난이도를 머리에, 요인 넷을 "- " 로 들여 붙인다 - 요인이 전체를
-    떠받치는 관계라 같은 높이로 나열하면 다섯 개가 병렬로 읽힌다.
-
-    축이 하나도 없으면(난이도를 끈 실행) 빈 리스트를 돌려주고, 호출부는
-    블록 자체를 만들지 않는다. 값이 없는 축만 "—" 로 남기지 않고 통째로
-    빼는 이유는, 켜지 않은 실행의 패널에 빈 표가 다섯 줄 붙는 것을 피하기
-    위해서다.
+    GT 가 없으면(라벨 없는 실행) GT 자리는 "-" 다. 축이 하나도 없으면(날씨를
+    끈 실행) 빈 리스트를 돌려주고, 호출부는 블록 자체를 만들지 않는다.
     """
     if all(result.get(k) is None for k, _ in DIFFICULTY_AXES):
         return []
+    gw = (gt or {}).get("weather") or {}
     lines = []
-    for i, (key, name) in enumerate(DIFFICULTY_AXES):
-        v = result.get(key)
-        score = f"({v} / {DIFFICULTY_MAX})" if v is not None else "(— / %d)" % DIFFICULTY_MAX
+    for key, name in DIFFICULTY_AXES:
         why = (result.get(f"{key}_reason") or "").strip()
-        head = f"{name} : " if i == 0 else f"- {name}: "
-        lines.append(f"{head}{score}" + (f" {why}" if why else ""))
+        lines.append(f"• {name} (GT:{_num(gw.get(key))}, Pred:{_num(result.get(key))})"
+                     + (f": {why}" if why else ""))
     return lines
-
 
 # 카테고리 -> 묶음 이름.
 #
@@ -153,39 +152,33 @@ def load_scenario_map(scene_json) -> None:
 
 
 def category_score_lines(result: dict, gt: dict | None) -> list[str]:
-    """카테고리와 묶음 점수를 패널에 넣을 문자열 줄로 만든다.
+    """카테고리와 상위 카테고리 점수를 패널에 넣을 문자열 줄로 만든다.
+    점수마다 GT 와 Pred 를 이름을 붙여 나란히 적는다.
 
-        GT   : Pedestrian on Road | Dynamic object 2/4, Driving environment 0/4
-        Pred : Pedestrian on Road | Dynamic object 3/4, Driving environment 0/4
+        • GT   : Pedestrian on Road, Cyclist on Road
+        • Pred : Pedestrian on Road, Cyclist on Road
+        • Dynamic object (GT:2, Pred:3)
+        • Driving environment (GT:0, Pred:0)
         Dynamic object: <근거> | Driving environment: <근거>
 
-    점수는 카테고리가 아니라 묶음(scene_category.json 의 special scenario)
-    마다 하나다. 분모는 그 묶음 기준표의 상한이다.
-
-    GT 가 없으면(라벨 없는 실행) Pred 줄만 낸다. 점수를 끈 실행이면 카테고리
-    이름만 적는다.
+    상위 카테고리 줄은 GT 나 Pred 어느 한쪽이라도 값이 있는 것만 낸다 -
+    상위 카테고리 하나만 돌린 실행(--group)에 빈 줄이 붙지 않게. GT 가
+    없으면(라벨 없는 실행) GT 줄을 빼고 점수의 GT 자리는 "-" 다.
     """
-    def fmt(cats, scores):
-        names = ", ".join(cats) if cats else "None"
-        parts = []
-        for g, v in (scores or {}).items():
-            if v is None or v < 0:
-                continue
-            top = max(group_values(g)) if g in GROUP_RUBRICS else 4
-            parts.append(f"{g} {v}/{top}")
-        return names + (" | " + ", ".join(parts) if parts else "")
-
-    pred_cats = sorted(result.get("categories") or [])
+    pred_cats = result.get("categories") or []
     pred_scores = result.get("group_scores") or {}
+    gt_scores = (gt or {}).get("scores") or {}
+    if gt is None and not pred_cats and not pred_scores:
+        return []
     lines = []
     if gt is not None:
-        gt_cats = sorted(gt.get("categories") or [])
-        lines.append("GT   : " + fmt(gt_cats, gt.get("scores")))
-        lines.append("Pred : " + fmt(pred_cats, pred_scores))
-    elif pred_cats or pred_scores:
-        lines.append("Pred : " + fmt(pred_cats, pred_scores))
-    if not lines:
-        return []
+        lines.append("• GT   : " + (", ".join(gt.get("categories") or []) or "None"))
+    lines.append("• Pred : " + (", ".join(pred_cats) or "None"))
+    for g in GROUP_RUBRICS:
+        gv, pv = gt_scores.get(g), pred_scores.get(g)
+        if gv is None and pv is None:
+            continue
+        lines.append(f"• {g} (GT:{_num(gv)}, Pred:{_num(pv)})")
     why = (result.get("score_reason") or "").strip()
     if why:
         lines.append(why)
@@ -235,13 +228,13 @@ def build_text_panel(result: dict, width: int, scale: float = 1.0) -> np.ndarray
         for ln in score_lines:
             wrapped.extend(textwrap.wrap(ln, width=width_chars,
                                          subsequent_indent="    ") or [ln])
-        blocks.append((f"{len(blocks) + 1}. Categories & Impact score",
+        blocks.append((f"{len(blocks) + 1}. Categories & Difficulty score",
                        wrapped, None))
 
     # 난이도는 등급 단계 다음에 자기 블록으로 붙는다. PANEL_STEPS 에 넣지
     # 않는 이유는 형식이 다르기 때문이다 - 저쪽은 "제목 + 문단" 한 덩어리고,
     # 이건 다섯 줄이 각자 점수를 달고 있어 줄 단위로 유지해야 한다.
-    diff = difficulty_lines(result)
+    diff = difficulty_lines(result, gt)
     if diff:
         wrapped = []
         for ln in diff:
