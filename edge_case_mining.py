@@ -141,7 +141,7 @@ def _examples_for(lab, example_source: str, num_examples: int | None = None):
 
 
 def build_category_menu(labels, example_source: str = "templates",
-                        num_examples: int | None = None):
+                        num_examples: int | None = None, notes=()):
     """프롬프트에 넣을 special 카테고리 목록.
 
     형식: `- Road Construction(roadwork, traffic cone)`
@@ -169,7 +169,20 @@ def build_category_menu(labels, example_source: str = "templates",
         # 긍정 예시를 늘리는 대신 무엇이 아닌지를 못박는다.
         for ex_line in lab["excludes"]:
             lines.append(f"    NOT this category: {ex_line}")
+    # 여러 카테고리에 공통인 규칙(scene_category.json 의 special.menu_notes)은
+    # 메뉴 끝에 한 번만 싣는다. 예전에는 "중앙분리대/갓길/주차 차로는 도로
+    # 밖이 아니다" 같은 문장이 Pedestrian/Cyclist/Emergency Vehicle 의
+    # excludes 마다 반복돼 메뉴가 길어졌다(프롬프트가 길수록 탐지가 떨어진
+    # 실측: 5,585 -> 6,389자에서 F1 80.4 -> 74.0).
+    for note in notes:
+        lines.append(f"\n{note}")
     return "\n".join(lines)
+
+
+def load_menu_notes(scene_json) -> list[str]:
+    """scene_category.json 의 special.menu_notes - 카테고리 공통 규칙 문장들."""
+    data = json.loads(Path(scene_json).read_text(encoding="utf-8"))
+    return list(data.get("special", {}).get("menu_notes", []))
 
 
 def special_categories(labels):
@@ -2057,7 +2070,8 @@ if __name__ == "__main__":
     VZ.load_scenario_map(SCENE_JSON)
     n_special = sum(1 for l in labels if not l["is_normal"])
     category_menu = build_category_menu(
-        labels, example_source=args.example_source, num_examples=args.num_examples)
+        labels, example_source=args.example_source, num_examples=args.num_examples,
+        notes=load_menu_notes(SCENE_JSON))
     print(f"[info] labels: {SCENE_JSON.name} - {n_special} special categories")
     print(f"[info] prompt style: {args.prompt_style}"
           + (" (edge-case presence only, no difficulty score)"

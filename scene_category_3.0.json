@@ -112,6 +112,12 @@
                 "A fire engine with its lights flashing stands at the edge of the ego-vehicle's lane and the vehicle squeezes past it",
                 3
               ]
+            ],
+            "recheck_keywords": [
+              "ambulance",
+              "fire (truck|engine)",
+              "police (car|vehicle|suv)",
+              "emergency vehicle"
             ]
           },
           {
@@ -165,6 +171,22 @@
                 "A dog darts across the road just ahead of the moving ego-vehicle, which only eases off",
                 4
               ]
+            ],
+            "recheck_keywords": [
+              "\\banimals?\\b",
+              "\\bdogs?\\b",
+              "\\bcats?\\b",
+              "\\bdeer\\b",
+              "\\bducks?\\b",
+              "\\bgeese\\b",
+              "\\bgoose\\b",
+              "\\bhorses?\\b",
+              "\\bcows?\\b",
+              "\\bcattle\\b",
+              "\\bsheep\\b",
+              "\\bbirds?\\b",
+              "wildlife",
+              "livestock"
             ]
           },
           {
@@ -204,6 +226,13 @@
                 "A pedestrian walks along the edge of the ego-vehicle's lane and the moving ego-vehicle passes close by, edging away",
                 3
               ]
+            ],
+            "recheck_keywords": [
+              "pedestrian",
+              "\\bperson\\b",
+              "\\bpeople\\b",
+              "jaywalk",
+              "\\bchild(ren)?\\b"
             ]
           },
           {
@@ -233,6 +262,15 @@
                 "A cyclist swerves out in front of the moving ego-vehicle without warning",
                 4
               ]
+            ],
+            "recheck_keywords": [
+              "cyclist",
+              "bicycl",
+              "\\bbike",
+              "scooter",
+              "motorcycl",
+              "motorbike",
+              "moped"
             ]
           },
           {
@@ -257,6 +295,11 @@
                 "A tram crosses the road ahead and the moving ego-vehicle stops for it in good time",
                 2
               ]
+            ],
+            "recheck_keywords": [
+              "\\btram",
+              "streetcar",
+              "trolley"
             ]
           },
           {
@@ -320,6 +363,12 @@
                 "Cones take up part of the ego-vehicle's lane and it steers around them",
                 4
               ]
+            ],
+            "recheck_keywords": [
+              "construction",
+              "\\bcones?\\b",
+              "barricade",
+              "road ?work"
             ]
           },
           {
@@ -346,6 +395,12 @@
               "traffic officer",
               "construction flagger",
               "crossing guard"
+            ],
+            "recheck_keywords": [
+              "flagger",
+              "traffic controller",
+              "directing traffic",
+              "police officer"
             ]
           },
           {
@@ -363,6 +418,13 @@
             ],
             "excludes": [
               "A barrier or gate where no rails are present - what makes this category is the tracks crossing the road, not the barrier. If you cannot see rails, it is not this category."
+            ],
+            "recheck_keywords": [
+              "railway",
+              "railroad",
+              "rail tracks?",
+              "level crossing",
+              "\\btrain\\b"
             ]
           },
           {
@@ -382,6 +444,13 @@
             ],
             "excludes": [
               "A barrier arm at a railway crossing - when rails cross the road, that is the Railway crossing category."
+            ],
+            "recheck_keywords": [
+              "barrier arm",
+              "boom gate",
+              "gate arm",
+              "parking gate",
+              "toll"
             ]
           },
           {
@@ -399,6 +468,12 @@
               "The vehicle continues straight along the dirt road",
               "The vehicle is moving forward on the gravel road",
               "A snow-covered rural or forest service road with no visible pavement"
+            ],
+            "recheck_keywords": [
+              "unpaved",
+              "dirt road",
+              "gravel",
+              "dirt track"
             ]
           },
           {
@@ -436,6 +511,13 @@
               "A vehicle - moving, parked, or stopped in traffic ahead - is never an obstacle.",
               "Road markings such as a crosswalk or painted lines are not objects.",
               "Cat's eyes or road studs - the small reflectors set into the road surface along the lane lines - are part of the road, not objects on it."
+            ],
+            "recheck_keywords": [
+              "debris",
+              "fallen (tree|branch)",
+              "obstacle",
+              "object (on|in) the road",
+              "\\brocks?\\b"
             ]
           },
           {

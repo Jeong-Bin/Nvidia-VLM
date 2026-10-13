@@ -112,6 +112,13 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --clip-fps F           초당 몇 장 뽑을지 (기본 1.0)                 [CLIP_FPS]
   --clip-max-frames N    클립당 최대 프레임 (기본 20)                 [CLIP_MAX_FRAMES]
   --eval-only DIR        추론을 건너뛰고 그 폴더의 결과만 채점한다
+  --recheck              (기본 켜짐) 1차 추론 뒤, 카테고리를 못 찾았는데 장면 설명에
+                         그 객체가 나온 클립만 골라 영상과 함께 그 카테고리를 다시
+                         묻는다(recheck_missed.py). 2차 전 채점은
+                         evaluation_before_recheck.log 로 남긴다
+  --no-recheck           2차 확인을 끈다 (1차 결과만 채점)           [RECHECK=0]
+  --recheck-only DIR     이미 끝난 실행 폴더에 2차 확인만 덧붙인다. 라벨/카테고리는
+                         그 실행 것을 쓰고, 끝나면 전/후 채점을 모두 남긴다
   --resume DIR           중단되었거나 일부 샤드가 실패한 실행을 이어받는다.
                          결과가 있는 클립(n_frames>0)은 건너뛰고, 행이
                          없거나 n_frames=0 인 클립만 다시 추론한 뒤 기존
@@ -187,6 +194,10 @@ while [ $# -gt 0 ]; do
     --clip-max-frames)   shift; CLIP_MAX_FRAMES="${1:-}" ;;
     --eval-only=*)       EVAL_ONLY="${1#*=}" ;;
     --eval-only)         shift; EVAL_ONLY="${1:-}" ;;
+    --recheck)           RECHECK=1 ;;
+    --no-recheck)        RECHECK=0 ;;
+    --recheck-only=*)    RECHECK_ONLY="${1#*=}" ;;
+    --recheck-only)      shift; RECHECK_ONLY="${1:-}" ;;
     --resume=*)          RESUME_DIR="${1#*=}" ;;
     --resume)            shift; RESUME_DIR="${1:-}" ;;
     -h|--help)           usage; exit 0 ;;
@@ -205,10 +216,12 @@ done
 # 라벨은 대조 대상이 아니라 그대로 진행되어 evaluation.log 가 다른 라벨
 # 파일(230클립)로 채점되고, 새로 그린 시각화 82개에 엉뚱한 GT 가 찍혔다.
 # 라벨은 run.log 의 첫 "[info] labels" 줄(원래 실행이 쓴 파일)에서 읽는다.
-if [ -n "${RESUME_DIR:-}" ] && [ -f "${RESUME_DIR%/}/run_config.json" ]; then
+# --recheck-only 도 같은 이유로 그 실행의 라벨/카테고리를 쓴다.
+INHERIT_DIR="${RESUME_DIR:-${RECHECK_ONLY:-}}"
+if [ -n "$INHERIT_DIR" ] && [ -f "${INHERIT_DIR%/}/run_config.json" ]; then
   if [ -z "$LABELS_SET" ]; then
     _orig_labels="$(sed -n 's/^\[info\] labels *: \(.*\)  ([0-9]* clips)$/\1/p' \
-                    "${RESUME_DIR%/}/run.log" 2>/dev/null | head -1)"
+                    "${INHERIT_DIR%/}/run.log" 2>/dev/null | head -1)"
     if [ -n "$_orig_labels" ]; then
       LABELS="$_orig_labels"
       echo "[resume] labels     : $LABELS  (원래 실행에서 가져옴)"
@@ -218,7 +231,7 @@ if [ -n "${RESUME_DIR:-}" ] && [ -f "${RESUME_DIR%/}/run_config.json" ]; then
   fi
   if [ -z "$SCENE_JSON" ]; then
     SCENE_JSON="$("$PYBIN" -c 'import json,sys; print(json.load(open(sys.argv[1])).get("key",{}).get("scene_json") or "")' \
-                  "${RESUME_DIR%/}/run_config.json")"
+                  "${INHERIT_DIR%/}/run_config.json")"
     [ -n "$SCENE_JSON" ] && echo "[resume] scene-json : $SCENE_JSON  (원래 실행에서 가져옴)"
   fi
 fi
@@ -245,6 +258,49 @@ else
 fi
 
 # 추론을 건너뛰고 기존 결과만 채점하는 경로
+# 2차 확인(recheck_missed.py). GPU 마다 샤드 하나로 후보를 나눠 묻고, 끝나면
+# clip_results_all.csv 에 반영한다. 반영 전 채점을 evaluation_before_recheck.log
+# 로 남겨 같은 폴더 안에서 전/후를 바로 비교한다.
+run_recheck() {
+  local dir="$1"
+  # 날씨만 추론한 실행은 카테고리가 없어 2차 확인할 것이 없다.
+  if [ "${WEATHER_ONLY:-0}" = "1" ] || [ "${DIFFICULTY_ONLY:-0}" = "1" ]; then
+    echo "[recheck] 건너뜀: --weather-only 실행"
+    return 0
+  fi
+  # 이미 2차 확인을 반영한 폴더면 1차 결과로 되돌린 뒤 "전" 채점을 한다.
+  [ -f "$dir/before_recheck_clip_results_all.csv" ] && \
+    cp "$dir/before_recheck_clip_results_all.csv" "$dir/clip_results_all.csv"
+  "$PYBIN" -u evaluate_labels.py --run-dir "$dir" --labels "$LABELS" \
+    --out "$dir/evaluation_before_recheck.log" > /dev/null
+  mkdir -p "$dir/recheck"
+  local pids=()
+  for g in $(seq 0 $((NSHARDS-1))); do
+    CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=${GPU_LIST[$g]} \
+    PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+      "$PYBIN" -u recheck_missed.py --run-dir "$dir" \
+        --num-shards "$NSHARDS" --shard-id "$g" \
+        >> "$dir/recheck/recheck_shard_${g}.log" 2>&1 &
+    pids+=($!)
+  done
+  echo "[recheck] launched ${#pids[@]} shards (GPU ${GPU_LIST[*]}), 로그: $dir/recheck/"
+  wait
+  "$PYBIN" -u recheck_missed.py --run-dir "$dir" --apply
+}
+
+if [ -n "${RECHECK_ONLY:-}" ]; then
+  RUN_DIR="${RECHECK_ONLY%/}"
+  [ -f "$RUN_DIR/clip_results_all.csv" ] || [ -f "$RUN_DIR/before_recheck_clip_results_all.csv" ] \
+    || { echo "[error] --recheck-only: $RUN_DIR 에 clip_results_all.csv 가 없습니다" >&2; exit 2; }
+  {
+    echo "[recheck] $(date '+%Y-%m-%d %H:%M:%S') 2차 확인만 덧붙임: $RUN_DIR"
+    run_recheck "$RUN_DIR"
+    "$PYBIN" -u evaluate_labels.py --run-dir "$RUN_DIR" --labels "$LABELS"
+    "$PYBIN" -u aggregate_clip.py --run-dir "$RUN_DIR"
+  } 2>&1 | tee -a "$RUN_DIR/run.log"
+  exit 0
+fi
+
 if [ -n "$EVAL_ONLY" ]; then
   [ -d "$EVAL_ONLY" ] || { echo "[error] no such dir: $EVAL_ONLY" >&2; exit 2; }
   "$PYBIN" -u evaluate_labels.py --run-dir "$EVAL_ONLY" --labels "$LABELS"
@@ -455,6 +511,10 @@ except Exception:
   # 샤드 CSV 를 clip_results_all.csv 로 합치고 원본은 지운다
   "$PYBIN" -u merge_shards.py --run-dir "$RUN_DIR"
   echo
+
+  # 2차 확인은 기본으로 켠다(실측 20261013_recheck_test: 판정 F1 72.0 ->
+  # 74.4, 놓침 30 -> 16, 대신 오탐 36 -> 52). --no-recheck 로 끈다.
+  [ "${RECHECK:-1}" = "1" ] && run_recheck "$RUN_DIR" && echo
 
   "$PYBIN" -u evaluate_labels.py --run-dir "$RUN_DIR" --labels "$LABELS"
   echo

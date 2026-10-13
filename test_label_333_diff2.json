@@ -107,8 +107,10 @@
       "note": "오토바이가 옆 차선으로 지나가서 Cyclist라도 인식할 수도 있음"
     },
     "53e33f31-a21c-4b0d-b24f-ef8381c60e04": {
-      "categories": {},
-      "Dynamic object": 0,
+      "categories": {
+        "Pedestrian on Road": 1
+      },
+      "Dynamic object": 1,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -699,8 +701,10 @@
       "note": "낙엽"
     },
     "ed4c0c5e-258e-4326-ae8e-b7b9728bdf13": {
-      "categories": {},
-      "Dynamic object": 0,
+      "categories": {
+        "Emergency Vehicle": 1
+      },
+      "Dynamic object": 1,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
@@ -947,8 +951,10 @@
       "note": ""
     },
     "dc257402-687c-4a34-a950-8bb6a3c2508d": {
-      "categories": {},
-      "Dynamic object": 0,
+      "categories": {
+        "Pedestrian on Road": 1
+      },
+      "Dynamic object": 1,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -1337,8 +1343,10 @@
       "note": ""
     },
     "df0687d0-a2a3-4534-95e0-164f02bec8af": {
-      "categories": {},
-      "Dynamic object": 0,
+      "categories": {
+        "Pedestrian on Road": 1
+      },
+      "Dynamic object": 1,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -1599,8 +1607,10 @@
       "note": ""
     },
     "e4a8b18e-ca79-434e-a171-07ef638810a7": {
-      "categories": {},
-      "Dynamic object": 0,
+      "categories": {
+        "Pedestrian on Road": 1
+      },
+      "Dynamic object": 1,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 2,
@@ -1919,7 +1929,8 @@
     },
     "d1248bb6-a02a-49a1-9018-6e85159ca9e1": {
       "categories": {
-        "Pedestrian on Road": 2
+        "Pedestrian on Road": 2,
+        "Cyclist on Road": 1
       },
       "Dynamic object": 2,
       "Driving environment": -1,
@@ -2443,7 +2454,8 @@
     },
     "c9a4cd43-395b-4bec-9072-62b36e2cdb41": {
       "categories": {
-        "Pedestrian on Road": 1
+        "Pedestrian on Road": 1,
+        "Cyclist on Road": 1
       },
       "Dynamic object": 1,
       "Driving environment": -1,
@@ -2947,8 +2959,10 @@
       "note": ""
     },
     "a84a5e42-89e9-4a2c-b0f7-8173b0176970": {
-      "categories": {},
-      "Dynamic object": 0,
+      "categories": {
+        "Cyclist on Road": 1
+      },
+      "Dynamic object": 1,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 1,
@@ -2960,7 +2974,7 @@
         "road_surface": 0,
         "atmospheric_obscurants": 0
       },
-      "note": "Elevated road, not Tunnel"
+      "note": "Elevated road, not Tunnel, Cyclist"
     },
     "56c703f3-2274-4740-8000-85ff1cad21b7": {
       "categories": {},
@@ -3416,7 +3430,8 @@
     },
     "2b11f06f-da0f-4bb6-863c-e6933bd20535": {
       "categories": {
-        "Pedestrian on Road": 3
+        "Pedestrian on Road": 3,
+        "Cyclist on Road": 1
       },
       "Dynamic object": 3,
       "Driving environment": -1,
@@ -3984,7 +3999,8 @@
     },
     "02bd345f-cdc5-4c74-8025-0bc34f265af1": {
       "categories": {
-        "Road Construction": 4
+        "Road Construction": 4,
+        "Manual Traffic Control": 3
       },
       "Dynamic object": -1,
       "Driving environment": -1,
@@ -5254,8 +5270,10 @@
       "note": ""
     },
     "004bfe84-cf53-494b-9ba3-2beaefab5499": {
-      "categories": {},
-      "Dynamic object": 0,
+      "categories": {
+        "Cyclist on Road": 1
+      },
+      "Dynamic object": 1,
       "Driving environment": -2,
       "influenced_ego": false,
       "safety_criticality": 0,
