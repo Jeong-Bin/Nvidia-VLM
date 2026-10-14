@@ -41,6 +41,7 @@ from edge_case_mining import (
     sample_unit_frames, views_for, clip_path,
     build_vlm_prompt, parse_vlm_output, unit_name, viz_targets, blocking_dir,
     build_nureasoning_prompt, parse_nureasoning_output,
+    followup_time_spans_question, parse_time_spans_answer,
     sample_clip_frames, clip_intro,
     CLIP_FPS, CLIP_MAX_FRAMES, CLIP_MAX_LONG_SIDE,
 )
@@ -53,7 +54,7 @@ from obstacle import obstacle_summary, describe_obstacles, path_intrusion
 from visualize import render_scene_card
 from visualize_clip import render_clip_result, VIZ_WIDTH
 from constrained_tier import (make_tier_processor, tier_label, score_dirname,
-                              TIER_FIELDS)
+                              TIER_FIELDS, score_groups)
 from prompts import DIFFICULTY_AXES
 
 
@@ -146,7 +147,10 @@ NUR_MAX_NEW_TOKENS_DIFFICULTY = 1100
 # --time-spans 가 붙이는 칸. 장르 2~3개에 구간 몇 개씩([시작, 끝, 점수])이면
 # 100 토큰 안팎이지만, 모자라 JSON 이 잘리면 그 클립은 통째로 파싱 실패
 # (Normal)가 되므로 넉넉히 둔다.
-NUR_TIME_SPANS_EXTRA_TOKENS = 250
+NUR_TIME_SPANS_EXTRA_TOKENS = 350
+# --time-spans followup 의 이어 묻기 답 한도. 답이 time_spans JSON 하나뿐이라
+# inline 의 추가분과 같은 크기면 된다.
+NUR_FOLLOWUP_MAX_NEW_TOKENS = 400
 
 
 # 클립 모드 CSV 의 열. 헤더와 빈 행이 같은 정의를 봐야 어긋나지 않는다.
@@ -175,6 +179,35 @@ CLIP_CSV_COLUMNS = [
     # 달라 --resume 으로 이어 쓸 수 없다(qwen_runner 가 헤더를 대조해 멈춘다).
     "time_spans",
 ]
+
+
+@torch.inference_mode()
+def _continue_chat(model, processor, state, question, max_new_tokens=300):
+    """생성이 끝난 대화(state)에 사용자 질문 하나를 이어 붙여 답을 받는다.
+
+    1차 생성의 KV 캐시를 그대로 넘기므로 영상과 1차 프롬프트/답변은 다시
+    계산하지 않고, 덧붙인 질문과 새 답만 계산한다(--time-spans followup).
+    Qwen3-VL 의 3차원 위치(M-RoPE)는 1차 때 저장된 rope_deltas 로 이어진다 -
+    transformers 가 캐시가 있는 생성을 "이어 생성"으로 보고 그 값을 쓴다.
+
+    대화 틀은 chat template 과 같게 손으로 잇는다: 1차 답이 <|im_end|> 로
+    끝났으면 그 뒤에, 출력 한도에 걸려 끊겼으면 <|im_end|> 를 먼저 닫는다.
+    """
+    tok = processor.tokenizer
+    seq = state["sequences"]
+    im_end = tok.convert_tokens_to_ids("<|im_end|>")
+    head = "" if int(seq[0, -1]) == im_end else "<|im_end|>"
+    text = (head + "\n<|im_start|>user\n" + question
+            + "<|im_end|>\n<|im_start|>assistant\n")
+    add = tok(text, add_special_tokens=False,
+              return_tensors="pt").input_ids.to(seq.device)
+    ids = torch.cat([seq, add], dim=1)
+    gen = model.generate(input_ids=ids, attention_mask=torch.ones_like(ids),
+                         past_key_values=state["cache"],
+                         max_new_tokens=max_new_tokens, do_sample=False)
+    out = tok.decode(gen[0, ids.shape[1]:], skip_special_tokens=True)
+    del gen, ids, add
+    return out.strip()
 
 
 def _lp_list(proc):
@@ -287,7 +320,7 @@ CLOSE_CALL_P = 0.1
 @torch.inference_mode()
 def _generate(model, processor, images, text_prompt, max_new_tokens=256,
               as_video=False, video_fps=None, logits_processor=None,
-              want_margin=False, thinking=False):
+              want_margin=False, thinking=False, state_out=None):
     """이미지 목록을 넣고 모델 원문 출력을 받는다.
 
     as_video=True 면 낱장 이미지 N개가 아니라 "비디오 한 편"으로 넘긴다.
@@ -304,13 +337,18 @@ def _generate(model, processor, images, text_prompt, max_new_tokens=256,
 
     video_fps 는 우리가 뽑은 샘플링 fps(예: 1.0)를 그대로 준다. 이 값으로
     타임스탬프가 계산되므로 실제 클립 시간과 맞아야 한다.
+
+    state_out 에 빈 dict 를 주면 생성이 끝난 대화(토큰 열 + KV 캐시)를 담아
+    돌려준다 - _continue_chat 이 같은 대화에 질문을 이어 붙일 때 쓴다.
+    출력 자체는 주지 않을 때와 같다(같은 탐욕 생성이고, 반환 형태만 다르다).
     """
     if as_video and images:
         return _generate_video(model, processor, images, text_prompt,
                                max_new_tokens=max_new_tokens,
                                video_fps=video_fps or 1.0,
                                logits_processor=logits_processor,
-                               want_margin=want_margin, thinking=thinking)
+                               want_margin=want_margin, thinking=thinking,
+                               state_out=state_out)
 
     content = [{"type": "image", "image": img} for img in images]
     content.append({"type": "text", "text": text_prompt})
@@ -328,10 +366,14 @@ def _generate(model, processor, images, text_prompt, max_new_tokens=256,
     gen = model.generate(**inputs, max_new_tokens=max_new_tokens,
                          do_sample=False,
                          logits_processor=_lp_list(logits_processor),
-                         return_dict_in_generate=want_margin,
+                         return_dict_in_generate=(want_margin
+                                                  or state_out is not None),
                          output_scores=want_margin)
     margin = _decision_margin(gen, processor.tokenizer) if want_margin else None
-    seq = gen.sequences if want_margin else gen
+    seq = gen.sequences if (want_margin or state_out is not None) else gen
+    if state_out is not None:
+        state_out["sequences"] = seq
+        state_out["cache"] = gen.past_key_values
     trimmed = seq[:, inputs.input_ids.shape[1]:]
     out = processor.batch_decode(
         trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
@@ -344,7 +386,7 @@ def _generate(model, processor, images, text_prompt, max_new_tokens=256,
 @torch.inference_mode()
 def _generate_video(model, processor, frames, text_prompt, max_new_tokens=256,
                     video_fps=1.0, logits_processor=None, want_margin=False,
-                    thinking=False):
+                    thinking=False, state_out=None):
     """이미 뽑아둔 프레임 목록을 비디오 한 편으로 넘겨 생성한다.
 
     do_sample_frames=False 로 두는 것이 핵심 - 우리가 이미 1fps 로 골라둔
@@ -374,10 +416,14 @@ def _generate_video(model, processor, frames, text_prompt, max_new_tokens=256,
     gen = model.generate(**inputs, max_new_tokens=max_new_tokens,
                          do_sample=False,
                          logits_processor=_lp_list(logits_processor),
-                         return_dict_in_generate=want_margin,
+                         return_dict_in_generate=(want_margin
+                                                  or state_out is not None),
                          output_scores=want_margin)
     margin = _decision_margin(gen, processor.tokenizer) if want_margin else None
-    seq = gen.sequences if want_margin else gen
+    seq = gen.sequences if (want_margin or state_out is not None) else gen
+    if state_out is not None:
+        state_out["sequences"] = seq
+        state_out["cache"] = gen.past_key_values
     trimmed = seq[:, inputs.input_ids.shape[1]:]
     out = processor.batch_decode(
         trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
@@ -506,7 +552,7 @@ def run_clip_inference(uuids, labels, category_menu,
                        resume=False,
                        difficulty=False, difficulty_only=False,
                        tiers_elements=False, explain_traj=False, traj=None,
-                       viz_per_category=None, time_spans=False):
+                       viz_per_category=None, time_spans=None):
     """클립 전체(20초)를 1fps 로 넣어 클립 단위로 판정한다.
 
     run_inference 와 판정 단위가 다르다 - 저쪽은 (uuid, frame_idx) 이고
@@ -684,19 +730,36 @@ def run_clip_inference(uuids, labels, category_menu,
                 difficulty_only=difficulty_only,
                 tiers_elements=tiers_elements,
                 explain_traj=explain_traj,
-                time_spans=time_spans)
+                time_spans=(time_spans == "inline"))
+            # followup 은 1차 대화(토큰 열 + KV 캐시)를 받아 두었다가 질문을
+            # 이어 붙인다. 1차 생성 자체는 받지 않을 때와 같다.
+            fu_state = {} if time_spans == "followup" else None
             gen_out = _generate(model, processor, images, prompt,
                                 max_new_tokens=(NUR_MAX_NEW_TOKENS_DIFFICULTY
                                                 if difficulty
                                                 else NUR_MAX_NEW_TOKENS)
                                 + (NUR_TIME_SPANS_EXTRA_TOKENS
-                                   if time_spans else 0),
+                                   if time_spans == "inline" else 0),
                                 as_video=video_input, video_fps=fps,
                                 logits_processor=tier_proc,
                                 want_margin=want_margin,
-                                thinking=(model_id in THINKING_MODELS))
+                                thinking=(model_id in THINKING_MODELS),
+                                state_out=fu_state)
             raw, margin = gen_out if want_margin else (gen_out, None)
             result = parse_nureasoning_output(raw, labels)
+            if fu_state is not None:
+                # 장르를 하나도 대지 않았으면 물을 대상이 없다.
+                if result["categories"] and fu_state:
+                    q = followup_time_spans_question(
+                        bool(score_categories and score_groups(labels)))
+                    ans = _continue_chat(model, processor, fu_state, q,
+                                         max_new_tokens=NUR_FOLLOWUP_MAX_NEW_TOKENS)
+                    (result["time_spans"], result["time_spans_raw"],
+                     result["time_seen"]) = parse_time_spans_answer(
+                        ans, labels, set(result["categories"]))
+                    result["time_spans_answer"] = ans
+                fu_state.clear()
+                torch.cuda.empty_cache()
 
             cats = result["categories"]
             cat_counts.update(cats)
@@ -776,6 +839,7 @@ def run_clip_inference(uuids, labels, category_menu,
                                 else viz_path / score_dir / uuid]
                 # 시각화가 "구간을 물었는데 못 받은 장르"를 빈 줄로 그리게 한다.
                 result["_time_spans_on"] = bool(time_spans)
+                result["_time_spans_mode"] = time_spans
                 for out_dir in out_dirs:
                     render_clip_result(
                         uuid, clip_path(views[0], uuid), result,

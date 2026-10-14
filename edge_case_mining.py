@@ -678,6 +678,53 @@ The LAST image is the most recent moment. Read them as a sequence: what changes
 from one image to the next tells you how the scene and the ego-vehicle evolved.""")
 
 
+# --time-spans 지시문. inline(1차 프롬프트의 단계)과 followup(이어 묻는 질문)이
+# 같은 문장을 쓰게 한 곳에 둔다 - 두 방식의 차이가 "언제 묻느냐"뿐이어야 결과를
+# 비교할 수 있다. {who} 자리에 "type you named in step 4" / "scenario type you
+# named in \"scenario_types\"" 가 들어간다.
+#
+# 두 단계로 묻는다: 먼저 요소가 보인 처음과 마지막 시각(seen), 그다음 그 안에서만
+# 점수 구간(stretches). 한 번에 "구간을 나눠 점수를 매겨라"로 물었을 때 잠깐
+# 나온 보행자·자전거·동물도 21~23% 가 0~20초 통째 구간이었다(실측
+# 20261014_162702 inline / 172222 followup). 모델이 영상의 시각 표시를 읽지 않고
+# 어림했고(끝점의 96~99% 가 정수, 시각 표시의 ".2" 값은 0건), 근거가 약하면
+# 프롬프트의 "20-second video" 를 따라 0~20 을 썼다. 시간을 찾는 일과 점수를
+# 매기는 일을 나누고, 통째 구간은 처음부터 끝까지 보였을 때만 쓰라고 못박는다.
+TIME_SPANS_SCORED = """for each {who}, work in two steps.
+First, find when its element was in view: the timestamp of the first frame it
+appears in and of the last frame it appears in. Leave out any time it was not
+visible - the whole clip, from 0 to the end, is right only if the element is
+visible from the first frame to the last.
+Then split that time into stretches and score each stretch from 0 to 4 on the
+scale of step 5 - how much that element made driving harder for the
+ego-vehicle during that stretch. Start a new stretch wherever the score
+changes; each stretch lasts at least 1 second, and its length is otherwise up
+to you. No stretch scores higher than the score its group got in step 5.
+Read all times from the timestamps of the video, in seconds from its start."""
+TIME_SPANS_UNSCORED = """for each {who}, work in two steps.
+First, find when its element was in view: the timestamp of the first frame it
+appears in and of the last frame it appears in. Leave out any time it was not
+visible - the whole clip, from 0 to the end, is right only if the element is
+visible from the first frame to the last.
+Then, within that time, give the stretches in which it was a hazard to the
+ego-vehicle - in or coming into the vehicle's way, or otherwise making driving
+harder. If it never made driving harder, give the stretch in which it stood
+out most.
+Read all times from the timestamps of the video, in seconds from its start."""
+TIME_SPANS_SCHEMA_SCORED = ('{"<exact scenario type name>": {"seen": [<first seconds>, '
+                            '<last seconds>], "stretches": [[<start seconds>, '
+                            '<end seconds>, <score 0-4>], ...]}, ...}')
+TIME_SPANS_SCHEMA_UNSCORED = ('{"<exact scenario type name>": {"seen": [<first seconds>, '
+                              '<last seconds>], "stretches": [[<start seconds>, '
+                              '<end seconds>], ...]}, ...}')
+
+
+def _indent(text: str, pad: str) -> str:
+    """첫 줄을 뺀 나머지 줄 앞에 pad 를 붙인다(단계 본문 들여쓰기)."""
+    first, *rest = text.split("\n")
+    return "\n".join([first] + [pad + ln for ln in rest])
+
+
 def build_nureasoning_prompt(category_menu: str, sensor_facts: str = "",
                              labels: list | None = None,
                              single_view: bool = False,
@@ -936,25 +983,10 @@ the CURRENT moment. Each group of three is synchronized camera views
     #
     # 점수 단계(5단계)를 끈 실행에는 기준표가 없으므로 구간만 받는다.
     if time_spans and not difficulty_only:
-        if groups:
-            steps45 += f"""{step_no}. Hazard Timing: for each type you named in step 4, split the time its
-   element was in the clip into stretches, and score each stretch from 0 to 4
-   on the scale of step 5 - how much that element made driving harder for the
-   ego-vehicle during that stretch. Start a new stretch wherever the score
-   changes; each stretch lasts at least 1 second, and its length is otherwise
-   up to you. No stretch scores higher than the score its group got in step 5.
-   Read the times from the timestamps of the video, in seconds from its start.
-   If you named no type, give an empty object.
-"""
-        else:
-            steps45 += f"""{step_no}. Hazard Timing: for each type you named in step 4, give when its element
-   was a hazard to the ego-vehicle - the stretch of the clip in which it was
-   in or coming into the vehicle's way, or otherwise made driving harder. Read
-   the times from the timestamps of the video, in seconds from its start, and
-   give one or more [start, end] spans per type. If the element never made
-   driving harder, give the stretch in which it stood out most. If you named
-   no type, give an empty object.
-"""
+        body = (TIME_SPANS_SCORED if groups else TIME_SPANS_UNSCORED).format(
+            who="type you named in step 4")
+        steps45 += (f"{step_no}. Hazard Timing: " + _indent(body, "   ")
+                    + "\n   If you named no type, give an empty object.\n")
         step_no += 1
     # 날씨(--weather)는 점수 다음 단계로 붙는다. 점수와 성격이 다르다:
     # 등급은 "이 클립이 얼마나 위험/희귀한가"(edge-case 여부에 달림)이고,
@@ -989,10 +1021,9 @@ the CURRENT moment. Each group of three is synchronized camera views
             f'it did or what the situation was>",\n'
             f' "{k}": <integer 0-4>,\n')
     if time_spans and not difficulty_only:
-        tier_fields += (' "time_spans": {"<exact scenario type name>": '
-                        + ('[[<start seconds>, <end seconds>, <score 0-4>], '
-                           '...], ...},\n' if groups else
-                           '[[<start seconds>, <end seconds>], ...], ...},\n'))
+        tier_fields += (' "time_spans": '
+                        + (TIME_SPANS_SCHEMA_SCORED if groups
+                           else TIME_SPANS_SCHEMA_UNSCORED) + ',\n')
     if difficulty:
         # 프롬프트 본문과 같은 순서. JSON 필드 순서가 곧 생성 순서다.
         for key, name in DIFFICULTY_AXES:
@@ -1380,7 +1411,8 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
            "evidence": "", "parse_ok": False,
            "observation": "", "ego_behavior": "", "unusual_elements": "",
            "group_scores": {}, "score_reason": "",
-           "tier_score": None, "time_spans": {}, "time_spans_raw": {}}
+           "tier_score": None, "time_spans": {}, "time_spans_raw": {},
+           "time_seen": {}}
     # 날씨 축은 --weather 를 껐으면 모델이 내지 않는다. 그래도 키는
     # 항상 만들어 둔다 - 없으면 CSV 열 개수가 실행마다 달라져 병합이 깨진다.
     for key, _ in DIFFICULTY_AXES:
@@ -1455,8 +1487,9 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
 
     # --time-spans 를 켠 실행에서만 나오는 칸. 이름을 댄 장르의 것만 남긴다 -
     # 장르 목록에 없는 이름의 구간은 시각화에서 무엇의 띠인지 설명할 수 없다.
-    out["time_spans"], out["time_spans_raw"] = _parse_time_spans(
-        obj.get("time_spans"), valid, set(out["categories"]))
+    (out["time_spans"], out["time_spans_raw"],
+     out["time_seen"]) = _parse_time_spans(obj.get("time_spans"), valid,
+                                           set(out["categories"]))
 
     # 판정은 오직 "edge-case 요소를 하나라도 나열했는가". 별도 질문을 두지
     # 않는 이유는 20260728 실험 - verdict 를 따로 물어 categories 와 묶으면
@@ -1532,7 +1565,7 @@ def _is_num_str(x) -> bool:
     return isinstance(x, str) and re.fullmatch(r"\s*\d+(?::\d+)?(?:\.\d+)?\s*s?\s*", x) is not None
 
 
-def _snap_spans(spans: list[list]) -> list[list]:
+def _snap_spans(spans: list[list], window=None) -> list[list]:
     """모델이 답한 구간을 1초 단위로 정리한다.
 
     모델이 구분하는 시점은 1초에 하나다 - 영상의 "<7.2 seconds>" 묶음은
@@ -1540,12 +1573,22 @@ def _snap_spans(spans: list[list]) -> list[list]:
     올려 정수 초에 맞추고, 시작과 끝이 같은 묶음이면 1초로 늘린다.
     그다음 초마다 가장 높은 점수를 남겨(겹치면 높은 쪽) 같은 점수끼리 이어
     붙인다. 점수를 못 읽은 구간(None)은 0 보다 낮게 친다.
+
+    window([처음, 마지막] 초)를 주면 그 밖의 초는 버린다 - 모델이 "보인 시간"
+    밖에 점수 구간을 그린 것은 스스로 한 말과 어긋난 것이다. window 도 같은
+    규칙(내림/올림, 최소 1초)으로 정수 초에 맞춘다.
     """
     import math
+    lo = hi = None
+    if window:
+        lo = int(math.floor(window[0] + 1e-6))
+        hi = max(int(math.ceil(window[1] - 1e-6)), lo + 1)
     per_sec = {}
     for s0, s1, sc in spans:
         a = int(math.floor(s0 + 1e-6))
         b = max(int(math.ceil(s1 - 1e-6)), a + 1)
+        if lo is not None:
+            a, b = max(a, lo), min(b, hi)
         for t in range(a, b):
             cur = per_sec.get(t, "missing")
             if cur == "missing" or (sc if sc is not None else -1) > \
@@ -1561,12 +1604,14 @@ def _snap_spans(spans: list[list]) -> list[list]:
     return out
 
 
-def _parse_time_spans(raw, valid: set, named: set) -> tuple[dict, dict]:
-    """(정리된 구간, 모델이 답한 구간). 둘 다 {"장르": [[s, e, 점수], ...]}.
+def _parse_time_spans(raw, valid: set, named: set) -> tuple[dict, dict, dict]:
+    """(정리된 구간, 모델이 답한 구간, 보인 시간).
 
-    이름을 댄 장르(named)의 것만 남기고, 이름은 정식 표기로 바꾼다.
-    정리된 쪽은 정수 초(_snap_spans)이고 시각화와 CSV 가 쓴다. 답한 쪽은
-    result.json 에만 남겨 정리 전후를 비교할 수 있게 한다.
+    구간은 {"장르": [[s, e, 점수], ...]}, 보인 시간은 {"장르": [처음, 마지막]}.
+    장르마다 {"seen": [...], "stretches": [...]} 꼴(두 단계 질문)과 구간 목록만
+    있는 예전 꼴을 모두 받는다. 이름을 댄 장르(named)의 것만 남기고, 이름은
+    정식 표기로 바꾼다. 정리된 쪽은 정수 초(_snap_spans, 보인 시간 밖은 버림)
+    이고 시각화와 CSV 가 쓴다. 답한 쪽과 보인 시간은 result.json 에 남긴다.
     """
     items = []
     if isinstance(raw, dict):
@@ -1581,16 +1626,56 @@ def _parse_time_spans(raw, valid: set, named: set) -> tuple[dict, dict]:
                          or el.get("stretches") or el)
                 if name:
                     items.append((name, spans))
-    given = {}
+    given, seen = {}, {}
     for name, spans in items:
         cat = _closest_valid(str(name).strip(), valid)
         if not cat or cat not in named:
             continue
+        if isinstance(spans, dict) and ("seen" in spans or "stretches" in spans):
+            sw = _spans_of(spans.get("seen"))
+            if sw:
+                seen[cat] = [sw[0][0], sw[0][1]]
+            spans = spans.get("stretches")
+            # 보인 시간만 있고 구간이 없으면 그 시간을 점수 없는 구간으로 둔다.
+            if not spans and sw:
+                spans = [[sw[0][0], sw[0][1]]]
         sp = _spans_of(spans)
         if sp:
             given.setdefault(cat, []).extend(sp)
-    snapped = {c: _snap_spans(sp) for c, sp in given.items()}
-    return snapped, given
+    snapped = {c: _snap_spans(sp, seen.get(c)) for c, sp in given.items()}
+    return snapped, given, seen
+
+
+def followup_time_spans_question(scored: bool) -> str:
+    """--time-spans followup: 1차 답변이 끝난 대화에 덧붙이는 질문.
+
+    inline 의 Hazard Timing 단계와 같은 지시문(TIME_SPANS_*)을 쓴다. 1차
+    답변을 본 뒤에 묻는 것이라 "step 4" 대신 답변의 "scenario_types" 를
+    가리킨다. 점수 단계(5단계)를 끈 실행에는 기준표가 없으므로 구간만 묻는다.
+    """
+    body = (TIME_SPANS_SCORED if scored else TIME_SPANS_UNSCORED).format(
+        who='scenario type you named in "scenario_types"')
+    schema = TIME_SPANS_SCHEMA_SCORED if scored else TIME_SPANS_SCHEMA_UNSCORED
+    return (body[0].upper() + body[1:]
+            + "\n\nRespond with ONLY a JSON object, no other text:\n"
+            + '{"time_spans": ' + schema + "}")
+
+
+def parse_time_spans_answer(text: str, labels: list, named: set) -> tuple[dict, dict, dict]:
+    """이어 묻기 답 -> (정리된 구간, 모델이 답한 구간, 보인 시간). 못 읽으면 빈 dict 셋.
+
+    {"time_spans": {...}} 로 감싸지 않고 장르 딕셔너리만 내는 경우도 받는다.
+    """
+    valid = {l["category"] for l in labels if not l["is_normal"]}
+    m = re.search(r"\{.*\}", text or "", re.DOTALL)
+    if not m:
+        return {}, {}, {}
+    try:
+        obj = json.loads(m.group(0))
+    except Exception:
+        return {}, {}, {}
+    raw = obj.get("time_spans", obj) if isinstance(obj, dict) else obj
+    return _parse_time_spans(raw, valid, named)
 
 
 # ---------------------------------------------------------------------------
@@ -1757,7 +1842,10 @@ def _config_key(args, n_views=1, prompt_sha=None) -> dict:
         "difficulty_only": bool(args.difficulty_only),
         "tiers_elements": bool(args.tiers_elements),
         "explain_traj": bool(args.explain_traj),
-        "time_spans": bool(args.time_spans),
+        # 끔 = False, inline = True 로 둔다 - 이 옵션이 on/off 였던 때의
+        # run_config 와 같은 값이어야 --resume 대조가 통과한다.
+        "time_spans": {None: False, "inline": True}.get(args.time_spans,
+                                                         args.time_spans),
         "unknown_categories": bool(args.unknown_categories),
         "group": args.group,
         "num_shards": args.num_shards,
@@ -1842,7 +1930,12 @@ def _prompt_fingerprint(args, labels, category_menu, n_views) -> str:
         difficulty_only=args.difficulty_only,
         tiers_elements=args.tiers_elements,
         explain_traj=args.explain_traj,
-        time_spans=args.time_spans)
+        time_spans=(args.time_spans == "inline"))
+    # followup 은 1차 프롬프트를 바꾸지 않지만 결과(time_spans 열)를 정하므로
+    # 이어 묻는 질문도 지문에 넣는다.
+    if args.time_spans == "followup":
+        text += "\n<FOLLOWUP>\n" + followup_time_spans_question(
+            bool(args.score_categories and score_groups(labels or [])))
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
@@ -2172,13 +2265,17 @@ if __name__ == "__main__":
                          "'요소마다 무언가 채워야 한다'는 압력이라고 보고, "
                          "그 압력을 목표 지표에 직접 쓰이는 속성으로 바꾼 "
                          "것이다. 상위 카테고리 점수 단계(5단계)를 함께 뺀다.")
-    ap.add_argument("--time-spans", action="store_true",
+    ap.add_argument("--time-spans", nargs="?", const="inline", default=None,
+                    choices=["inline", "followup"],
                     help="[클립 모드] 이름을 댄 장르마다 시간 구간을 나눠 "
-                         "구간별 위험도 0~4(5단계와 같은 기준표)를 1차 답변에 "
-                         "함께 받는다. 구간 경계는 모델이 정하고(최소 1초), "
-                         "정수 초로 정리해 시각화 영상의 재생 바 위에 점수별 "
-                         "색 띠로 그린다. 원본 프롬프트가 바뀌므로 장르/점수 "
-                         "판단이 흔들릴 수 있다 - 기본 off.")
+                         "구간별 위험도 0~4(5단계와 같은 기준표)를 받는다. "
+                         "구간 경계는 모델이 정하고(최소 1초), 정수 초로 정리해 "
+                         "시각화 영상의 재생 바 위에 점수별 색 띠로 그린다. "
+                         "inline(값 생략 시): 1차 답변 JSON 에 칸을 넣는다 - "
+                         "원본 프롬프트가 바뀐다. followup: 1차 답변이 끝난 "
+                         "대화에 질문을 이어 붙인다 - 1차 프롬프트/결과는 그대로, "
+                         "영상 계산을 다시 쓰므로 짧은 질문과 답만 계산한다. "
+                         "기본 off.")
     ap.add_argument("--weather-only", "--difficulty-only",
                     dest="difficulty_only", action="store_true",
                     help="날씨 4축만 추론한다. edge-case 탐지"
@@ -2271,11 +2368,14 @@ if __name__ == "__main__":
             raise SystemExit("[error] --time-spans 는 클립 모드(--clip-mode) "
                              "전용입니다")
         if args.difficulty_only:
-            args.time_spans = False
+            args.time_spans = None
             print("[info] --weather-only: 장르를 묻지 않으므로 --time-spans 끔")
+        elif args.time_spans == "followup":
+            print("[info] --time-spans followup: 1차 답변 뒤 같은 대화에 장르별 "
+                  "구간 위험도를 이어 묻는다 (1차 프롬프트 그대로)")
         else:
-            print("[info] --time-spans: 장르별 위험 구간 [시작, 끝](초)을 함께 "
-                  "받는다 (원본 프롬프트 변경)")
+            print("[info] --time-spans inline: 장르별 구간 위험도를 1차 답변에 "
+                  "함께 받는다 (원본 프롬프트 변경)")
             if not args.clip_video_input:
                 print("[warn] --clip-no-video-input 이면 프레임에 타임스탬프가 "
                       "없어 구간이 부정확할 수 있다")

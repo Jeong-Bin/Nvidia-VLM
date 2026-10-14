@@ -59,6 +59,8 @@ SCORE_UNKNOWN = (180, 180, 180)
 # 구간이 없는 시간(그 요소가 없었음)의 바탕. 0 점 색과 구분되게 더 밝게 둔다.
 TRACK_BG = (248, 248, 248)
 TRACK_EDGE = (215, 215, 215)
+# 모델이 답한 "보인 시간"(seen) 테두리.
+SEEN_EDGE = (90, 90, 90)
 PLAYHEAD = (40, 40, 40)
 
 # 인코더 선택.
@@ -250,6 +252,15 @@ def build_timeline_strip(result: dict, duration: float, width: int,
         d.text((pad, y + (lane_h - fs) // 2), c, font=f_lab, fill=TEXT_DARK)
         d.rectangle([x0, y, x1, y + lane_h], fill=TRACK_BG, outline=TRACK_EDGE)
         cs = spans.get(c) or []
+        # 보인 시간(두 단계 질문의 첫 단계)은 테두리로 그린다 - 점수 구간이
+        # 그 안에 있는지, 보인 시간 자체가 맞는지를 영상과 대조할 수 있게.
+        seen = (result.get("time_seen") or {}).get(c)
+        if seen:
+            import math
+            sa, sb = math.floor(seen[0] + 1e-6), max(math.ceil(seen[1] - 1e-6),
+                                                     math.floor(seen[0] + 1e-6) + 1)
+            d.rectangle([to_x(sa), y - 2, to_x(sb), y + lane_h + 2],
+                        outline=SEEN_EDGE, width=max(1, int(round(1.5 * scale))))
         if not cs:
             d.text((x0 + int(6 * scale), ty(y)), "no time span given",
                    font=f_txt, fill=TEXT_MUTED)
@@ -294,6 +305,12 @@ def build_timeline_strip(result: dict, duration: float, width: int,
         d.text((lx + box + int(4 * scale), ly), str(n), font=f_txt,
                fill=TEXT_MID)
         lx += box + int(22 * scale)
+    if result.get("time_seen"):
+        lx += int(12 * scale)
+        d.rectangle([lx, ly + 1, lx + 2 * box, ly + 1 + box], outline=SEEN_EDGE,
+                    width=max(1, int(round(1.5 * scale))))
+        d.text((lx + 2 * box + int(4 * scale), ly), "in view", font=f_txt,
+               fill=TEXT_MID)
     return np.asarray(img), {"x0": x0, "x1": x1, "y0": top, "y1": y_end,
                              "duration": duration}
 
@@ -643,6 +660,12 @@ def save_clip_json(result: dict, out_path, extra: dict | None = None) -> Path:
     if result.get("time_spans") or result.get("_time_spans_on"):
         payload["time_spans"] = result.get("time_spans") or {}
         payload["time_spans_raw"] = result.get("time_spans_raw") or {}
+        payload["time_seen"] = result.get("time_seen") or {}
+        if result.get("_time_spans_mode"):
+            payload["time_spans_mode"] = result["_time_spans_mode"]
+        # followup 은 이어 묻기에 모델이 답한 원문도 남긴다(파싱 실패 확인용).
+        if result.get("time_spans_answer") is not None:
+            payload["time_spans_answer"] = result["time_spans_answer"]
     # 난이도는 켠 실행에서만 넣는다 - 끈 실행의 json 에 전부 null 인 키가
     # 열 개 붙으면 재집계할 때 "쟀는데 못 읽음"과 구분이 안 된다.
     if any(result.get(k) is not None for k, _ in DIFFICULTY_AXES):
