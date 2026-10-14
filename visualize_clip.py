@@ -51,6 +51,16 @@ TEXT_MUTED = (120, 120, 120)
 ACCENT = (179, 84, 30)      # 제목/카테고리 강조 (visualize.py 와 같은 주황)
 RULE = (221, 221, 221)
 
+# --time-spans 구간 띠 색(RGB). 장르가 아니라 구간 위험도(0~4)로 칠한다.
+# 점수를 못 읽은 구간(None)은 회색 빗금 대신 중간 회색으로 둔다.
+SCORE_COLORS = {0: (230, 230, 230), 1: (158, 255, 15), 2: (255, 245, 0),
+                3: (255, 143, 31), 4: (255, 0, 0)}
+SCORE_UNKNOWN = (180, 180, 180)
+# 구간이 없는 시간(그 요소가 없었음)의 바탕. 0 점 색과 구분되게 더 밝게 둔다.
+TRACK_BG = (248, 248, 248)
+TRACK_EDGE = (215, 215, 215)
+PLAYHEAD = (40, 40, 40)
+
 # 인코더 선택.
 #
 # OpenCV 빌드에는 libx264 가 없어 cv2.VideoWriter 로는 mp4v(MPEG-4 Part 2)밖에
@@ -191,6 +201,101 @@ def category_score_lines(result: dict, gt: dict | None) -> list[str]:
     if why:
         lines.append(why)
     return lines
+
+
+def build_timeline_strip(result: dict, duration: float, width: int,
+                         scale: float = 1.0):
+    """--time-spans 결과를 재생 바 모양의 띠로 그린다. 없으면 None.
+
+    장르마다 한 줄(lane)이고, 줄 안에 모델이 답한 구간을 위험도(0~4) 색으로
+    칠한다(SCORE_COLORS). 구간 위에는 "시작-끝s" 만 적는다 - 점수는 색과
+    범례로 읽는다. 구간은 이미 정수 초로 정리돼 있다
+    (edge_case_mining._snap_spans). 아래에 초 눈금과
+    점수 범례를 둔다. 재생 위치(세로선)는 프레임마다 바뀌므로 여기서 그리지
+    않고, 그릴 자리(geom)를 함께 돌려준다.
+
+    구간을 하나도 못 받은 장르도 빈 줄로 남긴다 - 줄이 아예 없으면
+    "모델이 구간을 안 줬다"와 "그 장르가 없었다"가 구분되지 않는다.
+    반환: (RGB ndarray, {"x0", "x1", "y0", "y1", "duration"}) 또는 None.
+    """
+    spans = result.get("time_spans") or {}
+    cats = _sorted_names(result.get("categories"))
+    if not cats or not (spans or result.get("_time_spans_on")):
+        return None
+    duration = max(float(duration or 0), max(
+        (sp[1] for v in spans.values() for sp in v), default=0.0), 1e-3)
+
+    pad = int(28 * scale)
+    fs = max(8, int(13 * scale))
+    f_lab = _font(FONT_BOLD, fs)
+    fs_txt = max(7, int(11 * scale))
+    f_txt = _font(FONT_REG, fs_txt)
+    lane_h = max(12, int(22 * scale))
+    lane_gap = max(3, int(6 * scale))
+    top = int(12 * scale)
+    axis_h = int(20 * scale)
+    legend_h = int(20 * scale)
+    label_w = int(width * 0.24)
+    x0, x1 = pad + label_w, width - pad
+    h = (top + len(cats) * (lane_h + lane_gap) - lane_gap + axis_h + legend_h
+         + int(8 * scale))
+
+    img = Image.new("RGB", (width, h), BG)
+    d = ImageDraw.Draw(img)
+    to_x = lambda t: x0 + (min(max(t, 0.0), duration) / duration) * (x1 - x0)
+    ty = lambda y: y + (lane_h - fs_txt) // 2 - 1
+
+    y = top
+    for c in cats:
+        d.text((pad, y + (lane_h - fs) // 2), c, font=f_lab, fill=TEXT_DARK)
+        d.rectangle([x0, y, x1, y + lane_h], fill=TRACK_BG, outline=TRACK_EDGE)
+        cs = spans.get(c) or []
+        if not cs:
+            d.text((x0 + int(6 * scale), ty(y)), "no time span given",
+                   font=f_txt, fill=TEXT_MUTED)
+        for sp in cs:
+            s0, s1 = sp[0], sp[1]
+            sc = sp[2] if len(sp) > 2 else None
+            a, b = to_x(s0), to_x(s1)
+            b = max(b, a + 2)
+            d.rectangle([a, y, b, y + lane_h],
+                        fill=SCORE_COLORS.get(sc, SCORE_UNKNOWN))
+            # 점수는 색과 아래 범례로 읽으므로 글자는 시간만 적는다.
+            # 다 안 들어가는 좁은 구간은 비운다.
+            fg = (255, 255, 255) if sc == 4 else TEXT_DARK
+            tag = f"{s0:.0f}-{s1:.0f}s"
+            if d.textlength(tag, font=f_txt) + 6 <= b - a:
+                d.text((a + 3, ty(y)), tag, font=f_txt, fill=fg)
+            # 붙어 있는 구간끼리 경계가 보이게 얇은 선을 긋는다.
+            d.line([(a, y), (a, y + lane_h)], fill=BG, width=1)
+        y += lane_h + lane_gap
+    y_end = y - lane_gap
+
+    # 초 눈금. 20 초 클립이면 5 초마다.
+    step = 5 if duration > 10 else 2
+    t = 0
+    while t <= duration + 1e-6:
+        x = to_x(t)
+        d.line([(x, y_end), (x, y_end + int(5 * scale))], fill=TEXT_MUTED)
+        lab = f"{t:g}s"
+        d.text((x - d.textlength(lab, font=f_txt) / 2, y_end + int(6 * scale)),
+               lab, font=f_txt, fill=TEXT_MUTED)
+        t += step
+
+    # 점수 범례
+    ly = y_end + axis_h
+    lx = pad
+    d.text((lx, ly), "Risk score", font=f_txt, fill=TEXT_MUTED)
+    lx += d.textlength("Risk score", font=f_txt) + int(10 * scale)
+    box = max(8, int(12 * scale))
+    for n in range(5):
+        d.rectangle([lx, ly + 1, lx + box, ly + 1 + box],
+                    fill=SCORE_COLORS[n], outline=TRACK_EDGE)
+        d.text((lx + box + int(4 * scale), ly), str(n), font=f_txt,
+               fill=TEXT_MID)
+        lx += box + int(22 * scale)
+    return np.asarray(img), {"x0": x0, "x1": x1, "y0": top, "y1": y_end,
+                             "duration": duration}
 
 
 def build_text_panel(result: dict, width: int, scale: float = 1.0) -> np.ndarray:
@@ -406,7 +511,13 @@ def render_clip_video(src_mp4, result: dict, out_path,
 
     panel = build_text_panel(result, out_w, scale=out_w / 1280.0)
     panel_bgr = cv2.cvtColor(panel, cv2.COLOR_RGB2BGR)
-    total_h = out_h + panel.shape[0]
+    # --time-spans 구간 띠는 영상 바로 아래, 텍스트 패널 위에 둔다.
+    strip = build_timeline_strip(result, n_total / fps if n_total else 0.0,
+                                 out_w, scale=out_w / 1280.0)
+    strip_bgr, geom = ((cv2.cvtColor(strip[0], cv2.COLOR_RGB2BGR), strip[1])
+                       if strip else (None, None))
+    sh = strip_bgr.shape[0] if strip_bgr is not None else 0
+    total_h = out_h + sh + panel.shape[0]
     total_h -= total_h % 2
 
     out_path = Path(out_path)
@@ -414,8 +525,8 @@ def render_clip_video(src_mp4, result: dict, out_path,
 
     canvas = np.full((total_h, out_w, 3), 255, dtype=np.uint8)
     # 패널은 클립 내내 같으므로 한 번만 붙이고, 매 프레임 영상 영역만 갈아끼운다
-    ph = min(panel_bgr.shape[0], total_h - out_h)
-    canvas[out_h:out_h + ph] = panel_bgr[:ph]
+    ph = min(panel_bgr.shape[0], total_h - out_h - sh)
+    canvas[out_h + sh:out_h + sh + ph] = panel_bgr[:ph]
 
     def frames_iter():
         """원본에서 프레임을 읽어 패널 위에 얹은 canvas(BGR)를 흘려준다."""
@@ -440,6 +551,21 @@ def render_clip_video(src_mp4, result: dict, out_path,
                 # draw_trajectory 가 캘리브 해상도와의 배율을 알아서 맞춘다.
                 draw(frame, traj_uuid, n, cam=traj_view, mode=traj)
             canvas[:out_h] = frame
+            if strip_bgr is not None:
+                # 띠를 다시 깔고 재생 위치에 세로선을 긋는다.
+                canvas[out_h:out_h + sh] = strip_bgr
+                t = n / fps
+                x = int(round(geom["x0"] + min(t / geom["duration"], 1.0)
+                              * (geom["x1"] - geom["x0"])))
+                sc = out_w / 1280.0
+                color = PLAYHEAD[::-1]          # RGB -> BGR
+                cv2.line(canvas, (x, out_h + geom["y0"] - int(4 * sc)),
+                         (x, out_h + geom["y1"] + int(2 * sc)), color,
+                         max(1, int(round(2 * sc))))
+                tri = np.array([[x - int(5 * sc), out_h + geom["y0"] - int(9 * sc)],
+                                [x + int(5 * sc), out_h + geom["y0"] - int(9 * sc)],
+                                [x, out_h + geom["y0"] - int(3 * sc)]], np.int32)
+                cv2.fillPoly(canvas, [tri], color)
             yield canvas
             n += 1
 
@@ -512,6 +638,11 @@ def save_clip_json(result: dict, out_path, extra: dict | None = None) -> Path:
         "tier_score": result.get("tier_score"),
         "parse_ok": bool(result.get("parse_ok", False)),
     }
+    # --time-spans 를 켠 실행에서만 넣는다. time_spans 는 정수 초로 정리한
+    # [시작, 끝, 점수], time_spans_raw 는 모델이 답한 값 그대로.
+    if result.get("time_spans") or result.get("_time_spans_on"):
+        payload["time_spans"] = result.get("time_spans") or {}
+        payload["time_spans_raw"] = result.get("time_spans_raw") or {}
     # 난이도는 켠 실행에서만 넣는다 - 끈 실행의 json 에 전부 null 인 키가
     # 열 개 붙으면 재집계할 때 "쟀는데 못 읽음"과 구분이 안 된다.
     if any(result.get(k) is not None for k, _ in DIFFICULTY_AXES):

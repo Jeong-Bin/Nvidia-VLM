@@ -143,6 +143,10 @@ NUR_MAX_NEW_TOKENS = 800
 # 토큰이 더 필요하므로 그만큼 올린다. 난이도를 끈 실행의 예산은 건드리지
 # 않는다 - 예산이 바뀌면 기존 A/B 결과와 비교할 수 없게 된다.
 NUR_MAX_NEW_TOKENS_DIFFICULTY = 1100
+# --time-spans 가 붙이는 칸. 장르 2~3개에 구간 몇 개씩([시작, 끝, 점수])이면
+# 100 토큰 안팎이지만, 모자라 JSON 이 잘리면 그 클립은 통째로 파싱 실패
+# (Normal)가 되므로 넉넉히 둔다.
+NUR_TIME_SPANS_EXTRA_TOKENS = 250
 
 
 # 클립 모드 CSV 의 열. 헤더와 빈 행이 같은 정의를 봐야 어긋나지 않는다.
@@ -165,6 +169,11 @@ CLIP_CSV_COLUMNS = [
     # 항상 쓴다 - 열 구성이 실행마다 달라지면 샤드 병합과 실행 간 비교가
     # 깨진다.
     *[c for k, _ in DIFFICULTY_AXES for c in (k, f"{k}_reason")],
+    # --time-spans: 장르별 위험 구간 {"장르": [[시작, 끝, 점수], ...]} 의 JSON
+    # (정수 초로 정리한 값 - edge_case_mining._snap_spans).
+    # 끈 실행은 빈 칸. 맨 뒤에 붙인다 - 이 열이 생기기 전 실행의 CSV 는 헤더가
+    # 달라 --resume 으로 이어 쓸 수 없다(qwen_runner 가 헤더를 대조해 멈춘다).
+    "time_spans",
 ]
 
 
@@ -497,7 +506,7 @@ def run_clip_inference(uuids, labels, category_menu,
                        resume=False,
                        difficulty=False, difficulty_only=False,
                        tiers_elements=False, explain_traj=False, traj=None,
-                       viz_per_category=None):
+                       viz_per_category=None, time_spans=False):
     """클립 전체(20초)를 1fps 로 넣어 클립 단위로 판정한다.
 
     run_inference 와 판정 단위가 다르다 - 저쪽은 (uuid, frame_idx) 이고
@@ -674,11 +683,14 @@ def run_clip_inference(uuids, labels, category_menu,
                 difficulty=difficulty,
                 difficulty_only=difficulty_only,
                 tiers_elements=tiers_elements,
-                explain_traj=explain_traj)
+                explain_traj=explain_traj,
+                time_spans=time_spans)
             gen_out = _generate(model, processor, images, prompt,
                                 max_new_tokens=(NUR_MAX_NEW_TOKENS_DIFFICULTY
                                                 if difficulty
-                                                else NUR_MAX_NEW_TOKENS),
+                                                else NUR_MAX_NEW_TOKENS)
+                                + (NUR_TIME_SPANS_EXTRA_TOKENS
+                                   if time_spans else 0),
                                 as_video=video_input, video_fps=fps,
                                 logits_processor=tier_proc,
                                 want_margin=want_margin,
@@ -713,6 +725,8 @@ def run_clip_inference(uuids, labels, category_menu,
                 *[v for k, _ in DIFFICULTY_AXES
                   for v in (result.get(k) if result.get(k) is not None else "",
                             result.get(f"{k}_reason", ""))],
+                (json.dumps(result["time_spans"], ensure_ascii=False)
+                 if result.get("time_spans") else ""),
             ])
             f.flush()
             pbar.set_postfix_str(
@@ -760,6 +774,8 @@ def run_clip_inference(uuids, labels, category_menu,
                     out_dirs = [viz_path / bucket / score_dir / uuid
                                 if (viz_normal is not None or viz_special is not None)
                                 else viz_path / score_dir / uuid]
+                # 시각화가 "구간을 물었는데 못 받은 장르"를 빈 줄로 그리게 한다.
+                result["_time_spans_on"] = bool(time_spans)
                 for out_dir in out_dirs:
                     render_clip_result(
                         uuid, clip_path(views[0], uuid), result,

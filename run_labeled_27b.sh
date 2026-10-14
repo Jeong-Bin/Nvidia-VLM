@@ -47,6 +47,9 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --traj center|width      자차 미래 궤적을 프레임에 그린다 (기본 off)   [TRAJ]
   --unknown-categories    Unknown 카테고리(예상 못한 동적 객체/주행 환경)를
                           메뉴에 넣는다 (기본 off, ablation 용)   [UNKNOWN_CATS=1]
+  --time-spans            장르마다 자차에 위험했던 구간 [시작, 끝](초)을 함께
+                          받아 시각화 영상 재생 바 위에 띠로 그린다
+                          (원본 프롬프트 변경, 기본 off)   [TIME_SPANS=1]
   --group G               다룰 상위 카테고리: all(기본) / dynamic_object /
                           driving_environment               [TARGET_GROUP]
   --weather                날씨 4축을 0~4 로 함께 매긴다               [WEATHER=1]
@@ -91,6 +94,7 @@ while [ $# -gt 0 ]; do
     --no-tiers-elements)     TIERS_ELEMENTS=1 ;;
     --explain-traj)          EXPLAIN_TRAJ=1 ;;
     --unknown-categories)   UNKNOWN_CATS=1 ;;
+    --time-spans)           TIME_SPANS=1 ;;
     --group=*)           TARGET_GROUP="${1#*=}" ;;
     --group)             shift; TARGET_GROUP="${1:-all}" ;;
     --viz-per-category=*)  VIZ_PER_CAT="${1#*=}" ;;
@@ -170,6 +174,7 @@ OPTS="--clip-mode --single-view --num-shards 1 --shard-id 0 --model $MODEL"
 [ "${TIERS_ELEMENTS:-0}" = "1" ] && OPTS="$OPTS --no-tiers-elements"
 [ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
 [ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-categories"
+[ "${TIME_SPANS:-0}" = "1" ] && OPTS="$OPTS --time-spans"
 [ -n "${TARGET_GROUP:-}" ] && [ "$TARGET_GROUP" != "all" ] && OPTS="$OPTS --group $TARGET_GROUP"
 [ -n "${VIZ_PER_CAT:-}" ]        && OPTS="$OPTS --viz-per-category $VIZ_PER_CAT"
 [ -n "${TRAJ:-}" ]              && OPTS="$OPTS --traj $TRAJ"

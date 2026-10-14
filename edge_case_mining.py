@@ -690,7 +690,8 @@ def build_nureasoning_prompt(category_menu: str, sensor_facts: str = "",
                              difficulty: bool = False,
                              difficulty_only: bool = False,
                              tiers_elements: bool = False,
-                             explain_traj: bool = False) -> str:
+                             explain_traj: bool = False,
+                             time_spans: bool = False) -> str:
     """nuReasoning 6단계 CoT + 1~10 점수를 요구하는 프롬프트.
 
     --traj 로 궤적을 그려도 프롬프트에는 그 사실을 알리지 않는다. 알려주는
@@ -906,6 +907,55 @@ the CURRENT moment. Each group of three is synchronized camera views
 {rubric_body}{behavior_hint}
 """
         step_no += 1
+    # --time-spans: 이름을 댄 종류마다 "언제" 자차에 위험했는지 [시작, 끝] 초를
+    # 받는다. 시각화 영상의 재생 바 위에 구간 띠로 그리기 위한 것이다.
+    #
+    # 원본 프롬프트에 단계와 JSON 칸이 늘어나므로 장르/점수 판단도 흔들릴 수
+    # 있다(문구 몇 줄로 F1 이 ±5~10%p 움직여 왔다). 그래서 기본은 끄고,
+    # 켰을 때만 이 단계가 붙는다 - 끈 실행의 프롬프트는 글자 하나 다르지 않다.
+    #
+    # 자리는 점수 바로 뒤다. JSON 순서가 곧 생성 순서라 앞(장르, 점수)에 두면
+    # 그 판단이 시간 칸에 끌려갈 수 있고, 점수 근거를 쓴 직후라 "무엇이
+    # 점수를 정했나"와 같은 요소를 가리키기 쉽다. 날씨는 이 판단과 무관하므로
+    # 뒤로 밀린다.
+    #
+    # 시각은 영상에 박힌 타임스탬프(Qwen3-VL 이 프레임 묶음마다 붙이는
+    # "<3.5 seconds>")를 그대로 읽게 한다. 원본 mp4 의 0 초가 첫 프레임이라
+    # (sample_clip_indices 가 0 프레임부터 15 프레임 간격으로 뽑는다) 답한
+    # 초를 시각화 영상의 시간에 바로 쓸 수 있다.
+    #
+    # 구간마다 0~4 점수를 붙인다(A 방식: 구간 경계는 모델이 정한다).
+    # 점수는 5단계와 같은 기준표로 매기게 한다 - 따로 척도를 주면 같은 클립의
+    # 점수와 구간 점수가 서로 다른 잣대가 된다. 구간 점수가 5단계 점수를
+    # 넘지 않게 해 두 값이 어긋나지 않게 한다.
+    #
+    # 최소 길이 1초: 모델이 구분하는 시점이 1초에 하나다(Qwen3-VL 이 2fps
+    # 프레임을 2장씩 묶는다). 그보다 짧은 구간은 볼 수 없는 차이를 지어낸
+    # 것이다. 구간 길이는 정하지 않는다 - 고정하면 초마다 점수를 매기는 꼴이
+    # 되어 긴 숫자 배열의 위치를 세다 밀리는 문제가 생긴다.
+    #
+    # 점수 단계(5단계)를 끈 실행에는 기준표가 없으므로 구간만 받는다.
+    if time_spans and not difficulty_only:
+        if groups:
+            steps45 += f"""{step_no}. Hazard Timing: for each type you named in step 4, split the time its
+   element was in the clip into stretches, and score each stretch from 0 to 4
+   on the scale of step 5 - how much that element made driving harder for the
+   ego-vehicle during that stretch. Start a new stretch wherever the score
+   changes; each stretch lasts at least 1 second, and its length is otherwise
+   up to you. No stretch scores higher than the score its group got in step 5.
+   Read the times from the timestamps of the video, in seconds from its start.
+   If you named no type, give an empty object.
+"""
+        else:
+            steps45 += f"""{step_no}. Hazard Timing: for each type you named in step 4, give when its element
+   was a hazard to the ego-vehicle - the stretch of the clip in which it was
+   in or coming into the vehicle's way, or otherwise made driving harder. Read
+   the times from the timestamps of the video, in seconds from its start, and
+   give one or more [start, end] spans per type. If the element never made
+   driving harder, give the stretch in which it stood out most. If you named
+   no type, give an empty object.
+"""
+        step_no += 1
     # 날씨(--weather)는 점수 다음 단계로 붙는다. 점수와 성격이 다르다:
     # 등급은 "이 클립이 얼마나 위험/희귀한가"(edge-case 여부에 달림)이고,
     # 난이도는 "이 장면의 주행 조건이 얼마나 나쁜가"(평범한 클립도 비 오면
@@ -938,6 +988,11 @@ the CURRENT moment. Each group of three is synchronized camera views
             f' "{k}_reason": "<which {g} type decided the score, and what '
             f'it did or what the situation was>",\n'
             f' "{k}": <integer 0-4>,\n')
+    if time_spans and not difficulty_only:
+        tier_fields += (' "time_spans": {"<exact scenario type name>": '
+                        + ('[[<start seconds>, <end seconds>, <score 0-4>], '
+                           '...], ...},\n' if groups else
+                           '[[<start seconds>, <end seconds>], ...], ...},\n'))
     if difficulty:
         # 프롬프트 본문과 같은 순서. JSON 필드 순서가 곧 생성 순서다.
         for key, name in DIFFICULTY_AXES:
@@ -1325,7 +1380,7 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
            "evidence": "", "parse_ok": False,
            "observation": "", "ego_behavior": "", "unusual_elements": "",
            "group_scores": {}, "score_reason": "",
-           "tier_score": None}
+           "tier_score": None, "time_spans": {}, "time_spans_raw": {}}
     # 날씨 축은 --weather 를 껐으면 모델이 내지 않는다. 그래도 키는
     # 항상 만들어 둔다 - 없으면 CSV 열 개수가 실행마다 달라져 병합이 깨진다.
     for key, _ in DIFFICULTY_AXES:
@@ -1398,6 +1453,11 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
     out["score_reason"] = " | ".join(reasons)
     out["tier_score"] = tier_score(out["group_scores"])
 
+    # --time-spans 를 켠 실행에서만 나오는 칸. 이름을 댄 장르의 것만 남긴다 -
+    # 장르 목록에 없는 이름의 구간은 시각화에서 무엇의 띠인지 설명할 수 없다.
+    out["time_spans"], out["time_spans_raw"] = _parse_time_spans(
+        obj.get("time_spans"), valid, set(out["categories"]))
+
     # 판정은 오직 "edge-case 요소를 하나라도 나열했는가". 별도 질문을 두지
     # 않는 이유는 20260728 실험 - verdict 를 따로 물어 categories 와 묶으면
     # 모델이 Special 선언에 보수적이라 나열 자체를 포기했다.
@@ -1407,6 +1467,130 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
     out["evidence"] = " ".join(
         p for p in (out["observation"], out["unusual_elements"]) if p).strip()
     return out
+
+
+def _seconds(v) -> float | None:
+    """구간 끝점 하나를 초(float)로. "7.5", "7.5 s", "0:07.5" 도 받는다."""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    if isinstance(v, str):
+        m = re.match(r"\s*(?:(\d+):)?(\d+(?:\.\d+)?)", v)
+        if m:
+            return int(m.group(1) or 0) * 60 + float(m.group(2))
+    return None
+
+
+def _score_of(v) -> int | None:
+    """구간 점수 0~4. 못 읽거나 범위 밖이면 None."""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, str):
+        m = re.match(r"\s*(\d+)", v)
+        v = int(m.group(1)) if m else None
+    if isinstance(v, (int, float)) and 0 <= int(round(v)) <= 4:
+        return int(round(v))
+    return None
+
+
+def _spans_of(v) -> list[list]:
+    """구간 표기 -> [[시작, 끝, 점수|None], ...] (모델이 답한 값 그대로).
+
+    받는 꼴: [s, e, score] / [s, e] / [[s, e, score], ...] / "3-5 s" /
+    {"start": s, "end": e, "score": n}. 모델이 스키마를 그대로 따르지 않는
+    경우가 많아 흔한 꼴은 모두 받는다. 끝이 시작보다 앞이면 뒤집고, 음수는
+    버린다. 1초 단위 정리는 _snap_spans 가 한다.
+    """
+    out = []
+    if isinstance(v, dict):
+        v = [v.get("start"), v.get("end"),
+             v.get("score", v.get("level", v.get("risk")))]
+    if isinstance(v, str):
+        nums = re.findall(r"\d+(?::\d+)?(?:\.\d+)?", v)
+        v = nums[:2] if len(nums) >= 2 else ([nums[0], nums[0]] if nums else [])
+    if not isinstance(v, (list, tuple)) or not v:
+        return out
+    if any(isinstance(x, (list, tuple, dict, str)) and not _is_num_str(x)
+           for x in v):
+        for x in v:
+            out += _spans_of(x)
+        return out
+    # 평평한 숫자 목록: [s, e] / [s, e, n] / [s, e, n, s, e, n, ...] / [s, e, s, e]
+    n = 3 if (len(v) == 3 or (len(v) % 3 == 0 and len(v) % 2 != 0)
+              or (len(v) % 6 == 0)) else 2
+    for k in range(0, len(v) - n + 1, n):
+        s0, s1 = _seconds(v[k]), _seconds(v[k + 1])
+        sc = _score_of(v[k + 2]) if n == 3 else None
+        if s0 is None or s1 is None or s0 < 0 or s1 < 0:
+            continue
+        out.append([min(s0, s1), max(s0, s1), sc])
+    return out
+
+
+def _is_num_str(x) -> bool:
+    return isinstance(x, str) and re.fullmatch(r"\s*\d+(?::\d+)?(?:\.\d+)?\s*s?\s*", x) is not None
+
+
+def _snap_spans(spans: list[list]) -> list[list]:
+    """모델이 답한 구간을 1초 단위로 정리한다.
+
+    모델이 구분하는 시점은 1초에 하나다 - 영상의 "<7.2 seconds>" 묶음은
+    7.0 초와 7.5 초 프레임이라 [7, 8) 을 덮는다. 그래서 시작은 내리고 끝은
+    올려 정수 초에 맞추고, 시작과 끝이 같은 묶음이면 1초로 늘린다.
+    그다음 초마다 가장 높은 점수를 남겨(겹치면 높은 쪽) 같은 점수끼리 이어
+    붙인다. 점수를 못 읽은 구간(None)은 0 보다 낮게 친다.
+    """
+    import math
+    per_sec = {}
+    for s0, s1, sc in spans:
+        a = int(math.floor(s0 + 1e-6))
+        b = max(int(math.ceil(s1 - 1e-6)), a + 1)
+        for t in range(a, b):
+            cur = per_sec.get(t, "missing")
+            if cur == "missing" or (sc if sc is not None else -1) > \
+                    (cur if cur is not None else -1):
+                per_sec[t] = sc
+    out = []
+    for t in sorted(per_sec):
+        sc = per_sec[t]
+        if out and out[-1][1] == t and out[-1][2] == sc:
+            out[-1][1] = t + 1
+        else:
+            out.append([t, t + 1, sc])
+    return out
+
+
+def _parse_time_spans(raw, valid: set, named: set) -> tuple[dict, dict]:
+    """(정리된 구간, 모델이 답한 구간). 둘 다 {"장르": [[s, e, 점수], ...]}.
+
+    이름을 댄 장르(named)의 것만 남기고, 이름은 정식 표기로 바꾼다.
+    정리된 쪽은 정수 초(_snap_spans)이고 시각화와 CSV 가 쓴다. 답한 쪽은
+    result.json 에만 남겨 정리 전후를 비교할 수 있게 한다.
+    """
+    items = []
+    if isinstance(raw, dict):
+        items = list(raw.items())
+    elif isinstance(raw, (list, tuple)):
+        # [{"type": "...", "spans": [...]}, ...] 꼴
+        for el in raw:
+            if isinstance(el, dict):
+                name = (el.get("type") or el.get("scenario_type")
+                        or el.get("category") or el.get("name"))
+                spans = (el.get("spans") or el.get("span") or el.get("time")
+                         or el.get("stretches") or el)
+                if name:
+                    items.append((name, spans))
+    given = {}
+    for name, spans in items:
+        cat = _closest_valid(str(name).strip(), valid)
+        if not cat or cat not in named:
+            continue
+        sp = _spans_of(spans)
+        if sp:
+            given.setdefault(cat, []).extend(sp)
+    snapped = {c: _snap_spans(sp) for c, sp in given.items()}
+    return snapped, given
 
 
 # ---------------------------------------------------------------------------
@@ -1573,6 +1757,7 @@ def _config_key(args, n_views=1, prompt_sha=None) -> dict:
         "difficulty_only": bool(args.difficulty_only),
         "tiers_elements": bool(args.tiers_elements),
         "explain_traj": bool(args.explain_traj),
+        "time_spans": bool(args.time_spans),
         "unknown_categories": bool(args.unknown_categories),
         "group": args.group,
         "num_shards": args.num_shards,
@@ -1656,7 +1841,8 @@ def _prompt_fingerprint(args, labels, category_menu, n_views) -> str:
         difficulty=args.difficulty,
         difficulty_only=args.difficulty_only,
         tiers_elements=args.tiers_elements,
-        explain_traj=args.explain_traj)
+        explain_traj=args.explain_traj,
+        time_spans=args.time_spans)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
@@ -1986,6 +2172,13 @@ if __name__ == "__main__":
                          "'요소마다 무언가 채워야 한다'는 압력이라고 보고, "
                          "그 압력을 목표 지표에 직접 쓰이는 속성으로 바꾼 "
                          "것이다. 상위 카테고리 점수 단계(5단계)를 함께 뺀다.")
+    ap.add_argument("--time-spans", action="store_true",
+                    help="[클립 모드] 이름을 댄 장르마다 시간 구간을 나눠 "
+                         "구간별 위험도 0~4(5단계와 같은 기준표)를 1차 답변에 "
+                         "함께 받는다. 구간 경계는 모델이 정하고(최소 1초), "
+                         "정수 초로 정리해 시각화 영상의 재생 바 위에 점수별 "
+                         "색 띠로 그린다. 원본 프롬프트가 바뀌므로 장르/점수 "
+                         "판단이 흔들릴 수 있다 - 기본 off.")
     ap.add_argument("--weather-only", "--difficulty-only",
                     dest="difficulty_only", action="store_true",
                     help="날씨 4축만 추론한다. edge-case 탐지"
@@ -2069,6 +2262,23 @@ if __name__ == "__main__":
         args.score_categories = False
         print("[info] --weather-only: 날씨 4축만 추론한다 "
               "(verdict/categories/scores off)")
+
+    # --time-spans 는 클립 모드에서만 뜻이 있다(프레임 모드는 2장이라 구간이
+    # 없다). 영상 입력을 끄면 타임스탬프가 박히지 않아 모델이 장 번호로 시각을
+    # 어림해야 하므로 경고만 한다. --weather-only 는 장르를 묻지 않아 끈다.
+    if args.time_spans:
+        if not args.clip_mode:
+            raise SystemExit("[error] --time-spans 는 클립 모드(--clip-mode) "
+                             "전용입니다")
+        if args.difficulty_only:
+            args.time_spans = False
+            print("[info] --weather-only: 장르를 묻지 않으므로 --time-spans 끔")
+        else:
+            print("[info] --time-spans: 장르별 위험 구간 [시작, 끝](초)을 함께 "
+                  "받는다 (원본 프롬프트 변경)")
+            if not args.clip_video_input:
+                print("[warn] --clip-no-video-input 이면 프레임에 타임스탬프가 "
+                      "없어 구간이 부정확할 수 있다")
 
     # --resume 은 이어받을 폴더를 --out 으로 받는다. 없으면 아래에서 새 실행
     # 폴더가 만들어져, 이어받는 대신 처음부터 도는 실행이 조용히 생긴다.
@@ -2269,6 +2479,7 @@ if __name__ == "__main__":
                            difficulty_only=args.difficulty_only,
                            tiers_elements=args.tiers_elements,
                            explain_traj=args.explain_traj,
+                           time_spans=args.time_spans,
                            use_obstacle=args.use_obstacle,
                            single_view=args.single_view,
                            fps=args.clip_fps,
