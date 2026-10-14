@@ -380,7 +380,10 @@ def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
     # CLI 채점(evaluate_labels.py)과 같은 숫자가 나와야 한다.
     _cfg = run_config_of(run_dir)
     _scene = Path((_cfg.get("key") or {}).get("scene_json") or config.SCENE_JSON)
-    EV.restrict_to_group(truth, _cfg, _scene if _scene.is_absolute() else ROOT / _scene)
+    _scene = _scene if _scene.is_absolute() else ROOT / _scene
+    EV.restrict_to_group(truth, _cfg, _scene)
+    # Unknown 2종은 1)~3) 집계에서 뺀다 - CLI 와 같은 규칙(EV.drop_unknown).
+    unknown = EV.drop_unknown(truth, pred, _scene)
 
     common = sorted(set(truth) & set(pred))
     if not common:
@@ -413,9 +416,10 @@ def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
             sp = ROOT / sp
         if sp.exists():
             tax_names = [c["name"] for c in taxonomy_categories(sp)]
-    names = sorted(set(tax_names)
-                   | {c for u in common for c in truth[u]["categories"]}
-                   | {c for u in common for c in pred[u]["categories"]})
+    names = sorted((set(tax_names)
+                    | {c for u in common for c in truth[u]["categories"]}
+                    | {c for u in common for c in pred[u]["categories"]})
+                   - set(unknown))
 
     per_cat = []
     micro_tp = micro_fp = micro_fn = 0
@@ -436,6 +440,18 @@ def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
         })
     micro_f1 = EV.prf(micro_tp, micro_fp, micro_fn)[2]
     solid = [c for c in per_cat if c["reliable"]]
+    # Unknown 은 표에 n 만 싣는다(excluded). 클립 목록은 지우기 전 기준이라
+    # 눌러서 어떤 클립에 붙었는지는 볼 수 있다.
+    cset = set(common)
+    for name, v in unknown.items():
+        g, pr = v["gt"] & cset, v["pred"] & cset
+        tp, fp, fn = sorted(g & pr), sorted(pr - g), sorted(g - pr)
+        per_cat.append({
+            "name": name, "support": len(g), "excluded": True,
+            "n_pred": len(pr), "reliable": False,
+            "tp": tp, "fp": fp, "fn": fn,
+            "n_tp": len(tp), "n_fp": len(fp), "n_fn": len(fn),
+        })
     macro_f1 = sum(c["f1"] for c in solid) / len(solid) if solid else 0.0
     per_clip = sum(EV.f1_set(truth[u]["categories"], pred[u]["categories"])
                    for u in common) / n

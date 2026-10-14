@@ -741,6 +741,14 @@ ground truth, trust these over your own guess from the images):
         # 그래서 v2 는 없는 사실을 소개하는 대신 그 절차만 직접 말한다.
         # v1 을 남겨두는 이유: 위 수치는 실행 간 변동폭(±5%p) 과 같은
         # 크기라 v2 가 더 낫다는 보장이 없다. 되돌릴 수 있어야 한다.
+        # 3단계에서 영향 여부를 빼서 그 판단은 5단계 점수에서만 한다.
+        # --no-tiers-elements 는 3단계에 ego=affected|unaffected 칸이 남아 있다.
+        if tiers_elements:
+            behavior_use = "for judging ego influence in step 3"
+        elif score_categories and score_groups(labels or []):
+            behavior_use = "for the scores in step 5"
+        else:
+            behavior_use = "for nothing else"
         if header_style == "v2":
             fact_block += f"""
 EGO-VEHICLE BEHAVIOUR - judge this separately from the scene. In step 2 state
@@ -753,7 +761,7 @@ ego, and the ego can slow or stop for reasons that are not in this list at all.
         else:
             fact_block += f"""
 HOW THE EGO-VEHICLE'S BEHAVIOUR CHANGED (measured from vehicle sensors, not a
-guess - use this for step 2 and for judging ego influence in step 3):
+guess - use this for step 2 and {behavior_use}):
 {behavior_facts}
 """
     if obstacle_facts:
@@ -944,6 +952,22 @@ the CURRENT moment. Each group of three is synchronized camera views
     # 1단계에 "crosses a railroad crossing" 이라 써놓고 3단계에서 Railroad 를
     # 빠뜨렸다. 다만 구간마다 뭔가 찾아야 한다는 압력이 없는 사건을 만들어낼
     # 위험도 있어(Jaywalking 과탐이 이미 최대 오류원) 옛 방식을 남겨 A/B 한다.
+    # 3단계 요소마다 붙이던 칸을 뺀다 - 영향 여부(influenced_ego)도, 장르 후보도.
+    #
+    # 영향 여부는 5단계 점수와 정보가 겹치고, 점수도 그 값을 따르지 않았다
+    # (실측 20261013_101558, 2차 확인 전: yes 99건 중 0~1점 19건 - 빨간불에
+    # 서서 기다림처럼 기준표상 1점, no 38건 중 2점 4건 - 근거 문장이 바로잡음).
+    #
+    # 그 칸에 장르 후보(Pre-Categories, "어느 장르로 보이는가, 없으면 none")를
+    # 적게 해 봤더니 4단계가 거르지 못하고 후보를 그대로 옮겨 적었다
+    # (실측 20261013_110400, 2차 확인 전 TP/FP/FN 85/36/30 -> 109/95/6,
+    # F1 72.0 -> 68.3). 인도 위 보행자에도 "Pedestrian on Road" 를 붙이는 등
+    # 요소마다 이름을 대게 하는 압력이 그대로 탐지 압력이 됐다.
+    #
+    # 그래서 칸 없이 요소만 나열한다. 칸이 영향 없는 요소를 목록에 살려
+    # 두던 효과(위 --no-tiers-elements 주석)가 사라질 수 있다 - 이 판에서도
+    # 성능이 떨어지면 영향 여부를 되살린다(커밋 3722a95 의 문구).
+    # --no-tiers-elements 는 자기 형식(position/ego)이 있으므로 옛 문구를 쓴다.
     if timeline:
         step1 = """1. Scene Description: walk through the clip in time order. A 20-second clip
    often passes through more than one distinct situation, so describe them
@@ -959,6 +983,12 @@ the CURRENT moment. Each group of three is synchronized camera views
    throughout, so a type you named in step 1 must not disappear here. List
    every unusual element, and for each one state whether it changed the
    ego-vehicle's behaviour."""
+        if not tiers_elements:
+            step3_head = """3. Unusual Elements: go back over every situation you listed in step 1
+   and check each one against the scenario types. An element that appears in
+   only part of the clip counts exactly as much as one that lasts throughout,
+   so a type you named in step 1 must not disappear here. List every unusual
+   element."""
         observation_field = ("<the clip in time order, each situation with "
                              "its rough timestamp>")
     else:
@@ -966,6 +996,8 @@ the CURRENT moment. Each group of three is synchronized camera views
    Do not describe lighting or weather."""
         step3_head = """3. Unusual Elements and Ego Influence: list every unusual element, and for each
    one state whether it changed the ego-vehicle's behaviour."""
+        if not tiers_elements:
+            step3_head = """3. Unusual Elements: list every unusual element."""
         observation_field = "<scene description, one or two sentences>"
 
     # 노면도 요소로 센다. "unusual element" 를 모델이 물체로만 읽어, 1단계에
@@ -1005,7 +1037,7 @@ the CURRENT moment. Each group of three is synchronized camera views
     # 프롬프트도 짧아진다.
     # JSON 필드 설명도 같은 형식을 반복해 준다 - 단계 지시만 바꾸고 스키마를
     # 자유 서술로 두면 모델이 스키마 쪽을 따라 형식이 흐트러진다.
-    elements_field = ("<each unusual element and whether it influenced the ego>"
+    elements_field = ("<each unusual element>"
                       if not tiers_elements else
                       "<elem; position=in-path|adjacent|off-road; "
                       "ego=affected|unaffected | next elem; ...>")
@@ -1093,7 +1125,16 @@ Respond with ONLY a JSON object, no other text:
     #
     # "scored in step 5" 는 점수 단계가 있을 때만 붙인다 - 없는데 붙이면 없는
     # 단계를 가리키거나, 날씨 단계를 점수 단계로 읽게 된다.
-    scored_ref = " and scored in step 5" if groups else ""
+    # 3단계에서 영향 여부를 빼면서 "recorded separately in step 3" 도 고쳤다.
+    if tiers_elements:
+        influence_ref = ("; how much it changed the driving is recorded\n"
+                         "separately in step 3" + (" and scored in step 5"
+                                                   if groups else ""))
+    elif groups:
+        influence_ref = ("; how much it changed the driving is scored\n"
+                         "separately in step 5")
+    else:
+        influence_ref = ""
     # 머리말의 "You are NOT rating how difficult" 는 점수 단계가 있으면 5단계와
     # 정면으로 모순된다. 탐지는 난이도와 무관하게 한다는 뜻만 남긴다.
     if groups:
@@ -1115,8 +1156,7 @@ SCENARIO TYPES:
 List EVERY type you can actually see. What decides whether an element counts is
 the type's description and its "NOT this category" lines - never whether the
 ego-vehicle reacted to it. An element the ego-vehicle drove past without slowing
-or steering can still count; how much it changed the driving is recorded
-separately in step 3{scored_ref}. If you see no unusual element at all, return
+or steering can still count{influence_ref}. If you see no unusual element at all, return
 an empty list.
 
 Work through these steps in order:

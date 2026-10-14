@@ -852,7 +852,12 @@ function renderEval() {
     (c.score_categories === false ? ' · <span style="color:var(--warn)">상위 카테고리 점수 off</span>' : '') +
     (c.memo ? ' · ' + esc(c.memo) : '');
 
-  $('#ev-cats').innerHTML = EV.categories.map((c, i) => `
+  // Unknown 2종(excluded)은 집계에서 빠져 n 만 보여준다.
+  $('#ev-cats').innerHTML = EV.categories.map((c, i) => c.excluded ? `
+    <tr data-i="${i}" style="cursor:pointer">
+      <td class="muted">${esc(c.name)}</td>
+      <td class="num">${c.support}</td>
+      <td colspan="6" class="muted">집계 제외 · 예측 ${c.n_pred}건</td></tr>` : `
     <tr data-i="${i}" style="cursor:pointer">
       <td>${c.reliable ? '' : '<span class="muted">*</span> '}${esc(c.name)}</td>
       <td class="num">${c.support}</td><td class="num">${f3(c.precision)}</td>

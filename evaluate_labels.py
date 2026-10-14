@@ -145,6 +145,49 @@ def restrict_to_group(labels: dict, run_cfg: dict, scene_path: Path):
     return group, n_drop, n_normal
 
 
+def drop_unknown(labels: dict, results: dict, scene_path: Path) -> dict:
+    """Unknown 카테고리("unknown": true)를 1)~3) 집계에서 뺀다.
+
+    Unknown 은 예상 못한 새 종류를 건지려는 칸이라 GT 에 거의 없다
+    (test_label_333_diff2: 0건). 그러면 예측은 전부 FP 가 되는데, 그게
+    틀린 건지 GT 가 안 매긴 건지 구분할 수 없다. 그리고 Dynamic object 만
+    돌린 실행에서는 메뉴에 없는 공사/비포장/건널목이 Unknown 으로 쏠려
+    판정 FP 를 크게 부풀렸다(20261013_113147: Unknown 만 붙은 FP 클립 30개).
+    그래서 GT 와 예측 양쪽의 카테고리 목록에서 지운다(labels/results 를
+    바로 고친다).
+
+    지운 뒤 그 상위 카테고리의 카테고리가 하나도 안 남으면 그 점수는
+    0 으로 바꾼다 - "그 묶음 없음 = 0" 규칙과 맞추기 위해서. 다른 카테고리가
+    남으면 점수는 그대로 둔다(어느 요소가 점수를 정했는지는 근거 문장에만
+    있어 기계적으로 가를 수 없다).
+
+    반환: {Unknown 이름: {"gt": set(uuid), "pred": set(uuid)}} - 지우기 전
+    목록. 2) 표에 n 만 싣고 categories/ 목록 파일을 쓰는 데 쓴다.
+    """
+    if not Path(scene_path).exists():
+        return {}
+    scene = json.loads(Path(scene_path).read_text(encoding="utf-8"))
+    scenario_of = {c["name"]: s["name"] for s in scene["special"]["scenarios"]
+                   for c in s["categories"]}
+    unk = {c["name"] for s in scene["special"]["scenarios"]
+           for c in s["categories"] if c.get("unknown")}
+    info = {c: {"gt": set(), "pred": set()} for c in sorted(unk)}
+    for tag, src in (("gt", labels), ("pred", results)):
+        for u, rec in src.items():
+            hit = rec["categories"] & unk
+            if not hit:
+                continue
+            for c in hit:
+                info[c][tag].add(u)
+            rest = rec["categories"] - unk
+            for g in {scenario_of[c] for c in hit}:
+                if g in rec["scores"] and not any(
+                        scenario_of.get(x) == g for x in rest):
+                    rec["scores"][g] = 0
+            rec["categories"] = rest
+    return info
+
+
 def _weather_of(v: dict) -> dict:
     """라벨 한 건의 날씨 4축 딕셔너리({"illumination": 0, ...}). 없으면 {}.
 
@@ -543,6 +586,17 @@ def main():
         log(f"[info] group   : {group} - 이 실행이 다루지 않은 상위 카테고리의 "
             f"GT 카테고리 {n_drop}개를 채점에서 뺌(그 결과 Normal 이 된 클립 "
             f"{n_normal}개)")
+    # Unknown 2종은 1)~3) 집계에서 뺀다(drop_unknown). 2) 표에는 n 만 싣는다.
+    unknown = drop_unknown(labels, results, SCENE_JSON)
+    if unknown:
+        cset = set(common)
+        n_gt = sum(len(v["gt"] & cset) for v in unknown.values())
+        n_pr = sum(len(v["pred"] & cset) for v in unknown.values())
+        n_pr_normal = sum(1 for u in common if not results[u]["categories"]
+                          and any(u in v["pred"] for v in unknown.values()))
+        log(f"[info] unknown : {', '.join(unknown)} 은 1)~3) 집계에서 뺌 - "
+            f"GT {n_gt}건, 예측 {n_pr}건(그 결과 Normal 이 된 예측 클립 "
+            f"{n_pr_normal}개)")
     # 0~4 밖의 묶음 점수 경고는 이 실행이 다룬 상위 카테고리 것만 낸다 -
     # Dynamic object 만 돌린 실행에서 아직 안 매긴 Driving environment 라벨
     # 경고가 수백 줄 나오면 정작 봐야 할 경고가 묻힌다.
@@ -626,9 +680,10 @@ def main():
     # Unusual Traffic Pattern 이 표에서 사라져 왜 없는지 되짚어야 했다.
     # 라벨/예측에만 있고 taxonomy 에 없는 이름도 빠뜨리지 않고 함께 싣는다
     # (위 [warn] 이 가리키는 버전 불일치를 표에서도 확인할 수 있어야 한다).
-    names = sorted(taxonomy
-                   | {c for u in common for c in labels[u]["categories"]}
-                   | {c for u in common for c in results[u]["categories"]})
+    names = sorted((taxonomy
+                    | {c for u in common for c in labels[u]["categories"]}
+                    | {c for u in common for c in results[u]["categories"]})
+                   - set(unknown))
     rows, micro = [], [0, 0, 0]
     per_cat = {}                      # 카테고리 -> {TP/FP/FN: [uuid, ...]}
     for c in names:
@@ -664,6 +719,14 @@ def main():
     for c, t, p, r, f, ctp, cfp, cfn in sorted(rows, key=lambda x: -x[1]):
         log(f" {c:<32}{t:>4}{p:>8.2f}{r:>8.2f}{f:>8.2f}"
             f"{ctp:>5}{cfp:>5}{cfn:>5}")
+    # Unknown 은 집계에서 뺐으니 n(GT 건수)만 싣는다. 몇 번 예측했는지는
+    # 옆에 따로 적는다 - GT 가 0 이면 n 만으로는 모델이 이 칸을 얼마나
+    # 쓰는지 알 수 없다. 목록 파일(categories/)은 지우기 전 기준으로 쓴다.
+    cset = set(common)
+    for c, v in unknown.items():
+        g, pr = v["gt"] & cset, v["pred"] & cset
+        log(f" {c:<32}{len(g):>4}   (집계 제외 - 예측 {len(pr)}건)")
+        per_cat[c] = {"TP": g & pr, "FP": pr - g, "FN": g - pr}
     write_category_lists(run_dir, per_cat, log)
 
     # ---------------- 3) GROUP SCORES ----------------

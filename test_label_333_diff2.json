@@ -2835,7 +2835,7 @@
     },
     "b85701de-15a1-4fc5-b996-06e48432b99a": {
       "categories": {
-        "Pedestrian on Road": 3,
+        "Pedestrian on Road": 1,
         "Emergency Vehicle": 1
       },
       "Dynamic object": 3,
@@ -3067,6 +3067,7 @@
     },
     "076fce0d-41fc-41a3-b085-88c7b20f2689": {
       "categories": {
+        "Pedestrian on Road": 1,
         "Tram vehicle": 1
       },
       "Dynamic object": 1,
@@ -5347,9 +5348,9 @@
     "03df69af-130a-4ae0-b7cf-07493ccc4cd4": {
       "categories": {
         "Railway crossing": 3,
-        "Tram vehicle": null
+        "Tram vehicle": 1
       },
-      "Dynamic object": -1,
+      "Dynamic object": 1,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,
@@ -5420,9 +5421,9 @@
     "07422e60-d828-4483-af55-ea397d5f70fa": {
       "categories": {
         "Railway crossing": 3,
-        "Tram vehicle": null
+        "Tram vehicle": 2
       },
-      "Dynamic object": -1,
+      "Dynamic object": 2,
       "Driving environment": -1,
       "influenced_ego": true,
       "safety_criticality": 2,

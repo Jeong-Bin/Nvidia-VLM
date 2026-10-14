@@ -37,7 +37,7 @@ from prompts import DIFFICULTY_AXES, DIFFICULTY_MAX
 # 대조하는 것은 아래 카테고리별 점수이므로, 서술은 짧게 묶어 위에 둔다.
 PANEL_STEPS = [
     (("observation", "ego_behavior"), "1. Scene Description & Ego Behavior"),
-    (("unusual_elements",), "2. Unusual Element & Ego Influence"),
+    (("unusual_elements",), "2. Unusual Element"),
 ]
 
 
@@ -151,12 +151,17 @@ def load_scenario_map(scene_json) -> None:
             SCENARIO_OF[c["name"]] = sc["name"]
 
 
+def _sorted_names(names) -> list[str]:
+    """카테고리 이름을 알파벳 오름차순(대소문자 무시)으로."""
+    return sorted(names or [], key=str.lower)
+
+
 def category_score_lines(result: dict, gt: dict | None) -> list[str]:
     """카테고리와 상위 카테고리 점수를 패널에 넣을 문자열 줄로 만든다.
     점수마다 GT 와 Pred 를 이름을 붙여 나란히 적는다.
 
-        • GT   : Pedestrian on Road, Cyclist on Road
-        • Pred : Pedestrian on Road, Cyclist on Road
+        • GT   : Cyclist on Road, Pedestrian on Road
+        • Pred : Cyclist on Road, Pedestrian on Road
         • Dynamic object (GT:2, Pred:3)
         • Driving environment (GT:0, Pred:0)
         Dynamic object: <근거> | Driving environment: <근거>
@@ -164,6 +169,8 @@ def category_score_lines(result: dict, gt: dict | None) -> list[str]:
     상위 카테고리 줄은 GT 나 Pred 어느 한쪽이라도 값이 있는 것만 낸다 -
     상위 카테고리 하나만 돌린 실행(--group)에 빈 줄이 붙지 않게. GT 가
     없으면(라벨 없는 실행) GT 줄을 빼고 점수의 GT 자리는 "-" 다.
+    카테고리는 GT/Pred 모두 알파벳 오름차순(대소문자 무시)으로 적는다 -
+    모델이 낸 순서대로 두면 같은 집합도 순서가 달라 눈으로 맞대기 어렵다.
     """
     pred_cats = result.get("categories") or []
     pred_scores = result.get("group_scores") or {}
@@ -172,8 +179,9 @@ def category_score_lines(result: dict, gt: dict | None) -> list[str]:
         return []
     lines = []
     if gt is not None:
-        lines.append("• GT   : " + (", ".join(gt.get("categories") or []) or "None"))
-    lines.append("• Pred : " + (", ".join(pred_cats) or "None"))
+        lines.append("• GT   : " + (", ".join(_sorted_names(gt.get("categories")))
+                                   or "None"))
+    lines.append("• Pred : " + (", ".join(_sorted_names(pred_cats)) or "None"))
     for g in GROUP_RUBRICS:
         gv, pv = gt_scores.get(g), pred_scores.get(g)
         if gv is None and pv is None:
