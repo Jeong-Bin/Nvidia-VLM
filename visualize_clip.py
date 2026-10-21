@@ -61,6 +61,15 @@ TRACK_BG = (248, 248, 248)
 TRACK_EDGE = (215, 215, 215)
 # 모델이 답한 "보인 시간"(seen) 테두리.
 SEEN_EDGE = (90, 90, 90)
+# --attn-timeline 히트맵. 평균(rel=1) 이하는 바탕색, 평균의 2배 이상이면 가장
+# 진한 색이다(log2 눈금). 클립마다 따로 늘리지 않아야 평평한 곡선(트램처럼 내내
+# 보이는 요소)이 진하게 부풀지 않고, 클립끼리 비교할 수 있다.
+ATTN_HOT = (45, 60, 200)
+ATTN_NA = (225, 225, 225)       # 값이 없는 칸(예전 npz 처럼 첫 칸을 뺀 경우)
+# 첫 1초(몰림 토큰을 빼고 보정한 칸)와 나머지를 가르는 점선.
+SINK_LINE = (255, 200, 0)
+ATTN_MAX_REL = 2.0
+ATTN_PEAK = (230, 0, 0)          # 정점 표시 삼각형
 PLAYHEAD = (40, 40, 40)
 
 # 인코더 선택.
@@ -205,6 +214,34 @@ def category_score_lines(result: dict, gt: dict | None) -> list[str]:
     return lines
 
 
+def _heat_color(v: float):
+    """0~1 -> 바탕색에서 ATTN_HOT 까지."""
+    v = min(max(v, 0.0), 1.0)
+    return tuple(int(round(b + (h - b) * v)) for b, h in zip(TRACK_BG, ATTN_HOT))
+
+
+def _draw_heat(d, curve, times, to_x, y0, y1, scale):
+    """어텐션 곡선(rel) 한 줄을 칸마다 칠하고 가장 높은 칸에 표시를 단다."""
+    import math
+    if not curve:
+        return
+    vals = []
+    for (t0, t1), r in zip(times, curve):
+        if r is None:
+            d.rectangle([to_x(t0), y0, to_x(t1), y1], fill=ATTN_NA)
+            continue
+        v = math.log2(max(r, 1e-6)) / math.log2(ATTN_MAX_REL)
+        d.rectangle([to_x(t0), y0, to_x(t1), y1], fill=_heat_color(v))
+        vals.append((r, t0, t1))
+    if vals:
+        r, t0, t1 = max(vals)
+        if r >= 1.2:            # 평균보다 뚜렷이 높을 때만 정점을 표시
+            xm = (to_x(t0) + to_x(t1)) / 2
+            k = max(3, int(4 * scale))
+            d.polygon([(xm - k, y1), (xm + k, y1), (xm, y1 - k - 1)],
+                      fill=ATTN_PEAK)
+
+
 def build_timeline_strip(result: dict, duration: float, width: int,
                          scale: float = 1.0):
     """--time-spans 결과를 재생 바 모양의 띠로 그린다. 없으면 None.
@@ -222,7 +259,10 @@ def build_timeline_strip(result: dict, duration: float, width: int,
     """
     spans = result.get("time_spans") or {}
     cats = _sorted_names(result.get("categories"))
-    if not cats or not (spans or result.get("_time_spans_on")):
+    attn = result.get("attn_curves") or {}
+    heat = attn.get("categories") or {}
+    has_spans = bool(spans or result.get("_time_spans_on"))
+    if not cats or not (has_spans or heat):
         return None
     duration = max(float(duration or 0), max(
         (sp[1] for v in spans.values() for sp in v), default=0.0), 1e-3)
@@ -232,7 +272,9 @@ def build_timeline_strip(result: dict, duration: float, width: int,
     f_lab = _font(FONT_BOLD, fs)
     fs_txt = max(7, int(11 * scale))
     f_txt = _font(FONT_REG, fs_txt)
-    lane_h = max(12, int(22 * scale))
+    # 구간 띠와 히트맵을 둘 다 그리면 한 줄을 위(구간)/아래(히트맵)로 나눈다.
+    lane_h = max(12, int((30 if (has_spans and heat) else 22) * scale))
+    span_h = int(lane_h * 0.55) if heat else lane_h
     lane_gap = max(3, int(6 * scale))
     top = int(12 * scale)
     axis_h = int(20 * scale)
@@ -251,6 +293,16 @@ def build_timeline_strip(result: dict, duration: float, width: int,
     for c in cats:
         d.text((pad, y + (lane_h - fs) // 2), c, font=f_lab, fill=TEXT_DARK)
         d.rectangle([x0, y, x1, y + lane_h], fill=TRACK_BG, outline=TRACK_EDGE)
+        if heat:
+            _draw_heat(d, heat.get(c), attn.get("times") or [], to_x,
+                       y + (span_h if has_spans else 0), y + lane_h, scale)
+        if not has_spans:
+            if c not in heat:
+                d.text((x0 + int(6 * scale), ty(y)), "no attention curve",
+                       font=f_txt, fill=TEXT_MUTED)
+            y += lane_h + lane_gap
+            continue
+        lane_h_full, lane_h = lane_h, span_h
         cs = spans.get(c) or []
         # 보인 시간(두 단계 질문의 첫 단계)은 테두리로 그린다 - 점수 구간이
         # 그 안에 있는지, 보인 시간 자체가 맞는지를 영상과 대조할 수 있게.
@@ -279,8 +331,20 @@ def build_timeline_strip(result: dict, duration: float, width: int,
                 d.text((a + 3, ty(y)), tag, font=f_txt, fill=fg)
             # 붙어 있는 구간끼리 경계가 보이게 얇은 선을 긋는다.
             d.line([(a, y), (a, y + lane_h)], fill=BG, width=1)
+        lane_h = lane_h_full
         y += lane_h + lane_gap
     y_end = y - lane_gap
+
+    # 히트맵의 첫 1초는 몰림 토큰을 빼고 보정한 값이다 - 1초 자리에 노란 점선을
+    # 그어 그 칸이 나머지와 다른 처리를 거쳤음을 표시한다.
+    if heat:
+        xs = to_x(1.0)
+        dash, gap_ = max(3, int(4 * scale)), max(2, int(3 * scale))
+        yy = top - int(4 * scale)
+        while yy < y_end + int(2 * scale):
+            d.line([(xs, yy), (xs, min(yy + dash, y_end + int(2 * scale)))],
+                   fill=SINK_LINE, width=max(2, int(round(2 * scale))))
+            yy += dash + gap_
 
     # 초 눈금. 20 초 클립이면 5 초마다.
     step = 5 if duration > 10 else 2
@@ -296,15 +360,46 @@ def build_timeline_strip(result: dict, duration: float, width: int,
     # 점수 범례
     ly = y_end + axis_h
     lx = pad
-    d.text((lx, ly), "Risk score", font=f_txt, fill=TEXT_MUTED)
-    lx += d.textlength("Risk score", font=f_txt) + int(10 * scale)
     box = max(8, int(12 * scale))
-    for n in range(5):
-        d.rectangle([lx, ly + 1, lx + box, ly + 1 + box],
-                    fill=SCORE_COLORS[n], outline=TRACK_EDGE)
-        d.text((lx + box + int(4 * scale), ly), str(n), font=f_txt,
-               fill=TEXT_MID)
-        lx += box + int(22 * scale)
+    if has_spans:
+        d.text((lx, ly), "Risk score", font=f_txt, fill=TEXT_MUTED)
+        lx += d.textlength("Risk score", font=f_txt) + int(10 * scale)
+        for n in range(5):
+            d.rectangle([lx, ly + 1, lx + box, ly + 1 + box],
+                        fill=SCORE_COLORS[n], outline=TRACK_EDGE)
+            d.text((lx + box + int(4 * scale), ly), str(n), font=f_txt,
+                   fill=TEXT_MID)
+            lx += box + int(22 * scale)
+    if heat:
+        # 어텐션 범례: 평균(x1) -> 평균의 2배(x2) 그라데이션
+        lx += int(12 * scale) if has_spans else 0
+        lab = "Attention vs. avg"
+        d.text((lx, ly), lab, font=f_txt, fill=TEXT_MUTED)
+        lx += d.textlength(lab, font=f_txt) + int(8 * scale)
+        d.text((lx, ly), "x1", font=f_txt, fill=TEXT_MID)
+        lx += d.textlength("x1", font=f_txt) + int(4 * scale)
+        gw = int(70 * scale)
+        for k in range(gw):
+            d.line([(lx + k, ly + 1), (lx + k, ly + 1 + box)],
+                   fill=_heat_color(k / max(gw - 1, 1)))
+        d.rectangle([lx, ly + 1, lx + gw, ly + 1 + box], outline=TRACK_EDGE)
+        lx += gw + int(4 * scale)
+        d.text((lx, ly), f"x{ATTN_MAX_REL:g}", font=f_txt, fill=TEXT_MID)
+        lx += d.textlength(f"x{ATTN_MAX_REL:g}", font=f_txt) + int(10 * scale)
+        # 1초 점선 범례
+        dash = max(3, int(4 * scale))
+        for k in range(0, box + 1, dash + 2):
+            d.line([(lx + box // 2, ly + 1 + k),
+                    (lx + box // 2, ly + 1 + min(k + dash, box))],
+                   fill=SINK_LINE, width=max(2, int(round(2 * scale))))
+        lab = "0-1s: sink-corrected"
+        d.text((lx + box + int(2 * scale), ly), lab, font=f_txt, fill=TEXT_MID)
+        lx += box + d.textlength(lab, font=f_txt) + int(14 * scale)
+        if any(v is None for cur in heat.values() for v in (cur or [])):
+            d.rectangle([lx, ly + 1, lx + box, ly + 1 + box], fill=ATTN_NA,
+                        outline=TRACK_EDGE)
+            d.text((lx + box + int(4 * scale), ly), "no value", font=f_txt,
+                   fill=TEXT_MID)
     if result.get("time_seen"):
         lx += int(12 * scale)
         d.rectangle([lx, ly + 1, lx + 2 * box, ly + 1 + box], outline=SEEN_EDGE,
@@ -673,6 +768,9 @@ def save_clip_json(result: dict, out_path, extra: dict | None = None) -> Path:
             k: {"score": result.get(k), "max": DIFFICULTY_MAX,
                 "reason": result.get(f"{k}_reason", "")}
             for k, _ in DIFFICULTY_AXES}
+    # --attn-timeline 곡선(장르/이름/점수/근거별 rel, 칸 시각, 쓴 층).
+    if result.get("attn_curves"):
+        payload["attn_curves"] = result["attn_curves"]
     if result.get("_gt") is not None:
         payload["ground_truth"] = result["_gt"]
     if extra:

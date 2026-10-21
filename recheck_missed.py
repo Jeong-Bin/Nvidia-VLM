@@ -282,8 +282,18 @@ def _parse_scores(raw: str) -> dict:
     return out
 
 
-def apply(run_dir: Path):
-    """recheck 결과를 clip_results_all.csv 에 반영한다(원본은 백업에서 다시 만든다)."""
+def apply(run_dir: Path, min_score: int = 2):
+    """recheck 결과를 clip_results_all.csv 에 반영한다(원본은 백업에서 다시 만든다).
+
+    min_score: YES 이면서 점수가 이 값 이상인 답만 반영한다. 점수 1 은 기준표에서
+    "있지만 자차에 아무것도 요구하지 않음"인데, 1차가 Normal 로 본 클립에서
+    recheck 가 점수 1 로 YES 한 것은 대부분 오탐이었다(152848: 8건 중 6건,
+    162702: 6건 중 6건 - 인도 위 보행자, 길가에 주차된 구급차/경찰차, 멀리 보이는
+    트램 등). 2 로 두면 영향을 준 놓친 요소만 되살린다 - 기본값(2026-10-21):
+    152848 판정 F1 82.7 -> 83.2, macro 0.763 -> 0.778 / 162702 82.8 -> 83.7,
+    macro 0.731 -> 0.760. 점수 단계가 없던 실행은 점수가 없으므로 이 조건을
+    보지 않는다.
+    """
     from constrained_tier import tier_score
     cfg0 = load_run_config(run_dir)
     if skip_reason(cfg0):
@@ -300,10 +310,14 @@ def apply(run_dir: Path):
         print(f"[recheck] 원본 보관 -> {backup.name}")
     cols, rows = read_rows(backup)
     answers = list(_answers(run_dir).values())
-    yes = {}
+    yes, n_low = {}, 0
     for a in answers:
-        if a.get("present"):
-            yes.setdefault(a["uuid"], []).append(a)
+        if not a.get("present"):
+            continue
+        if with_scores and min_score > 1 and (a.get("score") or 0) < min_score:
+            n_low += 1
+            continue
+        yes.setdefault(a["uuid"], []).append(a)
     n_clip = 0
     for r in rows:
         hits = yes.get(r["uuid"])
@@ -335,7 +349,8 @@ def apply(run_dir: Path):
     tmp.replace(merged)
     n_yes = sum(len(v) for v in yes.values())
     print(f"[recheck] 질문 {len(answers)}건 중 YES {n_yes}건 -> "
-          f"{n_clip}개 클립을 Special 로 바꿔 {merged.name} 에 반영")
+          f"{n_clip}개 클립을 Special 로 바꿔 {merged.name} 에 반영"
+          + (f" (점수 {min_score} 미만 YES {n_low}건은 버림)" if n_low else ""))
     # 실행 설정에 기록을 남긴다 - 나중에 이 폴더의 결과가 recheck 를 거쳤는지
     # 알 수 있게.
     cfg_path = run_dir / "run_config.json"
@@ -343,7 +358,8 @@ def apply(run_dir: Path):
         cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
         cfg["recheck"] = {"applied_at": time.strftime("%Y-%m-%d %H:%M:%S"),
                           "questions": len(answers), "yes": n_yes,
-                          "clips_changed": n_clip}
+                          "clips_changed": n_clip, "min_score": min_score,
+                          "yes_dropped_low_score": n_low}
         cfg_path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2),
                             encoding="utf-8")
 
@@ -357,10 +373,14 @@ def main():
                     help="후보만 출력하고 끝낸다 (GPU 불필요)")
     ap.add_argument("--apply", action="store_true",
                     help="recheck 결과를 clip_results_all.csv 에 반영한다 (GPU 불필요)")
+    ap.add_argument("--min-score", type=int, default=2,
+                    help="--apply 때 YES 이면서 점수가 이 값 이상인 답만 반영 "
+                         "(기본 2 = '있지만 영향 없음(1점)' YES 를 버린다. "
+                         "1 이면 YES 전부 - 예전 동작)")
     args = ap.parse_args()
     run_dir = Path(args.run_dir)
     if args.apply:
-        apply(run_dir)
+        apply(run_dir, min_score=args.min_score)
         return
     if args.list_only:
         cfg = load_run_config(run_dir)

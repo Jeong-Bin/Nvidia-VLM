@@ -678,53 +678,6 @@ The LAST image is the most recent moment. Read them as a sequence: what changes
 from one image to the next tells you how the scene and the ego-vehicle evolved.""")
 
 
-# --time-spans 지시문. inline(1차 프롬프트의 단계)과 followup(이어 묻는 질문)이
-# 같은 문장을 쓰게 한 곳에 둔다 - 두 방식의 차이가 "언제 묻느냐"뿐이어야 결과를
-# 비교할 수 있다. {who} 자리에 "type you named in step 4" / "scenario type you
-# named in \"scenario_types\"" 가 들어간다.
-#
-# 두 단계로 묻는다: 먼저 요소가 보인 처음과 마지막 시각(seen), 그다음 그 안에서만
-# 점수 구간(stretches). 한 번에 "구간을 나눠 점수를 매겨라"로 물었을 때 잠깐
-# 나온 보행자·자전거·동물도 21~23% 가 0~20초 통째 구간이었다(실측
-# 20261014_162702 inline / 172222 followup). 모델이 영상의 시각 표시를 읽지 않고
-# 어림했고(끝점의 96~99% 가 정수, 시각 표시의 ".2" 값은 0건), 근거가 약하면
-# 프롬프트의 "20-second video" 를 따라 0~20 을 썼다. 시간을 찾는 일과 점수를
-# 매기는 일을 나누고, 통째 구간은 처음부터 끝까지 보였을 때만 쓰라고 못박는다.
-TIME_SPANS_SCORED = """for each {who}, work in two steps.
-First, find when its element was in view: the timestamp of the first frame it
-appears in and of the last frame it appears in. Leave out any time it was not
-visible - the whole clip, from 0 to the end, is right only if the element is
-visible from the first frame to the last.
-Then split that time into stretches and score each stretch from 0 to 4 on the
-scale of step 5 - how much that element made driving harder for the
-ego-vehicle during that stretch. Start a new stretch wherever the score
-changes; each stretch lasts at least 1 second, and its length is otherwise up
-to you. No stretch scores higher than the score its group got in step 5.
-Read all times from the timestamps of the video, in seconds from its start."""
-TIME_SPANS_UNSCORED = """for each {who}, work in two steps.
-First, find when its element was in view: the timestamp of the first frame it
-appears in and of the last frame it appears in. Leave out any time it was not
-visible - the whole clip, from 0 to the end, is right only if the element is
-visible from the first frame to the last.
-Then, within that time, give the stretches in which it was a hazard to the
-ego-vehicle - in or coming into the vehicle's way, or otherwise making driving
-harder. If it never made driving harder, give the stretch in which it stood
-out most.
-Read all times from the timestamps of the video, in seconds from its start."""
-TIME_SPANS_SCHEMA_SCORED = ('{"<exact scenario type name>": {"seen": [<first seconds>, '
-                            '<last seconds>], "stretches": [[<start seconds>, '
-                            '<end seconds>, <score 0-4>], ...]}, ...}')
-TIME_SPANS_SCHEMA_UNSCORED = ('{"<exact scenario type name>": {"seen": [<first seconds>, '
-                              '<last seconds>], "stretches": [[<start seconds>, '
-                              '<end seconds>], ...]}, ...}')
-
-
-def _indent(text: str, pad: str) -> str:
-    """첫 줄을 뺀 나머지 줄 앞에 pad 를 붙인다(단계 본문 들여쓰기)."""
-    first, *rest = text.split("\n")
-    return "\n".join([first] + [pad + ln for ln in rest])
-
-
 def build_nureasoning_prompt(category_menu: str, sensor_facts: str = "",
                              labels: list | None = None,
                              single_view: bool = False,
@@ -982,11 +935,32 @@ the CURRENT moment. Each group of three is synchronized camera views
     # 되어 긴 숫자 배열의 위치를 세다 밀리는 문제가 생긴다.
     #
     # 점수 단계(5단계)를 끈 실행에는 기준표가 없으므로 구간만 받는다.
+    #
+    # "두 단계로 묻기(보인 시간 -> 점수 구간)" + "통째 구간 금지" 문구를 넣어 본
+    # 적이 있다(20261014_175954 inline / 20261019_141710 followup). 잠깐 나온
+    # 요소의 0~20초 통째 구간은 줄지 않았고(21% -> 24%, 23% -> 27%), 점수
+    # 구간이 보인 시간을 그대로 베껴(105/106) 구간 안의 점수 변화가 사라졌다
+    # (구간을 나눈 답 17 -> 1). 그래서 이 문구로 되돌렸다.
     if time_spans and not difficulty_only:
-        body = (TIME_SPANS_SCORED if groups else TIME_SPANS_UNSCORED).format(
-            who="type you named in step 4")
-        steps45 += (f"{step_no}. Hazard Timing: " + _indent(body, "   ")
-                    + "\n   If you named no type, give an empty object.\n")
+        if groups:
+            steps45 += f"""{step_no}. Hazard Timing: for each type you named in step 4, split the time its
+   element was in the clip into stretches, and score each stretch from 0 to 4
+   on the scale of step 5 - how much that element made driving harder for the
+   ego-vehicle during that stretch. Start a new stretch wherever the score
+   changes; each stretch lasts at least 1 second, and its length is otherwise
+   up to you. No stretch scores higher than the score its group got in step 5.
+   Read the times from the timestamps of the video, in seconds from its start.
+   If you named no type, give an empty object.
+"""
+        else:
+            steps45 += f"""{step_no}. Hazard Timing: for each type you named in step 4, give when its element
+   was a hazard to the ego-vehicle - the stretch of the clip in which it was
+   in or coming into the vehicle's way, or otherwise made driving harder. Read
+   the times from the timestamps of the video, in seconds from its start, and
+   give one or more [start, end] spans per type. If the element never made
+   driving harder, give the stretch in which it stood out most. If you named
+   no type, give an empty object.
+"""
         step_no += 1
     # 날씨(--weather)는 점수 다음 단계로 붙는다. 점수와 성격이 다르다:
     # 등급은 "이 클립이 얼마나 위험/희귀한가"(edge-case 여부에 달림)이고,
@@ -1021,9 +995,10 @@ the CURRENT moment. Each group of three is synchronized camera views
             f'it did or what the situation was>",\n'
             f' "{k}": <integer 0-4>,\n')
     if time_spans and not difficulty_only:
-        tier_fields += (' "time_spans": '
-                        + (TIME_SPANS_SCHEMA_SCORED if groups
-                           else TIME_SPANS_SCHEMA_UNSCORED) + ',\n')
+        tier_fields += (' "time_spans": {"<exact scenario type name>": '
+                        + ('[[<start seconds>, <end seconds>, <score 0-4>], '
+                           '...], ...},\n' if groups else
+                           '[[<start seconds>, <end seconds>], ...], ...},\n'))
     if difficulty:
         # 프롬프트 본문과 같은 순서. JSON 필드 순서가 곧 생성 순서다.
         for key, name in DIFFICULTY_AXES:
@@ -1649,16 +1624,31 @@ def _parse_time_spans(raw, valid: set, named: set) -> tuple[dict, dict, dict]:
 def followup_time_spans_question(scored: bool) -> str:
     """--time-spans followup: 1차 답변이 끝난 대화에 덧붙이는 질문.
 
-    inline 의 Hazard Timing 단계와 같은 지시문(TIME_SPANS_*)을 쓴다. 1차
-    답변을 본 뒤에 묻는 것이라 "step 4" 대신 답변의 "scenario_types" 를
+    1차 프롬프트에 붙이는 Hazard Timing 단계(inline)와 같은 지시를 같은 형식으로
+    묻는다 - 두 방식의 차이가 "언제 묻느냐"뿐이어야 결과를 비교할 수 있다.
+    1차 답변을 본 뒤에 묻는 것이라 "step 4" 대신 답변의 "scenario_types" 를
     가리킨다. 점수 단계(5단계)를 끈 실행에는 기준표가 없으므로 구간만 묻는다.
     """
-    body = (TIME_SPANS_SCORED if scored else TIME_SPANS_UNSCORED).format(
-        who='scenario type you named in "scenario_types"')
-    schema = TIME_SPANS_SCHEMA_SCORED if scored else TIME_SPANS_SCHEMA_UNSCORED
-    return (body[0].upper() + body[1:]
-            + "\n\nRespond with ONLY a JSON object, no other text:\n"
-            + '{"time_spans": ' + schema + "}")
+    if scored:
+        return """For each scenario type you named in "scenario_types", split the time its
+element was in the clip into stretches, and score each stretch from 0 to 4 on
+the scale of step 5 - how much that element made driving harder for the
+ego-vehicle during that stretch. Start a new stretch wherever the score
+changes; each stretch lasts at least 1 second, and its length is otherwise up
+to you. No stretch scores higher than the score its group got in step 5. Read
+the times from the timestamps of the video, in seconds from its start.
+
+Respond with ONLY a JSON object, no other text:
+{"time_spans": {"<exact scenario type name>": [[<start seconds>, <end seconds>, <score 0-4>], ...], ...}}"""
+    return """For each scenario type you named in "scenario_types", give when its element
+was a hazard to the ego-vehicle - the stretch of the clip in which it was in or
+coming into the vehicle's way, or otherwise made driving harder. Read the times
+from the timestamps of the video, in seconds from its start, and give one or
+more [start, end] spans per type. If the element never made driving harder,
+give the stretch in which it stood out most.
+
+Respond with ONLY a JSON object, no other text:
+{"time_spans": {"<exact scenario type name>": [[<start seconds>, <end seconds>], ...], ...}}"""
 
 
 def parse_time_spans_answer(text: str, labels: list, named: set) -> tuple[dict, dict, dict]:
@@ -2276,6 +2266,13 @@ if __name__ == "__main__":
                          "대화에 질문을 이어 붙인다 - 1차 프롬프트/결과는 그대로, "
                          "영상 계산을 다시 쓰므로 짧은 질문과 답만 계산한다. "
                          "기본 off.")
+    ap.add_argument("--attn-timeline", action="store_true",
+                    help="[클립 모드] 1차 생성 중 출력 토큰이 영상의 어느 시점(1초 "
+                         "칸)을 봤는지 어텐션을 기록한다. 장르 이름/점수/점수 "
+                         "근거 토큰의 시간 곡선을 시각화 영상 재생 바에 히트맵으로 "
+                         "그리고, 원본 행렬은 <run>/attn/<uuid>.npz 로 남긴다. "
+                         "프롬프트와 출력은 바뀌지 않는다(기록용 계산을 옆에서 "
+                         "따로 한다). 기본 off.")
     ap.add_argument("--weather-only", "--difficulty-only",
                     dest="difficulty_only", action="store_true",
                     help="날씨 4축만 추론한다. edge-case 탐지"
@@ -2379,6 +2376,9 @@ if __name__ == "__main__":
             if not args.clip_video_input:
                 print("[warn] --clip-no-video-input 이면 프레임에 타임스탬프가 "
                       "없어 구간이 부정확할 수 있다")
+
+    if args.attn_timeline and not args.clip_mode:
+        raise SystemExit("[error] --attn-timeline 은 클립 모드(--clip-mode) 전용입니다")
 
     # --resume 은 이어받을 폴더를 --out 으로 받는다. 없으면 아래에서 새 실행
     # 폴더가 만들어져, 이어받는 대신 처음부터 도는 실행이 조용히 생긴다.
@@ -2580,6 +2580,7 @@ if __name__ == "__main__":
                            tiers_elements=args.tiers_elements,
                            explain_traj=args.explain_traj,
                            time_spans=args.time_spans,
+                           attn_timeline=args.attn_timeline,
                            use_obstacle=args.use_obstacle,
                            single_view=args.single_view,
                            fps=args.clip_fps,

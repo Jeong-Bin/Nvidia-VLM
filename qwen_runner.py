@@ -54,7 +54,7 @@ from obstacle import obstacle_summary, describe_obstacles, path_intrusion
 from visualize import render_scene_card
 from visualize_clip import render_clip_result, VIZ_WIDTH
 from constrained_tier import (make_tier_processor, tier_label, score_dirname,
-                              TIER_FIELDS, score_groups)
+                              TIER_FIELDS, score_groups, group_key)
 from prompts import DIFFICULTY_AXES
 
 
@@ -147,10 +147,10 @@ NUR_MAX_NEW_TOKENS_DIFFICULTY = 1100
 # --time-spans 가 붙이는 칸. 장르 2~3개에 구간 몇 개씩([시작, 끝, 점수])이면
 # 100 토큰 안팎이지만, 모자라 JSON 이 잘리면 그 클립은 통째로 파싱 실패
 # (Normal)가 되므로 넉넉히 둔다.
-NUR_TIME_SPANS_EXTRA_TOKENS = 350
+NUR_TIME_SPANS_EXTRA_TOKENS = 250
 # --time-spans followup 의 이어 묻기 답 한도. 답이 time_spans JSON 하나뿐이라
 # inline 의 추가분과 같은 크기면 된다.
-NUR_FOLLOWUP_MAX_NEW_TOKENS = 400
+NUR_FOLLOWUP_MAX_NEW_TOKENS = 300
 
 
 # 클립 모드 CSV 의 열. 헤더와 빈 행이 같은 정의를 봐야 어긋나지 않는다.
@@ -320,7 +320,8 @@ CLOSE_CALL_P = 0.1
 @torch.inference_mode()
 def _generate(model, processor, images, text_prompt, max_new_tokens=256,
               as_video=False, video_fps=None, logits_processor=None,
-              want_margin=False, thinking=False, state_out=None):
+              want_margin=False, thinking=False, state_out=None,
+              attn_rec=None, attn_out=None):
     """이미지 목록을 넣고 모델 원문 출력을 받는다.
 
     as_video=True 면 낱장 이미지 N개가 아니라 "비디오 한 편"으로 넘긴다.
@@ -348,7 +349,8 @@ def _generate(model, processor, images, text_prompt, max_new_tokens=256,
                                video_fps=video_fps or 1.0,
                                logits_processor=logits_processor,
                                want_margin=want_margin, thinking=thinking,
-                               state_out=state_out)
+                               state_out=state_out, attn_rec=attn_rec,
+                               attn_out=attn_out)
 
     content = [{"type": "image", "image": img} for img in images]
     content.append({"type": "text", "text": text_prompt})
@@ -386,7 +388,8 @@ def _generate(model, processor, images, text_prompt, max_new_tokens=256,
 @torch.inference_mode()
 def _generate_video(model, processor, frames, text_prompt, max_new_tokens=256,
                     video_fps=1.0, logits_processor=None, want_margin=False,
-                    thinking=False, state_out=None):
+                    thinking=False, state_out=None, attn_rec=None,
+                    attn_out=None):
     """이미 뽑아둔 프레임 목록을 비디오 한 편으로 넘겨 생성한다.
 
     do_sample_frames=False 로 두는 것이 핵심 - 우리가 이미 1fps 로 골라둔
@@ -413,6 +416,11 @@ def _generate_video(model, processor, frames, text_prompt, max_new_tokens=256,
                        do_sample_frames=False, padding=True,
                        return_tensors="pt").to(model.device)
 
+    # --attn-timeline: 이 generate 동안만 기록한다(이어 묻기 등 뒤의 생성은 뺀다).
+    if attn_rec is not None:
+        attn_rec.begin(inputs.input_ids,
+                       processor.tokenizer.convert_tokens_to_ids("<|video_pad|>"),
+                       float(video_fps))
     gen = model.generate(**inputs, max_new_tokens=max_new_tokens,
                          do_sample=False,
                          logits_processor=_lp_list(logits_processor),
@@ -425,6 +433,12 @@ def _generate_video(model, processor, frames, text_prompt, max_new_tokens=256,
         state_out["sequences"] = seq
         state_out["cache"] = gen.past_key_values
     trimmed = seq[:, inputs.input_ids.shape[1]:]
+    if attn_rec is not None:
+        rows = attn_rec.end()
+        if attn_out is not None and rows is not None:
+            attn_out.update(rows=rows, gen_ids=trimmed[0].tolist(),
+                            times=attn_rec.times,
+                            sink=attn_rec.sink_summary())
     out = processor.batch_decode(
         trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
     )[0]
@@ -552,7 +566,8 @@ def run_clip_inference(uuids, labels, category_menu,
                        resume=False,
                        difficulty=False, difficulty_only=False,
                        tiers_elements=False, explain_traj=False, traj=None,
-                       viz_per_category=None, time_spans=None):
+                       viz_per_category=None, time_spans=None,
+                       attn_timeline=False):
     """클립 전체(20초)를 1fps 로 넣어 클립 단위로 판정한다.
 
     run_inference 와 판정 단위가 다르다 - 저쪽은 (uuid, frame_idx) 이고
@@ -589,6 +604,26 @@ def run_clip_inference(uuids, labels, category_menu,
     """
     model, processor = load_model(model_id)
     views = views_for(single_view)
+
+    # --attn-timeline: 생성 토큰이 영상의 어느 시점을 봤는지 기록한다
+    # (attn_timeline.py). 영상 입력일 때만 시간 칸을 나눌 수 있다.
+    attn_rec = None
+    if attn_timeline:
+        if not video_input:
+            print("[warn] --attn-timeline 은 영상 입력(--clip-no-video-input 아님)"
+                  "에서만 동작한다 - 끔")
+        else:
+            from attn_timeline import AttnRecorder
+            attn_rec = AttnRecorder(model)
+            if not attn_rec.n_layers:
+                print("[warn] --attn-timeline: 이 모델에서 텍스트 어텐션 층을 "
+                      "찾지 못했다 - 끔")
+                attn_rec.close()
+                attn_rec = None
+            else:
+                print(f"[info] --attn-timeline: 어텐션 층 {attn_rec.n_layers}개에 "
+                      f"기록 훅을 달았다")
+    attn_dir = Path(out_csv).parent / "attn"
 
     # 제약 디코딩은 이 모드에서 쓰지 않는다.
     #
@@ -744,9 +779,25 @@ def run_clip_inference(uuids, labels, category_menu,
                                 logits_processor=tier_proc,
                                 want_margin=want_margin,
                                 thinking=(model_id in THINKING_MODELS),
-                                state_out=fu_state)
+                                state_out=fu_state,
+                                attn_rec=attn_rec,
+                                attn_out=(attn_out := {}))
             raw, margin = gen_out if want_margin else (gen_out, None)
             result = parse_nureasoning_output(raw, labels)
+            # 장르를 댄 클립만 곡선을 만든다(관심 토큰이 장르 이름과 점수다).
+            if attn_out.get("rows") is not None and result["categories"]:
+                from attn_timeline import curves_for, save_npz, default_layers
+                rows_ = attn_out["rows"]
+                gk = {g: group_key(g) for g in (score_groups(labels)
+                                                if score_categories else [])}
+                curves = curves_for(rows_, attn_out["gen_ids"],
+                                    processor.tokenizer, result["categories"], gk)
+                curves["times"] = attn_out["times"]
+                curves["layers"] = default_layers(rows_.shape[1])
+                result["attn_curves"] = curves
+                save_npz(attn_dir / f"{uuid}.npz", rows_, attn_out["gen_ids"],
+                         attn_out["times"], curves["layers"],
+                         sink=attn_out.get("sink"))
             if fu_state is not None:
                 # 장르를 하나도 대지 않았으면 물을 대상이 없다.
                 if result["categories"] and fu_state:

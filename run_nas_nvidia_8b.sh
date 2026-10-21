@@ -106,6 +106,9 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
                           inline(기본값): 1차 답변 JSON 에 칸 추가(원본 프롬프트 변경)
                           followup: 1차 답변 뒤 같은 대화에 이어 묻기
                           (1차 프롬프트 그대로)        [TIME_SPANS=inline|followup]
+  --attn-timeline         1차 생성 중 출력 토큰이 영상의 어느 시점을 봤는지
+                          어텐션을 기록해 재생 바에 히트맵으로 그린다
+                          (프롬프트/출력 그대로, 기본 off)   [ATTN_TIMELINE=1]
   --group G               다룰 상위 카테고리: all(기본) / dynamic_object /
                           driving_environment               [TARGET_GROUP]
   --weather              날씨 4축(조도/강수/노면/대기가림)을
@@ -171,6 +174,7 @@ while [ $# -gt 0 ]; do
     --no-tiers-elements) TIERS_ELEMENTS=1 ;;
     --explain-traj)      EXPLAIN_TRAJ=1 ;;
     --unknown-categories) UNKNOWN_CATS=1 ;;
+    --attn-timeline)      ATTN_TIMELINE=1 ;;
     --time-spans=*)       TIME_SPANS="${1#*=}" ;;
     --time-spans)         case "${2:-}" in inline|followup) shift; TIME_SPANS="$1" ;; *) TIME_SPANS=inline ;; esac ;;
     --group=*)           TARGET_GROUP="${1#*=}" ;;
@@ -253,6 +257,7 @@ OPTS="--clip-mode --single-view --data $DATA"
 [ "${TIERS_ELEMENTS:-0}" = "1" ] && OPTS="$OPTS --no-tiers-elements"
 [ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
 [ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-categories"
+[ "${ATTN_TIMELINE:-0}" = "1" ] && OPTS="$OPTS --attn-timeline"
 case "${TIME_SPANS:-0}" in
   0|"") ;;
   1|inline) OPTS="$OPTS --time-spans inline" ;;

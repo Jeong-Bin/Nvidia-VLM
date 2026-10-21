@@ -101,6 +101,9 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
                           inline(기본값): 1차 답변 JSON 에 칸 추가(원본 프롬프트 변경)
                           followup: 1차 답변 뒤 같은 대화에 이어 묻기
                           (1차 프롬프트 그대로)        [TIME_SPANS=inline|followup]
+  --attn-timeline         1차 생성 중 출력 토큰이 영상의 어느 시점을 봤는지
+                          어텐션을 기록해 재생 바에 히트맵으로 그린다
+                          (프롬프트/출력 그대로, 기본 off)   [ATTN_TIMELINE=1]
   --group G               다룰 상위 카테고리: all(기본) / dynamic_object /
                           driving_environment               [TARGET_GROUP]
   --weather              날씨 4축(조도/강수/노면/대기가림)을
@@ -122,6 +125,8 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
                          묻는다(recheck_missed.py). 2차 전 채점은
                          evaluation_before_recheck.log 로 남긴다
   --no-recheck           2차 확인을 끈다 (1차 결과만 채점)           [RECHECK=0]
+  --recheck-min-score N  2차 확인 YES 중 점수 N 이상만 반영 (기본 2 = '있지만
+                         영향 없음' YES 를 버림, 1 = 전부 반영)  [RECHECK_MIN_SCORE]
   --recheck-only DIR     이미 끝난 실행 폴더에 2차 확인만 덧붙인다. 라벨/카테고리는
                          그 실행 것을 쓰고, 끝나면 전/후 채점을 모두 남긴다
   --resume DIR           중단되었거나 일부 샤드가 실패한 실행을 이어받는다.
@@ -186,6 +191,7 @@ while [ $# -gt 0 ]; do
     --no-tiers-elements) TIERS_ELEMENTS=1 ;;
     --explain-traj)      EXPLAIN_TRAJ=1 ;;
     --unknown-categories) UNKNOWN_CATS=1 ;;
+    --attn-timeline)      ATTN_TIMELINE=1 ;;
     --time-spans=*)       TIME_SPANS="${1#*=}" ;;
     --time-spans)         case "${2:-}" in inline|followup) shift; TIME_SPANS="$1" ;; *) TIME_SPANS=inline ;; esac ;;
     --group=*)           TARGET_GROUP="${1#*=}" ;;
@@ -203,6 +209,8 @@ while [ $# -gt 0 ]; do
     --eval-only)         shift; EVAL_ONLY="${1:-}" ;;
     --recheck)           RECHECK=1 ;;
     --no-recheck)        RECHECK=0 ;;
+    --recheck-min-score=*) RECHECK_MIN_SCORE="${1#*=}" ;;
+    --recheck-min-score)   shift; RECHECK_MIN_SCORE="${1:-2}" ;;
     --recheck-only=*)    RECHECK_ONLY="${1#*=}" ;;
     --recheck-only)      shift; RECHECK_ONLY="${1:-}" ;;
     --resume=*)          RESUME_DIR="${1#*=}" ;;
@@ -292,7 +300,8 @@ run_recheck() {
   done
   echo "[recheck] launched ${#pids[@]} shards (GPU ${GPU_LIST[*]}), 로그: $dir/recheck/"
   wait
-  "$PYBIN" -u recheck_missed.py --run-dir "$dir" --apply
+  "$PYBIN" -u recheck_missed.py --run-dir "$dir" --apply \
+    --min-score "${RECHECK_MIN_SCORE:-2}"
 }
 
 if [ -n "${RECHECK_ONLY:-}" ]; then
@@ -400,6 +409,7 @@ esac
 [ "${TIERS_ELEMENTS:-0}" = "1" ] && OPTS="$OPTS --no-tiers-elements"
 [ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
 [ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-categories"
+[ "${ATTN_TIMELINE:-0}" = "1" ] && OPTS="$OPTS --attn-timeline"
 case "${TIME_SPANS:-0}" in
   0|"") ;;
   1|inline) OPTS="$OPTS --time-spans inline" ;;
