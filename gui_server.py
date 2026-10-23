@@ -1209,6 +1209,13 @@ def build_command(opts: dict, jid: str = "adhoc") -> list[str]:
     # 다룰 상위 카테고리(all / dynamic_object / driving_environment).
     if opts.get("group") and opts["group"] != "all" and not opts.get("difficulty_only"):
         cmd += ["--group", opts["group"]]
+    # 장르별 위험 구간(--time-spans). inline = 1차 답변 JSON 에 칸 추가(원본
+    # 프롬프트가 바뀜), followup = 1차 답변 뒤 같은 대화에 이어 묻기(1차 결과
+    # 그대로). 화면 기본값은 inline, CLI 기본값은 꺼짐이다. 날씨만 추론하면
+    # 장르를 다루지 않으므로 뺀다.
+    ts = opts.get("time_spans")
+    if ts in ("inline", "followup") and not opts.get("difficulty_only"):
+        cmd += ["--time-spans", ts]
     # 프레임 소스. 스크립트마다 기본값이 다르므로(labeled=local, nas=nas)
     # 기본과 같을 때만 생략한다 - run.log 에 남는 명령이 짧을수록 낫다.
     data = opts.get("data")

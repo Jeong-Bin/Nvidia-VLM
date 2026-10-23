@@ -2273,6 +2273,12 @@ if __name__ == "__main__":
                          "그리고, 원본 행렬은 <run>/attn/<uuid>.npz 로 남긴다. "
                          "프롬프트와 출력은 바뀌지 않는다(기록용 계산을 옆에서 "
                          "따로 한다). 기본 off.")
+    ap.add_argument("--cat-probs", action="store_true",
+                    help="[클립 모드] 1차 답의 scenario_types 자리에서 장르마다 그 "
+                         "이름이 나올 확률을 재서 <run>/cat_probs_*.jsonl 에 남긴다"
+                         "(cat_probs.py). recheck 후보를 키워드 대신 모델 확률로 "
+                         "고를 때 쓴다(recheck_missed.py --candidates prob). "
+                         "1차 출력은 바뀌지 않는다. 기본 off.")
     ap.add_argument("--weather-only", "--difficulty-only",
                     dest="difficulty_only", action="store_true",
                     help="날씨 4축만 추론한다. edge-case 탐지"
@@ -2377,6 +2383,8 @@ if __name__ == "__main__":
                 print("[warn] --clip-no-video-input 이면 프레임에 타임스탬프가 "
                       "없어 구간이 부정확할 수 있다")
 
+    if args.cat_probs and not args.clip_mode:
+        raise SystemExit("[error] --cat-probs 는 클립 모드(--clip-mode) 전용입니다")
     if args.attn_timeline and not args.clip_mode:
         raise SystemExit("[error] --attn-timeline 은 클립 모드(--clip-mode) 전용입니다")
 
@@ -2581,6 +2589,7 @@ if __name__ == "__main__":
                            explain_traj=args.explain_traj,
                            time_spans=args.time_spans,
                            attn_timeline=args.attn_timeline,
+                           cat_probs=args.cat_probs,
                            use_obstacle=args.use_obstacle,
                            single_view=args.single_view,
                            fps=args.clip_fps,

@@ -125,6 +125,11 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
                          묻는다(recheck_missed.py). 2차 전 채점은
                          evaluation_before_recheck.log 로 남긴다
   --no-recheck           2차 확인을 끈다 (1차 결과만 채점)           [RECHECK=0]
+  --cat-probs            1차 답의 장르 확률을 기록 (cat_probs_*.jsonl, 1차 출력 그대로)
+                                                                  [CAT_PROBS=1]
+  --recheck-candidates M 2차 확인 후보 고르기: keyword(기본, 서술의 키워드) /
+                         prob(장르 확률, --cat-probs 필요) / both  [RECHECK_CANDIDATES]
+  --recheck-prob-threshold T  prob/both 의 확률 기준 (기본 0.05)  [RECHECK_PROB_THRESHOLD]
   --recheck-min-score N  2차 확인 YES 중 점수 N 이상만 반영 (기본 2 = '있지만
                          영향 없음' YES 를 버림, 1 = 전부 반영)  [RECHECK_MIN_SCORE]
   --recheck-only DIR     이미 끝난 실행 폴더에 2차 확인만 덧붙인다. 라벨/카테고리는
@@ -192,6 +197,11 @@ while [ $# -gt 0 ]; do
     --explain-traj)      EXPLAIN_TRAJ=1 ;;
     --unknown-categories) UNKNOWN_CATS=1 ;;
     --attn-timeline)      ATTN_TIMELINE=1 ;;
+    --cat-probs)          CAT_PROBS=1 ;;
+    --recheck-candidates=*) RECHECK_CANDIDATES="${1#*=}" ;;
+    --recheck-candidates)   shift; RECHECK_CANDIDATES="${1:-keyword}" ;;
+    --recheck-prob-threshold=*) RECHECK_PROB_THRESHOLD="${1#*=}" ;;
+    --recheck-prob-threshold)   shift; RECHECK_PROB_THRESHOLD="${1:-0.05}" ;;
     --time-spans=*)       TIME_SPANS="${1#*=}" ;;
     --time-spans)         case "${2:-}" in inline|followup) shift; TIME_SPANS="$1" ;; *) TIME_SPANS=inline ;; esac ;;
     --group=*)           TARGET_GROUP="${1#*=}" ;;
@@ -295,13 +305,17 @@ run_recheck() {
     PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
       "$PYBIN" -u recheck_missed.py --run-dir "$dir" \
         --num-shards "$NSHARDS" --shard-id "$g" \
+        --candidates "${RECHECK_CANDIDATES:-keyword}" \
+        --prob-threshold "${RECHECK_PROB_THRESHOLD:-0.05}" \
         >> "$dir/recheck/recheck_shard_${g}.log" 2>&1 &
     pids+=($!)
   done
   echo "[recheck] launched ${#pids[@]} shards (GPU ${GPU_LIST[*]}), 로그: $dir/recheck/"
   wait
   "$PYBIN" -u recheck_missed.py --run-dir "$dir" --apply \
-    --min-score "${RECHECK_MIN_SCORE:-2}"
+    --min-score "${RECHECK_MIN_SCORE:-2}" \
+    --candidates "${RECHECK_CANDIDATES:-keyword}" \
+    --prob-threshold "${RECHECK_PROB_THRESHOLD:-0.05}"
 }
 
 if [ -n "${RECHECK_ONLY:-}" ]; then
@@ -410,6 +424,7 @@ esac
 [ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
 [ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-categories"
 [ "${ATTN_TIMELINE:-0}" = "1" ] && OPTS="$OPTS --attn-timeline"
+[ "${CAT_PROBS:-0}" = "1" ] && OPTS="$OPTS --cat-probs"
 case "${TIME_SPANS:-0}" in
   0|"") ;;
   1|inline) OPTS="$OPTS --time-spans inline" ;;

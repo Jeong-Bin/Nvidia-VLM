@@ -376,6 +376,7 @@ def _generate(model, processor, images, text_prompt, max_new_tokens=256,
     if state_out is not None:
         state_out["sequences"] = seq
         state_out["cache"] = gen.past_key_values
+        state_out["prompt_len"] = inputs.input_ids.shape[1]
     trimmed = seq[:, inputs.input_ids.shape[1]:]
     out = processor.batch_decode(
         trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
@@ -432,6 +433,7 @@ def _generate_video(model, processor, frames, text_prompt, max_new_tokens=256,
     if state_out is not None:
         state_out["sequences"] = seq
         state_out["cache"] = gen.past_key_values
+        state_out["prompt_len"] = inputs.input_ids.shape[1]
     trimmed = seq[:, inputs.input_ids.shape[1]:]
     if attn_rec is not None:
         rows = attn_rec.end()
@@ -567,7 +569,7 @@ def run_clip_inference(uuids, labels, category_menu,
                        difficulty=False, difficulty_only=False,
                        tiers_elements=False, explain_traj=False, traj=None,
                        viz_per_category=None, time_spans=None,
-                       attn_timeline=False):
+                       attn_timeline=False, cat_probs=False):
     """클립 전체(20초)를 1fps 로 넣어 클립 단위로 판정한다.
 
     run_inference 와 판정 단위가 다르다 - 저쪽은 (uuid, frame_idx) 이고
@@ -624,6 +626,13 @@ def run_clip_inference(uuids, labels, category_menu,
                 print(f"[info] --attn-timeline: 어텐션 층 {attn_rec.n_layers}개에 "
                       f"기록 훅을 달았다")
     attn_dir = Path(out_csv).parent / "attn"
+    # --cat-probs: 클립마다 장르 확률 한 줄. 샤드마다 따로 쓴다
+    # (clip_results_shard_3.csv -> cat_probs_clip_results_shard_3.jsonl).
+    cp_file = None
+    if cat_probs:
+        cp_path = Path(out_csv).parent / f"cat_probs_{Path(out_csv).stem}.jsonl"
+        cp_file = open(cp_path, "a" if resume else "w", encoding="utf-8")
+        print(f"[info] --cat-probs: 장르 확률 -> {cp_path.name}")
 
     # 제약 디코딩은 이 모드에서 쓰지 않는다.
     #
@@ -768,7 +777,8 @@ def run_clip_inference(uuids, labels, category_menu,
                 time_spans=(time_spans == "inline"))
             # followup 은 1차 대화(토큰 열 + KV 캐시)를 받아 두었다가 질문을
             # 이어 붙인다. 1차 생성 자체는 받지 않을 때와 같다.
-            fu_state = {} if time_spans == "followup" else None
+            # --cat-probs 도 같은 대화 상태가 필요하다(캐시를 되돌려 장르 확률을 잰다).
+            fu_state = {} if (time_spans == "followup" or cat_probs) else None
             gen_out = _generate(model, processor, images, prompt,
                                 max_new_tokens=(NUR_MAX_NEW_TOKENS_DIFFICULTY
                                                 if difficulty
@@ -800,7 +810,8 @@ def run_clip_inference(uuids, labels, category_menu,
                          sink=attn_out.get("sink"))
             if fu_state is not None:
                 # 장르를 하나도 대지 않았으면 물을 대상이 없다.
-                if result["categories"] and fu_state:
+                if (time_spans == "followup" and result["categories"]
+                        and fu_state):
                     q = followup_time_spans_question(
                         bool(score_categories and score_groups(labels)))
                     ans = _continue_chat(model, processor, fu_state, q,
@@ -809,6 +820,17 @@ def run_clip_inference(uuids, labels, category_menu,
                      result["time_seen"]) = parse_time_spans_answer(
                         ans, labels, set(result["categories"]))
                     result["time_spans_answer"] = ans
+                # --cat-probs: 캐시를 잘라 쓰므로 이어 묻기가 끝난 뒤에 한다.
+                if cat_probs and fu_state and result["parse_ok"]:
+                    from cat_probs import category_probs
+                    names = [l["category"] for l in labels if not l["is_normal"]]
+                    cp = category_probs(model, processor.tokenizer, fu_state,
+                                        fu_state["prompt_len"], names)
+                    if cp is not None:
+                        cp_file.write(json.dumps(
+                            {"uuid": uuid, "categories": result["categories"],
+                             **cp}, ensure_ascii=False) + "\n")
+                        cp_file.flush()
                 fu_state.clear()
                 torch.cuda.empty_cache()
 
@@ -907,6 +929,8 @@ def run_clip_inference(uuids, labels, category_menu,
                 if targets is not None:
                     viz_cat_counts.update(targets)
 
+    if cp_file is not None:
+        cp_file.close()
     dt = time.time() - t_start
     n = max(len(uuids), 1)
     print(f"\n[clip] done: {len(uuids)} clips in {dt/60:.1f} min "

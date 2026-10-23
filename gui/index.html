@@ -473,6 +473,7 @@ video{width:100%;background:#000;border-radius:6px}
       <label class="chk" title="Unknown 카테고리(예상 못한 동적 객체 / 주행 환경, scene_category 에서 &quot;unknown&quot;: true)를 카테고리 메뉴에 넣는다(--unknown-categories). 끄면 기존 카테고리만 찾는다. 켜면 프롬프트가 약 1,700자 길어지고, GT 에 Unknown 이 없으면 그 예측은 오탐으로 세진다.">
         <input type="checkbox" id="r-unknown" checked> Unknown 카테고리 찾기</label>
       <label title="다룰 상위 카테고리(--group). 하나를 고르면 그 상위 카테고리의 카테고리만 찾고 점수도 그것 하나만 매긴다. 채점도 GT 를 같은 범위로 줄여서 한다.">상위 카테고리<select id="r-group"><option value="all">All</option><option value="dynamic_object">Dynamic object</option><option value="driving_environment">Driving environment</option></select></label>
+      <label title="장르별 위험 구간(--time-spans). 이름을 댄 장르마다 시간 구간을 나눠 구간별 위험도 0~4 를 받고, 시각화 영상 재생 바 위에 점수별 색 띠로 그린다. inline: 1차 답변 JSON 에 칸을 넣는다(원본 프롬프트가 바뀌어 장르/점수 판단이 달라질 수 있다). followup: 1차 답변이 끝난 뒤 같은 대화에 이어 묻는다(1차 결과 그대로, 클립당 약 1초 추가). 끔: 구간을 묻지 않는다.">위험 구간<select id="r-tspans"><option value="inline" selected>inline</option><option value="followup">followup</option><option value="">끔</option></select></label>
       <label id="r-gpuwrap" class="hide">GPU<input type="text" id="r-gpus" value="0,1,2" size="8"></label>
       <label id="r-shardwrap">샤드 수<input type="number" id="r-shards" value="8" min="1" max="8" size="2"></label>
       <label>메모<input type="text" id="r-memo" size="26" placeholder="이 실행이 무엇을 시험하는지"></label>
@@ -584,6 +585,7 @@ video{width:100%;background:#000;border-radius:6px}
       <label class="chk" title="Unknown 카테고리(예상 못한 동적 객체 / 주행 환경, scene_category 에서 &quot;unknown&quot;: true)를 카테고리 메뉴에 넣는다(--unknown-categories). 끄면 기존 카테고리만 찾는다. 켜면 프롬프트가 약 1,700자 길어지고, GT 에 Unknown 이 없으면 그 예측은 오탐으로 세진다.">
         <input type="checkbox" id="sg-unknown" checked> Unknown 카테고리 찾기</label>
       <label title="다룰 상위 카테고리(--group). 하나를 고르면 그 상위 카테고리의 카테고리만 찾고 점수도 그것 하나만 매긴다. 채점도 GT 를 같은 범위로 줄여서 한다.">상위 카테고리<select id="sg-group"><option value="all">All</option><option value="dynamic_object">Dynamic object</option><option value="driving_environment">Driving environment</option></select></label>
+      <label title="장르별 위험 구간(--time-spans). 이름을 댄 장르마다 시간 구간을 나눠 구간별 위험도 0~4 를 받고, 시각화 영상 재생 바 위에 점수별 색 띠로 그린다. inline: 1차 답변 JSON 에 칸을 넣는다(원본 프롬프트가 바뀌어 장르/점수 판단이 달라질 수 있다). followup: 1차 답변이 끝난 뒤 같은 대화에 이어 묻는다(1차 결과 그대로, 클립당 약 1초 추가). 끔: 구간을 묻지 않는다.">위험 구간<select id="sg-tspans"><option value="inline" selected>inline</option><option value="followup">followup</option><option value="">끔</option></select></label>
     </div>
     <div class="row" style="margin-top:12px">
       <button id="sg-go" class="primary">이 클립 추론</button>
@@ -644,6 +646,7 @@ video{width:100%;background:#000;border-radius:6px}
       <label class="chk" title="Unknown 카테고리(예상 못한 동적 객체 / 주행 환경, scene_category 에서 &quot;unknown&quot;: true)를 카테고리 메뉴에 넣는다(--unknown-categories). 끄면 기존 카테고리만 찾는다. 켜면 프롬프트가 약 1,700자 길어지고, GT 에 Unknown 이 없으면 그 예측은 오탐으로 세진다.">
         <input type="checkbox" id="n-unknown" checked> Unknown 카테고리 찾기</label>
       <label title="다룰 상위 카테고리(--group). 하나를 고르면 그 상위 카테고리의 카테고리만 찾고 점수도 그것 하나만 매긴다. 채점도 GT 를 같은 범위로 줄여서 한다.">상위 카테고리<select id="n-group"><option value="all">All</option><option value="dynamic_object">Dynamic object</option><option value="driving_environment">Driving environment</option></select></label>
+      <label title="장르별 위험 구간(--time-spans). 이름을 댄 장르마다 시간 구간을 나눠 구간별 위험도 0~4 를 받고, 시각화 영상 재생 바 위에 점수별 색 띠로 그린다. inline: 1차 답변 JSON 에 칸을 넣는다(원본 프롬프트가 바뀌어 장르/점수 판단이 달라질 수 있다). followup: 1차 답변이 끝난 뒤 같은 대화에 이어 묻는다(1차 결과 그대로, 클립당 약 1초 추가). 끔: 구간을 묻지 않는다.">위험 구간<select id="n-tspans"><option value="inline" selected>inline</option><option value="followup">followup</option><option value="">끔</option></select></label>
       <label id="n-gpuwrap" class="hide">GPU<input type="text" id="n-gpus" value="0,1,2" size="8"></label>
       <label id="n-shardwrap">샤드 수<input type="number" id="n-shards" value="8" min="1" max="8" size="2"></label>
       <label>메모<input type="text" id="n-memo" size="26" placeholder="이 실행이 무엇을 시험하는지"></label>
@@ -1316,11 +1319,12 @@ function previewCmd() {
   }
   if ($('#r-unknown').checked && !$('#r-diffonly').checked) parts.push('--unknown-categories');
   if ($('#r-group').value !== 'all' && !$('#r-diffonly').checked) parts.push('--group ' + $('#r-group').value);
+  if ($('#r-tspans').value && !$('#r-diffonly').checked) parts.push('--time-spans ' + $('#r-tspans').value);
   if ($('#r-memo').value) parts.push(`--memo "${$('#r-memo').value}"`);
   $('#r-cmd').textContent = '$ ' + parts.join(' ');
 }
 ['#r-model', '#r-labels', '#r-scene', '#r-traj', '#r-ego', '#r-viz', '#r-data',
- '#r-vpc', '#r-difficulty', '#r-diffonly', '#r-notiers', '#r-unknown', '#r-group', '#r-gpus', '#r-shards', '#r-memo'].forEach(s => {
+ '#r-vpc', '#r-difficulty', '#r-diffonly', '#r-notiers', '#r-unknown', '#r-group', '#r-tspans', '#r-gpus', '#r-shards', '#r-memo'].forEach(s => {
   $(s).addEventListener('input', previewCmd); $(s).addEventListener('change', previewCmd);
 });
 $('#r-model').addEventListener('change', onModelChange);
@@ -1367,11 +1371,12 @@ function previewNasCmd() {
   }
   if ($('#n-unknown').checked && !$('#n-diffonly').checked) parts.push('--unknown-categories');
   if ($('#n-group').value !== 'all' && !$('#n-diffonly').checked) parts.push('--group ' + $('#n-group').value);
+  if ($('#n-tspans').value && !$('#n-diffonly').checked) parts.push('--time-spans ' + $('#n-tspans').value);
   if ($('#n-memo').value) parts.push(`--memo "${$('#n-memo').value}"`);
   $('#n-cmd').textContent = '$ ' + parts.join(' ');
 }
 ['#n-model', '#n-scene', '#n-limit', '#n-traj', '#n-ego', '#n-viz', '#n-data',
- '#n-vpc', '#n-difficulty', '#n-diffonly', '#n-notiers', '#n-unknown', '#n-group', '#n-gpus', '#n-shards', '#n-memo'].forEach(s => {
+ '#n-vpc', '#n-difficulty', '#n-diffonly', '#n-notiers', '#n-unknown', '#n-group', '#n-tspans', '#n-gpus', '#n-shards', '#n-memo'].forEach(s => {
   $(s).addEventListener('input', previewNasCmd); $(s).addEventListener('change', previewNasCmd);
 });
 $('#n-model').addEventListener('change', onNasModelChange);
@@ -1397,6 +1402,7 @@ $('#n-go').onclick = async () => {
         tiers_elements: $('#n-notiers').checked,
         unknown_categories: $('#n-unknown').checked,
         group: $('#n-group').value,
+        time_spans: $('#n-tspans').value,
         gpus: $('#n-gpus').value, shards: +$('#n-shards').value,
         memo: $('#n-memo').value,
       })
@@ -1420,6 +1426,7 @@ $('#r-go').onclick = async () => {
         tiers_elements: $('#r-notiers').checked,
         unknown_categories: $('#r-unknown').checked,
         group: $('#r-group').value,
+        time_spans: $('#r-tspans').value,
         gpus: $('#r-gpus').value, shards: +$('#r-shards').value,
         memo: $('#r-memo').value,
       })
@@ -1447,6 +1454,7 @@ function sgOpts() {
     difficulty_only: $('#sg-diffonly').checked,
     unknown_categories: $('#sg-unknown').checked,
     group: $('#sg-group').value,
+    time_spans: $('#sg-tspans').value,
   };
 }
 
@@ -1505,7 +1513,7 @@ async function sgShow(uuid, runDir) {
 }
 
 ['#sg-uuid', '#sg-model', '#sg-scene', '#sg-data', '#sg-traj', '#sg-ego',
- '#sg-difficulty', '#sg-diffonly', '#sg-unknown', '#sg-group'].forEach(sel => {
+ '#sg-difficulty', '#sg-diffonly', '#sg-unknown', '#sg-group', '#sg-tspans'].forEach(sel => {
   const el = $(sel); if (!el) return;
   el.addEventListener('input', sgPreview); el.addEventListener('change', sgPreview);
 });
@@ -1523,6 +1531,7 @@ function sgPreview() {
   if (o.difficulty) parts.push('--weather');
   if (o.unknown_categories && !o.difficulty_only) parts.push('--unknown-categories');
   if (o.group !== 'all' && !o.difficulty_only) parts.push('--group ' + o.group);
+  if (o.time_spans && !o.difficulty_only) parts.push('--time-spans ' + o.time_spans);
   parts.push('--only-uuids <' + o.single_uuid + '>');
   $('#sg-cmd').textContent = '$ bash ' + parts.join(' ');
 }
