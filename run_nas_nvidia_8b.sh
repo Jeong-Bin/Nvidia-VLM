@@ -5,11 +5,8 @@
 # 채점까지 하려면 run_labeled_8b.sh 를, GPU 여러 장이 필요한 27B 는
 # run_nas_nvidia_27b.sh 를 쓸 것.
 #
-# run_all.sh 와 무엇이 다른가:
-#   run_all.sh       판정 단위 = (uuid, frame_idx). 클립당 10 timestamp x 2프레임
-#                    x 3뷰. Q1/Q2/Q3 프롬프트.
-#   run_nas_nvidia_8b.sh  판정 단위 = 클립 하나. 20초를 1fps 20장으로 훑어 비디오
-#                    한 편으로 넣는다. nuReasoning 단계별 프롬프트.
+# 판정 단위 = 클립 하나. 20초를 훑어 비디오 한 편으로 넣는다(nuReasoning
+# 단계별 프롬프트).
 #
 # 클립을 8개 shard 로 나눠 GPU 0~7 에 배정한다. 각 프로세스가 자기 GPU
 # 1장에 모델 전체를 올린다(실측 약 18.5GB / 24GB).
@@ -96,9 +93,6 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --traj center|width    자차 미래 궤적을 프레임에 그린다 (기본 off)   [TRAJ]
   --memo "TEXT"          이 실행이 무엇을 시험하는지 한 줄 메모           [MEMO]
   --use-egomotion        egomotion 사실(자차 행동 요약)을 주입 (기본 off)  [USE_EGOMOTION=1]
-  --use-egomotion-c      [대조군C] 헤더/hint 유지, 센서 수치만 제거          [EGO_ABLATION=c]
-  --use-egomotion-d      [대조군D] hint 만 남기고 헤더/수치 제거             [EGO_ABLATION=d]
-  --header-style v1|v2   자차 행동 블록 헤더 문구 (기본 v1)              [HEADER_STYLE]
   --unknown-categories    Unknown 카테고리(예상 못한 동적 객체/주행 환경)를
                           메뉴에 넣는다 (기본 off, ablation 용)   [UNKNOWN_CATS=1]
   --time-spans [MODE]     장르마다 시간 구간별 위험도(0~4)를 받아 시각화 영상
@@ -163,15 +157,10 @@ while [ $# -gt 0 ]; do
     --memo=*)            MEMO="${1#*=}" ;;
     --memo)              shift; MEMO="${1:-}" ;;
     --use-egomotion)     USE_EGOMOTION=1 ;;
-    --use-egomotion-c)   EGO_ABLATION=c ;;
-    --use-egomotion-d)   EGO_ABLATION=d ;;
-    --header-style=*)    HEADER_STYLE="${1#*=}" ;;
-    --header-style)      shift; HEADER_STYLE="${1:-v1}" ;;
     --weather|--difficulty)
                          WEATHER=1 ;;
     --weather-only|--difficulty-only)
                          WEATHER_ONLY=1 ;;
-    --no-tiers-elements) TIERS_ELEMENTS=1 ;;
     --explain-traj)      EXPLAIN_TRAJ=1 ;;
     --unknown-categories) UNKNOWN_CATS=1 ;;
     --attn-timeline)      ATTN_TIMELINE=1 ;;
@@ -240,21 +229,18 @@ case "${MODEL:-}" in
          exit 2 ;;
 esac
 
-OPTS="--clip-mode --single-view --data $DATA"
+OPTS="--single-view --data $DATA"
 [ -n "${MODEL:-}" ] && OPTS="$OPTS --model $MODEL"
 [ -n "$SCENE_JSON" ] && OPTS="$OPTS --scene-json $SCENE_JSON"
 [ "${TIMELINE:-0}" = "1" ]      && OPTS="$OPTS --timeline"
 [ "${EGO_TRACK:-0}" = "1" ]     && OPTS="$OPTS --ego-track"
 [ -n "${TRAJ:-}" ]              && OPTS="$OPTS --traj $TRAJ"
 [ "${USE_EGOMOTION:-0}" = "1" ] && OPTS="$OPTS --use-egomotion"
-[ -n "${EGO_ABLATION:-}" ]      && OPTS="$OPTS --use-egomotion-${EGO_ABLATION}"
-[ -n "${HEADER_STYLE:-}" ]      && OPTS="$OPTS --header-style $HEADER_STYLE"
 # 옛 환경변수 이름(DIFFICULTY/DIFFICULTY_ONLY)도 계속 받는다.
 [ "${DIFFICULTY:-0}" = "1" ]      && WEATHER=1
 [ "${DIFFICULTY_ONLY:-0}" = "1" ] && WEATHER_ONLY=1
 [ "${WEATHER:-0}" = "1" ]         && OPTS="$OPTS --weather"
 [ "${WEATHER_ONLY:-0}" = "1" ]    && OPTS="$OPTS --weather-only"
-[ "${TIERS_ELEMENTS:-0}" = "1" ] && OPTS="$OPTS --no-tiers-elements"
 [ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
 [ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-categories"
 [ "${ATTN_TIMELINE:-0}" = "1" ] && OPTS="$OPTS --attn-timeline"
@@ -344,8 +330,7 @@ fi
   done
   echo "[info] launched ${#pids[@]} shards, PIDs: ${pids[*]}"
 
-  # 진행 상황: 샤드 CSV 의 행 수를 세어 보여준다. monitor_progress.py 는
-  # (uuid, frame_idx) 단위를 전제로 해서 여기서는 쓰지 않는다.
+  # 진행 상황: 샤드 CSV 의 행 수를 세어 보여준다.
   while :; do
     alive=0
     for p in "${pids[@]}"; do kill -0 "$p" 2>/dev/null && alive=$((alive+1)); done

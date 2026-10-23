@@ -1,31 +1,19 @@
 #!/usr/bin/env python3
-"""Qwen VLM 단일 호출 추론 러너.
+"""Qwen VLM 클립 추론 러너 (edge_case_mining.py 가 부른다).
 
---model 로 Qwen2.5-VL-7B, Qwen3-VL-8B/32B 중 선택 가능 (edge_case_mining.py 의
-choices 참고). Qwen3-VL 은 Qwen2.5-VL 과 다른 모델 클래스
-(Qwen3VLForConditionalGeneration vs Qwen2_5_VLForConditionalGeneration) 를 쓰므로
+--model 로 Qwen2.5-VL-7B, Qwen3-VL-8B/32B, Qwen3.8-27B 중 선택 가능
+(edge_case_mining.py 의 choices 참고). 모델마다 클래스가 다르지만
 AutoModelForImageTextToText / AutoProcessor 로 로드해 model_id 에 따라 알맞은
 구현이 자동으로 선택되게 한다 - 모델을 바꿔도 이 파일을 고칠 필요가 없다.
 
-판정 단위: (uuid, frame_idx) - 클립 내 특정 순간의 3뷰 프레임 세트.
-
-한 번의 호출로 직전 3뷰 + 현재 3뷰(6장)를 보여주고 JSON 을 받는다:
-  {"verdict": "Normal"|"Special", "categories": [...],
-   "blocks_path": true|false, "evidence": "..."}
-
-시각화는 "경로를 막는가"(Q3) x "어느 카테고리인가"(Q2) 로 나눠 담는다:
-
-  <viz_dir>/blocking_yes/<Category>/<uuid>_f<idx>/{card.png, result.json}
-  <viz_dir>/blocking_no/<Category>/<uuid>_f<idx>/{card.png, result.json}
-
-멀티라벨이면 해당하는 모든 카테고리 폴더에 같은 결과를 중복 저장한다.
-카테고리가 하나도 없는 판정 단위는 저장하지 않는다.
+판정 단위: 클립(uuid) 하나. 20초를 일정 fps 로 뽑은 프레임을 비디오 한 편으로
+넣고 nuReasoning 단계별 JSON 을 받아 CSV 한 행으로 쓴다(run_clip_inference).
+시각화는 <viz_dir>/.../<uuid>/{clip.mp4,result.json} (visualize_clip.py).
 """
 import csv
 import os
 import json
 import re
-import shutil
 import time
 from collections import Counter
 from pathlib import Path
@@ -33,28 +21,22 @@ from pathlib import Path
 import numpy as np
 import torch
 from tqdm import tqdm
-from transformers import (AutoModelForImageTextToText, AutoProcessor,
-                          LogitsProcessorList)
+from transformers import AutoModelForImageTextToText, AutoProcessor
 from transformers.video_utils import VideoMetadata
 
 from edge_case_mining import (
-    sample_unit_frames, views_for, clip_path,
-    build_vlm_prompt, parse_vlm_output, unit_name, viz_targets, blocking_dir,
+    views_for, clip_path,
     build_nureasoning_prompt, parse_nureasoning_output,
     followup_time_spans_question, parse_time_spans_answer,
     sample_clip_frames, clip_intro,
     CLIP_FPS, CLIP_MAX_FRAMES, CLIP_MAX_LONG_SIDE,
 )
 from egomotion import (
-    ego_state, describe_ego, ego_behavior_change, describe_behavior,
     ego_clip_behavior, describe_clip_behavior,
     ego_clip_track, describe_clip_track,
 )
-from obstacle import obstacle_summary, describe_obstacles, path_intrusion
-from visualize import render_scene_card
-from visualize_clip import render_clip_result, VIZ_WIDTH
-from constrained_tier import (make_tier_processor, tier_label, score_dirname,
-                              TIER_FIELDS, score_groups, group_key)
+from visualize_clip import render_clip_result, safe_dirname, VIZ_WIDTH
+from constrained_tier import score_dirname, score_groups, group_key
 from prompts import DIFFICULTY_AXES
 
 
@@ -88,17 +70,6 @@ MULTI_GPU_MODELS = ("Qwen/Qwen3.8-27B",)
 THINKING_MODELS = ()
 
 
-def _safe_dirname(name: str) -> str:
-    """카테고리 이름을 폴더명으로 쓸 수 있게 다듬는다.
-
-    현재 분류 체계에는 경로에 위험한 문자가 없지만(공백만 있다), 체계는
-    사람이 손으로 고치는 json 이라 슬래시가 들어올 수 있다 - 그때 엉뚱한
-    상위 폴더에 쓰지 않도록 여기서 막는다.
-    """
-    out = re.sub(r'[/\\:*?"<>|]+', "_", str(name)).strip().strip(".")
-    return out or "unknown"
-
-
 def load_model(model_id: str):
     """model_id 에 맞는 모델/프로세서 클래스를 Auto* 로 자동 선택해 로드한다.
 
@@ -108,7 +79,7 @@ def load_model(model_id: str):
 
     27B 는 device_map="auto" 로 여러 GPU 에 층을 나눠 올린다 - 그러면 이
     프로세스가 CUDA_VISIBLE_DEVICES 로 보이는 GPU 를 전부 쓰게 되므로, 8샤드
-    병렬(샤드마다 GPU 1장) 구조로는 못 돌린다. run_video_27b.sh 는 처음부터
+    병렬(샤드마다 GPU 1장) 구조로는 못 돌린다. run_labeled_27b.sh 는 처음부터
     GPU 여러 장을 한 프로세스에 몰아준다.
     """
     print(f"[model] loading {model_id} ...")
@@ -132,8 +103,7 @@ def load_model(model_id: str):
     return model, processor
 
 
-# qa 스타일(verdict/categories/evidence 3필드)은 256 토큰이면 충분하지만,
-# nureasoning 은 6단계 서술을 모두 뱉으므로 256 에서 문장 중간에 잘린다.
+# nureasoning 은 6단계 서술을 모두 뱉으므로 256 토큰에서는 문장 중간에 잘린다.
 # 실측(20260811, 50클립): 256 으로 두면 12/50(24%)이 JSON 미완성으로 파싱
 # 실패했고, 잘린 위치는 모두 마지막 필드(rarity_assessment) 근처였다.
 NUR_MAX_NEW_TOKENS = 800
@@ -210,13 +180,6 @@ def _continue_chat(model, processor, state, question, max_new_tokens=300):
     return out.strip()
 
 
-def _lp_list(proc):
-    """LogitsProcessor 하나를 generate 가 받는 리스트 형태로 감싼다."""
-    if proc is None:
-        return None
-    return LogitsProcessorList([proc])
-
-
 # 판정을 담는 JSON 키 - 이 값들이 바뀌면 채점 결과가 바뀐다.
 DECISION_KEYS = ("scenario_types", "dynamic_object", "driving_environment",
                  "verdict", "scenario_type", "influenced_ego")
@@ -228,7 +191,6 @@ def _decision_steps(gen_ids, tokenizer):
     토큰을 하나씩 붙여가며 문자열을 재구성하고, DECISION_KEYS 뒤의 값이
     열리는 지점(따옴표/숫자/true/false 가 시작되는 곳)을 담은 토큰을 고른다.
     """
-    import re
     text, spans = "", []
     for t in gen_ids:
         piece = tokenizer.decode([t])
@@ -319,7 +281,7 @@ CLOSE_CALL_P = 0.1
 
 @torch.inference_mode()
 def _generate(model, processor, images, text_prompt, max_new_tokens=256,
-              as_video=False, video_fps=None, logits_processor=None,
+              as_video=False, video_fps=None,
               want_margin=False, thinking=False, state_out=None,
               attn_rec=None, attn_out=None):
     """이미지 목록을 넣고 모델 원문 출력을 받는다.
@@ -347,7 +309,6 @@ def _generate(model, processor, images, text_prompt, max_new_tokens=256,
         return _generate_video(model, processor, images, text_prompt,
                                max_new_tokens=max_new_tokens,
                                video_fps=video_fps or 1.0,
-                               logits_processor=logits_processor,
                                want_margin=want_margin, thinking=thinking,
                                state_out=state_out, attn_rec=attn_rec,
                                attn_out=attn_out)
@@ -367,7 +328,6 @@ def _generate(model, processor, images, text_prompt, max_new_tokens=256,
 
     gen = model.generate(**inputs, max_new_tokens=max_new_tokens,
                          do_sample=False,
-                         logits_processor=_lp_list(logits_processor),
                          return_dict_in_generate=(want_margin
                                                   or state_out is not None),
                          output_scores=want_margin)
@@ -376,19 +336,18 @@ def _generate(model, processor, images, text_prompt, max_new_tokens=256,
     if state_out is not None:
         state_out["sequences"] = seq
         state_out["cache"] = gen.past_key_values
-        state_out["prompt_len"] = inputs.input_ids.shape[1]
     trimmed = seq[:, inputs.input_ids.shape[1]:]
     out = processor.batch_decode(
         trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
     )[0]
     del inputs, gen, trimmed
     torch.cuda.empty_cache()
-    return out.strip()
+    return (out.strip(), margin) if want_margin else out.strip()
 
 
 @torch.inference_mode()
 def _generate_video(model, processor, frames, text_prompt, max_new_tokens=256,
-                    video_fps=1.0, logits_processor=None, want_margin=False,
+                    video_fps=1.0, want_margin=False,
                     thinking=False, state_out=None, attn_rec=None,
                     attn_out=None):
     """이미 뽑아둔 프레임 목록을 비디오 한 편으로 넘겨 생성한다.
@@ -424,7 +383,6 @@ def _generate_video(model, processor, frames, text_prompt, max_new_tokens=256,
                        float(video_fps))
     gen = model.generate(**inputs, max_new_tokens=max_new_tokens,
                          do_sample=False,
-                         logits_processor=_lp_list(logits_processor),
                          return_dict_in_generate=(want_margin
                                                   or state_out is not None),
                          output_scores=want_margin)
@@ -433,7 +391,6 @@ def _generate_video(model, processor, frames, text_prompt, max_new_tokens=256,
     if state_out is not None:
         state_out["sequences"] = seq
         state_out["cache"] = gen.past_key_values
-        state_out["prompt_len"] = inputs.input_ids.shape[1]
     trimmed = seq[:, inputs.input_ids.shape[1]:]
     if attn_rec is not None:
         rows = attn_rec.end()
@@ -449,60 +406,12 @@ def _generate_video(model, processor, frames, text_prompt, max_new_tokens=256,
     return (out.strip(), margin) if want_margin else out.strip()
 
 
-def build_sensor_facts(uuid, frame_idx, use_egomotion, use_obstacle, n_views=3):
-    """프롬프트에 넣을 센서 사실 문구와, 시각화/CSV 용 원본 상태를 함께 반환.
-
-    n_views 는 obstacle 목록을 실제 카메라 화각으로 자르는 데 쓴다 - 뷰 구성과
-    어긋나면 화면에 없는 객체를 모델에게 알려주게 된다.
-    """
-    lines, ego = [], None
-    if use_egomotion:
-        ego = ego_state(uuid, frame_idx)
-        if ego is not None:
-            lines.append(describe_ego(ego))
-    if use_obstacle:
-        s = describe_obstacles(obstacle_summary(uuid, frame_idx, n_views=n_views))
-        if s:
-            lines.append(s)
-    return "\n".join(lines), ego
-
-
-def build_behavior_facts(uuid, frame_idx, use_egomotion):
-    """nuReasoning 2단계용 "지난 N초간 자차 행동 변화" 문장과 원본 dict.
-
-    egomotion 라벨을 쓰지 않는 실행에서는 빈 문자열 - 그 경우 모델이 이미지
-    만으로 행동 변화를 추정하게 되고, 프롬프트에서 해당 블록이 통째로 빠진다.
-    클립 앞부분처럼 되돌아볼 구간이 없으면 ego_behavior_change 가 None 을
-    주므로 그 경우도 빈 문자열이다.
-    """
-    if not use_egomotion:
-        return "", None
-    ch = ego_behavior_change(uuid, frame_idx)
-    return (describe_behavior(ch) if ch else ""), ch
-
-
-# --use-egomotion-c 가 ② 자리에 넣는 내용 없는 문장.
-#
-# 왜 이런 게 필요한가: --use-egomotion 을 켜면 프롬프트에 세 가지가 한꺼번에
-# 들어간다 - ① "HOW THE EGO-VEHICLE'S BEHAVIOUR CHANGED" 헤더, ② 센서 수치
-# 문장, ③ Safety 루브릭 끝의 behavior_hint. 셋 다 behavior_facts 가 비었는지
-# 하나로 갈리므로, A(전부 off)/B(전부 on) 두 점만으로는 +7.9%p 가 어디서
-# 왔는지 알 수 없다.
-#
-# C 는 ①③ 을 그대로 둔 채 ② 의 정보만 뺀다. 문장 구조와 길이는 유지하되
-# 클립마다 달라지는 값이 없으므로, B 에 근접하면 센서 수치는 기여하지 않고
-# 프롬프트 구조가 일을 한 것이다.
-EGO_PLACEBO_SENTENCE = "This clip covers about 20 seconds of continuous driving."
-
-
 def build_clip_ego_facts(uuid, use_egomotion, ego_track=False,
-                         frame_indices=None, ego_ablation=None):
+                         frame_indices=None):
     """클립 모드용 egomotion 사실. (프롬프트 문구, 요약 dict) 를 돌려준다.
 
-    build_sensor_facts + build_behavior_facts 의 클립 판이다. 저 둘은
-    한 프레임 시점의 스냅샷(속도 순간값)과 그 앞 5초를 말하는데, 클립
-    모드는 20초 영상을 통째로 넣으므로 시점이 어긋난다. 여기서는 클립
-    전 구간을 한 번에 요약해 그 어긋남을 없앤다.
+    한 프레임 시점의 스냅샷(속도 순간값)이 아니라 클립 전 구간을 한 번에
+    요약한다 - 20초 영상을 통째로 넣으므로 그래야 시점이 어긋나지 않는다.
 
     describe_ego() 의 "is MOVING at 42 km/h" 를 여기서 쓰지 않는 이유:
     현재형 문장이 20초 영상 전체를 가리키는 것처럼 읽히지만 실제로는
@@ -514,13 +423,6 @@ def build_clip_ego_facts(uuid, use_egomotion, ego_track=False,
     #   use_egomotion 만  -> 요약 한 문장 (해석이 들어간 서술)
     #   ego_track 만      -> 1초 간격 수치만 (해석어 없음)
     #   둘 다             -> 요약 + 수치
-    # C: 센서 수치 대신 내용 없는 문장. ch 는 CSV/시각화용으로 계속 만든다.
-    if ego_ablation == "c":
-        return EGO_PLACEBO_SENTENCE, ego_clip_behavior(uuid)
-    # D: 프롬프트에는 아무것도 넣지 않는다 (hint 만 별도로 켜진다).
-    if ego_ablation == "d":
-        return "", ego_clip_behavior(uuid)
-
     if not (use_egomotion or ego_track):
         return "", None
 
@@ -538,45 +440,24 @@ def build_clip_ego_facts(uuid, use_egomotion, ego_track=False,
     return "\n".join(parts), ch
 
 
-def classify_unit(model, processor, unit_frames, prompt, views,
-                  max_new_tokens=256):
-    """직전 + 현재 프레임을 뷰 순서대로 한 번에 넣어 모델 원문 출력을 받는다.
-
-    3뷰면 6장, front-wide 단독이면 2장.
-    """
-    prev, cur = unit_frames["prev"], unit_frames["cur"]
-    images = ([prev[v] for v in views if prev.get(v) is not None]
-              + [cur[v] for v in views if cur.get(v) is not None])
-    return _generate(model, processor, images, prompt,
-                     max_new_tokens=max_new_tokens)
-
-
 def run_clip_inference(uuids, labels, category_menu,
                        model_id="Qwen/Qwen3-VL-8B-Instruct",
                        out_csv="clip_results.csv",
-                       use_egomotion=False, use_obstacle=False,
+                       use_egomotion=False,
                        single_view=True,
                        fps=CLIP_FPS, max_frames=CLIP_MAX_FRAMES,
                        max_long_side=CLIP_MAX_LONG_SIDE,
                        viz_dir=None, viz_only_edge=True, not_save_low=True,
                        viz_width=VIZ_WIDTH, video_input=True,
-                       constrain_tiers=True,
                        viz_normal=None, viz_special=None,
                        gt_labels=None, timeline=False, ego_track=False,
-                       ego_ablation=None, header_style="v1",
                        want_margin=False, score_categories=True,
                        resume=False,
                        difficulty=False, difficulty_only=False,
-                       tiers_elements=False, explain_traj=False, traj=None,
+                       explain_traj=False, traj=None,
                        viz_per_category=None, time_spans=None,
-                       attn_timeline=False, cat_probs=False):
-    """클립 전체(20초)를 1fps 로 넣어 클립 단위로 판정한다.
-
-    run_inference 와 판정 단위가 다르다 - 저쪽은 (uuid, frame_idx) 이고
-    여기는 uuid 하나가 한 행이다. 그래서 루프를 공유하지 않고 따로 뒀다.
-    프롬프트는 nuReasoning 방식만 쓴다: 20장을 시간순으로 읽는 것이 이 모드의
-    목적이고, Q1/Q2/Q3 는 "현재 순간"을 전제로 쓰인 문구라 시퀀스 입력과
-    맞지 않는다.
+                       attn_timeline=False):
+    """클립 전체(20초)를 fps 간격으로 넣어 클립 단위로 판정한다 (uuid 하나 = CSV 한 행).
 
     센서 사실은 클립의 마지막 프레임 기준으로 만든다 - 모델이 보는 마지막
     이미지와 같은 시점이어야 "지금 자차 상태"라는 말이 맞기 때문.
@@ -626,33 +507,12 @@ def run_clip_inference(uuids, labels, category_menu,
                 print(f"[info] --attn-timeline: 어텐션 층 {attn_rec.n_layers}개에 "
                       f"기록 훅을 달았다")
     attn_dir = Path(out_csv).parent / "attn"
-    # --cat-probs: 클립마다 장르 확률 한 줄. 샤드마다 따로 쓴다
-    # (clip_results_shard_3.csv -> cat_probs_clip_results_shard_3.jsonl).
-    cp_file = None
-    if cat_probs:
-        cp_path = Path(out_csv).parent / f"cat_probs_{Path(out_csv).stem}.jsonl"
-        cp_file = open(cp_path, "a" if resume else "w", encoding="utf-8")
-        print(f"[info] --cat-probs: 장르 확률 -> {cp_path.name}")
-
-    # 제약 디코딩은 이 모드에서 쓰지 않는다.
-    #
-    # 제약기는 `"safety_tier":` 같은 고정 키를 마커로 삼아 그 뒤 숫자 자리를
-    # 막는 방식이다. 그런데 점수가 카테고리별로 바뀌면서 마커로 삼을 고정
-    # 키가 없어졌다 - 모델이 내는 키는 카테고리 이름이고 클립마다 다르다.
-    # 값이 "2 (moderate)" 처럼 지저분하게 나오면 _coerce_tier 가 흡수한다.
-    tier_field_names = TIER_FIELDS
-    tier_proc = (make_tier_processor(processor.tokenizer,
-                                     fields=tier_field_names)
-                 if constrain_tiers and tier_field_names else None)
 
     n_special = sum(1 for l in labels if not l["is_normal"])
     print(f"[clip] {len(uuids)} clips | {len(views)} view(s) | {fps}fps "
           f"max {max_frames} frames @ {max_long_side}px | {n_special} categories")
     print(f"[clip] input mode: {'VIDEO (temporal merge + timestamps)' if video_input else 'image list'}")
     print(f"[clip] category scores: {'on' if score_categories else 'off'}")
-    print("[clip] tier constraint: "
-          + (f"ON (enforced at decode: {', '.join(tier_field_names)})"
-             if tier_proc else "OFF (per-category keys have no fixed marker)"))
 
     cat_counts = Counter()
     # --viz-per-category N: 카테고리마다 최초 N개 클립만 시각화한다.
@@ -749,36 +609,21 @@ def run_clip_inference(uuids, labels, category_menu,
             # egomotion 은 클립 전 구간을 요약한다 (시간축 정렬).
             behavior, ego = build_clip_ego_facts(uuid, use_egomotion,
                                                  ego_track=ego_track,
-                                                 frame_indices=clip["indices"],
-                                                 ego_ablation=ego_ablation)
-
-            # 3D bbox 는 아직 마지막 프레임 ±0.05초 스냅샷이다. 20초 영상에
-            # 붙이기엔 시간축이 어긋나 있어(실측: 과탐 감소 대신 recall -6%p)
-            # 기본 off 이고, 시간축 요약은 후속 작업으로 남겨둔다.
-            last_idx = clip["indices"][-1]
-            facts = ""
-            if use_obstacle:
-                facts = describe_obstacles(
-                    obstacle_summary(uuid, last_idx, n_views=len(views)))
+                                                 frame_indices=clip["indices"])
 
             prompt = build_nureasoning_prompt(
-                category_menu, facts, labels, behavior_facts=behavior,
+                category_menu, labels, behavior_facts=behavior,
                 intro=clip_intro(len(images), len(views), fps=fps,
                                  as_video=video_input),
                 timeline=timeline,
-                # D 는 behavior_facts 가 비어도 hint 를 켠다.
-                force_behavior_hint=(ego_ablation == "d"),
-                header_style=header_style,
                 score_categories=score_categories,
                 difficulty=difficulty,
                 difficulty_only=difficulty_only,
-                tiers_elements=tiers_elements,
                 explain_traj=explain_traj,
                 time_spans=(time_spans == "inline"))
             # followup 은 1차 대화(토큰 열 + KV 캐시)를 받아 두었다가 질문을
             # 이어 붙인다. 1차 생성 자체는 받지 않을 때와 같다.
-            # --cat-probs 도 같은 대화 상태가 필요하다(캐시를 되돌려 장르 확률을 잰다).
-            fu_state = {} if (time_spans == "followup" or cat_probs) else None
+            fu_state = {} if time_spans == "followup" else None
             gen_out = _generate(model, processor, images, prompt,
                                 max_new_tokens=(NUR_MAX_NEW_TOKENS_DIFFICULTY
                                                 if difficulty
@@ -786,7 +631,6 @@ def run_clip_inference(uuids, labels, category_menu,
                                 + (NUR_TIME_SPANS_EXTRA_TOKENS
                                    if time_spans == "inline" else 0),
                                 as_video=video_input, video_fps=fps,
-                                logits_processor=tier_proc,
                                 want_margin=want_margin,
                                 thinking=(model_id in THINKING_MODELS),
                                 state_out=fu_state,
@@ -810,8 +654,7 @@ def run_clip_inference(uuids, labels, category_menu,
                          sink=attn_out.get("sink"))
             if fu_state is not None:
                 # 장르를 하나도 대지 않았으면 물을 대상이 없다.
-                if (time_spans == "followup" and result["categories"]
-                        and fu_state):
+                if result["categories"] and fu_state:
                     q = followup_time_spans_question(
                         bool(score_categories and score_groups(labels)))
                     ans = _continue_chat(model, processor, fu_state, q,
@@ -820,17 +663,6 @@ def run_clip_inference(uuids, labels, category_menu,
                      result["time_seen"]) = parse_time_spans_answer(
                         ans, labels, set(result["categories"]))
                     result["time_spans_answer"] = ans
-                # --cat-probs: 캐시를 잘라 쓰므로 이어 묻기가 끝난 뒤에 한다.
-                if cat_probs and fu_state and result["parse_ok"]:
-                    from cat_probs import category_probs
-                    names = [l["category"] for l in labels if not l["is_normal"]]
-                    cp = category_probs(model, processor.tokenizer, fu_state,
-                                        fu_state["prompt_len"], names)
-                    if cp is not None:
-                        cp_file.write(json.dumps(
-                            {"uuid": uuid, "categories": result["categories"],
-                             **cp}, ensure_ascii=False) + "\n")
-                        cp_file.flush()
                 fu_state.clear()
                 torch.cuda.empty_cache()
 
@@ -900,7 +732,7 @@ def run_clip_inference(uuids, labels, category_menu,
                 if targets is not None:
                     # <viz_dir>/<Category>/<uuid>/ - 여러 카테고리면 전부에
                     # 같은 클립을 넣는다(중복 저장이 의도된 동작).
-                    out_dirs = [viz_path / _safe_dirname(c) / uuid
+                    out_dirs = [viz_path / safe_dirname(c) / uuid
                                 for c in targets]
                 else:
                     # <viz_dir>/{normal,special}/score_<N>/<uuid>/ 로 나눈다.
@@ -929,8 +761,6 @@ def run_clip_inference(uuids, labels, category_menu,
                 if targets is not None:
                     viz_cat_counts.update(targets)
 
-    if cp_file is not None:
-        cp_file.close()
     dt = time.time() - t_start
     n = max(len(uuids), 1)
     print(f"\n[clip] done: {len(uuids)} clips in {dt/60:.1f} min "
@@ -951,241 +781,3 @@ def run_clip_inference(uuids, labels, category_menu,
         print(f"[clip] videos written: {n_viz}")
     print(f"[saved] {out_csv}")
 
-
-def run_inference(units, labels, category_menu,
-                  model_id="Qwen/Qwen3-VL-8B-Instruct",
-                  out_csv="edge_case_results.csv", viz_dir="viz",
-                  use_egomotion=False, use_obstacle=False, check_path=False,
-                  ask_blocking=True, single_view=False,
-                  prompt_style="qa"):
-    """units: [(uuid, frame_idx), ...]
-
-    check_path=True 면 3D 라벨로 전방 통로 침범을 계산해 모델의 Q3 와 대조한다.
-    프롬프트에는 넣지 않으므로 모델 출력 자체는 달라지지 않는다.
-    ask_blocking=False 면 Q3 를 묻지 않고, 시각화도 blocking 으로 나누지 않는다.
-    single_view=True 면 front-wide 만 써서 이미지가 6장이 아니라 2장이 된다.
-
-    prompt_style="nureasoning" 이면 6단계 CoT + 1~10 점수 프롬프트로 갈아끼운다.
-    이때 --use-egomotion 이 켜져 있으면 자차 행동 변화 문장이 함께 들어간다
-    (논문 2단계의 근거). 난이도 점수는 매기지 않는다 - 판정은 edge-case 요소를
-    하나라도 나열했는가로만 정한다.
-    """
-    nur = prompt_style == "nureasoning"
-    if nur:
-        # 이 프롬프트에는 Q3 가 없다. 호출부가 이미 강제하지만, run_inference 를
-        # 직접 쓰는 경로에서도 폴더 구조가 어긋나지 않도록 여기서도 막는다.
-        ask_blocking = False
-    model, processor = load_model(model_id)
-    viz_path = Path(viz_dir)
-    viz_path.mkdir(parents=True, exist_ok=True)
-
-    views = views_for(single_view)
-
-    # 프롬프트 생성/파싱을 스타일에 따라 한 쌍으로 골라둔다. 아래 루프는
-    # 어느 스타일인지 신경 쓰지 않는다.
-    def _make_prompt(facts="", behavior=""):
-        if nur:
-            return build_nureasoning_prompt(category_menu, facts, labels,
-                                            single_view=single_view,
-                                            behavior_facts=behavior)
-        return build_vlm_prompt(category_menu, facts,
-                                ask_blocking=ask_blocking,
-                                single_view=single_view)
-
-    def _parse(raw):
-        if nur:
-            return parse_nureasoning_output(raw, labels)
-        return parse_vlm_output(raw, labels, ask_blocking=ask_blocking)
-
-    # 센서 사실을 안 쓰면 프롬프트가 매번 같으므로 한 번만 만든다
-    base_prompt = _make_prompt()
-    use_sensors = use_egomotion or use_obstacle
-
-    # 멀티라벨이라 카테고리 합계는 판정 단위 수를 넘을 수 있다.
-    # blocking 여부로 한 번 더 쪼개서 센다.
-    cat_counts = Counter()
-    cat_counts_by_block = {"blocking_yes": Counter(), "blocking_no": Counter()}
-    block_counts = Counter()   # 카테고리가 붙은 단위의 blocking yes/no
-    n_labeled = 0
-    n_parse_fail = 0
-    # Q3 교차검증: 모델 답 x 기하 계산의 2x2 (검증을 켠 단위만 집계)
-    agree = Counter()
-    t_start = time.time()
-
-    with open(out_csv, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow([
-            "uuid", "frame_idx", "verdict", "blocks_path", "n_categories",
-            "categories", "evidence", "parse_ok", "ego_speed_kmh", "ego_motion",
-            "path3d_blocked", "path3d_nearest_m", "path3d_nearest_class",
-            "path3d_agree",
-        ])
-
-        pbar = tqdm(units, total=len(units), unit="unit", dynamic_ncols=True,
-                    mininterval=1.0, smoothing=0.1)
-        for uuid, frame_idx in pbar:
-            unit_frames = sample_unit_frames(uuid, frame_idx, views=views)
-
-            # behavior 는 아래 payload 에서도 읽으므로 프레임이 없는 분기에서도
-            # 정의돼 있어야 한다.
-            ego, behavior = None, ""
-            if not any(unit_frames["cur"].values()):
-                result = {"verdict": "Normal", "categories": [],
-                          "blocks_path": False if ask_blocking else None,
-                          "evidence": "(no frame)", "parse_ok": False}
-            else:
-                facts = ""
-                if use_sensors:
-                    facts, ego = build_sensor_facts(
-                        uuid, frame_idx, use_egomotion, use_obstacle,
-                        n_views=len(views))
-                if nur:
-                    behavior, _ = build_behavior_facts(
-                        uuid, frame_idx, use_egomotion)
-                prompt = (_make_prompt(facts, behavior)
-                          if (facts or behavior) else base_prompt)
-                raw = classify_unit(
-                    model, processor, unit_frames, prompt, views,
-                    max_new_tokens=NUR_MAX_NEW_TOKENS if nur else 256)
-                result = _parse(raw)
-
-            cats = result["categories"]
-            block_key = blocking_dir(result)          # Q3 off 면 None
-            cat_counts.update(cats)
-            n_parse_fail += not result["parse_ok"]
-            if cats:
-                n_labeled += 1
-                if block_key:
-                    block_counts[block_key] += 1
-                    cat_counts_by_block[block_key].update(cats)
-
-            # Q3 교차검증 (프롬프트에는 들어가지 않았으므로 모델 답과 독립).
-            # Q3 를 안 물었으면 대조할 모델 답이 없어 기하 결과만 남긴다.
-            path = path_intrusion(uuid, frame_idx) if check_path else None
-            if path is not None and ask_blocking:
-                agree[(result["blocks_path"], path["blocked"])] += 1
-
-            writer.writerow([
-                uuid, frame_idx, result["verdict"],
-                "" if block_key is None else ("Yes" if result["blocks_path"] else "No"),
-                len(cats), "|".join(cats), result["evidence"],
-                int(result["parse_ok"]),
-                f"{ego['speed_kmh']:.1f}" if ego else "",
-                ego["motion"] if ego else "",
-                ("Yes" if path["blocked"] else "No") if path else "",
-                path["nearest_m"] if path and path["nearest_m"] is not None else "",
-                path["nearest_class"] or "" if path else "",
-                (int(result["blocks_path"] == path["blocked"])
-                 if (path and ask_blocking) else ""),
-            ])
-            f.flush()
-
-            # Q3 를 물었으면 blocking_{yes,no}/<category>/, 아니면 <category>/
-            # 아래에 저장. 멀티라벨이면 해당하는 모든 카테고리 폴더에 중복 저장.
-            targets = viz_targets(result)
-            if targets:
-                payload = {
-                    "uuid": uuid, "frame_idx": frame_idx,
-                    "verdict": result["verdict"],
-                    "categories": cats,
-                    "evidence": result["evidence"],
-                }
-                if ask_blocking:
-                    payload["blocks_path"] = result["blocks_path"]
-                if nur:
-                    # 단계별 답을 그대로 남긴다 - 왜 그렇게 봤는지 사후
-                    # 검수할 때 이게 유일한 근거다. evidence 는 이 중 두 개를
-                    # 이어 붙인 요약이라 원본을 대신하지 못한다.
-                    payload["reasoning"] = {
-                        k: result.get(k, "") for k in
-                        ("observation", "ego_behavior", "unusual_elements",
-                         "score_reason")
-                    }
-                    payload["group_scores"] = result.get("group_scores") or {}
-                    if behavior:
-                        payload["ego_behavior_measured"] = behavior
-                if ego:
-                    payload["ego"] = {"speed_kmh": round(ego["speed_kmh"], 1),
-                                      "motion": ego["motion"]}
-                if path is not None:
-                    payload["path_3d"] = {
-                        "blocked": path["blocked"],
-                        "n_in_path": path["n_in_path"],
-                        "nearest_m": path["nearest_m"],
-                        "nearest_class": path["nearest_class"],
-                    }
-                    if ask_blocking:
-                        payload["path_3d"]["agrees_with_model"] = (
-                            result["blocks_path"] == path["blocked"])
-                payload_txt = json.dumps(payload, ensure_ascii=False, indent=2)
-
-                card_src = None
-                for rel in targets:
-                    out_dir = viz_path / rel / unit_name(uuid, frame_idx)
-                    out_dir.mkdir(parents=True, exist_ok=True)
-                    (out_dir / "result.json").write_text(payload_txt,
-                                                         encoding="utf-8")
-                    dst = out_dir / "card.png"
-                    if card_src is None:
-                        # 카드는 한 번만 그리고, 나머지 폴더에는 복사해 넣는다
-                        render_scene_card(uuid, frame_idx, unit_frames["cur"],
-                                          result, out_path=dst)
-                        card_src = dst
-                    else:
-                        shutil.copyfile(card_src, dst)
-
-            blk = "" if block_key is None else (
-                f" block={'Y' if result['blocks_path'] else 'N'}")
-            pbar.set_postfix_str(f"cats={len(cats)}{blk} labeled={n_labeled}")
-
-    total = len(units)
-
-    def pct(n):
-        return 100 * n / total if total else 0.0
-
-    # SPECIAL / NORMAL 은 장면 단위 배타 집계 - 카테고리가 여러 개 붙어도 1건이다
-    print("\n===== UNITS =====")
-    print(f"  {'SPECIAL (>=1 category)':28s} : {n_labeled:5d}  ({pct(n_labeled):5.1f}%)")
-    if ask_blocking:
-        for k in ("blocking_yes", "blocking_no"):
-            print(f"    {k:26s} : {block_counts[k]:5d}  ({pct(block_counts[k]):5.1f}%)")
-    print(f"  {'NORMAL (no category)':28s} : {total-n_labeled:5d}  "
-          f"({pct(total-n_labeled):5.1f}%)")
-    print(f"  {'TOTAL':28s} : {total:5d}  (100.0%)")
-
-    def dump_categories(title, counter):
-        print(f"\n===== {title} (multi-label) =====")
-        if not counter:
-            print("  (none)")
-            return
-        for cat, c in counter.most_common():
-            print(f"  {cat:28s} : {c:5d}  ({pct(c):5.1f}% of units)")
-
-    dump_categories("CATEGORY OCCURRENCES"
-                    + (" - ALL" if ask_blocking else ""), cat_counts)
-    if ask_blocking:
-        dump_categories("CATEGORY OCCURRENCES - blocking_yes",
-                        cat_counts_by_block["blocking_yes"])
-        dump_categories("CATEGORY OCCURRENCES - blocking_no",
-                        cat_counts_by_block["blocking_no"])
-
-    if check_path and agree:
-        n_chk = sum(agree.values())
-        n_ok = agree[(True, True)] + agree[(False, False)]
-        print("\n===== Q3 vs 3D GEOMETRY =====")
-        print(f"  {'checked units':28s} : {n_chk:5d}  ({100*n_chk/total:5.1f}% have 3D labels)")
-        print(f"  {'agree':28s} : {n_ok:5d}  ({100*n_ok/n_chk:5.1f}%)")
-        print(f"  {'model Yes / geometry No':28s} : {agree[(True, False)]:5d}")
-        print(f"  {'model No / geometry Yes':28s} : {agree[(False, True)]:5d}")
-        print("  (disagreements are the review-priority units)")
-    elif check_path and not ask_blocking:
-        print("\n[info] 3D path check recorded, but Q3 is off so there is no "
-              "model answer to compare against")
-
-    if n_parse_fail:
-        print(f"\n[warn] JSON parse failed on {n_parse_fail}/{total} units")
-
-    print(f"\n[done] results -> {out_csv}  ({time.time()-t_start:.1f}s)")
-    layout = "blocking_{yes,no}/<category>/" if ask_blocking else "<category>/"
-    print(f"[done] visualizations -> {viz_path}/{layout}")
-    return cat_counts

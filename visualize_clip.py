@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """클립 단위 판정 결과를 mp4 영상 + json 으로 저장한다.
 
-visualize.py(카드 한 장)와 나란히 두는 별도 경로다. 카드는 "한 순간"을
-전제로 만들어져서 클립 모드에 맞지 않는다:
+정지 카드 한 장 대신 영상을 쓰는 이유:
   - 클립 모드는 20초를 보고 판단하므로 정지 프레임 한 장으로는 근거를
     확인할 수 없다 ("안개 때문에 급제동" 같은 판단은 시간축이 있어야 보인다).
   - nuReasoning 6단계 답변(관찰/자차행동/이상요소/안전성/희귀성)은 카드
@@ -18,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 import textwrap
 from pathlib import Path
@@ -26,7 +26,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from constrained_tier import GROUP_RUBRICS, group_values
+from constrained_tier import GROUP_RUBRICS
 from prompts import DIFFICULTY_AXES, DIFFICULTY_MAX
 
 # 하단 패널에 표시할 단계. (result 의 키들, 화면에 쓸 제목) 순서가 곧 표시
@@ -48,7 +48,7 @@ BG = (255, 255, 255)
 TEXT_DARK = (26, 26, 26)
 TEXT_MID = (51, 51, 51)
 TEXT_MUTED = (120, 120, 120)
-ACCENT = (179, 84, 30)      # 제목/카테고리 강조 (visualize.py 와 같은 주황)
+ACCENT = (179, 84, 30)      # 제목/카테고리 강조 (주황)
 RULE = (221, 221, 221)
 
 # --time-spans 구간 띠 색(RGB). 장르가 아니라 구간 위험도(0~4)로 칠한다.
@@ -107,6 +107,17 @@ HAVE_PYAV = _have_pyav()
 # 클립당 약 44MB 가 된다(실측). 1280 이면 약 20MB 로 줄면서 검수에 필요한
 # 디테일은 남는다. None 을 주면 원본 해상도를 그대로 쓴다.
 VIZ_WIDTH = 1280
+
+
+def safe_dirname(name: str) -> str:
+    """카테고리 이름을 폴더명으로 쓸 수 있게 다듬는다.
+
+    현재 분류 체계에는 경로에 위험한 문자가 없지만(공백만 있다), 체계는
+    사람이 손으로 고치는 json 이라 슬래시가 들어올 수 있다 - 그때 엉뚱한
+    상위 폴더에 쓰지 않도록 여기서 막는다.
+    """
+    out = re.sub(r'[/\\:*?"<>|]+', "_", str(name)).strip().strip(".")
+    return out or "unknown"
 
 
 def _font(path, size):

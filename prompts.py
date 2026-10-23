@@ -1,19 +1,16 @@
-# ---------------------------------------------------------------------------
-# 클립 모드 통합용.
-#
-# 위 프롬프트들은 "이미지 한 장 + 정수 하나 + 문장 하나"를 전제로 따로
-# 물어보게 쓰여 있다. 클립 모드에 그대로 붙이면 한 클립에 모델을 5번 더
-# 부르게 되어 비용이 6배가 된다. 그래서 문구는 그대로 두되(단독 호출도
-# 계속 되도록) 같은 기준을 nuReasoning JSON 한 번에 얹는 형태로 옮긴다.
-#
+"""날씨/주행 조건 4축(--weather) 프롬프트 조각.
+
+처음에는 축마다 "이미지 한 장 + 정수 하나 + 문장 하나"를 따로 묻는 단독
+프롬프트였다. 클립 모드에 그대로 붙이면 한 클립에 모델을 5번 더 부르게 되어
+비용이 6배가 되므로, 같은 기준을 nuReasoning JSON 한 번에 얹는 형태로 옮겼다.
+"""
 # 축 순서는 시각화/집계 표의 행 순서이기도 하다.
 DIFFICULTY_MIN, DIFFICULTY_MAX = 0, 4
 
-# (JSON 키, 화면에 쓸 이름). DEFAULT_PROMPT(전체 난이도)는 더 이상 모델에게
+# (JSON 키, 화면에 쓸 이름). 전체 난이도(driving_difficulty)는 더 이상 모델에게
 # 묻지 않는다 - 요인 4개와 따로 매기게 하면 서로 모순되는 답이 나오고(네 요인이
 # 0인데 전체가 3인 식), 어떤 가중치가 옳은지도 근거가 없었다. 필요하면 요인
-# 값으로 나중에 계산한다. 단독 프롬프트 문구(DEFAULT_PROMPT)는 남겨 둔다.
-DIFFICULTY_OVERALL = ("driving_difficulty", "DRIVING DIFFICULTY")
+# 값으로 나중에 계산한다.
 DIFFICULTY_FACTORS = [
     ("illumination", "Illumination"),
     ("precipitation", "Precipitation"),
@@ -24,15 +21,8 @@ DIFFICULTY_FACTORS = [
 DIFFICULTY_AXES = list(DIFFICULTY_FACTORS)
 
 
-# 각 축의 0~4 눈금. 위 단독 프롬프트의 눈금을 그대로 옮긴 것이라 둘이
-# 어긋나면 안 된다 - 한쪽만 고치는 일이 없도록 여기 한 곳에만 적는다.
+# 각 축의 0~4 눈금. 한쪽만 고치는 일이 없도록 여기 한 곳에만 적는다.
 DIFFICULTY_SCALES = {
-    "driving_difficulty": (
-        "   0 = very easy (clear, bright, empty road)\n"
-        "   1 = easy\n"
-        "   2 = moderate\n"
-        "   3 = hard\n"
-        "   4 = very hard (severe adverse conditions / very complex)"),
     "illumination": (
         "   0 = full daylight, evenly lit, scene clearly readable everywhere\n"
         "   1 = overcast or flat daylight; reduced contrast but full visibility, or a brief moment shading caused by an overpass\n"
@@ -59,8 +49,7 @@ DIFFICULTY_SCALES = {
         "   4 = very dense; minimal visibility beyond the immediate foreground"),
 }
 
-# 각 요인에서 "무엇만 보라"는 한정. 단독 프롬프트의 "Judge ONLY ..." 줄을
-# 옮긴 것으로, 축끼리 서로 번지는 것을 막는 유일한 장치다.
+# 각 요인에서 "무엇만 보라"는 한정. 축끼리 서로 번지는 것을 막는 유일한 장치다.
 DIFFICULTY_ONLY = {
     "illumination": "ambient light / time of day only - not weather or road state",
     "precipitation": "falling precipitation only - not ambient light, road surface, or fog",
@@ -72,7 +61,7 @@ DIFFICULTY_ONLY = {
 def difficulty_block() -> str:
     """nuReasoning 프롬프트에 얹을 난이도 단계 본문.
 
-    요인 4개만 묻는다. 전체 난이도(DEFAULT_PROMPT)는 빼기로 했다 - 요인과
+    요인 4개만 묻는다. 전체 난이도는 빼기로 했다 - 요인과
     따로 매기게 하면 모델이 둘을 무관하게 찍어 모순된 답이 나왔고(네 요인이
     모두 0인데 전체가 3인 식), 요인을 가중합할 옳은 식도 근거가 없었다.
     넷 중 가장 나쁜 것이 지배하는 장면(짙은 안개)과 여럿이 겹쳐야 어려워지는

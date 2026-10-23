@@ -20,7 +20,7 @@ safetensors==0.8.0
 tokenizers==0.22.2
 
 # --- 데이터셋 다운로드 / 라벨 조회 ---
-huggingface_hub==1.26.0     # 데이터셋 청크 다운로드(download_more_clips.py)에도 사용
+huggingface_hub==1.26.0
 pandas==3.0.5
 pyarrow==25.0.0             # egomotion / obstacle parquet 라벨 읽기
 

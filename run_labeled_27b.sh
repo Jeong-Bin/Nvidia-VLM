@@ -96,7 +96,6 @@ while [ $# -gt 0 ]; do
     --weather|--difficulty)  WEATHER=1 ;;
     --weather-only|--difficulty-only)
                              WEATHER_ONLY=1 ;;
-    --no-tiers-elements)     TIERS_ELEMENTS=1 ;;
     --explain-traj)          EXPLAIN_TRAJ=1 ;;
     --unknown-categories)   UNKNOWN_CATS=1 ;;
     --attn-timeline)        ATTN_TIMELINE=1 ;;
@@ -169,7 +168,7 @@ RUN_TS="$(date +%Y%m%d_%H%M%S)"
 RUN_DIR="results/labeld/${RUN_TS}_labeled27b$(memo_suffix "${MEMO:-}")"
 mkdir -p "$RUN_DIR"
 
-OPTS="--clip-mode --single-view --num-shards 1 --shard-id 0 --model $MODEL"
+OPTS="--single-view --num-shards 1 --shard-id 0 --model $MODEL"
 [ -n "${DATA:-}" ]              && OPTS="$OPTS --data $DATA"
 [ -n "$SCENE_JSON" ]            && OPTS="$OPTS --scene-json $SCENE_JSON"
 [ "${USE_EGOMOTION:-0}" = "1" ] && OPTS="$OPTS --use-egomotion"
@@ -178,7 +177,6 @@ OPTS="--clip-mode --single-view --num-shards 1 --shard-id 0 --model $MODEL"
 [ "${DIFFICULTY_ONLY:-0}" = "1" ] && WEATHER_ONLY=1
 [ "${WEATHER:-0}" = "1" ]         && OPTS="$OPTS --weather"
 [ "${WEATHER_ONLY:-0}" = "1" ]    && OPTS="$OPTS --weather-only"
-[ "${TIERS_ELEMENTS:-0}" = "1" ] && OPTS="$OPTS --no-tiers-elements"
 [ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
 [ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-categories"
 [ "${ATTN_TIMELINE:-0}" = "1" ] && OPTS="$OPTS --attn-timeline"

@@ -65,13 +65,6 @@ def _calib():
     return pd.read_parquet(fi), pd.read_parquet(fe)
 
 
-def has_calibration(uuid: str, cam: str = "camera_front_wide_120fov") -> bool:
-    intr, extr = _calib()
-    if intr is None:
-        return False
-    return (uuid, cam) in intr.index and (uuid, cam) in extr.index
-
-
 def _quat_to_R(qx, qy, qz, qw):
     n = np.sqrt(qx * qx + qy * qy + qz * qz + qw * qw)
     qx, qy, qz, qw = qx / n, qy / n, qz / n, qw / n

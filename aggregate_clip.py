@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""클립 모드 결과(8개 GPU 샤드)를 합쳐 카테고리별로 집계한다.
-
-aggregate.py 와 판정 단위가 달라 파일을 나눴다:
-  aggregate.py      - (uuid, frame_idx) 단위. blocks_path/Q3 축이 있다.
-  aggregate_clip.py - uuid(클립) 하나가 한 행. Q3 도 점수도 없다.
+"""클립 모드 결과(8개 GPU 샤드)를 합쳐 카테고리별로 집계한다 (uuid 하나가 한 행).
 
 집계 내용:
   1) 클립 개요 - SPECIAL(카테고리 1개 이상) / NORMAL
@@ -48,8 +44,8 @@ ROOT = Path(__file__).resolve().parent
 # 통째로 0 으로 나온다.
 SCENE_JSON = CONFIG_SCENE_JSON
 
-# 클립 모드 CSV 를 알아보는 표지. aggregate.py 용 CSV 를 잘못 넣으면
-# 조용히 0 이 나오는 대신 분명히 알린다.
+# 클립 모드 CSV 를 알아보는 표지. 다른 CSV 를 잘못 넣으면 조용히 0 이 나오는
+# 대신 분명히 알린다.
 REQUIRED_COLS = ("uuid", "categories", "n_categories")
 
 
@@ -236,7 +232,7 @@ def main():
     missing = [c for c in REQUIRED_COLS if c not in df.columns]
     if missing:
         log(f"[error] CSV is missing {missing} - this does not look like a "
-            f"clip-mode run. For (uuid, frame_idx) results use aggregate.py.")
+            f"clip-mode run.")
         log.close()
         return
 

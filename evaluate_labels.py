@@ -306,7 +306,7 @@ def tier_block(name, pairs, log, values=None, rows=None):
     MSE 는 제곱이라 그 차이를 더 크게 반영한다(1 vs 9).
     """
     if not pairs:
-        log(f"  (no comparable rows)")
+        log("  (no comparable rows)")
         return
     n = len(pairs)
     mse = sum((t - p) ** 2 for t, p in pairs) / n

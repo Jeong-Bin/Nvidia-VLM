@@ -95,40 +95,8 @@ def read_rows(path: Path) -> tuple[list[str], list[dict]]:
 # ---------------------------------------------------------------------------
 # 후보
 # ---------------------------------------------------------------------------
-def find_candidates(rows: list[dict], labels: list, mode: str = "keyword",
-                    probs: dict | None = None,
-                    threshold: float = 0.05) -> list[tuple[str, str]]:
-    """[(uuid, 카테고리)] - 다시 물을 후보.
-
-    mode:
-      keyword  1차에서 Normal 인데 서술에 그 장르의 recheck_keywords 가 나온 것
-               (기존 방식)
-      prob     1차 답에 없는 장르 중, 1차 답의 scenario_types 자리에서 그 이름이
-               나올 확률(cat_probs.py, --cat-probs 로 기록)이 threshold 이상인
-               것. Normal 클립뿐 아니라 이미 다른 장르가 붙은 Special 클립의
-               빠진 장르도 후보가 된다. 키워드 목록을 쓰지 않는다.
-      both     둘의 합집합
-    """
-    if mode in ("prob", "both"):
-        if probs is None:
-            raise SystemExit("[error] --candidates prob 에는 장르 확률이 필요합니다 "
-                             "(1차를 --cat-probs 로 돌린 실행)")
-        out = set() if mode == "prob" else set(find_candidates(rows, labels))
-        special = [l["category"] for l in labels if not l["is_normal"]]
-        for r in rows:
-            try:
-                if int(r.get("n_frames") or 0) <= 0 or r.get("parse_ok") != "1":
-                    continue
-            except ValueError:
-                continue
-            have = {c for c in (r.get("categories") or "").split("|") if c}
-            pr = probs.get(r["uuid"])
-            if not pr:
-                continue
-            for c in special:
-                if c not in have and pr.get(c, 0.0) >= threshold:
-                    out.add((r["uuid"], c))
-        return sorted(out)
+def find_candidates(rows: list[dict], labels: list) -> list[tuple[str, str]]:
+    """[(uuid, 카테고리)] - 1차에서 Normal 인데 서술에 키워드가 나온 것."""
     pats = {l["category"]: [re.compile(k, re.I) for k in l["recheck_keywords"]]
             for l in labels if not l["is_normal"] and l["recheck_keywords"]}
     out = []
@@ -151,11 +119,10 @@ def find_candidates(rows: list[dict], labels: list, mode: str = "keyword",
 # ---------------------------------------------------------------------------
 # 질문
 # ---------------------------------------------------------------------------
-def build_question(intro: str, behavior: str, observation: str, lab: dict,
-                   example_source: str, num_examples) -> str:
+def build_question(intro: str, behavior: str, observation: str, lab: dict) -> str:
     import edge_case_mining as E
     from constrained_tier import GROUP_RUBRICS
-    entry = E.build_category_menu([lab], example_source, num_examples)
+    entry = E.build_category_menu([lab])
     group = lab["scenario"]
     title, rubric = GROUP_RUBRICS[group]
     scale = "\n".join(f"     {v} = {rubric[v]}" for v in sorted(rubric) if v >= 1)
@@ -229,18 +196,7 @@ def skip_reason(cfg: dict) -> str | None:
     return None
 
 
-def _candidates(run_dir: Path, rows: list[dict], labels: list, mode: str,
-                threshold: float) -> list[tuple[str, str]]:
-    probs = None
-    if mode in ("prob", "both"):
-        from cat_probs import load_probs
-        probs = load_probs(run_dir)
-    return find_candidates(rows, labels, mode=mode, probs=probs,
-                           threshold=threshold)
-
-
-def run_shard(run_dir: Path, num_shards: int, shard_id: int,
-              mode: str = "keyword", threshold: float = 0.05):
+def run_shard(run_dir: Path, num_shards: int, shard_id: int):
     import edge_case_mining as E
     import qwen_runner as Q
     cfg = load_run_config(run_dir)
@@ -253,7 +209,7 @@ def run_shard(run_dir: Path, num_shards: int, shard_id: int,
     src = run_dir / (BACKUP_NAME if (run_dir / BACKUP_NAME).exists() else MERGED_NAME)
     _, rows = read_rows(src)
     rows_by_uuid = {r["uuid"]: r for r in rows}
-    cands = sorted(_candidates(run_dir, rows, labels, mode, threshold))[shard_id::num_shards]
+    cands = sorted(find_candidates(rows, labels))[shard_id::num_shards]
     out_dir = run_dir / RECHECK_DIR
     out_dir.mkdir(exist_ok=True)
     out_path = out_dir / f"recheck_shard_{shard_id}.jsonl"
@@ -295,8 +251,7 @@ def run_shard(run_dir: Path, num_shards: int, shard_id: int,
                                  as_video=as_video)
             q = build_question(intro, behavior,
                                rows_by_uuid[uuid].get("observation", ""),
-                               by_name[cat], argv.get("example_source", "templates"),
-                               argv.get("num_examples"))
+                               by_name[cat])
             raw = Q._generate(model, processor, images, q, max_new_tokens=160,
                               as_video=as_video, video_fps=fps,
                               thinking=(model_id in Q.THINKING_MODELS))
@@ -325,8 +280,7 @@ def _parse_scores(raw: str) -> dict:
     return out
 
 
-def apply(run_dir: Path, min_score: int = 2, mode: str = "keyword",
-          threshold: float = 0.05):
+def apply(run_dir: Path, min_score: int = 2):
     """recheck 결과를 clip_results_all.csv 에 반영한다(원본은 백업에서 다시 만든다).
 
     min_score: YES 이면서 점수가 이 값 이상인 답만 반영한다. 점수 1 은 기준표에서
@@ -343,7 +297,7 @@ def apply(run_dir: Path, min_score: int = 2, mode: str = "keyword",
     if skip_reason(cfg0):
         print(f"[recheck] 반영 안 함: {skip_reason(cfg0)}")
         return
-    # 점수 단계가 없던 실행(--no-tiers-elements)이면 카테고리만 추가하고
+    # 점수 단계가 없던 실행(옛 --no-tiers-elements)이면 카테고리만 추가하고
     # 점수 칸은 건드리지 않는다 - 1차 결과에 없던 점수가 일부 클립에만 생긴다.
     with_scores = bool((cfg0.get("key") or {}).get("score_categories", True))
     merged, backup = run_dir / MERGED_NAME, run_dir / BACKUP_NAME
@@ -353,11 +307,7 @@ def apply(run_dir: Path, min_score: int = 2, mode: str = "keyword",
         backup.write_bytes(merged.read_bytes())
         print(f"[recheck] 원본 보관 -> {backup.name}")
     cols, rows = read_rows(backup)
-    # 이 후보 방식으로 고른 질문의 답만 반영한다 - recheck/ 에는 다른 방식으로
-    # 물은 답이 함께 쌓여 있을 수 있다(키워드로 돌린 뒤 확률로 다시 돌린 경우).
-    labels, _ = run_labels(cfg0)
-    cand = set(_candidates(run_dir, rows, labels, mode, threshold))
-    answers = [a for k, a in _answers(run_dir).items() if k in cand]
+    answers = list(_answers(run_dir).values())
     yes, n_low = {}, 0
     for a in answers:
         if not a.get("present"):
@@ -382,7 +332,7 @@ def apply(run_dir: Path, min_score: int = 2, mode: str = "keyword",
             reasons.append(f"recheck {a['category']}: {a['reason']}")
         r["categories"] = "|".join(cats)
         r["n_categories"] = str(len(cats))
-        r["verdict"] = "Special"   # (이미 Special 이던 클립은 장르만 늘어난다)
+        r["verdict"] = "Special"
         if with_scores:
             r["group_scores"] = "|".join(f"{k}={v}" for k, v in scores.items())
         r["score_reason"] = " | ".join(x for x in reasons if x)
@@ -407,58 +357,9 @@ def apply(run_dir: Path, min_score: int = 2, mode: str = "keyword",
         cfg["recheck"] = {"applied_at": time.strftime("%Y-%m-%d %H:%M:%S"),
                           "questions": len(answers), "yes": n_yes,
                           "clips_changed": n_clip, "min_score": min_score,
-                          "yes_dropped_low_score": n_low,
-                          "candidates": mode,
-                          **({"prob_threshold": threshold}
-                             if mode in ("prob", "both") else {})}
+                          "yes_dropped_low_score": n_low}
         cfg_path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2),
                             encoding="utf-8")
-
-
-def compare(run_dir: Path, labels_path: Path,
-            thresholds=(0.5, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005, 0.001)):
-    """키워드 후보와 확률 후보가 1차의 실제 놓침을 얼마나 담는지 비교한다(GPU 불필요).
-
-    놓침 = GT 에 있는데 1차 답에 없는 (클립, 장르). 실행이 다룬 범위(group,
-    Unknown 여부)로 GT 를 줄여서 센다. "담음" 은 후보 중 놓침인 것의 수다 -
-    recheck 가 되살릴 수 있는 최대치이고, 나머지 후보는 recheck 가 no 라고 답해야
-    하는 질문(답이 틀리면 오탐)이다.
-    """
-    import evaluate_labels as EV
-    from cat_probs import load_probs
-    cfg = load_run_config(run_dir)
-    labels, scene = run_labels(cfg)
-    names = {l["category"] for l in labels if not l["is_normal"]}
-    gt, *_ = EV.load_labels(labels_path)
-    EV.restrict_to_group(gt, cfg, scene)
-    src = run_dir / (BACKUP_NAME if (run_dir / BACKUP_NAME).exists() else MERGED_NAME)
-    _, rows = read_rows(src)
-    have = {r["uuid"]: {c for c in (r.get("categories") or "").split("|") if c}
-            for r in rows}
-    misses = {(u, c) for u in have if u in gt for c in gt[u]["categories"]
-              if c in names and c not in have[u]}
-    normal = {u for u, h in have.items() if not h}
-    m_norm = sum(1 for u, _ in misses if u in normal)
-    print(f"[compare] {run_dir.name} ({src.name})")
-    print(f"  1차 놓침 {len(misses)}건 (Normal 클립 {m_norm} / 다른 장르가 붙은 "
-          f"클립 {len(misses) - m_norm})")
-
-    def line(tag, cands):
-        cands = set(cands)
-        hit = cands & misses
-        hn = sum(1 for u, _ in hit if u in normal)
-        print(f"  {tag:<16} 후보 {len(cands):4} ({len({u for u, _ in cands}):3}클립)"
-              f" | 놓침 담음 {len(hit):3}/{len(misses)} (Normal {hn}, Special "
-              f"{len(hit) - hn}) | 놓침 아닌 후보 {len(cands - misses)}")
-
-    line("keyword", find_candidates(rows, labels))
-    probs = load_probs(run_dir)
-    if not probs:
-        print("  (장르 확률 없음 - 1차를 --cat-probs 로 돌린 실행이어야 prob 를 비교할 수 있다)")
-        return
-    for t in thresholds:
-        line(f"prob >= {t:g}", find_candidates(rows, labels, "prob", probs, t))
-    line("both (0.05)", find_candidates(rows, labels, "both", probs, 0.05))
 
 
 def main():
@@ -470,46 +371,28 @@ def main():
                     help="후보만 출력하고 끝낸다 (GPU 불필요)")
     ap.add_argument("--apply", action="store_true",
                     help="recheck 결과를 clip_results_all.csv 에 반영한다 (GPU 불필요)")
-    ap.add_argument("--candidates", choices=["keyword", "prob", "both"],
-                    default="keyword",
-                    help="후보 고르는 방식: keyword(서술의 키워드, 기존) / prob(1차 "
-                         "답의 장르 확률, --cat-probs 로 돌린 실행) / both(합집합)")
-    ap.add_argument("--prob-threshold", type=float, default=0.05,
-                    help="--candidates prob/both 의 확률 기준 (기본 0.05)")
-    ap.add_argument("--compare", action="store_true",
-                    help="키워드 후보와 확률 후보가 1차 놓침을 얼마나 담는지 GT 로 "
-                         "비교하고 끝낸다 (GPU 불필요, --labels 필요)")
-    ap.add_argument("--labels", default=None, help="--compare 에 쓸 GT 라벨")
     ap.add_argument("--min-score", type=int, default=2,
                     help="--apply 때 YES 이면서 점수가 이 값 이상인 답만 반영 "
                          "(기본 2 = '있지만 영향 없음(1점)' YES 를 버린다. "
                          "1 이면 YES 전부 - 예전 동작)")
     args = ap.parse_args()
     run_dir = Path(args.run_dir)
-    if args.compare:
-        if not args.labels:
-            raise SystemExit("[error] --compare 에는 --labels 가 필요합니다")
-        compare(run_dir, Path(args.labels))
-        return
     if args.apply:
-        apply(run_dir, min_score=args.min_score, mode=args.candidates,
-              threshold=args.prob_threshold)
+        apply(run_dir, min_score=args.min_score)
         return
     if args.list_only:
         cfg = load_run_config(run_dir)
         labels, scene = run_labels(cfg)
         src = run_dir / (BACKUP_NAME if (run_dir / BACKUP_NAME).exists() else MERGED_NAME)
         _, rows = read_rows(src)
-        cands = _candidates(run_dir, rows, labels, args.candidates,
-                            args.prob_threshold)
-        print(f"[recheck] {src.name} ({args.candidates}): 후보 {len(cands)}건 "
+        cands = find_candidates(rows, labels)
+        print(f"[recheck] {src.name}: 후보 {len(cands)}건 "
               f"({len({u for u, _ in cands})}개 클립), 범위 group="
               f"{cfg.get('key', {}).get('group', 'all')}, scene={scene.name}")
         for u, c in cands:
             print(f"  {u}  {c}")
         return
-    run_shard(run_dir, args.num_shards, args.shard_id, mode=args.candidates,
-              threshold=args.prob_threshold)
+    run_shard(run_dir, args.num_shards, args.shard_id)
 
 
 if __name__ == "__main__":

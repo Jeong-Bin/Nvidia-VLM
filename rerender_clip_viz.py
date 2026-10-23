@@ -29,7 +29,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import re
 from collections import Counter
 from pathlib import Path
 
@@ -42,12 +41,6 @@ from constrained_tier import group_key, score_groups, score_dirname
 from prompts import DIFFICULTY_AXES
 
 ROOT = Path(__file__).resolve().parent
-
-
-def _safe_dirname(name: str) -> str:
-    """qwen_runner._safe_dirname 과 같은 규칙(torch 를 불러오지 않으려고 옮겨 둠)."""
-    out = re.sub(r'[/\\:*?"<>|]+', "_", str(name)).strip().strip(".")
-    return out or "unknown"
 
 
 def _int(v):
@@ -154,7 +147,7 @@ def main():
             targets = [c for c in cats if counts[(sh, c)] < per_cat]
             if not targets:
                 continue
-            out_dirs = [out_root / _safe_dirname(c) / r["uuid"] for c in targets]
+            out_dirs = [out_root / V.safe_dirname(c) / r["uuid"] for c in targets]
         else:
             top = res["tier_score"]
             if argv.get("not_save_low", True) and top is not None and top <= 1:

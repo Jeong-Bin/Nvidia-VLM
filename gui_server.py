@@ -1194,14 +1194,9 @@ def build_command(opts: dict, jid: str = "adhoc") -> list[str]:
     # 나중에 무엇을 시험한 실행인지 읽기 쉽다.
     if opts.get("difficulty_only"):
         cmd += ["--weather-only"]
-    else:
-        # --no-tiers-elements 는 상위 카테고리 점수 단계를 함께 뺀다.
-        # 그 외에는 점수 단계가 항상 들어간다(끄는 옵션은 없앴다).
-        if opts.get("tiers_elements"):
-            cmd += ["--no-tiers-elements"]
-        # 날씨 4축은 점수와 별개 축이라 기본 off - 켤 때만 넘긴다.
-        if opts.get("difficulty"):
-            cmd += ["--weather"]
+    # 날씨 4축은 점수와 별개 축이라 기본 off - 켤 때만 넘긴다.
+    elif opts.get("difficulty"):
+        cmd += ["--weather"]
     # Unknown 카테고리(예상 못한 새 종류)를 메뉴에 넣는다. 화면 기본값은 켜짐,
     # CLI 기본값은 꺼짐이다. 날씨만 추론하면 카테고리를 다루지 않으므로 뺀다.
     if opts.get("unknown_categories") and not opts.get("difficulty_only"):

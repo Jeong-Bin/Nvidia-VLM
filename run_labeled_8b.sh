@@ -91,9 +91,6 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --memo "TEXT"          이 실행이 무엇을 시험하는지 한 줄 메모.
                          evaluation.log 머리에 [info] MEMO 로 찍힌다      [MEMO]
   --use-egomotion        egomotion 사실(자차 행동 요약)을 주입 (기본 off) [USE_EGOMOTION=1]
-  --use-egomotion-c      [대조군C] 헤더/hint 유지, 센서 수치만 제거         [EGO_ABLATION=c]
-  --use-egomotion-d      [대조군D] hint 만 남기고 헤더/수치 제거            [EGO_ABLATION=d]
-  --header-style v1|v2   자차 행동 블록 헤더 문구 (기본 v1)              [HEADER_STYLE]
   --unknown-categories    Unknown 카테고리(예상 못한 동적 객체/주행 환경)를
                           메뉴에 넣는다 (기본 off, ablation 용)   [UNKNOWN_CATS=1]
   --time-spans [MODE]     장르마다 시간 구간별 위험도(0~4)를 받아 시각화 영상
@@ -114,8 +111,6 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
                          (--weather 를 자동으로 켠다)         [WEATHER_ONLY=1]
   --viz-per-category N   카테고리마다 최초 N개 클립만 시각화한다. 폴더를
                          score 대신 카테고리 이름으로 나눈다      [VIZ_PER_CAT]
-  --use-3dbbox           obstacle.offline 3D bbox 라벨을 프롬프트에 주입
-                         (기본 off, Animal/Jaywalking/cyclist 과탐 경향 실측됨)  [USE_3DBBOX=1]
   --no-video-input       프레임을 비디오가 아니라 낱장으로 넘긴다     [VIDEO_INPUT=0]
   --clip-fps F           초당 몇 장 뽑을지 (기본 1.0)                 [CLIP_FPS]
   --clip-max-frames N    클립당 최대 프레임 (기본 20)                 [CLIP_MAX_FRAMES]
@@ -125,11 +120,6 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
                          묻는다(recheck_missed.py). 2차 전 채점은
                          evaluation_before_recheck.log 로 남긴다
   --no-recheck           2차 확인을 끈다 (1차 결과만 채점)           [RECHECK=0]
-  --cat-probs            1차 답의 장르 확률을 기록 (cat_probs_*.jsonl, 1차 출력 그대로)
-                                                                  [CAT_PROBS=1]
-  --recheck-candidates M 2차 확인 후보 고르기: keyword(기본, 서술의 키워드) /
-                         prob(장르 확률, --cat-probs 필요) / both  [RECHECK_CANDIDATES]
-  --recheck-prob-threshold T  prob/both 의 확률 기준 (기본 0.05)  [RECHECK_PROB_THRESHOLD]
   --recheck-min-score N  2차 확인 YES 중 점수 N 이상만 반영 (기본 2 = '있지만
                          영향 없음' YES 를 버림, 1 = 전부 반영)  [RECHECK_MIN_SCORE]
   --recheck-only DIR     이미 끝난 실행 폴더에 2차 확인만 덧붙인다. 라벨/카테고리는
@@ -152,7 +142,6 @@ Examples:
   bash run_labeled_8b.sh --eval-only results/20260812_135056_videoC
   bash run_labeled_8b.sh --viz-normal --viz-special   # 둘 다 시각화
   bash run_labeled_8b.sh --viz-special                # special 만
-  bash run_labeled_8b.sh --use-3dbbox                 # 3D bbox 라벨도 프롬프트에 주입
   bash run_labeled_8b.sh --clip-fps 2.0 --clip-max-frames 40
   bash run_labeled_8b.sh --resume results/labeld/<실행폴더> --use-egomotion --viz-normal --viz-special
 USAGE
@@ -185,23 +174,13 @@ while [ $# -gt 0 ]; do
     --memo=*)            MEMO="${1#*=}" ;;
     --memo)              shift; MEMO="${1:-}" ;;
     --use-egomotion)     USE_EGOMOTION=1 ;;
-    --use-egomotion-c)   EGO_ABLATION=c ;;
-    --use-egomotion-d)   EGO_ABLATION=d ;;
-    --header-style=*)    HEADER_STYLE="${1#*=}" ;;
-    --header-style)      shift; HEADER_STYLE="${1:-v1}" ;;
     --weather|--difficulty)
                          WEATHER=1 ;;
     --weather-only|--difficulty-only)
                          WEATHER_ONLY=1 ;;
-    --no-tiers-elements) TIERS_ELEMENTS=1 ;;
     --explain-traj)      EXPLAIN_TRAJ=1 ;;
     --unknown-categories) UNKNOWN_CATS=1 ;;
     --attn-timeline)      ATTN_TIMELINE=1 ;;
-    --cat-probs)          CAT_PROBS=1 ;;
-    --recheck-candidates=*) RECHECK_CANDIDATES="${1#*=}" ;;
-    --recheck-candidates)   shift; RECHECK_CANDIDATES="${1:-keyword}" ;;
-    --recheck-prob-threshold=*) RECHECK_PROB_THRESHOLD="${1#*=}" ;;
-    --recheck-prob-threshold)   shift; RECHECK_PROB_THRESHOLD="${1:-0.05}" ;;
     --time-spans=*)       TIME_SPANS="${1#*=}" ;;
     --time-spans)         case "${2:-}" in inline|followup) shift; TIME_SPANS="$1" ;; *) TIME_SPANS=inline ;; esac ;;
     --group=*)           TARGET_GROUP="${1#*=}" ;;
@@ -209,7 +188,6 @@ while [ $# -gt 0 ]; do
     --viz-per-category=*) VIZ_PER_CAT="${1#*=}" ;;
     --viz-per-category)  shift; VIZ_PER_CAT="${1:-}" ;;
     --no-egomotion)      USE_EGOMOTION=0 ;;   # 옛 이름 - 이제 기본이 off 라 무의미하지만 받아준다
-    --use-3dbbox)        USE_3DBBOX=1 ;;
     --no-video-input)    VIDEO_INPUT=0 ;;
     --clip-fps=*)        CLIP_FPS="${1#*=}" ;;
     --clip-fps)          shift; CLIP_FPS="${1:-}" ;;
@@ -305,17 +283,13 @@ run_recheck() {
     PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
       "$PYBIN" -u recheck_missed.py --run-dir "$dir" \
         --num-shards "$NSHARDS" --shard-id "$g" \
-        --candidates "${RECHECK_CANDIDATES:-keyword}" \
-        --prob-threshold "${RECHECK_PROB_THRESHOLD:-0.05}" \
         >> "$dir/recheck/recheck_shard_${g}.log" 2>&1 &
     pids+=($!)
   done
   echo "[recheck] launched ${#pids[@]} shards (GPU ${GPU_LIST[*]}), 로그: $dir/recheck/"
   wait
   "$PYBIN" -u recheck_missed.py --run-dir "$dir" --apply \
-    --min-score "${RECHECK_MIN_SCORE:-2}" \
-    --candidates "${RECHECK_CANDIDATES:-keyword}" \
-    --prob-threshold "${RECHECK_PROB_THRESHOLD:-0.05}"
+    --min-score "${RECHECK_MIN_SCORE:-2}"
 }
 
 if [ -n "${RECHECK_ONLY:-}" ]; then
@@ -396,7 +370,7 @@ fi
 
 TOTAL_CLIPS="$(wc -l < "$UUID_FILE")"
 
-OPTS="--clip-mode --single-view --only-uuids $UUID_FILE"
+OPTS="--single-view --only-uuids $UUID_FILE"
 # 이 스크립트는 GPU 1장 = 샤드 1개 구조라 GPU 여러 장에 걸쳐야 하는 27B 는
 # 못 돌린다. 조용히 8B 로 돌면 몇 시간 뒤에야 알게 되므로 여기서 막는다.
 case "${MODEL:-}" in
@@ -413,18 +387,14 @@ esac
 [ "${EGO_TRACK:-0}" = "1" ]     && OPTS="$OPTS --ego-track"
 [ -n "${TRAJ:-}" ]              && OPTS="$OPTS --traj $TRAJ"
 [ "${USE_EGOMOTION:-0}" = "1" ] && OPTS="$OPTS --use-egomotion"
-[ -n "${EGO_ABLATION:-}" ]      && OPTS="$OPTS --use-egomotion-${EGO_ABLATION}"
-[ -n "${HEADER_STYLE:-}" ]      && OPTS="$OPTS --header-style $HEADER_STYLE"
 # 옛 환경변수 이름(DIFFICULTY/DIFFICULTY_ONLY)도 계속 받는다.
 [ "${DIFFICULTY:-0}" = "1" ]      && WEATHER=1
 [ "${DIFFICULTY_ONLY:-0}" = "1" ] && WEATHER_ONLY=1
 [ "${WEATHER:-0}" = "1" ]         && OPTS="$OPTS --weather"
 [ "${WEATHER_ONLY:-0}" = "1" ]    && OPTS="$OPTS --weather-only"
-[ "${TIERS_ELEMENTS:-0}" = "1" ] && OPTS="$OPTS --no-tiers-elements"
 [ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
 [ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-categories"
 [ "${ATTN_TIMELINE:-0}" = "1" ] && OPTS="$OPTS --attn-timeline"
-[ "${CAT_PROBS:-0}" = "1" ] && OPTS="$OPTS --cat-probs"
 case "${TIME_SPANS:-0}" in
   0|"") ;;
   1|inline) OPTS="$OPTS --time-spans inline" ;;
@@ -433,7 +403,6 @@ case "${TIME_SPANS:-0}" in
 esac
 [ -n "${TARGET_GROUP:-}" ] && [ "$TARGET_GROUP" != "all" ] && OPTS="$OPTS --group $TARGET_GROUP"
 [ -n "${VIZ_PER_CAT:-}" ]        && OPTS="$OPTS --viz-per-category $VIZ_PER_CAT"
-[ "${USE_3DBBOX:-0}" = "1" ]    && OPTS="$OPTS --use-3dbbox"
 [ "${VIDEO_INPUT:-1}" = "0" ]   && OPTS="$OPTS --clip-no-video-input"
 # --viz-per-category 는 그 자체가 "시각화하라"는 뜻이다 - 로컬 스크립트는
 # 시각화가 기본 off 라, 이걸 안 켜주면 아무것도 저장되지 않는다.
