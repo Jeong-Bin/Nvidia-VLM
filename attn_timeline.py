@@ -44,6 +44,15 @@
   4) 답 전체 토큰의 평균 분포로 나눈 비율(rel)로 본다 - 그 토큰을 쓸 때
      평소보다 더 본 시점만 남긴다. 1 보다 크면 평균보다 더 본 것.
 
+공간 지도(spatial, 시각화의 히트맵 영상):
+  같은 훅에서 칸으로 더하기 전의 토큰별 영상 어텐션도 모은다. 생성 토큰마다
+  뒤쪽 층(default_layers)의 분포(층마다 합 1)를 평균해 한 줄씩 쌓고, 생성이
+  끝난 뒤 spatial_maps 가 장르별 토큰(curves_for 의 tokens - 이름 토큰 + 그 장르의
+  근거 문장)만 골라 평균한다. 칸 하나는 Qwen3-VL 이 2x2 로 합친 패치 격자
+  (896x512 입력이면 16x28, 토큰 하나가 32x32px)이고, 토큰은 그 격자의 행 우선
+  순서다. 시각화는 시간 곡선처럼 답 전체 평균 대비 비율(rel)로 그린다 - 장르를
+  쓸 때 평소보다 더 본 곳만 남고, 늘 보는 자리(첫 칸, 모서리)는 지워진다.
+
 해석할 때 주의:
   어텐션은 "어디를 봤나"이지 "그것 때문에 판단했나"가 아니다.
 """
@@ -102,8 +111,12 @@ class AttnRecorder:
         self._handles = []
 
     # ------------------------------------------------------------------
-    def begin(self, input_ids: torch.Tensor, video_token_id: int, fps: float):
-        """한 번의 generate 직전에 부른다. 영상 토큰 위치를 시간 칸으로 묶는다."""
+    def begin(self, input_ids: torch.Tensor, video_token_id: int, fps: float,
+              grid=None):
+        """한 번의 generate 직전에 부른다. 영상 토큰 위치를 시간 칸으로 묶는다.
+
+        grid: (칸 수, 행, 열) - 병합 후 영상 토큰 격자. 주면 공간 지도도 모은다.
+        """
         ids = input_ids[0]
         pos = torch.nonzero(ids == video_token_id).flatten()
         if pos.numel() == 0:
@@ -120,6 +133,14 @@ class AttnRecorder:
         self.times = [[2 * g / fps, (2 * g + 2) / fps] for g in range(self.n_buckets)]
         self._buf = []
         self.sink = {}          # layer_idx -> 영상 토큰 중 몰림 토큰 표시(bool)
+        # 공간 지도: 격자가 영상 토큰 수와 맞을 때만 모은다.
+        self.grid = (tuple(int(x) for x in grid)
+                     if grid is not None and int(np.prod(grid)) == pos.numel()
+                     else None)
+        self._sp_layers = set(default_layers(self.n_layers))
+        self._sp_last = max(self._sp_layers)
+        self._sp_rows = []      # 생성 토큰마다 [영상 토큰 수] (뒤쪽 층 평균 분포)
+        self._sp_cur = None
         self.enabled = True
         return True
 
@@ -142,6 +163,17 @@ class AttnRecorder:
         self._buf = []
         n = rows.shape[0] // self.n_layers
         return rows[: n * self.n_layers].reshape(n, self.n_layers, self.n_buckets)
+
+    def spatial_rows(self) -> np.ndarray | None:
+        """생성 토큰마다의 공간 분포 [생성 토큰 수, 영상 토큰 수] (float32). 없으면 None.
+
+        행 k 는 rows 의 행 k 와 같은 토큰이다(생성 토큰 k 를 낸 forward).
+        """
+        if self.grid is None or not self._sp_rows:
+            return None
+        out = torch.stack(self._sp_rows).float().cpu().numpy()
+        self._sp_rows = []
+        return out
 
     # ------------------------------------------------------------------
     @torch.no_grad()
@@ -170,6 +202,12 @@ class AttnRecorder:
         if li not in self.sink:
             self.sink[li] = v > SINK_FRAC * v.sum()
         v = v.masked_fill(self.sink[li], 0.0)
+        if self.grid is not None and li in self._sp_layers:
+            x = v.float() / (v.sum().float() + 1e-12)
+            self._sp_cur = x if self._sp_cur is None else self._sp_cur + x
+            if li == self._sp_last:             # 이 forward 의 뒤쪽 층을 다 봤다
+                self._sp_rows.append((self._sp_cur / len(self._sp_layers)).half())
+                self._sp_cur = None
         out = torch.zeros(self.n_buckets, device=v.device, dtype=v.dtype)
         out.index_add_(0, self.bucket, v)
         self._buf.append(out)
@@ -276,17 +314,51 @@ def curves_for(rows: np.ndarray, gen_ids, tokenizer, categories: list[str],
     return out
 
 
+def spatial_maps(sp_rows: np.ndarray, token_sets: dict, grid) -> dict:
+    """장르별 공간 지도. {"mean": [칸,행,열], "maps": {이름: [칸,행,열]}}.
+
+    sp_rows    : AttnRecorder.spatial_rows() [생성 토큰 수, 영상 토큰 수]
+    token_sets : {이름: [행 번호...]} - curves_for 의 tokens 에서 장르 것만
+    mean 은 답 전체 토큰의 평균(시각화의 비교 기준), maps 는 그 이름의 토큰 평균.
+    """
+    n = sp_rows.shape[0]
+    out = {"mean": sp_rows.mean(axis=0).reshape(grid), "maps": {}}
+    for name, ks in token_sets.items():
+        ks = sorted(set(k for k in ks if k is not None and k < n))
+        if ks:
+            out["maps"][name] = sp_rows[ks].mean(axis=0).reshape(grid)
+    return out
+
+
 def save_npz(path: Path, rows: np.ndarray, gen_ids, times, layers,
-             sink: dict | None = None):
+             sink: dict | None = None, spatial: dict | None = None):
     """원본 행렬(모든 층)과 토큰 id 를 남긴다 - 층/토큰을 바꿔 다시 계산할 수 있게.
 
     rows 는 몰림 토큰을 뺀 값이다(sink_removed=1). sink 는 층별로 뺀 토큰 정보.
+    spatial 은 spatial_maps() 의 결과 (있을 때만) - spatial_mean, spatial_names,
+    spatial_maps([이름 수, 칸, 행, 열]) 로 남긴다.
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(path, rows=rows.astype(np.float16),
+    extra = {}
+    if spatial and spatial["maps"]:
+        names = list(spatial["maps"])
+        extra = {"spatial_mean": spatial["mean"].astype(np.float32),
+                 "spatial_names": json.dumps(names, ensure_ascii=False),
+                 "spatial_maps": np.stack([spatial["maps"][k] for k in names]
+                                          ).astype(np.float32)}
+    np.savez_compressed(path, **extra, rows=rows.astype(np.float16),
                         gen_ids=np.asarray(gen_ids, dtype=np.int64),
                         times=np.asarray(times, dtype=np.float32),
                         default_layers=np.asarray(layers, dtype=np.int16),
                         sink_removed=np.int8(1),
                         sink=json.dumps(sink or {}))
+
+
+def load_spatial(z) -> dict | None:
+    """save_npz 로 남긴 공간 지도를 spatial_maps() 형태로 되돌린다. 없으면 None."""
+    if "spatial_maps" not in z.files:
+        return None
+    names = json.loads(str(z["spatial_names"]))
+    return {"mean": z["spatial_mean"],
+            "maps": {k: m for k, m in zip(names, z["spatial_maps"])}}

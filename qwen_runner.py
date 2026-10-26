@@ -377,9 +377,12 @@ def _generate_video(model, processor, frames, text_prompt, max_new_tokens=256,
 
     # --attn-timeline: 이 generate 동안만 기록한다(이어 묻기 등 뒤의 생성은 뺀다).
     if attn_rec is not None:
+        # 병합 후 영상 토큰 격자 (칸, 행, 열) - 공간 지도(히트맵)용
+        t_, h_, w_ = (int(x) for x in inputs["video_grid_thw"][0])
+        m_ = getattr(getattr(processor, "video_processor", None), "merge_size", 2)
         attn_rec.begin(inputs.input_ids,
                        processor.tokenizer.convert_tokens_to_ids("<|video_pad|>"),
-                       float(video_fps))
+                       float(video_fps), grid=(t_, h_ // m_, w_ // m_))
     gen = model.generate(**inputs, max_new_tokens=max_new_tokens,
                          do_sample=False,
                          return_dict_in_generate=(want_margin
@@ -396,7 +399,9 @@ def _generate_video(model, processor, frames, text_prompt, max_new_tokens=256,
         if attn_out is not None and rows is not None:
             attn_out.update(rows=rows, gen_ids=trimmed[0].tolist(),
                             times=attn_rec.times,
-                            sink=attn_rec.sink_summary())
+                            sink=attn_rec.sink_summary(),
+                            spatial_rows=attn_rec.spatial_rows(),
+                            grid=attn_rec.grid)
     out = processor.batch_decode(
         trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
     )[0]
@@ -623,7 +628,8 @@ def run_clip_inference(uuids, labels, category_menu,
             result = parse_nureasoning_output(raw, labels)
             # 장르를 댄 클립만 곡선을 만든다(관심 토큰이 장르 이름과 점수다).
             if attn_out.get("rows") is not None and result["categories"]:
-                from attn_timeline import curves_for, save_npz, default_layers
+                from attn_timeline import (curves_for, save_npz, default_layers,
+                                           spatial_maps)
                 rows_ = attn_out["rows"]
                 gk = {g: group_key(g) for g in (score_groups(labels)
                                                 if score_categories else [])}
@@ -632,9 +638,23 @@ def run_clip_inference(uuids, labels, category_menu,
                 curves["times"] = attn_out["times"]
                 curves["layers"] = default_layers(rows_.shape[1])
                 result["attn_curves"] = curves
+                # 장르별 공간 지도(히트맵 영상). 장르가 둘 이상이면 모두 합친
+                # "__all__" 도 만든다 - 점수 폴더처럼 한 영상에 장르를 하나로
+                # 정할 수 없을 때 쓴다.
+                spatial = None
+                if attn_out.get("spatial_rows") is not None:
+                    sets = {c: curves["tokens"][c] for c in result["categories"]
+                            if c in curves["tokens"]}
+                    if len(sets) > 1:
+                        sets["__all__"] = sorted({k for ks in sets.values()
+                                                  for k in ks})
+                    spatial = spatial_maps(attn_out["spatial_rows"], sets,
+                                           attn_out["grid"])
+                    result["attn_spatial"] = {**spatial,
+                                              "times": attn_out["times"]}
                 save_npz(attn_dir / f"{uuid}.npz", rows_, attn_out["gen_ids"],
                          attn_out["times"], curves["layers"],
-                         sink=attn_out.get("sink"))
+                         sink=attn_out.get("sink"), spatial=spatial)
             if fu_state is not None:
                 # 장르를 하나도 대지 않았으면 물을 대상이 없다.
                 if result["categories"] and fu_state:
@@ -728,10 +748,12 @@ def run_clip_inference(uuids, labels, category_menu,
                 # 시각화가 "구간을 물었는데 못 받은 장르"를 빈 줄로 그리게 한다.
                 result["_time_spans_on"] = bool(time_spans)
                 result["_time_spans_mode"] = time_spans
-                for out_dir in out_dirs:
+                for i, out_dir in enumerate(out_dirs):
                     render_clip_result(
                         uuid, clip_path(views[0], uuid), result,
                         out_dir, max_width=viz_width,
+                        # 장르 폴더면 그 장르의 어텐션 히트맵을 그린다.
+                        attn_focus=(targets[i] if targets is not None else None),
                         gt=(gt_labels or {}).get(uuid),
                         traj=traj, traj_view=views[0],
                         extra={"ego_behavior_measured": behavior,

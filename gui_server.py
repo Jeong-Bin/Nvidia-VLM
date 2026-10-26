@@ -1211,6 +1211,9 @@ def build_command(opts: dict, jid: str = "adhoc") -> list[str]:
     ts = opts.get("time_spans")
     if ts in ("inline", "followup") and not opts.get("difficulty_only"):
         cmd += ["--time-spans", ts]
+    # 어텐션 기록(시각화의 공간/시간 히트맵). 프롬프트와 출력은 그대로다.
+    if opts.get("attn_timeline"):
+        cmd += ["--attn-timeline"]
     # 프레임 소스. 스크립트마다 기본값이 다르므로(labeled=local, nas=nas)
     # 기본과 같을 때만 생략한다 - run.log 에 남는 명령이 짧을수록 낫다.
     data = opts.get("data")

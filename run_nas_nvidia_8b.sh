@@ -92,6 +92,9 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --traj center|width    자차 미래 궤적을 프레임에 그린다 (기본 off)   [TRAJ]
   --memo "TEXT"          이 실행이 무엇을 시험하는지 한 줄 메모           [MEMO]
   --use-egomotion        egomotion 사실(자차 행동 요약)을 주입 (기본 off)  [USE_EGOMOTION=1]
+  --attn-timeline         1차 생성 중 모델이 영상의 어디를 봤는지 어텐션을
+                          기록해 시각화에 히트맵으로 그린다
+                          (프롬프트/출력 그대로, 기본 off)   [ATTN_TIMELINE=1]
   --unknown-categories    Unknown 카테고리(예상 못한 동적 객체/주행 환경)를
                           메뉴에 넣는다 (기본 off, ablation 용)   [UNKNOWN_CATS=1]
   --time-spans [MODE]     장르마다 시간 구간별 위험도(0~4)를 받아 시각화 영상
@@ -161,6 +164,7 @@ while [ $# -gt 0 ]; do
                          WEATHER_ONLY=1 ;;
     --explain-traj)      EXPLAIN_TRAJ=1 ;;
     --unknown-categories) UNKNOWN_CATS=1 ;;
+    --attn-timeline)      ATTN_TIMELINE=1 ;;
     --attn-timeline)      ATTN_TIMELINE=1 ;;
     --time-spans=*)       TIME_SPANS="${1#*=}" ;;
     --time-spans)         case "${2:-}" in inline|followup) shift; TIME_SPANS="$1" ;; *) TIME_SPANS=inline ;; esac ;;
@@ -240,6 +244,7 @@ OPTS="--single-view --data $DATA"
 [ "${WEATHER_ONLY:-0}" = "1" ]    && OPTS="$OPTS --weather-only"
 [ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
 [ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-categories"
+[ "${ATTN_TIMELINE:-0}" = "1" ] && OPTS="$OPTS --attn-timeline"
 [ "${ATTN_TIMELINE:-0}" = "1" ] && OPTS="$OPTS --attn-timeline"
 case "${TIME_SPANS:-0}" in
   0|"") ;;

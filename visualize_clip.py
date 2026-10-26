@@ -15,6 +15,7 @@
 """
 from __future__ import annotations
 
+import bisect
 import json
 import os
 import re
@@ -71,6 +72,12 @@ SINK_LINE = (255, 200, 0)
 ATTN_MAX_REL = 2.0
 ATTN_PEAK = (230, 0, 0)          # 정점 표시 삼각형
 PLAYHEAD = (40, 40, 40)
+
+# 공간 어텐션 히트맵(원본 오른쪽 영상). 값은 그 장르를 쓸 때의 어텐션을 답 전체
+# 평균과 견준 비율이고 평균(x1) 이하는 칠하지 않는다. x1 -> SPATIAL_MAX_REL 을
+# log2 눈금으로 0~1 에 놓고, 클립마다 늘리지 않는다(클립끼리 비교할 수 있게).
+SPATIAL_MAX_REL = 4.0
+SPATIAL_ALPHA = 0.6              # 가장 진한 칸의 덮는 정도
 
 # 인코더 선택.
 #
@@ -251,6 +258,58 @@ def _draw_heat(d, curve, times, to_x, y0, y1, scale):
             k = max(3, int(4 * scale))
             d.polygon([(xm - k, y1), (xm + k, y1), (xm, y1 - k - 1)],
                       fill=ATTN_PEAK)
+
+
+def _spatial_focus(spatial: dict | None, focus: str | None) -> str | None:
+    """히트맵에 쓸 지도 이름. 장르 폴더면 그 장르, 아니면 하나뿐인 장르나 합친 것."""
+    maps = (spatial or {}).get("maps") or {}
+    if focus in maps:
+        return focus
+    if len(maps) == 1:
+        return next(iter(maps))
+    return "__all__" if "__all__" in maps else None
+
+
+def _spatial_overlays(spatial: dict, name: str, w: int, h: int):
+    """공간 지도 -> 칸마다 (색 BGR uint8 [h,w,3], 덮는 정도 float32 [h,w,1]).
+
+    spatial = {"mean": [칸,행,열] 답 전체, "maps": {이름: [칸,행,열]}, "times": ...}
+    (attn_timeline.spatial_maps). name 의 지도를 답 전체 평균과 견준 비율로 그린다.
+    토큰 격자는 입력 프레임 전체(896x512)를 덮으므로 원본 크기로 그대로 늘린다.
+    """
+    m = np.asarray(spatial["maps"][name], dtype=np.float32)
+    base = np.asarray(spatial["mean"], dtype=np.float32)
+    # 답 전체가 거의 안 본 토큰에서 비율이 튀지 않게 균등값의 1/10 을 더한다.
+    eps = 0.1 / base.size
+    rel = (m + eps) / (base + eps)
+    val = np.clip(np.log2(np.maximum(rel, 1e-6)) / np.log2(SPATIAL_MAX_REL), 0, 1)
+    out = []
+    for g in range(val.shape[0]):
+        up = np.clip(cv2.resize(val[g], (w, h), interpolation=cv2.INTER_CUBIC), 0, 1)
+        color = cv2.applyColorMap((up * 255).astype(np.uint8), cv2.COLORMAP_JET)
+        out.append((color, (up * SPATIAL_ALPHA)[..., None]))
+    return out
+
+
+def _spatial_legend(w: int, scale: float, name: str) -> np.ndarray:
+    """히트맵 위에 얹을 범례(BGR) - 장르 이름과 x1~xMAX 색 막대."""
+    fh = max(10, int(13 * scale))
+    font = _font(FONT_REG, fh)
+    bar_w, bar_h, pad = int(110 * scale), max(6, int(8 * scale)), int(6 * scale)
+    what = "all named types" if name == "__all__" else name
+    text = f"Attention: {what} vs. answer avg  x1"
+    tail = f"x{SPATIAL_MAX_REL:g}"
+    img = Image.new("RGB", (w, fh + 2 * pad), (0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.text((pad, pad), text, font=font, fill=(255, 255, 255))
+    x0 = pad + int(d.textlength(text, font=font)) + pad
+    grad = cv2.applyColorMap(np.linspace(0, 255, bar_w).astype(np.uint8)[None, :],
+                             cv2.COLORMAP_JET)[0][:, ::-1]      # BGR -> RGB
+    y0 = pad + (fh - bar_h) // 2
+    for i, c in enumerate(grad):
+        d.line([(x0 + i, y0), (x0 + i, y0 + bar_h)], fill=tuple(int(x) for x in c))
+    d.text((x0 + bar_w + pad, pad), tail, font=font, fill=(255, 255, 255))
+    return cv2.cvtColor(np.asarray(img), cv2.COLOR_RGB2BGR)
 
 
 def build_timeline_strip(result: dict, duration: float, width: int,
@@ -583,6 +642,7 @@ def render_clip_video(src_mp4, result: dict, out_path,
                       max_frames: int | None = None,
                       traj: str | None = None, traj_uuid: str | None = None,
                       traj_view: str = "camera_front_wide_120fov",
+                      attn_focus: str | None = None,
                       ) -> Path | None:
     """원본 mp4 위에 추론 텍스트 패널을 붙여 새 mp4 로 저장.
 
@@ -590,6 +650,10 @@ def render_clip_video(src_mp4, result: dict, out_path,
     result     : parse_nureasoning_output 결과 (+ "_headline" 을 넣어두면 제목에 쓴다)
     max_width  : 지정하면 그 폭으로 줄인다. None 이면 원본 해상도 유지.
     max_frames : 디버그용 - 앞에서 N 프레임만 쓴다.
+    result["attn_spatial"] 가 있으면(--attn-timeline) 원본과, 공간 어텐션
+    히트맵을 덮은 원본을 반씩 나란히 놓는다. 히트맵은 1초 칸마다 바뀐다.
+    attn_focus : 히트맵을 그릴 장르(장르 폴더의 그 장르). 없으면 하나뿐인
+                 장르, 여럿이면 모두 합친 것("__all__").
     traj       : "center"|"width" 를 주면 원본 프레임마다 자차 미래 궤적을
                  그린다. 추론 입력(2fps 40장)과 달리 여기는 원본 605프레임을
                  모두 쓰므로, 프레임 번호를 그대로 궤적 계산에 넘긴다.
@@ -632,6 +696,23 @@ def render_clip_video(src_mp4, result: dict, out_path,
     out_w -= out_w % 2
     out_h -= out_h % 2
 
+    # 공간 어텐션 지도가 있으면 원본(왼쪽)과 히트맵을 덮은 원본(오른쪽)을 반씩
+    # 나란히 놓는다. 띠와 텍스트 패널은 그 아래에 전체 폭으로 둔다.
+    spatial = result.get("attn_spatial")
+    focus = _spatial_focus(spatial, attn_focus)
+    if focus is None:
+        spatial = None
+    if spatial is not None:
+        vid_w = out_w // 2
+        vid_w -= vid_w % 2
+        vid_h = int(round(src_h * vid_w / src_w))
+        vid_h -= vid_h % 2
+        overlays = _spatial_overlays(spatial, focus, vid_w, vid_h)
+        heat_times = [t0 for t0, _ in spatial["times"]]
+        legend = _spatial_legend(vid_w, out_w / 1280.0, focus)
+    else:
+        vid_w, vid_h = out_w, out_h
+
     panel = build_text_panel(result, out_w, scale=out_w / 1280.0)
     panel_bgr = cv2.cvtColor(panel, cv2.COLOR_RGB2BGR)
     # --time-spans 구간 띠는 영상 바로 아래, 텍스트 패널 위에 둔다.
@@ -640,6 +721,7 @@ def render_clip_video(src_mp4, result: dict, out_path,
     strip_bgr, geom = ((cv2.cvtColor(strip[0], cv2.COLOR_RGB2BGR), strip[1])
                        if strip else (None, None))
     sh = strip_bgr.shape[0] if strip_bgr is not None else 0
+    out_h = vid_h               # 이 아래 배치는 영상 줄의 높이만 본다
     total_h = out_h + sh + panel.shape[0]
     total_h -= total_h % 2
 
@@ -666,14 +748,24 @@ def render_clip_video(src_mp4, result: dict, out_path,
             ok, frame = cap.read()
             if not ok:
                 break
-            if (frame.shape[1], frame.shape[0]) != (out_w, out_h):
-                frame = cv2.resize(frame, (out_w, out_h),
+            if (frame.shape[1], frame.shape[0]) != (vid_w, vid_h):
+                frame = cv2.resize(frame, (vid_w, vid_h),
                                    interpolation=cv2.INTER_AREA)
             if draw is not None:
                 # 리사이즈 후에 그린다 - 선 두께가 출력 해상도에 맞고,
                 # draw_trajectory 가 캘리브 해상도와의 배율을 알아서 맞춘다.
                 draw(frame, traj_uuid, n, cam=traj_view, mode=traj)
-            canvas[:out_h] = frame
+            if spatial is not None:
+                canvas[:vid_h, :vid_w] = frame
+                # 이 프레임 시각이 속한 칸(1초)의 지도를 덮는다.
+                g = max(0, min(bisect.bisect_right(heat_times, n / fps) - 1,
+                               len(overlays) - 1))
+                color, alpha = overlays[g]
+                heat = (frame * (1 - alpha) + color * alpha).astype(np.uint8)
+                heat[:legend.shape[0]] = legend
+                canvas[:vid_h, vid_w:2 * vid_w] = heat
+            else:
+                canvas[:out_h] = frame
             if strip_bgr is not None:
                 # 띠를 다시 깔고 재생 위치에 세로선을 긋는다.
                 canvas[out_h:out_h + sh] = strip_bgr
@@ -798,6 +890,7 @@ def render_clip_result(uuid: str, src_mp4, result: dict, out_dir,
                        gt: dict | None = None,
                        traj: str | None = None,
                        traj_view: str = "camera_front_wide_120fov",
+                       attn_focus: str | None = None,
                        ):
     """클립 하나의 영상 + json 을 같은 폴더에 저장하고 (video, json) 을 반환.
 
@@ -812,6 +905,6 @@ def render_clip_result(uuid: str, src_mp4, result: dict, out_dir,
     video = render_clip_video(src_mp4, r, out_dir / "clip.mp4",
                               max_width=max_width, max_frames=max_frames,
                               traj=traj, traj_uuid=uuid, traj_view=traj_view,
-                              )
+                              attn_focus=attn_focus)
     js = save_clip_json(r, out_dir / "result.json", extra=extra)
     return video, js

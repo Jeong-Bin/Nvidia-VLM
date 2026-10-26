@@ -471,6 +471,8 @@ video{width:100%;background:#000;border-radius:6px}
         <input type="checkbox" id="r-unknown" checked> Unknown 카테고리 찾기</label>
       <label title="다룰 상위 카테고리(--group). 하나를 고르면 그 상위 카테고리의 카테고리만 찾고 점수도 그것 하나만 매긴다. 채점도 GT 를 같은 범위로 줄여서 한다.">상위 카테고리<select id="r-group"><option value="all">All</option><option value="dynamic_object">Dynamic object</option><option value="driving_environment">Driving environment</option></select></label>
       <label title="장르별 위험 구간(--time-spans). 이름을 댄 장르마다 시간 구간을 나눠 구간별 위험도 0~4 를 받고, 시각화 영상 재생 바 위에 점수별 색 띠로 그린다. inline: 1차 답변 JSON 에 칸을 넣는다(원본 프롬프트가 바뀌어 장르/점수 판단이 달라질 수 있다). followup: 1차 답변이 끝난 뒤 같은 대화에 이어 묻는다(1차 결과 그대로, 클립당 약 1초 추가). 끔: 구간을 묻지 않는다.">위험 구간<select id="r-tspans"><option value="inline" selected>inline</option><option value="followup">followup</option><option value="">끔</option></select></label>
+      <label class="chk" title="1차 추론 중 모델이 영상의 어디를 봤는지 어텐션을 기록한다(--attn-timeline). 시각화 영상에서 원본 오른쪽에 답 전체 기준 공간 히트맵(평균 대비, 1초마다 바뀜)을 나란히 그리고, 재생 바 아래에 장르별 시간 히트맵을 그린다. 프롬프트와 출력은 그대로이고 추론이 약 16% 느려진다. 어텐션은 '어디를 봤나'이지 '그것 때문에 판단했나'가 아니다.">
+        <input type="checkbox" id="r-attn"> 어텐션 히트맵</label>
       <label id="r-gpuwrap" class="hide">GPU<input type="text" id="r-gpus" value="0,1,2" size="8"></label>
       <label id="r-shardwrap">샤드 수<input type="number" id="r-shards" value="8" min="1" max="8" size="2"></label>
       <label>메모<input type="text" id="r-memo" size="26" placeholder="이 실행이 무엇을 시험하는지"></label>
@@ -583,6 +585,8 @@ video{width:100%;background:#000;border-radius:6px}
         <input type="checkbox" id="sg-unknown" checked> Unknown 카테고리 찾기</label>
       <label title="다룰 상위 카테고리(--group). 하나를 고르면 그 상위 카테고리의 카테고리만 찾고 점수도 그것 하나만 매긴다. 채점도 GT 를 같은 범위로 줄여서 한다.">상위 카테고리<select id="sg-group"><option value="all">All</option><option value="dynamic_object">Dynamic object</option><option value="driving_environment">Driving environment</option></select></label>
       <label title="장르별 위험 구간(--time-spans). 이름을 댄 장르마다 시간 구간을 나눠 구간별 위험도 0~4 를 받고, 시각화 영상 재생 바 위에 점수별 색 띠로 그린다. inline: 1차 답변 JSON 에 칸을 넣는다(원본 프롬프트가 바뀌어 장르/점수 판단이 달라질 수 있다). followup: 1차 답변이 끝난 뒤 같은 대화에 이어 묻는다(1차 결과 그대로, 클립당 약 1초 추가). 끔: 구간을 묻지 않는다.">위험 구간<select id="sg-tspans"><option value="inline" selected>inline</option><option value="followup">followup</option><option value="">끔</option></select></label>
+      <label class="chk" title="1차 추론 중 모델이 영상의 어디를 봤는지 어텐션을 기록한다(--attn-timeline). 시각화 영상에서 원본 오른쪽에 답 전체 기준 공간 히트맵(평균 대비, 1초마다 바뀜)을 나란히 그리고, 재생 바 아래에 장르별 시간 히트맵을 그린다. 프롬프트와 출력은 그대로이고 추론이 약 16% 느려진다. 어텐션은 '어디를 봤나'이지 '그것 때문에 판단했나'가 아니다.">
+        <input type="checkbox" id="sg-attn"> 어텐션 히트맵</label>
     </div>
     <div class="row" style="margin-top:12px">
       <button id="sg-go" class="primary">이 클립 추론</button>
@@ -642,6 +646,8 @@ video{width:100%;background:#000;border-radius:6px}
         <input type="checkbox" id="n-unknown" checked> Unknown 카테고리 찾기</label>
       <label title="다룰 상위 카테고리(--group). 하나를 고르면 그 상위 카테고리의 카테고리만 찾고 점수도 그것 하나만 매긴다. 채점도 GT 를 같은 범위로 줄여서 한다.">상위 카테고리<select id="n-group"><option value="all">All</option><option value="dynamic_object">Dynamic object</option><option value="driving_environment">Driving environment</option></select></label>
       <label title="장르별 위험 구간(--time-spans). 이름을 댄 장르마다 시간 구간을 나눠 구간별 위험도 0~4 를 받고, 시각화 영상 재생 바 위에 점수별 색 띠로 그린다. inline: 1차 답변 JSON 에 칸을 넣는다(원본 프롬프트가 바뀌어 장르/점수 판단이 달라질 수 있다). followup: 1차 답변이 끝난 뒤 같은 대화에 이어 묻는다(1차 결과 그대로, 클립당 약 1초 추가). 끔: 구간을 묻지 않는다.">위험 구간<select id="n-tspans"><option value="inline" selected>inline</option><option value="followup">followup</option><option value="">끔</option></select></label>
+      <label class="chk" title="1차 추론 중 모델이 영상의 어디를 봤는지 어텐션을 기록한다(--attn-timeline). 시각화 영상에서 원본 오른쪽에 답 전체 기준 공간 히트맵(평균 대비, 1초마다 바뀜)을 나란히 그리고, 재생 바 아래에 장르별 시간 히트맵을 그린다. 프롬프트와 출력은 그대로이고 추론이 약 16% 느려진다. 어텐션은 '어디를 봤나'이지 '그것 때문에 판단했나'가 아니다.">
+        <input type="checkbox" id="n-attn"> 어텐션 히트맵</label>
       <label id="n-gpuwrap" class="hide">GPU<input type="text" id="n-gpus" value="0,1,2" size="8"></label>
       <label id="n-shardwrap">샤드 수<input type="number" id="n-shards" value="8" min="1" max="8" size="2"></label>
       <label>메모<input type="text" id="n-memo" size="26" placeholder="이 실행이 무엇을 시험하는지"></label>
@@ -1309,11 +1315,12 @@ function previewCmd() {
   if ($('#r-unknown').checked && !$('#r-diffonly').checked) parts.push('--unknown-categories');
   if ($('#r-group').value !== 'all' && !$('#r-diffonly').checked) parts.push('--group ' + $('#r-group').value);
   if ($('#r-tspans').value && !$('#r-diffonly').checked) parts.push('--time-spans ' + $('#r-tspans').value);
+  if ($('#r-attn').checked) parts.push('--attn-timeline');
   if ($('#r-memo').value) parts.push(`--memo "${$('#r-memo').value}"`);
   $('#r-cmd').textContent = '$ ' + parts.join(' ');
 }
 ['#r-model', '#r-labels', '#r-scene', '#r-traj', '#r-ego', '#r-viz', '#r-data',
- '#r-vpc', '#r-difficulty', '#r-diffonly', '#r-unknown', '#r-group', '#r-tspans', '#r-gpus', '#r-shards', '#r-memo'].forEach(s => {
+ '#r-vpc', '#r-difficulty', '#r-diffonly', '#r-unknown', '#r-group', '#r-tspans', '#r-attn', '#r-gpus', '#r-shards', '#r-memo'].forEach(s => {
   $(s).addEventListener('input', previewCmd); $(s).addEventListener('change', previewCmd);
 });
 $('#r-model').addEventListener('change', onModelChange);
@@ -1359,11 +1366,12 @@ function previewNasCmd() {
   if ($('#n-unknown').checked && !$('#n-diffonly').checked) parts.push('--unknown-categories');
   if ($('#n-group').value !== 'all' && !$('#n-diffonly').checked) parts.push('--group ' + $('#n-group').value);
   if ($('#n-tspans').value && !$('#n-diffonly').checked) parts.push('--time-spans ' + $('#n-tspans').value);
+  if ($('#n-attn').checked) parts.push('--attn-timeline');
   if ($('#n-memo').value) parts.push(`--memo "${$('#n-memo').value}"`);
   $('#n-cmd').textContent = '$ ' + parts.join(' ');
 }
 ['#n-model', '#n-scene', '#n-limit', '#n-traj', '#n-ego', '#n-viz', '#n-data',
- '#n-vpc', '#n-difficulty', '#n-diffonly', '#n-unknown', '#n-group', '#n-tspans', '#n-gpus', '#n-shards', '#n-memo'].forEach(s => {
+ '#n-vpc', '#n-difficulty', '#n-diffonly', '#n-unknown', '#n-group', '#n-tspans', '#n-attn', '#n-gpus', '#n-shards', '#n-memo'].forEach(s => {
   $(s).addEventListener('input', previewNasCmd); $(s).addEventListener('change', previewNasCmd);
 });
 $('#n-model').addEventListener('change', onNasModelChange);
@@ -1388,6 +1396,7 @@ $('#n-go').onclick = async () => {
         unknown_categories: $('#n-unknown').checked,
         group: $('#n-group').value,
         time_spans: $('#n-tspans').value,
+        attn_timeline: $('#n-attn').checked,
         gpus: $('#n-gpus').value, shards: +$('#n-shards').value,
         memo: $('#n-memo').value,
       })
@@ -1411,6 +1420,7 @@ $('#r-go').onclick = async () => {
         unknown_categories: $('#r-unknown').checked,
         group: $('#r-group').value,
         time_spans: $('#r-tspans').value,
+        attn_timeline: $('#r-attn').checked,
         gpus: $('#r-gpus').value, shards: +$('#r-shards').value,
         memo: $('#r-memo').value,
       })
@@ -1439,6 +1449,7 @@ function sgOpts() {
     unknown_categories: $('#sg-unknown').checked,
     group: $('#sg-group').value,
     time_spans: $('#sg-tspans').value,
+    attn_timeline: $('#sg-attn').checked,
   };
 }
 
@@ -1497,7 +1508,7 @@ async function sgShow(uuid, runDir) {
 }
 
 ['#sg-uuid', '#sg-model', '#sg-scene', '#sg-data', '#sg-traj', '#sg-ego',
- '#sg-difficulty', '#sg-diffonly', '#sg-unknown', '#sg-group', '#sg-tspans'].forEach(sel => {
+ '#sg-difficulty', '#sg-diffonly', '#sg-unknown', '#sg-group', '#sg-tspans', '#sg-attn'].forEach(sel => {
   const el = $(sel); if (!el) return;
   el.addEventListener('input', sgPreview); el.addEventListener('change', sgPreview);
 });
@@ -1516,6 +1527,7 @@ function sgPreview() {
   if (o.unknown_categories && !o.difficulty_only) parts.push('--unknown-categories');
   if (o.group !== 'all' && !o.difficulty_only) parts.push('--group ' + o.group);
   if (o.time_spans && !o.difficulty_only) parts.push('--time-spans ' + o.time_spans);
+  if (o.attn_timeline) parts.push('--attn-timeline');
   parts.push('--only-uuids <' + o.single_uuid + '>');
   $('#sg-cmd').textContent = '$ bash ' + parts.join(' ');
 }

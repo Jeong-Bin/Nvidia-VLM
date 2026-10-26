@@ -36,7 +36,7 @@ import numpy as np
 
 import edge_case_mining as E
 import visualize_clip as V
-from attn_timeline import curves_for, default_layers
+from attn_timeline import curves_for, default_layers, load_spatial
 from constrained_tier import group_key, score_groups, score_dirname
 from prompts import DIFFICULTY_AXES
 
@@ -166,15 +166,19 @@ def main():
             cv["times"] = z["times"].tolist()
             cv["layers"] = default_layers(rows_.shape[1])
             res["attn_curves"] = cv
+            sp = load_spatial(z)
+            if sp is not None:
+                res["attn_spatial"] = {**sp, "times": z["times"].tolist()}
         if key.get("time_spans"):
             res["_time_spans_on"] = True
 
         extra = {"ego_behavior_measured": r.get("ego_behavior_measured", ""),
                  "n_frames_seen": _int(r.get("n_frames")),
                  "ego_speed_kmh": r.get("ego_speed_kmh") or None}
-        for od in out_dirs:
+        for i, od in enumerate(out_dirs):
             V.render_clip_result(r["uuid"], E.clip_path(view, r["uuid"]), res, od,
                                  max_width=args.width,
+                                 attn_focus=(targets[i] if targets else None),
                                  gt=(gt or {}).get(r["uuid"]), extra=extra)
             n += 1
             print(f"[viz] {od.relative_to(run)}")
