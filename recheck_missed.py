@@ -244,9 +244,7 @@ def run_shard(run_dir: Path, num_shards: int, shard_id: int):
             if len(images) < len(clip["indices"]) * len(views):
                 print(f"[warn] {uuid}: 프레임을 다 읽지 못해 건너뜀")
                 continue
-            behavior, _ = Q.build_clip_ego_facts(
-                uuid, bool(key.get("use_egomotion")),
-                frame_indices=clip["indices"])
+            behavior, _ = Q.build_clip_ego_facts(uuid, bool(key.get("use_egomotion")))
             intro = E.clip_intro(len(images), len(views), fps=fps,
                                  as_video=as_video)
             q = build_question(intro, behavior,

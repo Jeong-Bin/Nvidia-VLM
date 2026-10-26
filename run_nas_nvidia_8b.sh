@@ -89,7 +89,6 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --viz-width N          시각화 영상 폭 (기본 1280, 0=원본)            [VIZ_WIDTH]
   --save-low             Safety/Rarity 가 둘 다 Low 인 클립도 시각화     [NOT_SAVE_LOW=0]
   --timeline             1단계를 시간순 서술로 (기본 off)            [TIMELINE=1]
-  --ego-track            egomotion 을 1초 간격 시계열로도 제공        [EGO_TRACK=1]
   --traj center|width    자차 미래 궤적을 프레임에 그린다 (기본 off)   [TRAJ]
   --memo "TEXT"          이 실행이 무엇을 시험하는지 한 줄 메모           [MEMO]
   --use-egomotion        egomotion 사실(자차 행동 요약)을 주입 (기본 off)  [USE_EGOMOTION=1]
@@ -151,7 +150,6 @@ while [ $# -gt 0 ]; do
     --viz-width)         shift; VIZ_WIDTH="${1:-}" ;;
     --save-low)          NOT_SAVE_LOW=0 ;;
     --timeline)          TIMELINE=1 ;;
-    --ego-track)         EGO_TRACK=1 ;;
     --traj=*)            TRAJ="${1#*=}" ;;
     --traj)              shift; TRAJ="${1:-center}" ;;
     --memo=*)            MEMO="${1#*=}" ;;
@@ -233,7 +231,6 @@ OPTS="--single-view --data $DATA"
 [ -n "${MODEL:-}" ] && OPTS="$OPTS --model $MODEL"
 [ -n "$SCENE_JSON" ] && OPTS="$OPTS --scene-json $SCENE_JSON"
 [ "${TIMELINE:-0}" = "1" ]      && OPTS="$OPTS --timeline"
-[ "${EGO_TRACK:-0}" = "1" ]     && OPTS="$OPTS --ego-track"
 [ -n "${TRAJ:-}" ]              && OPTS="$OPTS --traj $TRAJ"
 [ "${USE_EGOMOTION:-0}" = "1" ] && OPTS="$OPTS --use-egomotion"
 # 옛 환경변수 이름(DIFFICULTY/DIFFICULTY_ONLY)도 계속 받는다.
@@ -338,7 +335,7 @@ fi
     # 이미 병합이 끝난 실행을 이어받으면 옛 결과는 병합본에 있다.
     for f in "${RUN_DIR}/clip_results_all.csv" \
              $(for g in $(seq 0 $((NSHARDS-1))); do echo "${RUN_DIR}/clip_results_shard_${g}.csv"; done); do
-      # wc -l 로 세면 안 된다. 모델 출력이나 센서 시계열(--ego-track)에
+      # wc -l 로 세면 안 된다. 모델 출력에
       # 줄바꿈이 들어가면 한 클립이 CSV 여러 줄을 차지해(실측 115클립 ->
       # 460줄) 진행률이 총 개수를 넘어간다. CSV 규격대로 따옴표를 이해하는
       # 파서로 레코드 수를 센다.

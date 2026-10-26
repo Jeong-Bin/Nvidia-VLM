@@ -1361,7 +1361,9 @@ def _config_key(args, n_views=1, prompt_sha=None) -> dict:
         "single_view": bool(args.single_view),
         "video_input": bool(args.clip_video_input),
         "timeline": bool(args.timeline),
-        "ego_track": bool(args.ego_track),
+        # --ego-track(1초 간격 시계열)은 성능을 떨어뜨려 지웠다(2026-10-26).
+        # 옛 실행과 --resume 대조가 맞도록 고정값으로 남긴다.
+        "ego_track": False,
         "traj": args.traj,
         # 궤적 스타일은 trajectory.py 상수가 단일 진실 공급원이다.
         # 그 값을 여기 박아두어야 나중에 상수를 바꿔도 과거 실행이
@@ -1656,11 +1658,6 @@ if __name__ == "__main__":
                     help="자차 미래 궤적을 입력 프레임에 그린다 (기본 off). "
                          "center=차량 중심 1줄, width=차폭 2줄. "
                          "calibration/ 의 intrinsic/extrinsic 이 필요하다.")
-    ap.add_argument("--ego-track", action="store_true",
-                    help="egomotion 을 요약 문장만이 아니라 1초 간격 시계열로도 "
-                         "넘긴다 (--use-egomotion 필요, 기본 off). 요약 한 문장은 "
-                         "S자 조향이나 감속-가속 반복을 담지 못한다 - 실측 300클립 "
-                         "중 74%%가 속도 방향이 바뀌고 10%%는 좌우 회전이 모두 있다.")
     ap.add_argument("--timeline", action="store_true",
                     help="1단계(Scene Description)를 시간순 서술로 바꾼다 "
                          "(기본 off). 20초 안에 사건이 둘 이상일 때 뒤 사건이 "
@@ -2002,7 +1999,6 @@ if __name__ == "__main__":
                        not_save_low=args.not_save_low,
                        gt_labels=_load_gt_labels(args.gt_labels),
                        timeline=args.timeline,
-                       ego_track=args.ego_track,
                        traj=args.traj,
                        viz_normal=(args.viz_normal
                                    if (args.viz_normal or args.viz_special)

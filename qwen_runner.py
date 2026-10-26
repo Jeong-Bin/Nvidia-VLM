@@ -33,7 +33,6 @@ from edge_case_mining import (
 )
 from egomotion import (
     ego_clip_behavior, describe_clip_behavior,
-    ego_clip_track, describe_clip_track,
 )
 from visualize_clip import render_clip_result, safe_dirname, VIZ_WIDTH
 from constrained_tier import score_dirname, score_groups, group_key
@@ -406,8 +405,7 @@ def _generate_video(model, processor, frames, text_prompt, max_new_tokens=256,
     return (out.strip(), margin) if want_margin else out.strip()
 
 
-def build_clip_ego_facts(uuid, use_egomotion, ego_track=False,
-                         frame_indices=None):
+def build_clip_ego_facts(uuid, use_egomotion):
     """클립 모드용 egomotion 사실. (프롬프트 문구, 요약 dict) 를 돌려준다.
 
     한 프레임 시점의 스냅샷(속도 순간값)이 아니라 클립 전 구간을 한 번에
@@ -417,27 +415,14 @@ def build_clip_ego_facts(uuid, use_egomotion, ego_track=False,
     현재형 문장이 20초 영상 전체를 가리키는 것처럼 읽히지만 실제로는
     마지막 프레임의 값이다. 구간 요약이 속도 범위를 이미 말하므로
     중복이기도 하다.
+
+    요약 한 문장만 넣는다. 1초 간격 속도/방향 시계열을 덧붙이던 --ego-track 은
+    성능을 떨어뜨려 지웠다 (prompt_progress.md 참고).
     """
-    # 두 플래그는 독립이다. 세 조합을 각각 A/B 할 수 있어야 "요약 문장이
-    # 기여하는가" 와 "원시 수치가 기여하는가" 를 분리할 수 있다:
-    #   use_egomotion 만  -> 요약 한 문장 (해석이 들어간 서술)
-    #   ego_track 만      -> 1초 간격 수치만 (해석어 없음)
-    #   둘 다             -> 요약 + 수치
-    if not (use_egomotion or ego_track):
+    if not use_egomotion:
         return "", None
-
-    # ch 는 CSV/시각화가 쓰는 원본 dict 라 ego_track 단독일 때도 만들어 둔다
-    # (프롬프트에 넣지 않을 뿐, 결과 파일의 ego_speed_kmh 등이 비면 곤란하다).
     ch = ego_clip_behavior(uuid)
-
-    parts = []
-    if use_egomotion and ch:
-        parts.append(describe_clip_behavior(ch))
-    if ego_track:
-        tr = describe_clip_track(ego_clip_track(uuid, frame_indices))
-        if tr:
-            parts.append(tr)
-    return "\n".join(parts), ch
+    return describe_clip_behavior(ch), ch
 
 
 def run_clip_inference(uuids, labels, category_menu,
@@ -450,7 +435,7 @@ def run_clip_inference(uuids, labels, category_menu,
                        viz_dir=None, viz_only_edge=True, not_save_low=True,
                        viz_width=VIZ_WIDTH, video_input=True,
                        viz_normal=None, viz_special=None,
-                       gt_labels=None, timeline=False, ego_track=False,
+                       gt_labels=None, timeline=False,
                        want_margin=False, score_categories=True,
                        resume=False,
                        difficulty=False, difficulty_only=False,
@@ -607,9 +592,7 @@ def run_clip_inference(uuids, labels, category_menu,
                 continue
 
             # egomotion 은 클립 전 구간을 요약한다 (시간축 정렬).
-            behavior, ego = build_clip_ego_facts(uuid, use_egomotion,
-                                                 ego_track=ego_track,
-                                                 frame_indices=clip["indices"])
+            behavior, ego = build_clip_ego_facts(uuid, use_egomotion)
 
             prompt = build_nureasoning_prompt(
                 category_menu, labels, behavior_facts=behavior,

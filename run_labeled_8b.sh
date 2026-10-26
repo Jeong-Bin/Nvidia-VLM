@@ -86,7 +86,6 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --viz-normal           Normal 클립을 시각화 -> viz/normal/score_N/    [VIZ_NORMAL=1]
   --viz-special          Special 클립을 시각화 -> viz/special/score_N/  [VIZ_SPECIAL=1]
   --timeline             1단계를 시간순 서술로 (기본 off)            [TIMELINE=1]
-  --ego-track            egomotion 을 1초 간격 시계열로도 제공        [EGO_TRACK=1]
   --traj center|width    자차 미래 궤적을 프레임에 그린다 (기본 off)   [TRAJ]
   --memo "TEXT"          이 실행이 무엇을 시험하는지 한 줄 메모.
                          evaluation.log 머리에 [info] MEMO 로 찍힌다      [MEMO]
@@ -168,7 +167,6 @@ while [ $# -gt 0 ]; do
     --viz-normal)        VIZ_NORMAL=1 ;;
     --viz-special)       VIZ_SPECIAL=1 ;;
     --timeline)          TIMELINE=1 ;;
-    --ego-track)         EGO_TRACK=1 ;;
     --traj=*)            TRAJ="${1#*=}" ;;
     --traj)              shift; TRAJ="${1:-center}" ;;
     --memo=*)            MEMO="${1#*=}" ;;
@@ -384,7 +382,6 @@ esac
 # 명시했을 때만 넘긴다 - 안 넘기면 config.py 기본값이 실제로 쓰인다
 [ -n "$SCENE_JSON" ] && OPTS="$OPTS --scene-json $SCENE_JSON"
 [ "${TIMELINE:-0}" = "1" ]      && OPTS="$OPTS --timeline"
-[ "${EGO_TRACK:-0}" = "1" ]     && OPTS="$OPTS --ego-track"
 [ -n "${TRAJ:-}" ]              && OPTS="$OPTS --traj $TRAJ"
 [ "${USE_EGOMOTION:-0}" = "1" ] && OPTS="$OPTS --use-egomotion"
 # 옛 환경변수 이름(DIFFICULTY/DIFFICULTY_ONLY)도 계속 받는다.
@@ -490,7 +487,7 @@ fi
     # 이어받으면 옛 결과는 병합본(clip_results_all.csv)에 있다.
     for f in "${RUN_DIR}/clip_results_all.csv" \
              $(for g in $(seq 0 $((NSHARDS-1))); do echo "${RUN_DIR}/clip_results_shard_${g}.csv"; done); do
-      # wc -l 로 세면 안 된다. 모델 출력이나 센서 시계열(--ego-track)에
+      # wc -l 로 세면 안 된다. 모델 출력에
       # 줄바꿈이 들어가면 한 클립이 CSV 여러 줄을 차지해(실측 115클립 ->
       # 460줄) 진행률이 총 개수를 넘어간다. CSV 규격대로 따옴표를 이해하는
       # 파서로 레코드 수를 센다.
