@@ -121,11 +121,14 @@ def find_candidates(rows: list[dict], labels: list) -> list[tuple[str, str]]:
 # ---------------------------------------------------------------------------
 def build_question(intro: str, behavior: str, observation: str, lab: dict) -> str:
     import edge_case_mining as E
-    from constrained_tier import GROUP_RUBRICS
+    from constrained_tier import CATEGORY_RUBRICS, rubric_of, values_text
     entry = E.build_category_menu([lab])
-    group = lab["scenario"]
-    title, rubric = GROUP_RUBRICS[group]
+    # 자기 기준표로 따로 재는 카테고리(Unpaved road)는 그 표로 묻는다.
+    group = (lab["category"] if lab["category"] in CATEGORY_RUBRICS
+             else lab["scenario"])
+    title, rubric = rubric_of(group)
     scale = "\n".join(f"     {v} = {rubric[v]}" for v in sorted(rubric) if v >= 1)
+    present = values_text([v for v in rubric if v >= 1])
     facts = (f"\nHOW THE EGO-VEHICLE'S BEHAVIOUR CHANGED (measured from vehicle "
              f"sensors, not a guess):\n{behavior}\n" if behavior else "")
     return f"""{intro}
@@ -146,7 +149,7 @@ ego-vehicle's own braking as evidence only when the video shows what caused it.
 Respond with ONLY a JSON object, no other text:
 {{"reason": "<what you see of this type and what it did>",
  "present": <true or false>,
- "score": <integer 1-4 if present, otherwise 0>}}"""
+ "score": <integer {present} if present, otherwise 0>}}"""
 
 
 def parse_answer(text: str) -> dict:

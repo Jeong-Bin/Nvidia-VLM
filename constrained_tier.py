@@ -188,9 +188,9 @@ DIFFICULTY_RUBRIC_FOR_DYNAMIC_OBJECT = {
        # 역방향 옆 차선의 자전거 등.
        
     3: "The ego-vehicle saw the road user coming, but there was little room. "
-       "The road user moved past, or stood at the edge of the vehicle's lane "
-       "while the vehicle went by, closer than traffic in the next lane "
-       "normally is; or rode or walked right beside it, with no lane between "
+       "The road user moved past, or a road user that could move stood at the "
+       "edge of the vehicle's lane while the vehicle went by, closer than "
+       "traffic in the next lane normally is; or rode or walked right beside it, with no lane between "
        "them, where it could swerve or wobble into the vehicle's way; or the "
        "vehicle had to squeeze past, "
        "pull aside, or work its way through several road users at the same moment.",
@@ -213,14 +213,26 @@ DIFFICULTY_RUBRIC_FOR_DYNAMIC_OBJECT = {
        # 서행 중 충돌도 포함. 단, 정지 중 충돌은 포함하지 않음
 }
 
+# 주행 환경은 0/1/3 세 칸만 둔다 - 환경 요소는 자차 주행을 바꿨는가/아닌가로
+# 갈리고, 바꿨다면 그 자체로 가장 어려운 칸으로 본다. 2, 4 는 없다.
+# 단 Unpaved road 는 이 표가 아니라 UNPAVED_RUBRIC 으로 따로 잰다
+# (CATEGORY_RUBRICS 참고).
 DIFFICULTY_RUBRIC_FOR_DRIVING_ENVIRONMENT = {
     0: "This is a normal driving situation. Nothing about the road or its "
-       "surroundings - works, barriers, crossings, the road surface or objects "
-       "on it - hinders driving.",
-    1: "",
-    2: "",
-    3: "",
-    4: "",
+       "surroundings - works, barriers, railway crossings, the road surface "
+       "or objects on it - hinders driving.",
+       # 해당 요소가 장면에 없는 일반적인 주행
+
+    1: "A situation of this group is in the clip, but it did not change how "
+       "the ego-vehicle drove. The vehicle kept its speed and its line past "
+       "it, or was already stopped or waiting for some other reason.",
+       # 요소는 있지만 주행에 영향 없음 (속도/차선 그대로, 또는 다른 이유로 이미 정지)
+
+    3: "The situation changed how the ego-vehicle drove. Because of it the "
+       "vehicle stopped, waited, or changed its path - steering around it, "
+       "moving into another lane, taking a detour, or following a person "
+       "directing traffic.",
+       # 요소 때문에 자차 주행이 바뀜 (정지, 대기, 우회, 차선 변경, 수신호 따름)
 }
 
 
@@ -308,13 +320,13 @@ GATE_RUBRIC = {
 # 1 은 실제로는 포장 도로다. 흙먼지 때문에 모델이 비포장으로 잡는 일이 있어,
 # 그 경우를 가장 낮은 칸으로 받아 둔다 - 난이도는 포장 도로와 같다.
 UNPAVED_RUBRIC = {
+    0: "The road is an ordinary paved road.",
     1: "The road is actually paved, but a thin layer of dirt or dust makes it "
-       "look unpaved. Its lanes and edges stay clearly visible from start to "
-       "finish.",
+       "look unpaved.",
     2: "The road is unpaved, but its edges - and its lanes, if it has any - "
-       "stay clearly visible from start to finish.",
+       "stay clearly distinguished from start to finish.",
     3: "The road is unpaved, and for most of the clip its edges and lanes "
-       "cannot be made out, but trees, obstacles or wheel tracks along it "
+       "cannot be made out, but mound, obstacles or wheel tracks along it "
        "still show roughly where it runs.",
     4: "The road is unpaved, and for most of the clip its edges and lanes are "
        "very hard to make out - nothing along it shows clearly where it runs.",
@@ -351,6 +363,21 @@ GROUP_RUBRICS = {
         DIFFICULTY_RUBRIC_FOR_DRIVING_ENVIRONMENT),
 }
 
+# 묶음 안에서 묶음 기준표 대신 자기 기준표로 따로 재는 카테고리.
+# 이름 -> (묶음, 제목, 기준표).
+#
+# Unpaved road 는 "자차 주행을 바꿨는가"가 아니라 "길이 어디로 나 있는지
+# 읽히는가"로 갈려 Driving environment 의 0/1/3 칸에 맞지 않는다. 그래서
+# JSON 에 칸을 따로 받고("unpaved_road"), 묶음 점수는 묶음 칸과 이 칸 중 큰
+# 값으로 한다(parse_nureasoning_output) - GT 의 묶음 점수도 카테고리 점수 중
+# 최댓값으로 매긴다.
+CATEGORY_RUBRICS = {
+    "Unpaved road": (
+        "Driving environment",
+        "whether the road was unpaved, and how clearly it showed where it runs",
+        UNPAVED_RUBRIC),
+}
+
 
 def group_key(group: str) -> str:
     """묶음 이름 -> 모델 출력 JSON 키. "Dynamic object" -> "dynamic_object"."""
@@ -366,9 +393,57 @@ def score_groups(labels) -> list[str]:
     return out
 
 
+def own_rubric_categories(labels, group: str) -> list[str]:
+    """그 묶음에서 자기 기준표(CATEGORY_RUBRICS)로 따로 재는 카테고리, 메뉴 순서대로."""
+    return [l["category"] for l in labels
+            if not l.get("is_normal") and l["scenario"] == group
+            and l["category"] in CATEGORY_RUBRICS]
+
+
+def score_fields(labels) -> list[tuple[str, str]]:
+    """모델에게 점수를 받는 칸 [(칸 이름, 묶음)], 프롬프트 순서대로.
+
+    묶음마다 묶음 칸 하나, 이어서 그 묶음에서 따로 재는 카테고리 칸.
+    JSON 키는 칸 이름의 group_key 다("Unpaved road" -> "unpaved_road").
+    """
+    out = []
+    for g in score_groups(labels):
+        out.append((g, g))
+        out += [(c, g) for c in own_rubric_categories(labels, g)]
+    return out
+
+
+def rubric_of(name: str) -> tuple[str, dict]:
+    """칸 이름(묶음 또는 따로 재는 카테고리) -> (제목, 기준표)."""
+    if name in CATEGORY_RUBRICS:
+        return CATEGORY_RUBRICS[name][1:]
+    return GROUP_RUBRICS[name]
+
+
+def values_text(vals) -> str:
+    """눈금을 프롬프트에 쓰는 표기. 이어진 눈금은 "0-4", 아니면 "0, 1 or 3"."""
+    vals = sorted(vals)
+    if vals == list(range(vals[0], vals[-1] + 1)):
+        return f"{vals[0]}-{vals[-1]}"
+    return ", ".join(str(v) for v in vals[:-1]) + f" or {vals[-1]}"
+
+
+def scale_text(name: str) -> str:
+    """그 칸(묶음 또는 따로 재는 카테고리) 기준표의 눈금 표기."""
+    return values_text(rubric_of(name)[1])
+
+
 def group_values(group: str) -> tuple[int, ...]:
-    """그 묶음 기준표의 눈금(0~4)."""
-    return tuple(sorted(GROUP_RUBRICS[group][1]))
+    """그 묶음 점수가 가질 수 있는 값(0~4).
+
+    묶음 기준표의 눈금에, 그 묶음에서 따로 재는 카테고리 기준표의 눈금을
+    더한 것이다 - 묶음 점수가 둘 중 큰 값이라 어느 쪽 눈금이든 될 수 있다.
+    """
+    vals = set(GROUP_RUBRICS[group][1])
+    for g, _title, rubric in CATEGORY_RUBRICS.values():
+        if g == group:
+            vals |= set(rubric)
+    return tuple(sorted(vals))
 
 
 def check_group_rubrics(labels) -> None:
@@ -381,10 +456,18 @@ def check_group_rubrics(labels) -> None:
         if g not in GROUP_RUBRICS:
             problems.append(f"{g!r}: GROUP_RUBRICS 에 기준표가 없음")
             continue
-        empty = [v for v, t in sorted(GROUP_RUBRICS[g][1].items())
-                 if not str(t).strip()]
-        if empty:
-            problems.append(f"{g!r}: {empty} 점 문구가 비어 있음")
+        for name in [g] + own_rubric_categories(labels, g):
+            empty = [v for v, t in sorted(rubric_of(name)[1].items())
+                     if not str(t).strip()]
+            if empty:
+                problems.append(f"{name!r}: {empty} 점 문구가 비어 있음")
+    for lab in labels:
+        c = lab["category"]
+        if c in CATEGORY_RUBRICS and not lab.get("is_normal") \
+                and lab["scenario"] != CATEGORY_RUBRICS[c][0]:
+            problems.append(f"{c!r}: CATEGORY_RUBRICS 는 "
+                            f"{CATEGORY_RUBRICS[c][0]!r} 소속인데 카테고리 "
+                            f"파일에서는 {lab['scenario']!r} 아래에 있음")
     if problems:
         raise ValueError("묶음 기준표를 먼저 채워야 합니다 - "
                          + "; ".join(problems))
@@ -395,7 +478,11 @@ def group_rubric_blocks(labels) -> str:
 
     각 표 머리에 그 묶음에 속한 카테고리를 적어, 모델이 어느 표로 어느
     종류를 재는지 알게 한다. 카테고리별 score_examples(scene_category.json)는
-    그 카테고리가 속한 묶음 표 아래에 붙인다 - 점수는 묶음 눈금(0~4)이다.
+    그 카테고리를 재는 표 아래에 붙인다 - 보통은 묶음 표, 따로 재는
+    카테고리(CATEGORY_RUBRICS)는 자기 표.
+
+    따로 재는 카테고리는 묶음 표 머리의 카테고리 목록에서 빠지고, 묶음 표
+    바로 뒤에 자기 표로 나온다.
     """
     check_group_rubrics(labels)
     members = {}
@@ -403,28 +490,40 @@ def group_rubric_blocks(labels) -> str:
     for lab in labels:
         if lab.get("is_normal"):
             continue
-        g = lab["scenario"]
-        members.setdefault(g, []).append(lab["category"])
+        g, c = lab["scenario"], lab["category"]
+        name = c if c in CATEGORY_RUBRICS else g
+        if name == g:
+            members.setdefault(g, []).append(c)
         for ex in lab.get("score_examples") or []:
             situation, score = ex
-            if score not in GROUP_RUBRICS[g][1]:
+            if score not in rubric_of(name)[1]:
                 # 없는 칸을 가르치는 예시는 실행 전에 막는다.
                 raise ValueError(
-                    f"score_examples of {lab['category']!r}: {score!r} is not "
-                    f"a score of the {g!r} rubric")
-            examples.setdefault(g, []).append((situation, score))
+                    f"score_examples of {c!r}: {score!r} is not "
+                    f"a score of the {name!r} rubric")
+            examples.setdefault(name, []).append((situation, score))
+
+    def block(name, head, note=""):
+        title, rubric = rubric_of(name)
+        out = (f"   {head} - {title} ({scale_text(name)}):\n"
+               + "\n".join(f"     {v} = {rubric[v]}" for v in sorted(rubric)))
+        if note:
+            out += f"\n     {note}"
+        if examples.get(name):
+            out += "\n     For example:\n" + "\n".join(
+                f"       {sit} -> {sc}" for sit, sc in examples[name])
+        return out
 
     out = []
     for g in score_groups(labels):
-        title, rubric = GROUP_RUBRICS[g]
-        vals = group_values(g)
-        block = (f"   {g} ({', '.join(members[g])}) - {title} "
-                 f"({min(vals)}-{max(vals)}):\n"
-                 + "\n".join(f"     {v} = {rubric[v]}" for v in vals))
-        if examples.get(g):
-            block += "\n     For example:\n" + "\n".join(
-                f"       {sit} -> {sc}" for sit, sc in examples[g])
-        out.append(block)
+        out.append(block(g, f"{g} ({', '.join(members.get(g, []))})"))
+        # 5단계의 "이름을 댄 묶음은 1 이상" 규칙은 그대로 두고, 이 카테고리가
+        # 묶음 칸을 끌어올리지 않게만 한다 - 묶음 점수는 어차피 두 칸 중 큰
+        # 값이라 묶음 칸이 1 이어도 결과는 같다.
+        for c in own_rubric_categories(labels, g):
+            out.append(block(c, c, note=(
+                f"{c} is scored only on this scale, in its own field - it "
+                f"never raises the {g} score above.")))
     return "\n".join(out)
 
 

@@ -37,7 +37,7 @@ import numpy as np
 import edge_case_mining as E
 import visualize_clip as V
 from attn_timeline import curves_for, default_layers, load_spatial
-from constrained_tier import group_key, score_groups, score_dirname
+from constrained_tier import group_key, score_fields, score_dirname
 from prompts import DIFFICULTY_AXES
 
 ROOT = Path(__file__).resolve().parent
@@ -106,9 +106,8 @@ def main():
     V.load_scenario_map(scene)
     labels = E.load_labels(scene)
     group = key.get("group") or "all"
-    groups = [g for g in score_groups(labels)
-              if group == "all" or group_key(g) == group]
-    gk = {g: group_key(g) for g in groups}
+    gk = {n: group_key(n) for n, g in score_fields(labels)
+          if group == "all" or group_key(g) == group}
 
     gt_path = argv.get("gt_labels")
     if gt_path and not Path(gt_path).is_absolute():

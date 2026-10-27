@@ -36,9 +36,10 @@ from config import SCENE_JSON as CONFIG_SCENE_JSON, LABELS_JSON
 from trajectory import (TRAJ_HORIZON_S as _TRAJ_HORIZON_S,
                         TRAJ_ALPHA as _TRAJ_ALPHA)
 import visualize_clip as VZ
-from constrained_tier import (TIER_LABELS, tier_score,
+from constrained_tier import (TIER_LABELS, tier_score, scale_text,
                               group_rubric_blocks, group_key,
-                              score_groups, GROUP_RUBRICS)
+                              score_groups, score_fields, GROUP_RUBRICS,
+                              own_rubric_categories)
 from prompts import (DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX,
                      difficulty_block)
 
@@ -139,8 +140,10 @@ def build_category_menu(labels, notes=()):
         # 통행하는 보행자를 20건 오탐했다 (FP 20 = 전체 FP 38 의 53%).
         # 모델이 "crossing the street" 자체를 카테고리로 읽고 있어서,
         # 긍정 예시를 늘리는 대신 무엇이 아닌지를 못박는다.
+        # 빈 문자열("excludes": [""])은 빈 NOT 줄이 되지 않게 건너뛴다.
         for ex_line in lab["excludes"]:
-            lines.append(f"    NOT this category: {ex_line}")
+            if str(ex_line).strip():
+                lines.append(f"    NOT this category: {ex_line}")
     # 여러 카테고리에 공통인 규칙(scene_category.json 의 special.menu_notes)은
     # 메뉴 끝에 한 번만 싣는다. 예전에는 "중앙분리대/갓길/주차 차로는 도로
     # 밖이 아니다" 같은 문장이 Pedestrian/Cyclist/Emergency Vehicle 의
@@ -658,12 +661,13 @@ guess - use this for step 2 and {behavior_use}):
     # (구간을 나눈 답 17 -> 1). 그래서 이 문구로 되돌렸다.
     if time_spans and not difficulty_only:
         if groups:
+            own = _own_scale_spans(labels or [])
             steps45 += f"""{step_no}. Hazard Timing: for each type you named in step 4, split the time its
    element was in the clip into stretches, and score each stretch from 0 to 4
    on the scale of step 5 - how much that element made driving harder for the
    ego-vehicle during that stretch. Start a new stretch wherever the score
    changes; each stretch lasts at least 1 second, and its length is otherwise
-   up to you. No stretch scores higher than the score its group got in step 5.
+   up to you. No stretch scores higher than the score its group got in step 5.{own}
    Read the times from the timestamps of the video, in seconds from its start.
    If you named no type, give an empty object.
 """
@@ -703,12 +707,16 @@ guess - use this for step 2 and {behavior_use}):
     # 함수를 직접 부르는 경로(테스트/다른 호출부)도 있어 여기서 막는다.
     # 묶음마다 근거 -> 점수 순서. 키는 묶음 이름에서 만든다
     # (constrained_tier.group_key: "Dynamic object" -> "dynamic_object").
-    for g in groups:
-        k = group_key(g)
+    # 자기 기준표로 따로 재는 카테고리(Unpaved road)는 그 묶음 칸 바로 뒤에
+    # 제 칸을 받는다.
+    for name, g in (score_fields(labels or []) if groups else []):
+        k = group_key(name)
+        why = (f"which {g} type decided the score, and what it did or what "
+               f"the situation was" if name == g else
+               f"what about the {name} decided the score")
         tier_fields += (
-            f' "{k}_reason": "<which {g} type decided the score, and what '
-            f'it did or what the situation was>",\n'
-            f' "{k}": <integer 0-4>,\n')
+            f' "{k}_reason": "<{why}>",\n'
+            f' "{k}": <integer {scale_text(name)}>,\n')
     if time_spans and not difficulty_only:
         tier_fields += (' "time_spans": {"<exact scenario type name>": '
                         + ('[[<start seconds>, <end seconds>, <score 0-4>], '
@@ -1078,17 +1086,22 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
     # 점수와 카테고리 목록이 어긋나도(이름을 댄 묶음이 0, 대지 않은 묶음이
     # 1 이상) 여기서 고치지 않는다. 고치면 모델의 실제 판단이 결과에서
     # 사라진다 - 어긋남은 채점(evaluate_labels)이 따로 센다.
+    #
+    # 따로 재는 카테고리(Unpaved road)의 칸은 그 묶음 점수에 최댓값으로
+    # 합친다 - GT 의 묶음 점수도 카테고리 점수 중 최댓값이다. 그 칸의 값은
+    # 근거 앞에 "Unpaved road=2: ..." 로 남겨 합치기 전 판단도 CSV 에 남긴다.
     reasons = []
-    for g in score_groups(labels):
-        k = group_key(g)
+    for name, g in score_fields(labels):
+        k = group_key(name)
         if k not in obj:
             continue
         n = _coerce_tier(obj.get(k))
         if n is not None:
-            out["group_scores"][g] = n
+            out["group_scores"][g] = max(n, out["group_scores"].get(g, n))
         why = _flatten_field(obj.get(f"{k}_reason", ""))
         if why:
-            reasons.append(f"{g}: {why}")
+            head = name if name == g or n is None else f"{name}={n}"
+            reasons.append(f"{head}: {why}")
     out["score_reason"] = " | ".join(reasons)
     out["tier_score"] = tier_score(out["group_scores"])
 
@@ -1249,7 +1262,18 @@ def _parse_time_spans(raw, valid: set, named: set) -> tuple[dict, dict, dict]:
     return snapped, given, seen
 
 
-def followup_time_spans_question(scored: bool) -> str:
+def _own_scale_spans(labels) -> str:
+    """Hazard Timing 에 덧붙이는 문장 - 자기 기준표로 따로 재는 카테고리(Unpaved
+    road)의 구간은 그 표의 눈금으로 매기라는 것. 그런 카테고리가 없으면 "" 라
+    Dynamic object 만 다루는 실행의 프롬프트는 바뀌지 않는다.
+    """
+    return "".join(
+        f" Score {c} stretches on the {c} scale ({scale_text(c)}) instead, "
+        f"never higher than the {c} score in step 5."
+        for g in score_groups(labels) for c in own_rubric_categories(labels, g))
+
+
+def followup_time_spans_question(scored: bool, labels=None) -> str:
     """--time-spans followup: 1차 답변이 끝난 대화에 덧붙이는 질문.
 
     1차 프롬프트에 붙이는 Hazard Timing 단계(inline)와 같은 지시를 같은 형식으로
@@ -1263,7 +1287,8 @@ element was in the clip into stretches, and score each stretch from 0 to 4 on
 the scale of step 5 - how much that element made driving harder for the
 ego-vehicle during that stretch. Start a new stretch wherever the score
 changes; each stretch lasts at least 1 second, and its length is otherwise up
-to you. No stretch scores higher than the score its group got in step 5. Read
+to you. No stretch scores higher than the score its group got in step 5.""" + \
+            _own_scale_spans(labels or []) + """ Read
 the times from the timestamps of the video, in seconds from its start.
 
 Respond with ONLY a JSON object, no other text:
@@ -1476,7 +1501,7 @@ def _prompt_fingerprint(args, labels, category_menu, n_views) -> str:
     # 이어 묻는 질문도 지문에 넣는다.
     if args.time_spans == "followup":
         text += "\n<FOLLOWUP>\n" + followup_time_spans_question(
-            bool(args.score_categories and score_groups(labels or [])))
+            bool(args.score_categories and score_groups(labels or [])), labels)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 

@@ -9,7 +9,7 @@
     "00ce9071-ecee-45f8-acc9-9267a7814af7": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -25,7 +25,7 @@
     "1ab5a557-0374-4db3-99ae-dc28595f7520": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 1,
@@ -41,7 +41,7 @@
     "2cbaccdb-207e-4873-8b8e-1ef265671139": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -59,7 +59,7 @@
     "f8b70942-59d7-45df-873c-0d13a6d0b3af": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -75,7 +75,7 @@
     "1e8f7dcf-2a12-4fdd-b73a-2e414f239c1a": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -93,7 +93,7 @@
         "Cyclist on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -111,7 +111,7 @@
         "Pedestrian on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -127,7 +127,7 @@
     "34860342-d420-4ec4-8353-6d79ae77f83c": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -145,7 +145,7 @@
     "ed4763d7-dce0-440d-9a66-ad218e3867e3": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -161,7 +161,7 @@
     "28d7fbd1-4006-49cf-b161-403c360590bc": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -177,7 +177,7 @@
     "450ebd63-d7e6-44c8-b1b4-87c9d2ae900a": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -193,7 +193,7 @@
     "0019ded5-41bf-48da-9f66-0e46e31e234e": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -209,7 +209,7 @@
     "01b5167c-0fa2-499b-b761-f6ed78897d22": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -225,7 +225,7 @@
     "04084cd0-ae09-4f79-8365-d41fe3490433": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -241,7 +241,7 @@
     "04b08c41-326f-4cef-af21-359643f3b3d8": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -257,7 +257,7 @@
     "05095b2e-d0c2-4b0b-ab73-b35c138044ad": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -273,7 +273,7 @@
     "0bfb5463-5949-4505-a81c-47c7043da9de": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -289,7 +289,7 @@
     "0de620cf-fcc7-4243-95d7-d8c80e048de7": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -305,7 +305,7 @@
     "0ec20b83-bba6-4713-a560-41c074453212": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -321,7 +321,7 @@
     "102123c5-a2e7-4ba9-af4b-1e32e851ceda": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -337,7 +337,7 @@
     "1229b67d-3141-4ba9-b0ad-16df315627bb": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -353,7 +353,7 @@
     "fa12ea2c-3912-49c9-9a30-0fda4599a49e": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -371,7 +371,7 @@
     "ff9df15f-adbf-4eb1-9f6b-6783cbb34dd3": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -387,7 +387,7 @@
     "f09f6944-8dba-4f79-a7ed-2d06f7fa52a6": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 1,
@@ -403,7 +403,7 @@
     "596ab2a6-c52a-4b10-b4df-cebcb56642d3": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 1,
@@ -419,7 +419,7 @@
     "91a87f11-bf0f-452c-8273-36f724a12adc": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 1,
@@ -435,7 +435,7 @@
     "064967a7-08a1-4cf0-b55b-5fcde3d91f67": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -453,7 +453,7 @@
     "07514f46-9e4f-4a18-80d0-5a937d6314ed": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -469,7 +469,7 @@
     "09214f36-6825-464a-a4f3-22c5f71d46ec": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -485,7 +485,7 @@
     "09c889da-2e2e-47f5-99bd-893a59be5c66": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -501,7 +501,7 @@
     "0a68b99a-efdd-4433-aa58-ec1fa8d50908": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -517,7 +517,7 @@
     "48d5f0e5-5686-4c57-a709-24c0ac634c67": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -535,7 +535,7 @@
     "7464068e-ce2f-4d2d-b769-40d4852f8709": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -551,7 +551,7 @@
     "e3337771-9415-4cad-9c7c-4b4be35645f6": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -567,7 +567,7 @@
     "e5874477-deef-4360-b030-42a1cb37e110": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -585,7 +585,7 @@
     "e7414939-026f-48ad-bc68-8b698814c4b6": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -603,7 +603,7 @@
     "e7733739-d7bc-478f-8995-54ce96fc46a4": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -618,10 +618,10 @@
     },
     "eae68c9b-45c7-4326-b35f-d8e6a3967596": {
       "categories": {
-        "Obstacle on Road": 2
+        "Obstacle on Road": 1
       },
-      "Dynamic object": 0,
-      "Driving environment": -2,
+      "Dynamic object": 1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -637,7 +637,7 @@
     "eba8c4ed-a142-4d18-86cb-99d530fa6c64": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -653,7 +653,7 @@
     "ebfc7083-501d-4eec-825d-a0984433365c": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -669,7 +669,7 @@
     "ec6ca7a8-0df6-4de5-988b-cc3ccabb76c8": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -687,7 +687,7 @@
     "ed238f40-5664-4729-b55e-d7edcbcb57fd": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -705,7 +705,7 @@
         "Emergency Vehicle": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -721,7 +721,7 @@
     "ecafce84-447d-43a6-aff1-b385fbc71f15": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -737,7 +737,7 @@
     "4c8fe364-4ad1-4e32-b94a-f3478502cab4": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -753,7 +753,7 @@
     "db997f6d-81ec-44d9-9a37-bbc6c25c07e3": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -769,7 +769,7 @@
     "db891736-b803-422b-a473-872fdd1af6a6": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -787,7 +787,7 @@
     "dba53e8e-6a67-4d5e-bd37-df12a56730da": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -805,7 +805,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 1,
@@ -823,7 +823,7 @@
         "Pedestrian on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -841,7 +841,7 @@
         "Cyclist on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -857,7 +857,7 @@
     "dc1f6f0c-3710-4e63-abe8-e155b86b719f": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -873,7 +873,7 @@
     "dc2d3805-1054-49db-8594-e9ef2f99fb06": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -889,7 +889,7 @@
     "dc8ebc88-bc59-4346-9267-a2b5d8d3e7db": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -905,7 +905,7 @@
     "dc9d34f1-9118-4acc-b0a9-7057a3f69eb5": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 1,
@@ -921,7 +921,7 @@
     "dc84dd80-5155-4af4-9264-c8f141120e74": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -937,7 +937,7 @@
     "dc3417c6-3ebb-4671-bbd1-848c39886576": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -955,7 +955,7 @@
         "Pedestrian on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -971,7 +971,7 @@
     "dc952848-d8ec-4554-971c-149209474fc5": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -987,7 +987,7 @@
     "dca87480-3ad4-4250-99ae-256d80eeafbd": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1003,7 +1003,7 @@
     "dcddb033-8f0c-4e63-b255-c123f2b30308": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1019,7 +1019,7 @@
     "dcf9e678-7244-4ac3-9032-8471a49e0c4d": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1035,7 +1035,7 @@
     "dd0ac327-1841-4a0b-a98e-30517673d80d": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1051,7 +1051,7 @@
     "dd1b6121-dec2-4163-adde-b3f09f0a66d8": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1067,7 +1067,7 @@
     "dd6ccd25-b55c-4b1b-b90c-fc93f5961fce": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1085,7 +1085,7 @@
         "Tram vehicle": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -1103,7 +1103,7 @@
     "dda85121-239e-41b6-be67-b66a48131cc2": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1119,7 +1119,7 @@
     "de7accd0-c21f-47c2-8888-3f56d8fc31c8": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1135,7 +1135,7 @@
     "de7b7ae4-f78d-41a1-bfcf-8646328f5082": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -1151,7 +1151,7 @@
     "de28db2c-c209-42c1-8bac-f468fdfb6fcb": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1167,7 +1167,7 @@
     "de42d859-937c-442a-98dd-2b210be12d31": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1183,7 +1183,7 @@
     "de52f7df-db55-4cb0-bc44-18b632dec3be": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1199,7 +1199,7 @@
     "de04755e-4bab-4618-b13b-ae84a528028a": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1215,7 +1215,7 @@
     "de5216af-060b-4c19-9900-7c49ec61fdfb": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -1231,7 +1231,7 @@
     "de7693ec-1346-4378-a541-cc54b3dc0817": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1247,7 +1247,7 @@
     "de865495-017f-4e8d-a6b6-8c24de4425dd": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1263,7 +1263,7 @@
     "dea8d46d-f228-4a21-969e-4a59daf8a981": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1279,7 +1279,7 @@
     "decb242c-71c1-4781-994d-83e90d839164": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1295,7 +1295,7 @@
     "dee31965-6103-4ad8-badf-989d823e4e9a": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1311,7 +1311,7 @@
     "df4be630-17ab-44ff-b0ea-34f5f7205ffa": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1327,7 +1327,7 @@
     "df5e634f-198d-4211-9d39-b672bdd4dd48": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1347,7 +1347,7 @@
         "Pedestrian on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -1363,7 +1363,7 @@
     "df3775a1-2573-496a-9f29-dfdb16ec811f": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1379,7 +1379,7 @@
     "df554762-6475-4d4f-9c23-e6db986d9a2c": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1395,7 +1395,7 @@
     "dfb6db91-d361-4ede-a41e-1d5086b650f8": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1411,7 +1411,7 @@
     "dfc7106d-935e-45af-ac23-de15e343e2d5": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1427,7 +1427,7 @@
     "e00aa654-f7c1-4c76-9bdc-5fa354c9bffe": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1443,7 +1443,7 @@
     "e0d9a6ac-409f-44a3-b329-6737d839666d": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1459,7 +1459,7 @@
     "e0d93b80-40b1-4b34-b07e-531845552447": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1475,7 +1475,7 @@
     "e0e3a853-ca7d-4cf1-bc15-7f40ae94b571": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -1493,7 +1493,7 @@
     "e1b35e94-91a4-48de-91cf-a1e65c96319b": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1508,10 +1508,10 @@
     },
     "e01de701-9d38-47f5-9a7e-35bdc0c3955b": {
       "categories": {
-        "Road Construction": 3
+        "Road Construction": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -1529,7 +1529,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
@@ -1545,7 +1545,7 @@
     "e2ab4702-a9d6-4ad8-b830-102418d09ccf": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1561,7 +1561,7 @@
     "e2dfdef1-67e2-485d-a621-24a5e5dbe5aa": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1577,7 +1577,7 @@
     "e3adcc67-efc6-48fd-a883-368f30e5aae2": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -1593,7 +1593,7 @@
     "e4a6a32e-eb74-463b-9b06-d117b5f1f2c4": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1611,7 +1611,7 @@
         "Pedestrian on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
@@ -1629,7 +1629,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -1645,7 +1645,7 @@
     "db4bbc52-252c-4767-80ec-31480b6ab2d2": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1661,7 +1661,7 @@
     "db2c5fbe-1903-4b8e-8df3-a7d02cff1893": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1677,7 +1677,7 @@
     "daa2f43c-d32a-438b-9a1a-58a2f1d3106c": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1693,7 +1693,7 @@
     "da221591-bd5a-46e3-a68f-537886db641e": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1711,7 +1711,7 @@
         "Pedestrian on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -1727,7 +1727,7 @@
     "da122d23-9fa6-4b81-9a3a-bd5a74e87c9e": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1743,7 +1743,7 @@
     "d4190223-c9fd-4671-a0f1-cc7424171971": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -1759,7 +1759,7 @@
     "d3323549-763d-4809-a728-ef9e8eb65f90": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
@@ -1776,8 +1776,8 @@
       "categories": {
         "Road Construction": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -1795,7 +1795,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -1811,7 +1811,7 @@
     "d30658ba-8a7c-4e0c-b5a0-9bd7f84d7734": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1827,7 +1827,7 @@
     "d12352ce-3b24-4212-b59a-1909f19463b4": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1843,7 +1843,7 @@
     "d9521c51-3da1-4503-86d0-4d668cabf028": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1861,7 +1861,7 @@
         "Pedestrian on Road": 3
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
@@ -1877,7 +1877,7 @@
     "d4148fa7-0a35-4f83-a5dd-4cf702578927": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1893,7 +1893,7 @@
     "d3c54942-9af0-49c3-a125-81960d6a16f8": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1914,7 +1914,7 @@
         "Tram vehicle": 1
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 1,
@@ -1933,7 +1933,7 @@
         "Cyclist on Road": 1
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -1948,10 +1948,10 @@
     },
     "ca440ae0-2e49-4858-a8e8-57abd28e6962": {
       "categories": {
-        "Road Construction": 4
+        "Road Construction": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -1967,7 +1967,7 @@
     "d963eb97-d0fb-4980-be7b-69c66c5794c5": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1983,7 +1983,7 @@
     "d28e64a7-dece-454e-950e-449435ad5796": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2001,7 +2001,7 @@
         "Pedestrian on Road": 3
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
@@ -2019,7 +2019,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -2035,10 +2035,10 @@
     "d7e1e945-81e5-4efe-9979-5562d199ccbf": {
       "categories": {
         "Pedestrian on Road": 2,
-        "Road Construction": 2
+        "Road Construction": 1
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -2056,7 +2056,7 @@
         "Cyclist on Road": 3
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
@@ -2072,11 +2072,12 @@
     "d1a173e1-9653-4af0-abfe-7b95cfe76276": {
       "categories": {
         "Pedestrian on Road": 2,
-        "Manual Traffic Control": 1,
-        "Animal": 3
+        "Animal": 3,
+        "Manual Traffic Control": 1
+        
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -2094,7 +2095,7 @@
         "Cyclist on Road": 3
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -2112,7 +2113,7 @@
         "Pedestrian on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -2128,7 +2129,7 @@
     "ceb52996-af8c-4953-8962-a3cb2ddb986f": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2146,7 +2147,7 @@
     "cd43c62f-fd9f-4064-abb3-bfd926f39a65": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2164,7 +2165,7 @@
     "cd0d9929-989a-4116-9ae1-27f0f27938a6": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2182,7 +2183,7 @@
     "cccc6b04-884d-4a4e-991a-0a0d500bbf74": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2200,7 +2201,7 @@
     "c74801b3-d02e-4d09-b53a-c5f5b71107cc": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2221,7 +2222,7 @@
         "Cyclist on Road": 3
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -2236,10 +2237,10 @@
     },
     "ca0677e3-2024-462b-a5ac-ef37abec9528": {
       "categories": {
-        "Obstacle on Road": 2
+        "Obstacle on Road": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -2255,7 +2256,7 @@
     "c91072f7-603f-42f7-9f87-1d5439059b5f": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2273,7 +2274,7 @@
     "c69229fa-c8f7-485c-83dc-ba9e0058cea4": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2293,7 +2294,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -2313,7 +2314,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -2329,7 +2330,7 @@
     "c7146aff-54dd-471b-bd90-1db9ec7590e6": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2347,7 +2348,7 @@
         "Pedestrian on Road": 3
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 3,
       "rarity": 2,
@@ -2364,10 +2365,10 @@
     },
     "c03477b0-117c-4202-b6ff-5fb9d2de65fd": {
       "categories": {
-        "Road Construction": 2
+        "Road Construction": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -2383,7 +2384,7 @@
     "c442f54e-823a-4ab5-8fe5-c23e483a2382": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2403,7 +2404,7 @@
         "Animal": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
@@ -2418,10 +2419,10 @@
     },
     "c86f0599-a818-474c-a3c0-030c61047d1b": {
       "categories": {
-        "Obstacle on Road": 2
+        "Obstacle on Road": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -2439,7 +2440,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -2458,7 +2459,7 @@
         "Cyclist on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -2474,10 +2475,10 @@
     "c6d40267-f8eb-4821-a165-5db37c3e354d": {
       "categories": {
         "Pedestrian on Road": 2,
-        "Obstacle on Road": 2
+        "Obstacle on Road": 1
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -2496,8 +2497,8 @@
       "categories": {
         "Road Construction": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
@@ -2513,7 +2514,7 @@
     "c4ff17f1-6a90-4b76-9bf2-ce4c0dfcadb8": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2531,7 +2532,7 @@
     "c4ae9ece-a2db-4912-8f22-5825f730f25e": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2547,7 +2548,7 @@
     "c4a1a453-b7d2-4fb0-adf7-3aec7a0fa2e0": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2564,10 +2565,10 @@
       "categories": {
         "Pedestrian on Road": 2,
         "Cyclist on Road": 3,
-        "Road Construction": 2
+        "Road Construction": 1
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -2585,7 +2586,7 @@
     "0afeeb82-21d2-421a-9f30-240b2db0a0cf": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2603,7 +2604,7 @@
     "0b4ddc9a-b25e-4cfb-b00f-716d9b7b08ec": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2619,10 +2620,10 @@
     "0bf98d89-88f1-4c72-8485-238dc2b10b44": {
       "categories": {
         "Pedestrian on Road": 3,
-        "Barrier arm": 1
+        "Railway crossing or Barrier arm": 1
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -2640,7 +2641,7 @@
         "Pedestrian on Road": 3
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -2656,7 +2657,7 @@
     "0ff5439a-4178-4153-ab25-61367be0a0a8": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2672,7 +2673,7 @@
     "1a1ee658-0cd0-4848-b72f-f90b824a0758": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2693,7 +2694,7 @@
         "Cyclist on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -2709,7 +2710,7 @@
     "1c731638-c07f-433c-94aa-f9f647f72d5c": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2729,7 +2730,7 @@
         "Cyclist on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
@@ -2747,7 +2748,7 @@
         "Pedestrian on Road": 3
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 2,
@@ -2765,7 +2766,7 @@
         "Cyclist on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
@@ -2782,8 +2783,8 @@
       "categories": {
         "Road Construction": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
@@ -2798,11 +2799,11 @@
     },
     "c16d503b-596f-44af-b15b-3f13538dfe1c": {
       "categories": {
-        "Railway crossing": 1,
-        "Road Construction": 3
+        "Railway crossing or Barrier arm": 1,
+        "Road Construction": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -2817,10 +2818,10 @@
     },
     "2d2807d4-6527-446b-8419-2714bd437b84": {
       "categories": {
-        "Railway crossing": 1
+        "Railway crossing or Barrier arm": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 2,
@@ -2839,7 +2840,7 @@
         "Emergency Vehicle": 1
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
@@ -2855,7 +2856,7 @@
     "5bc20bbe-e124-4695-b748-0d191378a7a8": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -2873,7 +2874,7 @@
         "Emergency Vehicle": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
@@ -2891,7 +2892,7 @@
         "Animal": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 3,
@@ -2908,8 +2909,8 @@
       "categories": {
         "Road Construction": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
@@ -2924,10 +2925,10 @@
     },
     "47a4e30b-85db-43cf-b3f7-7f95bf0d47fc": {
       "categories": {
-        "Road Construction": 2
+        "Road Construction": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 2,
@@ -2945,7 +2946,7 @@
         "Animal": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -2963,7 +2964,7 @@
         "Cyclist on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
@@ -2979,7 +2980,7 @@
     "56c703f3-2274-4740-8000-85ff1cad21b7": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -2998,7 +2999,7 @@
         "Tram vehicle": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
@@ -3016,7 +3017,7 @@
         "Tram vehicle": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3034,7 +3035,7 @@
         "Tram vehicle": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
@@ -3052,7 +3053,7 @@
         "Tram vehicle": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 2,
@@ -3071,7 +3072,7 @@
         "Tram vehicle": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3089,7 +3090,7 @@
         "Cyclist on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
@@ -3107,7 +3108,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3125,7 +3126,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -3143,7 +3144,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3161,7 +3162,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -3179,7 +3180,7 @@
         "Pedestrian on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -3197,7 +3198,7 @@
         "Pedestrian on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -3215,7 +3216,7 @@
         "Cyclist on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -3233,7 +3234,7 @@
         "Cyclist on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3251,7 +3252,7 @@
         "Cyclist on Road": 3
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3269,7 +3270,7 @@
         "Animal": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -3288,7 +3289,7 @@
         "Cyclist on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -3306,7 +3307,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3324,7 +3325,7 @@
         "Pedestrian on Road": 3
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3342,7 +3343,7 @@
         "Pedestrian on Road": 3
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3360,7 +3361,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -3375,11 +3376,11 @@
     },
     "0a37154c-6b70-4082-b4ad-915d1389eebf": {
       "categories": {
-        "Railway crossing": 1,
+        "Railway crossing or Barrier arm": 1,
         "Cyclist on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3398,7 +3399,7 @@
         "Cyclist on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -3416,7 +3417,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3435,7 +3436,7 @@
         "Cyclist on Road": 1
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3451,10 +3452,10 @@
     "002dec8e-3d95-4cc2-abbe-99b3a2e78618": {
       "categories": {
         "Pedestrian on Road": 3,
-        "Road Construction": 3
+        "Road Construction": 1
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 3,
       "rarity": 2,
@@ -3472,7 +3473,7 @@
         "Pedestrian on Road": 3
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 1,
@@ -3487,10 +3488,10 @@
     },
     "b30fbc40-aa45-4553-b121-229ecf8c3947": {
       "categories": {
-        "Road Construction": 2
+        "Road Construction": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3506,10 +3507,10 @@
     "36bfc24c-c42c-4f6b-a501-a908bc290aab": {
       "categories": {
         "Pedestrian on Road": 2,
-        "Road Construction": 4
+        "Road Construction": 3
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -3524,10 +3525,10 @@
     },
     "17f2e4d1-74be-43ef-9229-4f169b68467b": {
       "categories": {
-        "Road Construction": 4
+        "Road Construction": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -3545,7 +3546,7 @@
         "Emergency Vehicle": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 1,
@@ -3563,7 +3564,7 @@
         "Emergency Vehicle": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
@@ -3578,11 +3579,11 @@
     },
     "41265e9d-7969-4b07-9030-717a7b700bc9": {
       "categories": {
-        "Manual Traffic Control": 2,
+        "Manual Traffic Control": 3,
         "Road Construction": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -3597,11 +3598,11 @@
     },
     "12606261-f6f7-4af1-b6e7-0e44f0668945": {
       "categories": {
-        "Manual Traffic Control": 2,
-        "Road Construction": 4
+        "Manual Traffic Control": 3,
+        "Road Construction": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 3,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -3616,10 +3617,10 @@
     },
     "79fd94b2-100a-45bd-8b6f-786e50e12a47": {
       "categories": {
-        "Road Construction": 3
+        "Road Construction": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -3636,8 +3637,8 @@
       "categories": {
         "Unpaved road": 4
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 4,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
@@ -3655,7 +3656,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -3672,10 +3673,10 @@
     },
     "ecd53c87-32c2-4edd-a047-eeb4beae4c63": {
       "categories": {
-        "Railway crossing": 1
+        "Railway crossing or Barrier arm": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3690,10 +3691,10 @@
     },
     "5855208b-190c-4b04-964f-2b4f4ba10839": {
       "categories": {
-        "Road Construction": 4
+        "Road Construction": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -3708,10 +3709,10 @@
     },
     "014a6337-e5ff-42fc-9487-49e674b4cac7": {
       "categories": {
-        "Road Construction": 3
+        "Road Construction": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object":0,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
@@ -3729,7 +3730,7 @@
         "Cyclist on Road": 3
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 3,
       "rarity": 3,
@@ -3746,10 +3747,10 @@
       "categories": {
         "Pedestrian on Road": 2,
         "Cyclist on Road": 2,
-        "Road Construction": 2
+        "Road Construction": 1
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3764,10 +3765,10 @@
     },
     "faff17c7-4572-472a-be28-0f035bb88a37": {
       "categories": {
-        "Road Construction": 3
+        "Road Construction": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -3783,7 +3784,7 @@
     "fa6c3c98-6f54-431f-8ac8-1fcee7cc6261": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -3803,7 +3804,7 @@
         "Manual Traffic Control": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -3821,7 +3822,7 @@
         "Pedestrian on Road": 3
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3840,7 +3841,7 @@
         "Tram vehicle":1
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3858,7 +3859,7 @@
         "Cyclist on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -3873,10 +3874,10 @@
     },
     "ea5c5be6-5e18-4489-9784-8f73860f887b": {
       "categories": {
-        "Road Construction": 4
+        "Road Construction": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -3894,7 +3895,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3910,10 +3911,10 @@
     "ea9a632a-1a1b-4491-a2d8-f07a22e4cd5c": {
       "categories": {
         "Pedestrian on Road": 2,
-        "Road Construction": 3
+        "Road Construction": 1
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 1,
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
@@ -3930,8 +3931,8 @@
       "categories": {
         "Road Construction": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
@@ -3946,10 +3947,10 @@
     },
     "7a089606-1680-4db1-9ffa-1ec8f6c8193d": {
       "categories": {
-        "Road Construction": 4
+        "Road Construction": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -3967,7 +3968,7 @@
         "Cyclist on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 1,
@@ -3985,7 +3986,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -4000,11 +4001,11 @@
     },
     "02bd345f-cdc5-4c74-8025-0bc34f265af1": {
       "categories": {
-        "Road Construction": 4,
+        "Road Construction": 3,
         "Manual Traffic Control": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -4025,7 +4026,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -4042,10 +4043,10 @@
     },
     "002f9a80-2b50-4d83-b5d6-326b4b7fe361": {
       "categories": {
-        "Railway crossing": 1
+        "Railway crossing or Barrier arm": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -4063,7 +4064,7 @@
     "01cd10de-5f4f-461d-bdeb-2fd3ecaa505c": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4079,7 +4080,7 @@
     "0042c573-2f2e-4362-a5ea-a097b2faa29c": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 3,
@@ -4099,7 +4100,7 @@
         "Animal": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 3,
@@ -4115,7 +4116,7 @@
     "032f5ad6-5ab6-4a6a-accb-a475f175e563": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 3,
@@ -4132,8 +4133,8 @@
       "categories": {
         "Unpaved road": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -4151,7 +4152,7 @@
     "089f9b45-e587-499e-971f-ee3a1ab51e30": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 3,
@@ -4171,7 +4172,7 @@
         "Animal": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -4189,7 +4190,7 @@
     "09b51942-dfc4-4fd6-b801-2cde708588bb": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4209,7 +4210,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -4227,7 +4228,7 @@
     "08f76480-d3b8-48d3-b066-5fa09335053d": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4245,7 +4246,7 @@
     "00b13ae7-5568-49f4-bef4-7ab34532db77": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4265,7 +4266,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
@@ -4283,7 +4284,7 @@
     "09427475-a738-4365-968b-b00e77b0b751": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4302,7 +4303,7 @@
     "00b59461-b71c-446b-ad46-449649d4a4a3": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4321,7 +4322,7 @@
     "01ac2960-7cef-4040-9450-de3ac889ad82": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4339,7 +4340,7 @@
     "01a7d0a1-1042-4754-ac0f-ea29418fd61d": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4358,8 +4359,8 @@
       "categories": {
         "Unpaved road": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -4379,7 +4380,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 2,
       "rarity": 1,
@@ -4398,8 +4399,8 @@
       "categories": {
         "Unpaved road": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -4417,7 +4418,7 @@
     "07f341d6-a8c4-423a-8bf2-05897afa30a1": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4434,10 +4435,10 @@
     },
     "14a03c45-4654-4c1d-80f1-23b30fd12370": {
       "categories": {
-        "Barrier arm": 3
+        "Railway crossing or Barrier arm": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -4455,7 +4456,7 @@
     "0b3e9f90-232d-4f5b-8c01-748fe5ad3015": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4473,7 +4474,7 @@
     "095537cd-4eb7-4340-bf95-5bb1daecbbc4": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4491,7 +4492,7 @@
     "12570e99-a2f1-4807-bb18-43867fe74a1f": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4509,7 +4510,7 @@
     "1833bc1a-81bf-401a-83f3-71a12b3f066e": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4527,7 +4528,7 @@
     "09b40a55-11d4-4086-b6f2-36097d6d1fcd": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4545,7 +4546,7 @@
     "02bb4b61-ed4c-478d-9496-61c30c9ab8c0": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4563,7 +4564,7 @@
     "142174d4-3692-41ce-a9f9-b7ed5b234922": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4583,7 +4584,7 @@
         "Pedestrian on Road": 4
       },
       "Dynamic object": 4,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 4,
       "rarity": 3,
@@ -4603,7 +4604,7 @@
         "Pedestrian on Road": 4
       },
       "Dynamic object": 4,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 4,
       "rarity": 3,
@@ -4623,7 +4624,7 @@
         "Pedestrian on Road": 4
       },
       "Dynamic object": 4,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 3,
       "rarity": 3,
@@ -4641,7 +4642,7 @@
     "01cdb509-de18-4ca9-b405-666efdfe05c9": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4657,7 +4658,7 @@
     "0601e06d-e0b1-4315-b0dc-07aa99ef1981": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4674,8 +4675,8 @@
       "categories": {
         "Unpaved road": 2
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 2,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -4692,8 +4693,8 @@
       "categories": {
         "Unpaved road": 2
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 2,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -4708,11 +4709,11 @@
     },
     "174d3445-a3cc-4699-8392-5a0cc728f8ff": {
       "categories": {
-        "Road Construction": 4,
+        "Road Construction": 3,
         "Unpaved road": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -4731,7 +4732,7 @@
         "Unpaved road": 2
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 2,
       "influenced_ego": true,
       "safety_criticality": 3,
       "rarity": 2,
@@ -4748,8 +4749,8 @@
       "categories": {
         "Unpaved road": 2
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 2,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -4764,11 +4765,11 @@
     },
     "0551ed73-b6a1-49bd-afcd-1fe49e13bfc1": {
       "categories": {
-        "Obstacle on Road": 2,
+        "Obstacle on Road": 1,
         "Unpaved road": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 1,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 1,
@@ -4785,8 +4786,8 @@
       "categories": {
         "Unpaved road": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4803,10 +4804,10 @@
     },
     "04bfec39-17d8-4925-8653-55a0aa66f83c": {
       "categories": {
-        "Obstacle on Road": 2
+        "Obstacle on Road": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -4821,10 +4822,10 @@
     },
     "0b6400fd-378b-445f-8549-c23a83914be0": {
       "categories": {
-        "Barrier arm": 3
+        "Railway crossing or Barrier arm": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -4839,10 +4840,10 @@
     },
     "063d4042-8e33-4e4a-b7a1-da0eaf6d1048": {
       "categories": {
-        "Manual Traffic Control": 2
+        "Manual Traffic Control": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -4858,7 +4859,7 @@
     "06aba58d-a48c-4d45-9a6b-8855310a97dc": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 2,
@@ -4873,10 +4874,10 @@
     },
     "0a119fc6-c3e4-4af1-8d00-72d68c3da5c9": {
       "categories": {
-        "Unpaved road": 2
+        "Unpaved road": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 1,
@@ -4892,7 +4893,7 @@
     "00c359b2-5f68-41c2-b0d7-94d9e071037b": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -4910,7 +4911,7 @@
         "Emergency Vehicle": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -4928,7 +4929,7 @@
         "Animal": 1
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -4947,7 +4948,7 @@
         "Animal": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -4966,7 +4967,7 @@
         "Unpaved road": 2
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 2,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 3,
@@ -4984,7 +4985,7 @@
         "Animal": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 3,
@@ -5004,7 +5005,7 @@
         "Pedestrian on Road": 3
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -5023,7 +5024,7 @@
         "Cyclist on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -5041,7 +5042,7 @@
         "Animal": 4
       },
       "Dynamic object": 4,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 3,
       "rarity": 3,
@@ -5057,7 +5058,7 @@
     "1554319e-7ca1-452a-9894-1f3efdb4e08d": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -5075,7 +5076,7 @@
     "166757d1-179f-4b3d-9d7b-416a1e44a2e0": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -5093,7 +5094,7 @@
     "15dcb06f-6b0a-42f1-9d67-5b4557872f93": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -5111,7 +5112,7 @@
     "14e3c07c-9c6f-4128-a8a5-310dfb072e6e": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -5129,7 +5130,7 @@
     "08982c9f-00aa-4719-9a5d-3aa392ca3364": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 1,
@@ -5145,7 +5146,7 @@
     "08902e32-1f71-4fa4-ba39-de1015823751": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -5161,7 +5162,7 @@
     "092d0d57-be65-419a-9fd5-d8b264fd7b27": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -5177,7 +5178,7 @@
     "09e43bda-21f2-4f68-af81-5c8aff7898c4": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -5195,7 +5196,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -5212,11 +5213,11 @@
     },
     "01c26389-10e4-4a3c-8181-805e92fd0b96": {
       "categories": {
-        "Road Construction": 4,
-        "Pedestrian on Road": 3
+        "Pedestrian on Road": 3,
+        "Road Construction": 3
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -5236,7 +5237,7 @@
         "Pedestrian on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -5256,8 +5257,8 @@
         "Road Construction": 1,
         "Manual Traffic Control": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -5275,7 +5276,7 @@
         "Cyclist on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -5293,7 +5294,7 @@
     "0102b9de-e10f-4cea-a803-bd6f887c2e62": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -5310,11 +5311,10 @@
     },
     "022ff7db-cfc8-49ad-99a2-a36b17674a97": {
       "categories": {
-        "Railway crossing": 2,
-        "Barrier arm": 3
+        "Railway crossing or Barrier arm": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -5329,10 +5329,10 @@
     },
     "00ec0866-3003-40e3-be44-ba40808d1c81": {
       "categories": {
-        "Railway crossing": 1
+        "Railway crossing or Barrier arm": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -5347,11 +5347,11 @@
     },
     "03df69af-130a-4ae0-b7cf-07493ccc4cd4": {
       "categories": {
-        "Railway crossing": 3,
-        "Tram vehicle": 1
+        "Tram vehicle": 2,
+        "Railway crossing or Barrier arm": 3
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -5366,10 +5366,10 @@
     },
     "04ae8889-5c90-47e3-95f9-8370d079e97d": {
       "categories": {
-        "Railway crossing": 1
+        "Railway crossing or Barrier arm": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -5384,10 +5384,10 @@
     },
     "04f021a5-08fc-45ff-a757-d74d75db4184": {
       "categories": {
-        "Railway crossing": 1
+        "Railway crossing or Barrier arm": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -5402,10 +5402,10 @@
     },
     "05357b27-5b6b-446e-9a91-94fe5147e082": {
       "categories": {
-        "Railway crossing": 1
+        "Railway crossing or Barrier arm": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -5420,11 +5420,11 @@
     },
     "07422e60-d828-4483-af55-ea397d5f70fa": {
       "categories": {
-        "Railway crossing": 3,
-        "Tram vehicle": 2
+        "Tram vehicle": 2,
+        "Railway crossing or Barrier arm": 3
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -5440,7 +5440,7 @@
     "048ea8f1-8781-4acb-90ca-d91bf888a25d": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -5456,7 +5456,7 @@
     "04b9bd2d-b7d7-4c84-b2ed-0177419b5fb9": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -5474,7 +5474,7 @@
         "Emergency Vehicle": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -5490,7 +5490,7 @@
     "0ac7a5c0-b604-4613-85bb-4d9ea43ef9f0": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -5508,8 +5508,8 @@
         "Manual Traffic Control": 3,
         "Road Construction": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -5527,7 +5527,7 @@
         "Pedestrian on Road": 3
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -5542,10 +5542,10 @@
     },
     "01efecb7-ebe8-4ba4-a4a0-361a0ede0968": {
       "categories": {
-        "Road Construction": 4
+        "Road Construction": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -5562,8 +5562,8 @@
       "categories": {
         "Road Construction": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
@@ -5580,8 +5580,8 @@
       "categories": {
         "Road Construction": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -5596,10 +5596,10 @@
     },
     "01057399-a355-4225-a932-6ac7f5d6de55": {
       "categories": {
-        "Road Construction": 4
+        "Road Construction": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -5614,10 +5614,10 @@
     },
     "004ba02f-98c3-4de1-a70e-0732f5650883": {
       "categories": {
-        "Road Construction": 4
+        "Road Construction": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -5636,8 +5636,8 @@
       "categories": {
         "Road Construction": 3
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 3,
@@ -5654,8 +5654,8 @@
       "categories": {
         "Unpaved road": 2
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 2,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
@@ -5670,10 +5670,10 @@
     },
     "01dda56f-dc21-41e9-8ded-b2c881587c2d": {
       "categories": {
-        "Unpaved road": 2
+        "Unpaved road": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
@@ -5690,11 +5690,11 @@
     },
     "14d4591a-714c-4328-9afb-a925b8297a40": {
       "categories": {
-        "Unpaved road": 2,
+        "Unpaved road": 3,
         "Pedestrian on Road": 3
       },
       "Dynamic object": 3,
-      "Driving environment": -1,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
@@ -5713,8 +5713,8 @@
       "categories": {
         "Unpaved road": 2
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 2,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
@@ -5731,8 +5731,8 @@
       "categories": {
         "Unpaved road": 2
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 2,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
@@ -5751,8 +5751,8 @@
       "categories": {
         "Unpaved road": 2
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 2,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
@@ -5770,7 +5770,7 @@
     "11582507-46a4-4477-aa89-1abc77d4855c": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -5788,7 +5788,7 @@
     "11a938da-7e3b-4c70-aaa0-3ea15d3e311c": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -5808,7 +5808,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -5828,7 +5828,7 @@
         "Pedestrian on Road": 1
       },
       "Dynamic object": 1,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,
@@ -5845,10 +5845,10 @@
     },
     "00ad193a-444d-4212-8913-1650ff2dfe41": {
       "categories": {
-        "Railway crossing": 1
+        "Railway crossing or Barrier arm": 1
       },
-      "Dynamic object": -1,
-      "Driving environment": -1,
+      "Dynamic object": 0,
+      "Driving environment": 1,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
@@ -5866,7 +5866,7 @@
     "00afe5b9-0c0e-411b-9e65-765996feb7a1": {
       "categories": {},
       "Dynamic object": 0,
-      "Driving environment": -2,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -5886,7 +5886,7 @@
         "Pedestrian on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": -1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 1,

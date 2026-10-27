@@ -35,7 +35,7 @@ from egomotion import (
     ego_clip_behavior, describe_clip_behavior,
 )
 from visualize_clip import render_clip_result, safe_dirname, VIZ_WIDTH
-from constrained_tier import score_dirname, score_groups, group_key
+from constrained_tier import score_dirname, score_groups, score_fields, group_key
 from prompts import DIFFICULTY_AXES
 
 
@@ -631,8 +631,8 @@ def run_clip_inference(uuids, labels, category_menu,
                 from attn_timeline import (curves_for, save_npz, default_layers,
                                            spatial_maps)
                 rows_ = attn_out["rows"]
-                gk = {g: group_key(g) for g in (score_groups(labels)
-                                                if score_categories else [])}
+                gk = {n: group_key(n) for n, _g in (score_fields(labels)
+                                                    if score_categories else [])}
                 curves = curves_for(rows_, attn_out["gen_ids"],
                                     processor.tokenizer, result["categories"], gk)
                 curves["times"] = attn_out["times"]
@@ -659,7 +659,7 @@ def run_clip_inference(uuids, labels, category_menu,
                 # 장르를 하나도 대지 않았으면 물을 대상이 없다.
                 if result["categories"] and fu_state:
                     q = followup_time_spans_question(
-                        bool(score_categories and score_groups(labels)))
+                        bool(score_categories and score_groups(labels)), labels)
                     ans = _continue_chat(model, processor, fu_state, q,
                                          max_new_tokens=NUR_FOLLOWUP_MAX_NEW_TOKENS)
                     (result["time_spans"], result["time_spans_raw"],
