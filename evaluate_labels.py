@@ -6,7 +6,8 @@
 목표 지표 (이 셋으로 파이프라인의 좋고 나쁨을 판단한다):
 
   1) VERDICT     Normal/Special 이진 판정. categories 가 비었는가로 파생되며,
-                 파이프라인의 판정 규칙과 정확히 같다.
+                 파이프라인의 판정 규칙과 정확히 같다. All(카테고리 전체)과
+                 묶음(Dynamic object / Driving environment)별로 따로 낸다.
   2) CATEGORIES  멀티라벨 F1. "정답 n개 중 m개" (m/n) 를 쓰지 않는 이유는
                  그 식의 분모가 정답 쪽이라 오탐에 벌점이 없기 때문이다 -
                  정답이 [Jaywalking] 인데 모델이 4개를 다 찍어도 1.0 이 되어,
@@ -21,13 +22,6 @@
                  축이라(평범한 클립도 비가 오면 높다) SPECIAL 만 따로 내지
                  않고 전체만 내며, 대신 4축 요약표를 붙여 어느 축이 틀리는지
                  나란히 본다.
-
-유병률 보정:
-  정답 표본은 normal:special = 50:50 이지만 실제 데이터는 약 81:19 다.
-  precision 은 표본에 normal 이 몇 개 들어있느냐에 직접 영향을 받으므로,
-  50:50 표본의 precision 을 그대로 보고하면 실제보다 크게 부풀려진다.
-  recall 과 specificity 는 표본 비율과 무관하므로, 그 둘로 실제 유병률에서의
-  precision 을 다시 계산해 함께 보여준다.
 
 기준선(baseline):
   정수 축은 "항상 최빈값" 으로 찍어도 MSE 가 꽤 낮게 나온다(실측: 난이도
@@ -60,10 +54,6 @@ ROOT = Path(__file__).resolve().parent
 # 기본값은 config.py 한 곳에서만 정한다 - 여기서 따로 들고 있다가 예전에
 # aggregate_clip.py 는 D, 이쪽은 C 로 같은 실행을 다르게 해석한 적이 있다.
 DEFAULT_LABELS = LABELS_JSON
-
-# 실제 데이터셋의 special 비율. 유병률 보정에 쓴다.
-# 실측: 1,998 클립 중 375 건이 edge-case (20260812 전량 실행).
-DEFAULT_PREVALENCE = 375 / 1998
 
 
 def load_labels(path: Path):
@@ -519,9 +509,6 @@ def main():
     ap.add_argument("--run-dir", required=True,
                     help="모델 결과 폴더 (clip_results*.csv 가 있는 곳)")
     ap.add_argument("--labels", default=str(DEFAULT_LABELS))
-    ap.add_argument("--prevalence", type=float, default=DEFAULT_PREVALENCE,
-                    help="실제 데이터의 special 비율 (precision 보정용). "
-                         f"기본 {DEFAULT_PREVALENCE:.3f} = 375/1998")
     ap.add_argument("--out", default=None,
                     help="결과를 저장할 로그 파일. 생략 시 <run-dir>/evaluation.log")
     ap.add_argument("--min-support", type=int, default=3,
@@ -637,35 +624,52 @@ def main():
         return
 
     # ---------------- 1) VERDICT ----------------
-    tp = fp = fn = tn = 0
-    for u in common:
-        t, p = bool(labels[u]["categories"]), bool(results[u]["categories"])
-        tp += t and p
-        fp += (not t) and p
-        fn += t and (not p)
-        tn += (not t) and (not p)
-    P, R, F = prf(tp, fp, fn)
-    spec = tn / (tn + fp) if (tn + fp) else 0.0
-
+    # All 은 카테고리가 하나라도 있으면 Special(파이프라인의 판정 규칙). 묶음별
+    # 판정은 그 묶음의 카테고리만 보고 같은 규칙을 적용한다 - 어느 묶음에서
+    # 오탐/놓침이 나는지가 All 하나로는 안 보인다(20261028_100903: Dynamic
+    # 만 돌린 실행에서 공사/비포장이 Obstacle on Road 로 들어가 FP 31 -> 72).
+    # 정답도 예측도 Special 이 하나도 없는 묶음(--group 으로 다루지 않은
+    # 묶음)은 싣지 않는다.
+    groups_in_scene = list(dict.fromkeys(scenario_of.values()))
+    scopes = [("All", None)] + [(g, g) for g in groups_in_scene]
     log("")
     log("=" * 68)
-    log("1) VERDICT  (Special = has >=1 category)")
+    log("1) VERDICT  (Special = has >=1 category; per group: >=1 of that group)")
     log("=" * 68)
-    log(f"  truth: special={tp+fn}  normal={tn+fp}")
-    log(f"  TP={tp}  FP={fp}  FN={fn}  TN={tn}")
-    log(f"  accuracy    : {(tp+tn)/len(common):6.1%}")
-    log(f"  precision   : {P:6.1%}   recall: {R:6.1%}   F1: {F:6.1%}")
-    log(f"  specificity : {spec:6.1%}")
-    # 유병률 보정 - recall/specificity 는 표본 비율과 무관하다는 성질을 쓴다
-    pv = args.prevalence
-    tp_r, fp_r = R * pv, (1 - spec) * (1 - pv)
-    P_adj = tp_r / (tp_r + fp_r) if (tp_r + fp_r) else 0.0
-    F_adj = 2 * P_adj * R / (P_adj + R) if (P_adj + R) else 0.0
-    log("")
-    log(f"  adjusted to real prevalence ({pv:.1%} special):")
-    log(f"    precision : {P_adj:6.1%}   recall: {R:6.1%}   F1: {F_adj:6.1%}")
-    log("    (label set is 50:50, so the raw precision above is optimistic;")
-    log("     this row estimates what you would get on all 1,998 clips)")
+    summary = []
+    for name, g in scopes:
+        def special(cats):
+            return bool(cats if g is None else
+                        {c for c in cats if scenario_of.get(c) == g})
+        tp = fp = fn = tn = 0
+        for u in common:
+            t = special(labels[u]["categories"])
+            p = special(results[u]["categories"])
+            tp += t and p
+            fp += (not t) and p
+            fn += t and (not p)
+            tn += (not t) and (not p)
+        if g is not None and tp + fp + fn == 0:
+            continue
+        P, R, F = prf(tp, fp, fn)
+        spec = tn / (tn + fp) if (tn + fp) else 0.0
+        acc = (tp + tn) / len(common)
+        summary.append((name, tp + fn, tp, fp, fn, acc, P, R, F))
+        log("")
+        log(f" [{name}]")
+        log(f"  truth: special={tp+fn}  normal={tn+fp}")
+        log(f"  TP={tp}  FP={fp}  FN={fn}  TN={tn}")
+        log(f"  accuracy    : {acc:6.1%}")
+        log(f"  precision   : {P:6.1%}   recall: {R:6.1%}   F1: {F:6.1%}")
+        log(f"  specificity : {spec:6.1%}")
+    if len(summary) > 1:
+        log("")
+        log(f"  {'scope':<22}{'special':>8}{'TP':>5}{'FP':>5}{'FN':>5}"
+            f"{'Acc':>8}{'P':>8}{'R':>8}{'F1':>8}")
+        log("  " + "-" * 73)
+        for name, ns, tp, fp, fn, acc, P, R, F in summary:
+            log(f"  {name:<22}{ns:>8}{tp:>5}{fp:>5}{fn:>5}"
+                f"{acc:>8.1%}{P:>8.1%}{R:>8.1%}{F:>8.1%}")
 
     # ---------------- 2) CATEGORIES ----------------
     per_clip = [f1_set(labels[u]["categories"], results[u]["categories"])

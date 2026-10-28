@@ -38,7 +38,7 @@ DIFFICULTY_SCALES = {
     "road_surface": (
         "   0 = dry and clean\n"
         "   1 = damp, no standing water, or snow only off the roadway, dusty but flat road\n"
-        "   2 = clearly wet and reflective; light spray; or thin snow on the roadway but lane markings still discernible, or surface of soil and gravel\n"
+        "   2 = surface of soil and gravel; or clearly wet and reflective; light spray; or thin snow on the roadway but lane markings still discernible\n"
         "   3 = standing water, puddles, slush, or snow covers most of the roadway or the lane markings are faint, or very rough due to mud or coarse gravel\n"
         "   4 = deep snow-covered, icy, or flooded; lane markings entirely obscured"),
     "atmospheric_obscurants": (
@@ -78,6 +78,8 @@ def difficulty_block() -> str:
    factor names and ignoring the others:
 {factors}
    Give each rating one short sentence saying what you saw that justifies it.
+   Name only the condition you actually saw - do not copy the wording of a
+   level when it does not describe this scene.
    These ratings describe conditions, not edge-cases: a clear empty road at
    noon is {DIFFICULTY_MIN} everywhere, and rating it so is the correct answer.
 """

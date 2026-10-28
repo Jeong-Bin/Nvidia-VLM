@@ -125,7 +125,8 @@
               "A real animal, is crossing the road",
               "Wildlife is blocking the path of passing vehicles",
               "An animal suddenly appeared in the driving path of ego-vehicle.",
-              "An animal is in view beside the road - behind a fence, out in a field, or well away from the ego-vehicle's path"
+              "An animal is in view beside the road - behind a fence, out in a field, or well away from the ego-vehicle's path",
+              "An animal that a person is riding, leading or driving is on or beside the road - it is still an animal, not the person's vehicle"
             ],
             "template_candidates": [
               "An animal crossing the road",
@@ -151,7 +152,7 @@
             ],
             "excludes": [
               "Birds already flying in the sky.",
-              "An animal that is not a real, free animal in the scene - a statue, a picture or sign of an animal, or an animal carried inside a vehicle or a trailer."
+              "An animal that is not a real animal in the scene - a statue, a picture or sign of an animal, or an animal carried inside a vehicle or a trailer."
             ],
             "score_examples": [
               [
@@ -240,13 +241,16 @@
               "Person on the scooter is crossing the street",
               "The cyclist passes in front of the vehicle's path",
               "A cyclist is riding very close to the ego-vehicle on the roadway",
-              "A motorcyclist or moped rider rides on the roadway near the ego-vehicle's path"
+              "A motorcyclist or moped rider rides on the roadway near the ego-vehicle's path",
+              "A person on a mobility scooter or powered wheelchair moves along the roadway or crosses it"
             ],
             "template_candidates": [
               "A cyclist is riding close to ego vehicle"
             ],
             "excludes": [
-              "A cyclist who stays on a cycle path separated from the roadway - not a bike lane painted on the road itself - the whole time, however close the ego-vehicle passes; or who stays well away from the vehicle's path, several lanes away. Neither counts here. A cyclist who leaves the cycle path for the road does count. These are NOT a separate cycle path, even when raised or kerbed: a central median or planted island, a motorway hard shoulder, a parking lane or bay along the street. A cyclist there is judged like one on the road."
+              "A cyclist who stays on a cycle path separated from the roadway - not a bike lane painted on the road itself - the whole time, however close the ego-vehicle passes; or who stays well away from the vehicle's path, several lanes away. Neither counts here. A cyclist who leaves the cycle path for the road does count. These are NOT a separate cycle path, even when raised or kerbed: a central median or planted island, a motorway hard shoulder, a parking lane or bay along the street. A cyclist there is judged like one on the road.",
+              "A bicycle, scooter, kick scooter, mobility scooter or motorcycle with nobody riding it - parked, leaning, lying or left standing anywhere, on the road or off it. This category needs a person riding it.",
+              "A picture or pictogram of a bicycle marking a bike lane or cycle path - painted on the road surface or shown on a sign. It is a marking, not a cyclist."
             ],
             "score_examples": [
               [
@@ -359,14 +363,14 @@
             "name": "Unknown but abnormal moving object",
             "unknown": true,
             "templates": [
-              "A moving road user or machine that is none of the types above - a delivery robot, a person on a mobility scooter, a ride-on machine - is in or near the ego-vehicle's path",
-              "A vehicle moves in a way traffic normally never does - driving the wrong way, reversing along the lane, or crossing the road at a place with no junction",
+              "A moving road user or machine that is none of the types above - a delivery robot, a ride-on machine - is in or near the ego-vehicle's path",
+              "A vehicle moves in a way traffic normally never does - driving against the traffic in the ego-vehicle's own lane or carriageway, reversing along the lane, or crossing the road at a place with no junction",
               "Something is being carried, towed or pushed along the road in an unusual way, sticking out into the ego-vehicle's path"
             ],
             "template_candidates": [],
             "excludes": [
               "Anything that fits one of the types above - a pedestrian, cyclist, animal, emergency vehicle or tram - is that type, not this one.",
-              "Ordinary traffic - cars, buses, or trucks driving, turning, stopping or parking the way traffic normally does - is not this category, however busy it is."
+              "Ordinary traffic - cars, buses, or trucks driving, turning, stopping or parking the way traffic normally does, coming the other way in their own lane, passing or overtaking - is not this category, however busy it is. This holds at night too, when an oncoming vehicle shows only as bright headlights, and on a narrow road with no centre line."
             ]
           }
         ]

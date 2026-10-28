@@ -467,9 +467,11 @@
       "note": "끼어들기"
     },
     "09214f36-6825-464a-a4f3-22c5f71d46ec": {
-      "categories": {},
+      "categories": {
+        "Road Construction": 1
+      },
       "Dynamic object": 0,
-      "Driving environment": 0,
+      "Driving environment": 1,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -1213,7 +1215,9 @@
       "note": ""
     },
     "de5216af-060b-4c19-9900-7c49ec61fdfb": {
-      "categories": {},
+      "categories": {
+        "Cyclist on Road": 2
+      },
       "Dynamic object": 0,
       "Driving environment": 0,
       "influenced_ego": false,
@@ -2311,7 +2315,8 @@
     },
     "c7928d92-0df9-4b7e-94cc-8715334830e0": {
       "categories": {
-        "Pedestrian on Road": 2
+        "Pedestrian on Road": 2,
+        "Cyclist on Road": 1
       },
       "Dynamic object": 2,
       "Driving environment": 0,
@@ -3746,11 +3751,10 @@
     "fe11db95-3e03-4eb3-a816-e7d3f269cf7d": {
       "categories": {
         "Pedestrian on Road": 2,
-        "Cyclist on Road": 2,
-        "Road Construction": 1
+        "Cyclist on Road": 2
       },
       "Dynamic object": 2,
-      "Driving environment": 1,
+      "Driving environment": 0,
       "influenced_ego": true,
       "safety_criticality": 2,
       "rarity": 2,
@@ -3819,7 +3823,8 @@
     },
     "26210df5-f57d-499e-bec1-9d0a197619be": {
       "categories": {
-        "Pedestrian on Road": 3
+        "Pedestrian on Road": 3,
+        "Cyclist on Road": 2
       },
       "Dynamic object": 3,
       "Driving environment": 0,
@@ -3874,7 +3879,8 @@
     },
     "ea5c5be6-5e18-4489-9784-8f73860f887b": {
       "categories": {
-        "Road Construction": 3
+        "Road Construction": 3,
+        "Cyclist on Road": 1
       },
       "Dynamic object": 0,
       "Driving environment": 3,
@@ -4301,9 +4307,11 @@
       "note": ""
     },
     "00b59461-b71c-446b-ad46-449649d4a4a3": {
-      "categories": {},
+      "categories": {
+        "Unpaved road": 1
+      },
       "Dynamic object": 0,
-      "Driving environment": 0,
+      "Driving environment": 1,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4320,10 +4328,12 @@
       "note": ""
     },
     "01ac2960-7cef-4040-9450-de3ac889ad82": {
-      "categories": {},
+      "categories": {
+        "Unpaved road": 4
+      },
       "Dynamic object": 0,
-      "Driving environment": 0,
-      "influenced_ego": false,
+      "Driving environment": 4,
+      "influenced_ego": true,
       "safety_criticality": 0,
       "rarity": 0,
       "rain_snow_fog": [
@@ -4656,9 +4666,11 @@
       "note": ""
     },
     "0601e06d-e0b1-4315-b0dc-07aa99ef1981": {
-      "categories": {},
+      "categories": {
+        "Road Construction": 1
+      },
       "Dynamic object": 0,
-      "Driving environment": 0,
+      "Driving environment": 1,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -4729,10 +4741,10 @@
     "16ab31a3-36b8-40f1-bf36-132fd0c8f4e5": {
       "categories": {
         "Cyclist on Road": 3,
-        "Unpaved road": 2
+        "Unpaved road": 1
       },
       "Dynamic object": 3,
-      "Driving environment": 2,
+      "Driving environment": 1,
       "influenced_ego": true,
       "safety_criticality": 3,
       "rarity": 2,
@@ -4766,6 +4778,7 @@
     "0551ed73-b6a1-49bd-afcd-1fe49e13bfc1": {
       "categories": {
         "Obstacle on Road": 1,
+        "Road Construction": 1,
         "Unpaved road": 1
       },
       "Dynamic object": 1,
@@ -4873,12 +4886,10 @@
       "note": "가구 싣고 가는 트럭 때문에 Obstacle on Road 로 오인할 수 있음"
     },
     "0a119fc6-c3e4-4af1-8d00-72d68c3da5c9": {
-      "categories": {
-        "Unpaved road": 1
-      },
+      "categories": {},
       "Dynamic object": 0,
-      "Driving environment": 1,
-      "influenced_ego": true,
+      "Driving environment": 0,
+      "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
       "rain_snow_fog": [],
@@ -5193,7 +5204,8 @@
     },
     "00c18025-9669-4c47-9ff3-f1350da9126b": {
       "categories": {
-        "Pedestrian on Road": 2
+        "Pedestrian on Road": 2,
+        "Cyclist on Road": 1
       },
       "Dynamic object": 2,
       "Driving environment": 0,
@@ -5273,10 +5285,11 @@
     },
     "004bfe84-cf53-494b-9ba3-2beaefab5499": {
       "categories": {
-        "Cyclist on Road": 1
+        "Cyclist on Road": 1,
+        "Road Construction": 1
       },
       "Dynamic object": 1,
-      "Driving environment": 0,
+      "Driving environment": 1,
       "influenced_ego": false,
       "safety_criticality": 0,
       "rarity": 0,
@@ -5292,7 +5305,9 @@
       "note": ""
     },
     "0102b9de-e10f-4cea-a803-bd6f887c2e62": {
-      "categories": {},
+      "categories": {
+        "Emergency Vehicle": 2
+      },
       "Dynamic object": 0,
       "Driving environment": 0,
       "influenced_ego": false,
@@ -5652,10 +5667,10 @@
     },
     "0240cc5b-2987-4975-80f8-dc1f8312920c": {
       "categories": {
-        "Unpaved road": 2
+        "Unpaved road": 3
       },
       "Dynamic object": 0,
-      "Driving environment": 2,
+      "Driving environment": 3,
       "influenced_ego": true,
       "safety_criticality": 1,
       "rarity": 2,
@@ -5844,11 +5859,9 @@
       "note": ""
     },
     "00ad193a-444d-4212-8913-1650ff2dfe41": {
-      "categories": {
-        "Railway crossing or Barrier arm": 1
-      },
+      "categories": {},
       "Dynamic object": 0,
-      "Driving environment": 1,
+      "Driving environment": 0,
       "influenced_ego": false,
       "safety_criticality": 1,
       "rarity": 1,
