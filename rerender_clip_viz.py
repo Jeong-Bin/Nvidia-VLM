@@ -23,6 +23,7 @@ CSV(1차 결과)와 <run>/attn/*.npz(--attn-timeline 기록)만으로 영상 + r
 Usage:
   python rerender_clip_viz.py --run-dir results/labeld/<run>
   python rerender_clip_viz.py --run-dir results/labeld/<run> --final --out-dir viz_final
+  python rerender_clip_viz.py --run-dir results/labeld/<run> --uuids <uuid> ... --video-name clip2.mp4
 """
 from __future__ import annotations
 
@@ -88,6 +89,11 @@ def main():
     ap.add_argument("--out-dir", default="viz",
                     help="run-dir 아래 저장 폴더 이름 (기본 viz)")
     ap.add_argument("--width", type=int, default=V.VIZ_WIDTH)
+    ap.add_argument("--uuids", nargs="+", default=None,
+                    help="이 클립만 다시 그린다 (기본: 실행 때 규칙대로 전부)")
+    ap.add_argument("--video-name", default="clip.mp4",
+                    help="영상 파일 이름. clip.mp4 가 아니면 원래 영상과 "
+                         "result.json 은 그대로 두고 영상만 이 이름으로 더한다")
     args = ap.parse_args()
 
     run = Path(args.run_dir)
@@ -133,7 +139,10 @@ def main():
     n_shards = int(key.get("num_shards") or argv.get("num_shards") or 1)
     shard_of = {u: i % n_shards for i, u in enumerate(order)}
     print(f"[info] shards: {n_shards} (장르별 정원을 샤드마다 센다)")
+    only = set(args.uuids or ())
     for u in order:
+        if only and u not in only:
+            continue
         r = by_uuid[u]
         sh = shard_of[u]
         if _int(r.get("n_frames")) in (None, 0):
@@ -144,6 +153,12 @@ def main():
             continue
         if per_cat:
             targets = [c for c in cats if counts[(sh, c)] < per_cat]
+            if only:
+                # 고른 클립만 돌면 정원을 셀 앞 클립이 없어 원래 없던 장르
+                # 폴더까지 생긴다 - 이미 그려 둔 장르 폴더가 있으면 거기만.
+                had = [c for c in cats
+                       if (out_root / V.safe_dirname(c) / r["uuid"]).is_dir()]
+                targets = had or targets
             if not targets:
                 continue
             out_dirs = [out_root / V.safe_dirname(c) / r["uuid"] for c in targets]
@@ -178,9 +193,11 @@ def main():
             V.render_clip_result(r["uuid"], E.clip_path(view, r["uuid"]), res, od,
                                  max_width=args.width,
                                  attn_focus=(targets[i] if targets else None),
-                                 gt=(gt or {}).get(r["uuid"]), extra=extra)
+                                 gt=(gt or {}).get(r["uuid"]), extra=extra,
+                                 video_name=args.video_name,
+                                 write_json=args.video_name == "clip.mp4")
             n += 1
-            print(f"[viz] {od.relative_to(run)}")
+            print(f"[viz] {od.relative_to(run) / args.video_name}")
         if targets is not None:
             counts.update((sh, c) for c in targets)
     print(f"[done] {n} videos -> {out_root}")

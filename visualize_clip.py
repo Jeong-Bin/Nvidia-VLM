@@ -202,8 +202,9 @@ def category_score_lines(result: dict, gt: dict | None) -> list[str]:
         • GT   : Cyclist on Road, Pedestrian on Road
         • Pred : Cyclist on Road, Pedestrian on Road
         • Dynamic object (GT:2, Pred:3)
+           : <Dynamic object 근거>
         • Driving environment (GT:0, Pred:0)
-        Dynamic object: <근거> | Driving environment: <근거>
+           : <Driving environment 근거> Unpaved road=3: <근거>
 
     상위 카테고리 줄은 GT 나 Pred 어느 한쪽이라도 값이 있는 것만 낸다 -
     상위 카테고리 하나만 돌린 실행(--group)에 빈 줄이 붙지 않게. GT 가
@@ -221,14 +222,32 @@ def category_score_lines(result: dict, gt: dict | None) -> list[str]:
         lines.append("• GT   : " + (", ".join(_sorted_names(gt.get("categories")))
                                    or "None"))
     lines.append("• Pred : " + (", ".join(_sorted_names(pred_cats)) or "None"))
+    # 근거는 " | " 로 이어 붙어 온다(parse_nureasoning_output). "<묶음>: ..."
+    # 조각은 그 묶음 점수 줄 바로 밑에 단다. 따로 재는 카테고리(Unpaved
+    # road=3: ...) 조각은 앞 묶음의 근거에 이어 붙인다 - 그 칸도 그 묶음
+    # 점수에 합쳐지기 때문. 묶음 이름이 없는 조각(recheck 가 쓴 근거 등)은
+    # 맨 끝에 그대로 둔다.
+    why = (result.get("score_reason") or "").strip()
+    reason, rest, cur = {}, [], None
+    for part in filter(None, (p.strip() for p in why.split(" | "))):
+        g = next((g for g in GROUP_RUBRICS if part.startswith(f"{g}:")), None)
+        if g is not None:
+            cur = g
+            reason[g] = part[len(g) + 1:].strip()
+        elif cur is not None:
+            reason[cur] += " " + part
+        else:
+            rest.append(part)
     for g in GROUP_RUBRICS:
         gv, pv = gt_scores.get(g), pred_scores.get(g)
         if gv is None and pv is None:
+            if g in reason:
+                rest.append(f"{g}: {reason[g]}")
             continue
         lines.append(f"• {g} (GT:{_num(gv)}, Pred:{_num(pv)})")
-    why = (result.get("score_reason") or "").strip()
-    if why:
-        lines.append(why)
+        if reason.get(g):
+            lines.append(f"   : {reason[g]}")
+    lines.extend(rest)
     return lines
 
 
@@ -521,8 +540,10 @@ def build_text_panel(result: dict, width: int, scale: float = 1.0) -> np.ndarray
     if score_lines:
         wrapped = []
         for ln in score_lines:
+            # 근거 줄("   : ...")은 이어지는 줄을 ":" 뒤 글자에 맞춘다.
+            ind = "     " if ln.startswith("   : ") else "    "
             wrapped.extend(textwrap.wrap(ln, width=width_chars,
-                                         subsequent_indent="    ") or [ln])
+                                         subsequent_indent=ind) or [ln])
         blocks.append((f"{len(blocks) + 1}. Categories & Difficulty score",
                        wrapped, None))
 
@@ -891,10 +912,14 @@ def render_clip_result(uuid: str, src_mp4, result: dict, out_dir,
                        traj: str | None = None,
                        traj_view: str = "camera_front_wide_120fov",
                        attn_focus: str | None = None,
+                       video_name: str = "clip.mp4",
+                       write_json: bool = True,
                        ):
     """클립 하나의 영상 + json 을 같은 폴더에 저장하고 (video, json) 을 반환.
 
     gt 를 주면(정답 라벨이 있는 클립) 패널에 GT 와 Pred 를 나란히 그린다.
+    write_json=False 면 영상만 만든다(json 자리는 None) - 기존 결과 옆에
+    다른 이름의 영상을 하나 더 둘 때 원래 result.json 을 덮지 않게.
     """
     out_dir = Path(out_dir)
     r = dict(result)
@@ -902,9 +927,10 @@ def render_clip_result(uuid: str, src_mp4, result: dict, out_dir,
     if gt is not None:
         r["_gt"] = gt
     r["_headline"] = uuid
-    video = render_clip_video(src_mp4, r, out_dir / "clip.mp4",
+    video = render_clip_video(src_mp4, r, out_dir / video_name,
                               max_width=max_width, max_frames=max_frames,
                               traj=traj, traj_uuid=uuid, traj_view=traj_view,
                               attn_focus=attn_focus)
-    js = save_clip_json(r, out_dir / "result.json", extra=extra)
+    js = (save_clip_json(r, out_dir / "result.json", extra=extra)
+          if write_json else None)
     return video, js
