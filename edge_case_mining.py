@@ -39,7 +39,7 @@ import visualize_clip as VZ
 from constrained_tier import (TIER_LABELS, tier_score, scale_text,
                               group_rubric_blocks, group_key,
                               score_groups, score_fields, GROUP_RUBRICS,
-                              own_rubric_categories)
+                              own_rubric_categories, counted_score)
 from prompts import (DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX,
                      difficulty_block)
 
@@ -1085,11 +1085,14 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
     #
     # 점수와 카테고리 목록이 어긋나도(이름을 댄 묶음이 0, 대지 않은 묶음이
     # 1 이상) 여기서 고치지 않는다. 고치면 모델의 실제 판단이 결과에서
-    # 사라진다 - 어긋남은 채점(evaluate_labels)이 따로 센다.
+    # 사라진다 - 어긋남은 채점(evaluate_labels)이 따로 센다. 따로 재는
+    # 카테고리 칸만 예외다(아래).
     #
     # 따로 재는 카테고리(Unpaved road)의 칸은 그 묶음 점수에 최댓값으로
     # 합친다 - GT 의 묶음 점수도 카테고리 점수 중 최댓값이다. 그 칸의 값은
     # 근거 앞에 "Unpaved road=2: ..." 로 남겨 합치기 전 판단도 CSV 에 남긴다.
+    # 단 그 카테고리를 이름 대지 않았으면 묶음 점수에는 0 으로 넣는다
+    # (constrained_tier.counted_score). field_scores 에는 원래 값을 둔다.
     reasons = []
     for name, g in score_fields(labels):
         k = group_key(name)
@@ -1097,7 +1100,8 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
             continue
         n = _coerce_tier(obj.get(k))
         if n is not None:
-            out["group_scores"][g] = max(n, out["group_scores"].get(g, n))
+            counted = counted_score(name, n, out["categories"])
+            out["group_scores"][g] = max(counted, out["group_scores"].get(g, counted))
             # 합치기 전 칸별 값. 묶음 점수만 남기면 Driving environment 가
             # 3 일 때 그게 다른 카테고리의 3 인지 Unpaved road 의 3 인지
             # 채점에서 가를 수 없다(evaluate_labels 3) 의 Others/Unpaved road).

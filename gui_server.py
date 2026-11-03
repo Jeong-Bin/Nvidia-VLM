@@ -56,6 +56,10 @@ CLIP_SOURCE = None
 JOBS: dict[str, dict] = {}
 JOBS_LOCK = threading.Lock()
 
+# [NAS 라벨링] 탭 (nas_labeling.LabelingService). main() 에서 만든다.
+NL = None
+NL_ERROR = ""
+
 
 # ---------------------------------------------------------------------------
 # 공통 유틸
@@ -1312,11 +1316,15 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     # --- 응답 헬퍼 ---
-    def _json(self, obj, code=200):
+    def _json(self, obj, code=200, headers=None):
         body = json.dumps(obj, ensure_ascii=False, default=str).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        # 라벨링 데이터는 실시간으로 바뀐다 - 브라우저가 옛 응답을 쓰지 않게.
+        self.send_header("Cache-Control", "no-store")
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)
 
@@ -1416,6 +1424,17 @@ class Handler(BaseHTTPRequestHandler):
         if p in ("/", "/index.html"):
             return self._send_file(GUI_DIR / "index.html")
 
+        if p.startswith("/static/"):
+            f = GUI_DIR / "static" / p[len("/static/"):]
+            if not _safe_under(GUI_DIR / "static", f):
+                return self._err("forbidden", 403)
+            return self._send_file(f)
+
+        if p.startswith("/api/nl/"):
+            if NL is None:
+                return self._err("NAS 라벨링 비활성(서버 로그 확인): " + NL_ERROR, 503)
+            return NL.handle(self, "GET", p, q, {})
+
         if p == "/api/nas_status":
             return self._json(nas_status())
 
@@ -1514,6 +1533,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         u = urllib.parse.urlparse(self.path)
         try:
+            if u.path.startswith("/api/nl/"):
+                if NL is None:
+                    return self._err("NAS 라벨링 비활성: " + NL_ERROR, 503)
+                return NL.handle(self, "POST", u.path, {}, self._body())
             return self._post(u.path, self._body())
         except Exception as e:
             return self._err(f"{type(e).__name__}: {e}", 500)
@@ -1566,6 +1589,17 @@ def main():
         from clip_source import make_source
         CLIP_SOURCE = make_source(args.data, root=ROOT)
         print(f"[gui] data={args.data} -> {CLIP_SOURCE.kind}", flush=True)
+
+    # NAS 라벨링 탭. 실패해도 나머지 탭은 떠야 하므로 오류만 남긴다.
+    global NL, NL_ERROR
+    try:
+        import nas_labeling
+        NL = nas_labeling.LabelingService(shared_sources=[CLIP_SOURCE])
+        print(f"[gui] NAS 라벨링: {', '.join(NL.datasets)} "
+              f"(계정 {len(NL.auth.users())}개)", flush=True)
+    except Exception as e:                     # noqa: BLE001
+        NL_ERROR = f"{type(e).__name__}: {e}"
+        print(f"[gui] NAS 라벨링 비활성 - {NL_ERROR}", flush=True)
 
     GUI_DIR.mkdir(exist_ok=True)
     srv = ThreadingHTTPServer((args.host, args.port), Handler)

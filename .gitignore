@@ -37,3 +37,8 @@ gui.log
 
 # 단일 클립 조회가 만드는 uuid 파일 (job id 로 쌓인다)
 gui/single/
+
+# NAS 라벨링 계정/세션 (비밀번호 해시, 로그인 토큰) - 절대 올리지 않는다.
+nas_labels/users.json
+nas_labels/sessions.json
+nas_labels/**/*.tmp

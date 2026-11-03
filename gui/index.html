@@ -208,7 +208,76 @@ video{width:100%;background:#000;border-radius:6px}
 .split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:900px){.split{grid-template-columns:1fr}}
 .toast{position:fixed;right:16px;bottom:16px;background:var(--panel2);
-  border:1px solid var(--accent);border-radius:8px;padding:10px 14px;z-index:99}
+  border:1px solid var(--accent);border-radius:8px;padding:10px 14px;z-index:99;
+  /* 알림이 오른쪽 아래 버튼(라벨링 탭의 저장/되돌리기)을 가려도 클릭은 통과시킨다. */
+  pointer-events:none}
+/* --- NAS 라벨링 탭 ---
+   목록 | 영상+이력 | 라벨 입력 3단. 영상이 가장 커야 하므로 가운데가 남는 폭을
+   다 먹는다. 좁은 화면에서는 입력 칸이 영상 아래로 내려간다. */
+.nl-login{max-width:420px;margin:40px auto}
+.nl-login form{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.nl-login label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted)}
+.nl-top{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.nl-top>label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted)}
+.nl-path{color:var(--muted);font-size:11px;max-width:420px;overflow-wrap:anywhere}
+.nl-counts{display:flex;gap:8px;flex-wrap:wrap}
+.nl-counts div{background:var(--panel2);border:1px solid var(--line);border-radius:6px;
+  padding:4px 10px;min-width:86px}
+.nl-counts b{display:block;font-size:16px;font-variant-numeric:tabular-nums}
+.nl-counts span{color:var(--muted);font-size:11px}
+.nl-me{margin-left:auto;display:flex;gap:6px;align-items:center}
+.nl-grid{display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr) minmax(340px,420px);
+  gap:12px;align-items:start}
+.nl-grid>*{min-width:0}
+@media(max-width:1500px){
+  .nl-grid{grid-template-columns:minmax(280px,340px) minmax(0,1fr)}
+  .nl-formp{grid-column:2}
+}
+@media(max-width:900px){.nl-grid{grid-template-columns:1fr}.nl-formp{grid-column:auto}}
+/* 입력 칸은 화면 높이에 붙여 두고 안에서만 스크롤한다 - 페이지가 같이 내려가면
+   저장 버튼과 영상이 번갈아 화면 밖으로 나간다. */
+.nl-formp{position:sticky;top:64px;max-height:calc(100vh - 76px);overflow:auto}
+.nl-listp .row{margin-bottom:8px}
+.nl-scroll{max-height:calc(100vh - 330px);min-height:240px}
+.nl-scroll td,.nl-scroll th{padding:4px 6px}
+#nl-rows tr{cursor:pointer}
+#nl-rows tr.cur>td{background:var(--panel2)}
+#nl-rows tr.cur>td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.nl-pager{justify-content:space-between;align-items:center;margin-top:8px}
+.st{display:inline-block;font-size:11px;padding:0 6px;border-radius:99px;border:1px solid var(--line);
+  color:var(--muted);white-space:nowrap}
+.st.ok{color:var(--ok);border-color:var(--ok)}
+.st.wk{color:var(--warn);border-color:var(--warn)}
+.nl-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.nl-head .mono{font-size:13px}
+.nl-sub2{color:var(--muted);font-size:11px;margin:4px 0 8px}
+.nl-warn{border:1px solid var(--warn);color:var(--warn);border-radius:6px;padding:6px 10px;margin:6px 0}
+.nl-ctrl{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;flex:none}
+.seg button{border:0;border-radius:0;padding:2px 0;width:30px;background:var(--panel2)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--accent);color:#05070c;font-weight:650}
+.seg button.on.zero{background:var(--line);color:var(--fg)}
+.nl-group{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:10px}
+.nl-gh{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.nl-gh b{color:var(--accent)}
+.nl-line{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:2px 0}
+.nl-line .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.nl-line.has .nm{color:var(--fg);font-weight:600}
+.nl-line:not(.has) .nm{color:var(--muted)}
+.nl-rub{color:var(--muted);font-size:11px;line-height:1.45;margin:2px 0 4px;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.nl-rub:empty{display:none}
+.nl-rub.diff{color:var(--warn)}
+.nl-sec{color:var(--muted);font-size:12px;font-weight:600;margin:12px 0 6px}
+.nl-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.nl-dirty{color:var(--warn);font-size:11px}
+.nl-ev{border-left:2px solid var(--line);padding:2px 0 6px 10px;margin-bottom:6px}
+.nl-ev.create{border-color:var(--ok)}.nl-ev.update{border-color:var(--accent)}.nl-ev.delete{border-color:var(--bad)}
+.nl-ev ul{margin:2px 0 0;padding-left:16px;color:var(--muted);font-size:12px}
+.nl-ev li .mono{color:var(--fg)}
+.nl-hist{max-height:320px;overflow:auto}
+kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -225,6 +294,8 @@ video{width:100%;background:#000;border-radius:6px}
     <button data-tab="nas">NAS 전체 추론</button>
     <button data-tab="agg">NAS 전체 추론 결과</button>
     <button data-tab="nsearch">NAS 전체 씬 검색</button>
+    <span class="navsep">|</span>
+    <button data-tab="nlabel">NAS 라벨링</button>
     <span class="navsep">|</span>
     <button data-tab="single">단일 클립 추론</button>
   </nav>
@@ -658,6 +729,73 @@ video{width:100%;background:#000;border-radius:6px}
   <div class="panel">
     <h2>작업 목록</h2>
     <div id="n-jobs" class="muted">아직 없습니다.</div>
+  </div>
+</section>
+
+<!-- ============ NAS 라벨링 ============ -->
+<!-- 동작은 /static/nas_label.js. 서버 쪽은 nas_labeling.py. -->
+<section id="tab-nlabel" class="hide">
+  <div id="nl-login" class="panel nl-login hide">
+    <h2>NAS 라벨링 로그인</h2>
+    <p class="muted" style="margin:0">라벨을 저장·수정하면 계정과 시각이 이력에 남습니다.
+      계정은 관리자에게 요청하세요.</p>
+    <form id="nl-login-form">
+      <label>아이디<input type="text" id="nl-user" autocomplete="username"></label>
+      <label>비밀번호<input type="password" id="nl-pw" autocomplete="current-password"></label>
+      <button class="primary" type="submit">로그인</button>
+    </form>
+    <p id="nl-login-msg" class="muted"></p>
+  </div>
+  <div id="nl-app" class="hide">
+    <div class="panel nl-top">
+      <label>데이터셋<select id="nl-ds"></select></label>
+      <div class="nl-path mono" id="nl-path"></div>
+      <div class="nl-counts" id="nl-counts"></div>
+      <div class="nl-me"><span id="nl-me" class="muted"></span>
+        <button id="nl-acct">계정</button><button id="nl-logout">로그아웃</button></div>
+    </div>
+    <div class="nl-grid">
+      <div class="panel nl-listp">
+        <div class="row">
+          <label>상태<select id="nl-status">
+            <option value="unlabeled">미라벨</option>
+            <option value="all">전체</option>
+            <option value="labeled">라벨 완료</option>
+            <option value="mine">내가 라벨한</option>
+            <option value="claimed">작업 중</option></select></label>
+          <label>라벨러<select id="nl-labeler"></select></label>
+          <label>정렬<select id="nl-sort">
+            <option value="order">청크 순</option>
+            <option value="recent">최근 수정 순</option></select></label>
+        </div>
+        <div class="row">
+          <label>uuid 검색<input type="text" id="nl-q" size="16" placeholder="일부만 입력"></label>
+          <label>청크<input type="number" id="nl-chunk" min="0" style="width:76px"></label>
+          <button id="nl-reload">조회</button>
+        </div>
+        <div class="scroll nl-scroll"><table>
+          <thead><tr><th class="num">#</th><th>uuid</th><th>상태</th><th>최종 수정</th></tr></thead>
+          <tbody id="nl-rows"></tbody></table></div>
+        <div class="row nl-pager">
+          <button id="nl-prevp">◀ 이전</button>
+          <span id="nl-pageinfo" class="muted"></span>
+          <button id="nl-nextp">다음 ▶</button>
+        </div>
+      </div>
+      <div>
+        <div class="panel" id="nl-player">
+          <p class="muted">왼쪽 목록에서 클립을 고르거나 [다음 미라벨]을 누르세요.</p>
+        </div>
+        <div class="panel">
+          <h2>수정 이력</h2>
+          <div id="nl-hist" class="nl-hist muted">클립을 열면 표시됩니다.</div>
+        </div>
+      </div>
+      <div class="panel nl-formp" id="nl-formp">
+        <div class="nl-gh"><h2 style="margin:0">라벨</h2><span id="nl-dirty" class="nl-dirty"></span></div>
+        <div id="nl-form"></div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -1139,8 +1277,12 @@ $('#l-load').onclick = async () => {
       p.classList.toggle('on', (t?.categories || []).includes(p.dataset.cat)));
     renderLabelScores(t?.scores || {});
     const v = d.source_video || d.video;
+    // NAS 모드면 source_video 가 "clip/<uuid>" 다. 파일이 아니라 /clip
+    // 엔드포인트라 /media 로 보내면 404 가 난다(openClip 과 같은 분기).
+    const vsrc = v && v.startsWith('clip/') ? '/' + v
+      : `/media?path=${encodeURIComponent(v || '')}`;
     $('#l-preview').innerHTML = v
-      ? `<video controls src="/media?path=${encodeURIComponent(v)}"></video>`
+      ? `<video controls src="${vsrc}"></video>`
       : '<span class="muted">이 uuid 의 영상을 찾지 못했습니다.</span>';
   } catch (e) { toast(e.message); }
 };
@@ -1890,6 +2032,10 @@ function nasOpen(i) {
        <p style="margin:0">${esc(v)}</p>`).join('')}
     ${dreason ? `<h3 style="margin:12px 0 4px">날씨 4축 근거</h3>
       <div class="dgrid">${dreason}</div>` : ''}
+    <div class="row" style="margin-top:14px">
+      <button onclick="editLabel('${esc(r.uuid)}')">이 클립 라벨 편집</button>
+      <button onclick="closeModal()" style="margin-left:auto">닫기</button>
+    </div>
   `);
 }
 
@@ -1989,5 +2135,6 @@ checkNas();
 setInterval(checkNas, 30000);
 boot().catch(e => toast('초기화 실패: ' + e.message, 8000));
 </script>
+<script src="/static/nas_label.js"></script>
 </body>
 </html>

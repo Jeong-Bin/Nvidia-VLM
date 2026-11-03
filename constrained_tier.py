@@ -223,21 +223,31 @@ DIFFICULTY_RUBRIC_FOR_DRIVING_ENVIRONMENT = {
        "or objects on it - hinders driving.",
        # 해당 요소가 장면에 없는 일반적인 주행
 
-    1: "A situation of this group is in the clip, but it did not change how "
-       "the ego-vehicle drove. The vehicle kept its line past it - at its "
-       "speed or only slowing down - or was already stopped or waiting for "
-       "some other reason.",
-       # 요소는 있지만 주행에 영향 없음 (차선 그대로 - 감속만 한 것도 여기,
-       # 또는 다른 이유로 이미 정지). 예전 문구는 "kept its speed and its
-       # line" 이라 감속이 1 에도 3 에도 없었고, 모델은 감속을 3 으로 읽었다
-       # (실측 20261030_151330: Others GT1->P3 22건 대부분 "slow down").
+    1: "A situation of this group is in the clip, but the ego-vehicle drove "
+       "as it would have without it. It kept its line past it - at its "
+       "speed or only slowing down, steering a little within its own lane. "
+       "Or it stopped, waited or turned for some other reason - in a queue "
+       "behind other vehicles, at a junction or a signal, or turning where "
+       "it was going anyway.",
+       # 요소는 있지만 주행에 영향 없음 (차선 그대로 - 감속, 차로 안 조향도
+       # 여기). 다른 이유(정체, 교차로, 신호, 원래 가던 회전)로 선 것도 1.
+       # 예전 문구는 "kept its speed and its line" 이라 감속이 1 에도 3 에도
+       # 없었고, 모델은 감속을 3 으로 읽었다(실측 20261030_151330: Others
+       # GT1->P3 22건 대부분 "slow down"). 원인 검사는 기준표 밖 주의 문장
+       # 에만 있었는데, 정체 대기나 교차로 회전을 공사 탓으로 돌려 3 을 줬다
+       # (20261103_142530: GT1->P3 21건 중 5건) - 1 의 정의 안에 넣는다.
 
-    3: "The situation changed how the ego-vehicle drove. Because of it the "
-       "vehicle stopped, waited, or changed its path - steering around it, "
-       "moving into another lane, taking a detour, or following a person "
-       "directing traffic. Only slowing down is not enough for this level.",
-       # 요소 때문에 자차 주행이 바뀜 (정지, 대기, 우회, 차선 변경, 수신호 따름)
-       # 감속만 한 것은 1
+    3: "Because of the situation the ego-vehicle came to a stop, waited, or "
+       "left its lane - moving into another lane, taking a detour, steering "
+       "out of its lane around it, or following a person directing traffic. "
+       "Slowing down alone, or steering within its own lane, is not this "
+       "level.",
+       # 요소 때문에 정지, 대기, 차로 이탈(차선 변경, 우회, 피해 나감,
+       # 수신호 따름). 감속만, 차로 안 조향은 1.
+       # 예전 첫 문장 "The situation changed how the ego-vehicle drove" 는
+       # 어느 상황에든 붙는 말이라, 모델이 근거를 이 말로 먼저 쓰고 3 으로
+       # 맺었다(20261103_142530: GT1->P3 근거 대부분 "which changed its
+       # driving behavior") - 확인할 수 있는 행동만 남긴다.
 }
 
 
@@ -397,6 +407,21 @@ def score_groups(labels) -> list[str]:
         if not lab.get("is_normal") and lab["scenario"] not in out:
             out.append(lab["scenario"])
     return out
+
+
+def counted_score(name: str, n: int, categories) -> int:
+    """칸 점수 중 묶음 점수에 넣는 값.
+
+    따로 재는 카테고리(Unpaved road)의 칸은 모델이 그 카테고리를 이름 댔을
+    때만 센다 - 아니면 0. 이 칸은 카테고리와 상관없이 매 클립 답을 받는데,
+    이름을 대지 않은 클립에서 모델이 노면 상태(날씨 Road_surface)를 이 칸에
+    매겼다(실측 20261103_142530: Unpaved road 를 안 댔는데 1 이상 17건, 15건이
+    GT 0, 모두 road_surface >= 1, 눈금 밖 2 점 7건도 전부 여기). 카테고리를
+    빼고 판단한 쪽을 믿는다. 모델이 낸 원래 값은 field_scores 에 그대로 남는다.
+    """
+    if name in CATEGORY_RUBRICS and name not in categories:
+        return 0
+    return n
 
 
 def own_rubric_categories(labels, group: str) -> list[str]:

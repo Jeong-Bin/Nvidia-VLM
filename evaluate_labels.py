@@ -44,7 +44,7 @@ import pandas as pd
 
 from config import SCENE_JSON as CONFIG_SCENE_JSON, LABELS_JSON
 from constrained_tier import (TIER_VALUES, GROUP_RUBRICS, CATEGORY_RUBRICS,
-                              group_values, group_key)
+                              group_values, group_key, counted_score)
 from prompts import DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX
 
 # 난이도 축의 눈금. 등급(TIER_VALUES)과 따로 두는 이유는 두 척도가 서로
@@ -211,11 +211,21 @@ def load_results(run_dir: Path):
         cats = r.get("categories")
         cats = set(str(cats).split("|")) if isinstance(cats, str) and cats.strip() else set()
         scores = _parse_eq(r.get("group_scores"))
+        # 합치기 전 칸별 점수. 이 열이 생기기 전 실행이면 None 이고,
+        # 3) 은 score_reason 의 "Unpaved road=N:" 로 되살린다.
+        fields = (_parse_eq(r.get("field_scores"))
+                  if "field_scores" in df.columns else None)
+        if fields:
+            # 따로 재는 카테고리 칸은 그 카테고리를 이름 댔을 때만 센다
+            # (counted_score). 파서도 같은 규칙으로 묶음 점수를 내지만, 규칙이
+            # 생기기 전 실행(20261103_142530 등)도 같은 기준으로 채점하도록
+            # 칸별 점수에서 묶음 점수를 다시 낸다.
+            fields = {k: counted_score(k, v, cats) for k, v in fields.items()}
+            for c, (g, _t, _r) in CATEGORY_RUBRICS.items():
+                if c in fields and g in scores:
+                    scores[g] = max(fields.get(g, 0), fields[c])
         rec = {"categories": cats, "scores": scores,
-               # 합치기 전 칸별 점수. 이 열이 생기기 전 실행이면 None 이고,
-               # 3) 은 score_reason 의 "Unpaved road=N:" 로 되살린다.
-               "fields": (_parse_eq(r.get("field_scores"))
-                          if "field_scores" in df.columns else None),
+               "fields": fields,
                "score_reason": (r.get("score_reason")
                                 if isinstance(r.get("score_reason"), str) else "")}
         # --weather 를 끈 실행에는 이 칸이 아예 없거나 빈 값이다.

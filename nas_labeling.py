@@ -1,0 +1,890 @@
+#!/usr/bin/env python3
+"""NAS 원본 클립 라벨링 - gui_server.py 의 [NAS 라벨링] 탭 백엔드.
+
+NAS 데이터셋의 클립을 하나씩 보며 사람이 직접 라벨을 매기는 기능이다.
+여러 라벨러가 동시에 쓰므로 계정(로그인), 작업 중 표시, 수정 충돌 검사,
+수정 이력을 같이 둔다. gui_server 와 같은 이유로 표준 라이브러리만 쓴다.
+
+저장 구조 (nas_labels/):
+  users.json                  계정. 비밀번호는 PBKDF2 해시만 둔다. git 제외.
+  sessions.json               로그인 세션. 토큰의 sha256 만 둔다. git 제외.
+  <dataset_id>/history.jsonl  모든 생성/수정/삭제 기록 - 정본(append-only)
+  <dataset_id>/labels.json    현재 라벨. test_label_333_diff3.json 과 같은
+                              양식이라 evaluate_labels.py 에 그대로 넣을 수 있다.
+
+정본이 history.jsonl 인 이유:
+  "누가 언제 어떻게 고쳤나"는 이력에만 있고, 라벨 파일과 이력을 따로 쓰면
+  둘 사이에서 프로세스가 죽었을 때 서로 어긋난다. 이력을 먼저 쓰고(fsync)
+  라벨 파일은 이력을 다시 읽어 만든 결과물로 둔다. 서버를 띄울 때 이력으로
+  라벨을 재구성해서 labels.json 과 다르면 labels.json 을 백업한 뒤 고쳐 쓴다
+  (손으로 labels.json 을 고쳐도 반영되지 않는다 - 고칠 것은 GUI 로 고친다).
+
+계정 관리(CLI, 첫 관리자 계정은 이걸로 만든다):
+  python3 nas_labeling.py useradd <id> [--name 표시이름] [--admin]
+  python3 nas_labeling.py passwd <id>
+  python3 nas_labeling.py userdel <id>
+  python3 nas_labeling.py users
+기존 라벨 파일 가져오기(가져온 사람/시각이 이력에 남는다):
+  python3 nas_labeling.py import <dataset_id> <label.json> --user <id>
+"""
+from __future__ import annotations
+
+import argparse
+import getpass
+import hashlib
+import hmac
+import http.cookies
+import json
+import os
+import re
+import secrets
+import shutil
+import sys
+import threading
+import time
+from datetime import datetime
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+DATASETS_JSON = ROOT / "nas_datasets.json"
+# 저장 위치. 테스트 때는 환경변수로 다른 곳을 가리켜 실제 라벨을 건드리지 않는다.
+STORE = Path(os.environ.get("NAS_LABEL_STORE") or ROOT / "nas_labels")
+
+COOKIE = "nl_session"
+SESSION_DAYS = 14
+PBKDF2_ITER = 200_000
+USER_RE = re.compile(r"^[A-Za-z0-9_.-]{2,32}$")
+
+# "작업 중" 표시 유지 시간. 브라우저가 30초마다 갱신하므로 창을 닫거나
+# 네트워크가 끊기면 이 시간 뒤에 저절로 풀린다.
+CLAIM_TTL = 90
+
+WEATHER_AXES = ("illumination", "precipitation", "road_surface",
+                "atmospheric_obscurants")
+RSF = ("rain", "snow", "fog")
+NOTE_MAX = 4000
+
+
+def now_iso() -> str:
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def _chunk_no(path) -> int:
+    m = re.search(r"chunk_(\d+)", Path(path).name)
+    return int(m.group(1)) if m else -1
+
+
+def _atomic_write(path: Path, text: str):
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
+
+
+class Conflict(Exception):
+    """다른 사람이 먼저 고쳐서 기준 rev 가 맞지 않는다."""
+
+    def __init__(self, info: dict):
+        super().__init__("conflict")
+        self.info = info
+
+
+class AuthError(Exception):
+    pass
+
+
+# ---------------------------------------------------------------------------
+# 계정 / 세션
+# ---------------------------------------------------------------------------
+class Auth:
+    """계정은 파일에서 매번 읽는다 - CLI 로 추가/삭제한 것이 재시작 없이 반영된다."""
+
+    def __init__(self, store: Path):
+        self.users_path = store / "users.json"
+        self.sessions_path = store / "sessions.json"
+        self.lock = threading.Lock()
+        store.mkdir(parents=True, exist_ok=True)
+
+    # --- 계정 ---
+    def users(self) -> dict:
+        try:
+            return json.loads(self.users_path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return {}
+
+    def _save_users(self, users: dict):
+        _atomic_write(self.users_path, json.dumps(users, ensure_ascii=False, indent=2))
+        os.chmod(self.users_path, 0o600)
+
+    @staticmethod
+    def _hash(pw: str, salt: bytes) -> str:
+        return hashlib.pbkdf2_hmac("sha256", pw.encode("utf-8"), salt,
+                                   PBKDF2_ITER).hex()
+
+    def set_user(self, uid: str, pw: str, name: str | None = None,
+                 admin: bool | None = None, create: bool = False):
+        if not USER_RE.match(uid or ""):
+            raise ValueError("아이디는 영문/숫자/_.- 2~32자입니다")
+        if len(pw or "") < 4:
+            raise ValueError("비밀번호는 4자 이상이어야 합니다")
+        with self.lock:
+            users = self.users()
+            if create and uid in users:
+                raise ValueError(f"이미 있는 아이디: {uid}")
+            if not create and uid not in users:
+                raise ValueError(f"없는 아이디: {uid}")
+            u = users.get(uid, {"created": now_iso()})
+            salt = secrets.token_bytes(16)
+            u.update(salt=salt.hex(), iter=PBKDF2_ITER, hash=self._hash(pw, salt))
+            if name is not None:
+                u["name"] = name
+            u.setdefault("name", uid)
+            if admin is not None:
+                u["admin"] = bool(admin)
+            u.setdefault("admin", False)
+            users[uid] = u
+            self._save_users(users)
+
+    def del_user(self, uid: str):
+        with self.lock:
+            users = self.users()
+            if uid not in users:
+                raise ValueError(f"없는 아이디: {uid}")
+            del users[uid]
+            self._save_users(users)
+
+    def check(self, uid: str, pw: str) -> bool:
+        u = self.users().get(uid)
+        if not u:
+            # 없는 아이디도 같은 시간이 걸리게 - 응답 시간으로 아이디 유무를 못 알게.
+            self._hash(pw or "", b"x" * 16)
+            return False
+        got = hashlib.pbkdf2_hmac("sha256", (pw or "").encode("utf-8"),
+                                  bytes.fromhex(u["salt"]), u.get("iter", PBKDF2_ITER)).hex()
+        return hmac.compare_digest(got, u["hash"])
+
+    @staticmethod
+    def public(uid: str, u: dict) -> dict:
+        return {"user": uid, "name": u.get("name", uid), "admin": bool(u.get("admin"))}
+
+    # --- 세션 ---
+    def _sessions(self) -> dict:
+        try:
+            return json.loads(self.sessions_path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {}
+
+    def _save_sessions(self, s: dict):
+        now = time.time()
+        s = {k: v for k, v in s.items() if v.get("exp", 0) > now}
+        _atomic_write(self.sessions_path, json.dumps(s))
+        os.chmod(self.sessions_path, 0o600)
+
+    @staticmethod
+    def _tk(token: str) -> str:
+        return hashlib.sha256(token.encode()).hexdigest()
+
+    def login(self, uid: str, pw: str) -> str | None:
+        if not self.check(uid, pw):
+            time.sleep(0.5)          # 비밀번호 대입을 느리게
+            return None
+        token = secrets.token_urlsafe(32)
+        with self.lock:
+            s = self._sessions()
+            s[self._tk(token)] = {"user": uid, "created": now_iso(),
+                                  "exp": time.time() + SESSION_DAYS * 86400}
+            self._save_sessions(s)
+        return token
+
+    def logout(self, token: str):
+        with self.lock:
+            s = self._sessions()
+            if s.pop(self._tk(token), None) is not None:
+                self._save_sessions(s)
+
+    def user_for(self, token: str | None) -> dict | None:
+        if not token:
+            return None
+        sess = self._sessions().get(self._tk(token))
+        if not sess or sess.get("exp", 0) < time.time():
+            return None
+        u = self.users().get(sess["user"])
+        return self.public(sess["user"], u) if u else None   # 삭제된 계정은 무효
+
+
+# ---------------------------------------------------------------------------
+# 라벨 양식
+# ---------------------------------------------------------------------------
+class Schema:
+    """test_label_333_diff3.json 의 클립 한 건 양식.
+
+    {"categories": {이름: 1~4}, "<묶음>": 0~4 ..., "rain_snow_fog": [...],
+     "weather": {4축: 0~4}, "note": str}
+    묶음 점수는 보통 그 묶음 카테고리 점수의 최댓값이지만 기존 라벨에도
+    다르게 매긴 건이 있어(333건 중 15건) 강제하지 않는다 - 화면이 최댓값을
+    채워 주고, 사람이 바꿀 수 있다.
+    """
+
+    def __init__(self, taxonomy_path: Path):
+        scene = json.loads(taxonomy_path.read_text(encoding="utf-8"))
+        self.file = taxonomy_path.name
+        self.groups: dict[str, list[str]] = {}
+        for scen in scene.get("special", {}).get("scenarios", []):
+            self.groups[scen["name"]] = [c["name"] for c in scen.get("categories", [])]
+        self.cat_group = {c: g for g, cs in self.groups.items() for c in cs}
+
+    def normalize(self, raw: dict, prev: dict | None) -> dict:
+        if not isinstance(raw, dict):
+            raise ValueError("라벨 형식이 아닙니다")
+
+        def iv(v, lo, hi, what):
+            try:
+                x = int(v)
+            except (TypeError, ValueError):
+                raise ValueError(f"{what}: 정수가 아닙니다 ({v!r})")
+            if x != v and not (isinstance(v, str) and v.strip() == str(x)):
+                raise ValueError(f"{what}: 정수가 아닙니다 ({v!r})")
+            if not lo <= x <= hi:
+                raise ValueError(f"{what}: {lo}~{hi} 범위 밖 ({x})")
+            return x
+
+        cr = raw.get("categories") or {}
+        if not isinstance(cr, dict):
+            raise ValueError("categories 는 {이름: 점수} 여야 합니다")
+        # 분류 체계에서 빠진 옛 카테고리는 원래 붙어 있던 클립에서만 유지를 허용한다.
+        known = set(self.cat_group) | set((prev or {}).get("categories", {}))
+        bad = [k for k in cr if k not in known]
+        if bad:
+            raise ValueError("알 수 없는 카테고리: " + ", ".join(bad))
+        order = [c for cs in self.groups.values() for c in cs]
+        order += [c for c in cr if c not in order]
+        cats = {c: iv(cr[c], 1, 4, f"categories.{c}") for c in order if c in cr}
+
+        out = {"categories": cats}
+        for g in self.groups:
+            out[g] = iv(raw.get(g, 0), 0, 4, g)
+
+        rsf = raw.get("rain_snow_fog") or []
+        if not isinstance(rsf, list) or any(x not in RSF for x in rsf):
+            raise ValueError("rain_snow_fog 는 rain/snow/fog 중에서 고릅니다")
+        out["rain_snow_fog"] = [x for x in RSF if x in rsf]
+
+        w = raw.get("weather") or {}
+        if not isinstance(w, dict):
+            raise ValueError("weather 형식이 아닙니다")
+        out["weather"] = {k: iv(w.get(k, 0), 0, 4, f"weather.{k}") for k in WEATHER_AXES}
+
+        note = raw.get("note") or ""
+        if not isinstance(note, str):
+            raise ValueError("note 는 문자열입니다")
+        if len(note) > NOTE_MAX:
+            raise ValueError(f"note 가 너무 깁니다({len(note)}자, 최대 {NOTE_MAX})")
+        # 공백도 손대지 않는다 - 가져온 라벨이 원본과 한 글자라도 달라지면 안 된다.
+        out["note"] = note
+        return out
+
+    @staticmethod
+    def flat(lab: dict | None) -> dict:
+        """비교용 평탄화. 없는 카테고리는 키가 없다(= 해제)."""
+        if not lab:
+            return {}
+        f = {}
+        for k, v in lab.items():
+            if k == "categories":
+                f.update({f"categories.{c}": s for c, s in v.items()})
+            elif k == "weather":
+                f.update({f"weather.{a}": s for a, s in v.items()})
+            elif k == "rain_snow_fog":
+                f[k] = ", ".join(v)
+            else:
+                f[k] = v
+        return f
+
+    @classmethod
+    def diff(cls, before: dict | None, after: dict | None) -> list[dict]:
+        a, b = cls.flat(before), cls.flat(after)
+        keys = list(a) + [k for k in b if k not in a]
+        return [{"field": k, "from": a.get(k), "to": b.get(k)}
+                for k in keys if a.get(k) != b.get(k)]
+
+
+# ---------------------------------------------------------------------------
+# 데이터셋 하나 = 클립 목록 + 라벨 저장소
+# ---------------------------------------------------------------------------
+class Dataset:
+    def __init__(self, cfg: dict, mounts: dict, schema: Schema, store: Path,
+                 shared_sources=()):
+        self.id = cfg["id"]
+        if not re.match(r"^[A-Za-z0-9_.-]+$", self.id):
+            raise ValueError(f"데이터셋 id 에 쓸 수 없는 문자: {self.id}")
+        self.name = cfg.get("name", self.id)
+        self.nas_path = cfg["nas_path"]
+        self.view = cfg.get("view", "camera_front_wide_120fov")
+        self.local = self._resolve(self.nas_path, mounts)
+        self.camera_dir = self.local / "camera"
+        self.schema = schema
+        self.dir = store / self.id
+        self.dir.mkdir(parents=True, exist_ok=True)
+        self.hist_path = self.dir / "history.jsonl"
+        self.labels_path = self.dir / "labels.json"
+
+        self.lock = threading.RLock()
+        self.labels: dict[str, dict] = {}
+        self.audit: dict[str, dict] = {}
+        self.hist: dict[str, list] = {}
+        self.events: list[tuple[int, str]] = []    # (seq, uuid) - 폴링용
+        self.seq = 0
+        self.claims: dict[str, dict] = {}
+
+        # 클립 목록(인덱스)은 NAS 를 훑어야 해서 느릴 수 있다 - 백그라운드로 만든다.
+        self._shared = [s for s in shared_sources if s is not None]
+        self.source = None
+        self.order: list[str] | None = None
+        self.chunk: dict[str, int] = {}
+        self.pos: dict[str, int] = {}
+        self.index_state = "idle"          # idle | building | ready | error
+        self.index_error = ""
+        self._index_lock = threading.Lock()
+        self._load_history()
+
+    @staticmethod
+    def _resolve(nas_path: str, mounts: dict) -> Path:
+        p = Path(nas_path)
+        if p.exists():
+            return p
+        for pre in sorted(mounts, key=len, reverse=True):
+            if nas_path == pre or nas_path.startswith(pre.rstrip("/") + "/"):
+                return Path(mounts[pre] + nas_path[len(pre.rstrip("/")):])
+        return p
+
+    # --- 클립 목록 ---
+    def start_index(self):
+        with self._index_lock:
+            if self.index_state in ("building", "ready"):
+                return
+            self.index_state = "building"
+        threading.Thread(target=self._build_index, daemon=True,
+                         name=f"nl-index-{self.id}").start()
+
+    def _build_index(self):
+        try:
+            if not self.camera_dir.is_dir():
+                raise FileNotFoundError(
+                    f"{self.camera_dir} 가 없습니다 (NAS 마운트 확인: {self.nas_path})")
+            from clip_source import ZipSource, LocalSource
+            src = None
+            for s in self._shared:
+                if Path(getattr(s, "camera_dir", "")).resolve() == self.camera_dir.resolve():
+                    src = s
+            if src is None:
+                src = ZipSource(self.camera_dir)
+            if isinstance(src, LocalSource):
+                uu = src.uuids(self.view)
+                chunk = {u: -1 for u in uu}
+            else:
+                pre = self.view + "/"
+                chunk = {k[len(pre):]: _chunk_no(v[0])
+                         for k, v in src.index.items() if k.startswith(pre)}
+            order = sorted(chunk, key=lambda u: (chunk[u], u))
+            with self.lock:
+                self.source, self.chunk, self.order = src, chunk, order
+                self.pos = {u: i for i, u in enumerate(order)}
+                self.index_state = "ready"
+            print(f"[nas_label] {self.id}: 클립 {len(order):,}개", flush=True)
+        except Exception as e:                       # noqa: BLE001
+            self.index_state, self.index_error = "error", f"{type(e).__name__}: {e}"
+            print(f"[nas_label] {self.id}: 인덱스 실패 - {self.index_error}", flush=True)
+
+    def require_index(self):
+        if self.index_state != "ready":
+            self.start_index()
+            raise RuntimeError(
+                "클립 목록 준비 중입니다" if self.index_state == "building"
+                else f"클립 목록을 만들지 못했습니다: {self.index_error}")
+
+    # --- 이력 ---
+    def _apply(self, ev: dict):
+        u = ev["uuid"]
+        a = self.audit.setdefault(u, {"rev": 0, "users": []})
+        a["rev"] = ev["rev"]
+        if ev["action"] == "delete":
+            self.labels.pop(u, None)
+        else:
+            self.labels[u] = ev["after"]
+            if "created_at" not in a or a.get("deleted"):
+                a["created_by"], a["created_at"] = ev["user"], ev["ts"]
+        a["deleted"] = ev["action"] == "delete"
+        a["updated_by"], a["updated_at"] = ev["user"], ev["ts"]
+        if ev["user"] not in a["users"]:
+            a["users"].append(ev["user"])
+        self.hist.setdefault(u, []).append(ev)
+        self.seq = ev["seq"]
+        self.events.append((ev["seq"], u))
+
+    def _hist_stamp(self):
+        try:
+            st = self.hist_path.stat()
+            return (st.st_size, st.st_mtime_ns)
+        except FileNotFoundError:
+            return (0, 0)
+
+    def _sync(self):
+        """다른 프로세스(import CLI 등)가 이력에 쓴 것을 따라잡는다.
+
+        메모리 상태로 seq/rev 를 매기므로, 파일이 바뀐 줄 모르고 쓰면 번호가
+        겹친다. 쓰기 직전과 폴링 때 크기/mtime 을 보고 바뀌었으면 다시 읽는다.
+        """
+        if self._hist_stamp() == self._stamp:
+            return
+        self.labels, self.audit, self.hist, self.events, self.seq = {}, {}, {}, [], 0
+        self._load_history()
+
+    def _load_history(self):
+        if self.hist_path.exists():
+            with open(self.hist_path, encoding="utf-8") as f:
+                for n, line in enumerate(f, 1):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        self._apply(json.loads(line))
+                    except (json.JSONDecodeError, KeyError) as e:
+                        # 마지막 줄이 쓰다 끊긴 경우 - 그 건은 저장되지 않은 것으로 본다.
+                        print(f"[nas_label] {self.hist_path}:{n} 읽기 실패({e}) - 건너뜀",
+                              flush=True)
+        want = self._labels_doc()
+        try:
+            have = json.loads(self.labels_path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError):
+            have = None
+        if have is None or have.get("clips") != want["clips"]:
+            if have is not None:
+                bak = self.labels_path.with_name(
+                    f"labels.json.mismatch-{datetime.now():%Y%m%d_%H%M%S}")
+                shutil.copy2(self.labels_path, bak)
+                print(f"[nas_label] {self.labels_path} 가 이력과 달라 다시 씁니다 "
+                      f"(기존 파일: {bak.name})", flush=True)
+            self._write_labels()
+        self._stamp = self._hist_stamp()
+
+    def _labels_doc(self) -> dict:
+        who = sorted({a["updated_by"] for u, a in self.audit.items() if u in self.labels})
+        last = max((a["updated_at"] for a in self.audit.values()), default="")
+        return {"_meta": {"labeled_by": ", ".join(who), "date": last[:10],
+                          "source_run": "", "guide": "",
+                          "dataset": self.nas_path, "view": self.view,
+                          "taxonomy": self.schema.file,
+                          "generated_from": "history.jsonl (nas_labeling.py)"},
+                "clips": self.labels}
+
+    def _write_labels(self):
+        _atomic_write(self.labels_path,
+                      json.dumps(self._labels_doc(), ensure_ascii=False, indent=2))
+
+    def _record(self, uuid: str, user: str, action: str, before, after,
+                ts: str | None = None, extra: dict | None = None) -> dict:
+        ev = {"seq": self.seq + 1, "ts": ts or now_iso(), "user": user,
+              "uuid": uuid, "action": action,
+              "rev": self.audit.get(uuid, {}).get("rev", 0) + 1,
+              "before": before, "after": after,
+              "changes": Schema.diff(before, after)}
+        if extra:
+            ev.update(extra)
+        line = json.dumps(ev, ensure_ascii=False) + "\n"
+        with open(self.hist_path, "a", encoding="utf-8") as f:
+            f.write(line)
+            f.flush()
+            os.fsync(f.fileno())
+        self._apply(ev)
+        self._stamp = self._hist_stamp()
+        return ev
+
+    # --- 작업 중 표시 ---
+    def active_claims(self) -> dict[str, str]:
+        now = time.time()
+        with self.lock:
+            for u in [u for u, c in self.claims.items() if c["until"] < now]:
+                del self.claims[u]
+            return {u: c["user"] for u, c in self.claims.items()}
+
+    def claim(self, uuid: str, user: str):
+        with self.lock:
+            # 한 사람은 한 번에 한 클립만 잡는다 - 다른 클립으로 넘어가면 앞 것은 푼다.
+            for u in [u for u, c in self.claims.items() if c["user"] == user and u != uuid]:
+                del self.claims[u]
+            self.claims[uuid] = {"user": user, "until": time.time() + CLAIM_TTL}
+
+    def release(self, uuid: str, user: str):
+        with self.lock:
+            if self.claims.get(uuid, {}).get("user") == user:
+                del self.claims[uuid]
+
+    # --- 조회 ---
+    def row(self, u: str, claims: dict) -> dict:
+        lab = self.labels.get(u)
+        a = self.audit.get(u, {})
+        r = {"uuid": u, "chunk": self.chunk.get(u), "labeled": lab is not None,
+             "rev": a.get("rev", 0), "claimed_by": claims.get(u)}
+        if lab is not None:
+            r.update(created_by=a.get("created_by"), created_at=a.get("created_at"),
+                     updated_by=a.get("updated_by"), updated_at=a.get("updated_at"),
+                     users=a.get("users", []), categories=lab.get("categories", {}),
+                     groups={g: lab.get(g) for g in self.schema.groups})
+        return r
+
+    def counts(self, user: str, claims: dict) -> dict:
+        total = len(self.order or [])
+        labeled = sum(1 for u in self.labels if u in self.pos)
+        by = {}
+        for u in self.labels:
+            for x in self.audit[u].get("users", []):
+                by[x] = by.get(x, 0) + 1
+        return {"total": total, "labeled": labeled, "unlabeled": total - labeled,
+                "claimed": len(claims),
+                "mine": by.get(user, 0), "labelers": by}
+
+    def list(self, q: dict, user: str) -> dict:
+        self.require_index()
+        claims = self.active_claims()
+        status = q.get("status", "all")
+        needle = (q.get("q") or "").strip().lower()
+        labeler = q.get("labeler") or ""
+        sort = q.get("sort", "order")
+        with self.lock:
+            if status == "unlabeled":
+                cand = [u for u in self.order if u not in self.labels]
+            elif status == "claimed":
+                cand = [u for u in self.order if u in claims]
+            elif status in ("labeled", "mine"):
+                who = user if status == "mine" else labeler
+                cand = [u for u in self.order if u in self.labels
+                        and (not who or who in self.audit[u].get("users", []))]
+            else:
+                cand = self.order
+            if needle:
+                cand = [u for u in cand if needle in u]
+            if q.get("chunk", "") != "":
+                try:
+                    c = int(q["chunk"])
+                    cand = [u for u in cand if self.chunk.get(u) == c]
+                except ValueError:
+                    pass
+            if sort == "recent":
+                cand = sorted(cand, key=lambda u: self.audit.get(u, {}).get("updated_at", ""),
+                              reverse=True)
+            total = len(cand)
+            off = max(0, int(q.get("offset", 0) or 0))
+            lim = min(500, max(1, int(q.get("limit", 100) or 100)))
+            rows = [dict(self.row(u, claims), idx=self.pos[u]) for u in cand[off:off + lim]]
+            return {"total": total, "offset": off, "rows": rows, "seq": self.seq,
+                    "counts": self.counts(user, claims)}
+
+    def detail(self, uuid: str) -> dict:
+        self.require_index()
+        if uuid not in self.pos:
+            raise KeyError(uuid)
+        claims = self.active_claims()
+        with self.lock:
+            return {"row": self.row(uuid, claims), "label": self.labels.get(uuid),
+                    "idx": self.pos[uuid], "history": list(reversed(self.hist.get(uuid, [])))}
+
+    def next_clip(self, after: str | None, user: str, step: int = 1,
+                  only_unlabeled: bool = True) -> str | None:
+        """after 다음(이전)의 미라벨 클립. 남이 작업 중인 클립은 건너뛴다."""
+        self.require_index()
+        claims = self.active_claims()
+        n = len(self.order)
+        if not n:
+            return None
+        i = self.pos.get(after, -1 if step > 0 else 0)
+        for k in range(1, n + 1):
+            u = self.order[(i + step * k) % n]
+            if not only_unlabeled:
+                return u
+            if u in self.labels:
+                continue
+            if claims.get(u) not in (None, user):
+                continue
+            return u
+        return None
+
+    def poll(self, since: int, user: str) -> dict:
+        claims = self.active_claims()
+        with self.lock:
+            self._sync()
+            changed, seen = [], set()
+            for s, u in reversed(self.events):
+                if s <= since:
+                    break
+                if u not in seen:
+                    seen.add(u)
+                    changed.append(self.row(u, claims))
+            return {"seq": self.seq, "changed": changed, "claims": claims,
+                    "counts": self.counts(user, claims) if self.order is not None else None,
+                    "index_state": self.index_state}
+
+    # --- 쓰기 ---
+    def save(self, uuid: str, raw: dict, user: str, base_rev) -> dict:
+        self.require_index()
+        if uuid not in self.pos:
+            raise KeyError(uuid)
+        with self.lock:
+            self._sync()
+            prev = self.labels.get(uuid)
+            rev = self.audit.get(uuid, {}).get("rev", 0)
+            if base_rev is not None and int(base_rev) != rev:
+                a = self.audit.get(uuid, {})
+                raise Conflict({"rev": rev, "by": a.get("updated_by"),
+                                "at": a.get("updated_at")})
+            new = self.schema.normalize(raw, prev)
+            if prev is not None and not Schema.diff(prev, new):
+                return {"unchanged": True, "rev": rev, "label": prev}
+            ev = self._record(uuid, user, "create" if prev is None else "update", prev, new)
+            self._write_labels()
+            return {"saved": True, "rev": ev["rev"], "label": new, "event": ev}
+
+    def delete(self, uuid: str, user: str, base_rev) -> dict:
+        with self.lock:
+            self._sync()
+            prev = self.labels.get(uuid)
+            if prev is None:
+                raise KeyError(uuid)
+            rev = self.audit.get(uuid, {}).get("rev", 0)
+            if base_rev is not None and int(base_rev) != rev:
+                a = self.audit.get(uuid, {})
+                raise Conflict({"rev": rev, "by": a.get("updated_by"),
+                                "at": a.get("updated_at")})
+            ev = self._record(uuid, user, "delete", prev, None)
+            self._write_labels()
+            return {"deleted": True, "rev": ev["rev"]}
+
+    def info(self) -> dict:
+        return {"id": self.id, "name": self.name, "nas_path": self.nas_path,
+                "local_path": str(self.local), "view": self.view,
+                "labels_file": (str(self.labels_path.relative_to(ROOT))
+                                if self.labels_path.is_relative_to(ROOT)
+                                else str(self.labels_path)),
+                "index_state": self.index_state, "index_error": self.index_error,
+                "clips": len(self.order) if self.order is not None else None}
+
+
+# ---------------------------------------------------------------------------
+# 서비스 (gui_server 가 쓰는 입구)
+# ---------------------------------------------------------------------------
+def load_config() -> dict:
+    return json.loads(DATASETS_JSON.read_text(encoding="utf-8"))
+
+
+class LabelingService:
+    def __init__(self, shared_sources=(), store: Path = STORE, warm: bool = True):
+        cfg = load_config()
+        self.schema = Schema(ROOT / cfg.get("taxonomy", "scene_category_3.2.json"))
+        self.auth = Auth(store)
+        self.datasets: dict[str, Dataset] = {}
+        for d in cfg.get("datasets", []):
+            ds = Dataset(d, cfg.get("mounts", {}), self.schema, store, shared_sources)
+            self.datasets[ds.id] = ds
+            if warm:
+                ds.start_index()
+
+    def schema_info(self) -> dict:
+        import constrained_tier as CT
+        try:
+            from prompts import DIFFICULTY_SCALES
+        except ImportError:
+            DIFFICULTY_SCALES = {}
+        rub = {g: {"title": GR[0], "scale": GR[1]} for g, GR in CT.GROUP_RUBRICS.items()}
+        cat_rub = {c: {"group": v[0], "title": v[1], "scale": v[2]}
+                   for c, v in CT.CATEGORY_RUBRICS.items()}
+        return {"taxonomy": self.schema.file, "groups": self.schema.groups,
+                "group_rubrics": rub, "category_rubrics": cat_rub,
+                "weather_axes": list(WEATHER_AXES), "weather_scales": DIFFICULTY_SCALES,
+                "rain_snow_fog": list(RSF), "tiers": CT.TIER_LABELS}
+
+    # --- HTTP 입구. h 는 gui_server.Handler ---
+    @staticmethod
+    def _token(h) -> str | None:
+        c = http.cookies.SimpleCookie()
+        try:
+            c.load(h.headers.get("Cookie") or "")
+        except http.cookies.CookieError:
+            return None
+        m = c.get(COOKIE)
+        return m.value if m else None
+
+    def _ds(self, q) -> Dataset:
+        ds = self.datasets.get(q.get("ds") or "")
+        if ds is None:
+            raise KeyError("데이터셋 없음: " + str(q.get("ds")))
+        return ds
+
+    def handle(self, h, method: str, p: str, q: dict, b: dict):
+        ep = p[len("/api/nl/"):]
+        if ep == "login" and method == "POST":
+            token = self.auth.login((b.get("user") or "").strip(), b.get("password") or "")
+            if not token:
+                return h._err("아이디 또는 비밀번호가 맞지 않습니다", 401)
+            me = self.auth.user_for(token)
+            ck = (f"{COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict; "
+                  f"Max-Age={SESSION_DAYS * 86400}")
+            return h._json({"me": me}, headers={"Set-Cookie": ck})
+        token = self._token(h)
+        me = self.auth.user_for(token)
+        if ep == "me":
+            return h._json({"me": me})
+        if me is None:
+            return h._err("로그인이 필요합니다", 401)
+        if ep == "logout":
+            self.auth.logout(token)
+            return h._json({"ok": True}, headers={
+                "Set-Cookie": f"{COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"})
+        uid = me["user"]
+        try:
+            return self._route(h, method, ep, q, b, me, uid)
+        except Conflict as e:
+            return h._json({"error": "다른 사용자가 먼저 수정했습니다", "conflict": e.info}, 409)
+        except KeyError as e:
+            return h._err(f"찾을 수 없음: {e.args[0] if e.args else ''}", 404)
+        except RuntimeError as e:
+            return h._json({"error": str(e), "indexing": True}, 503)
+        except (ValueError, AuthError) as e:
+            return h._err(str(e), 400)
+
+    def _route(self, h, method, ep, q, b, me, uid):
+        if method == "GET":
+            if ep == "bootstrap":
+                return h._json({"me": me, "schema": self.schema_info(),
+                                "datasets": [d.info() for d in self.datasets.values()]})
+            if ep == "clips":
+                return h._json(self._ds(q).list(q, uid))
+            if ep == "clip":
+                return h._json(self._ds(q).detail(q.get("uuid", "")))
+            if ep == "next":
+                ds = self._ds(q)
+                u = ds.next_clip(q.get("after") or None, uid, -1 if q.get("dir") == "prev" else 1,
+                                 q.get("any") != "1")
+                return h._json({"uuid": u, "idx": ds.pos.get(u) if u else None})
+            if ep == "poll":
+                return h._json(self._ds(q).poll(int(q.get("since") or 0), uid))
+            if ep == "video":
+                ds = self._ds(q)
+                ds.require_index()
+                u = q.get("uuid", "")
+                if u not in ds.pos:
+                    return h._err("not found", 404)
+                src = ds.source
+                if not hasattr(src, "size_of"):          # 로컬 mp4
+                    return h._send_file(Path(src.open_video(ds.view, u)))
+                return h._stream(lambda: src.open_video(ds.view, u),
+                                 src.size_of(ds.view, u), "video/mp4", None)
+            if ep == "users" and me["admin"]:
+                return h._json({"users": [self.auth.public(k, v)
+                                          for k, v in sorted(self.auth.users().items())]})
+            return h._err("unknown endpoint: " + ep, 404)
+
+        if ep == "save":
+            ds = self._ds(b)
+            return h._json(ds.save(b.get("uuid", ""), b.get("label") or {}, uid, b.get("base_rev")))
+        if ep == "delete":
+            return h._json(self._ds(b).delete(b.get("uuid", ""), uid, b.get("base_rev")))
+        if ep == "claim":
+            ds = self._ds(b)
+            if b.get("release"):
+                ds.release(b.get("uuid", ""), uid)
+            else:
+                ds.claim(b.get("uuid", ""), uid)
+            return h._json({"claims": ds.active_claims()})
+        if ep == "passwd":
+            if not self.auth.check(uid, b.get("old") or ""):
+                return h._err("현재 비밀번호가 맞지 않습니다", 400)
+            self.auth.set_user(uid, b.get("new") or "")
+            return h._json({"ok": True})
+        if ep == "useradd":
+            if not me["admin"]:
+                return h._err("관리자만 할 수 있습니다", 403)
+            self.auth.set_user((b.get("user") or "").strip(), b.get("password") or "",
+                               name=(b.get("name") or "").strip() or None,
+                               admin=bool(b.get("admin")), create=not b.get("reset"))
+            return h._json({"ok": True})
+        return h._err("unknown endpoint: " + ep, 404)
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+def _ask_pw() -> str:
+    a = getpass.getpass("비밀번호: ")
+    if a != getpass.getpass("비밀번호 확인: "):
+        sys.exit("비밀번호가 서로 다릅니다")
+    return a
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    a = sub.add_parser("useradd")
+    a.add_argument("user")
+    a.add_argument("--name")
+    a.add_argument("--admin", action="store_true")
+    sub.add_parser("passwd").add_argument("user")
+    sub.add_parser("userdel").add_argument("user")
+    sub.add_parser("users")
+    i = sub.add_parser("import")
+    i.add_argument("dataset")
+    i.add_argument("file")
+    i.add_argument("--user", required=True, help="이력에 '가져온 사람'으로 남을 계정")
+    i.add_argument("--overwrite", action="store_true",
+                   help="이미 라벨된 클립도 덮어쓴다(기본은 건너뜀)")
+    args = ap.parse_args()
+
+    auth = Auth(STORE)
+    try:
+        if args.cmd == "useradd":
+            auth.set_user(args.user, _ask_pw(), name=args.name, admin=args.admin, create=True)
+            print(f"추가: {args.user}{' (관리자)' if args.admin else ''}")
+        elif args.cmd == "passwd":
+            auth.set_user(args.user, _ask_pw())
+            print(f"변경: {args.user}")
+        elif args.cmd == "userdel":
+            auth.del_user(args.user)
+            print(f"삭제: {args.user}")
+        elif args.cmd == "users":
+            for k, v in sorted(auth.users().items()):
+                print(f"{k:20s} {v.get('name', ''):16s} {'admin' if v.get('admin') else ''}")
+        elif args.cmd == "import":
+            if args.user not in auth.users():
+                sys.exit(f"없는 계정: {args.user}")
+            svc = LabelingService(warm=False)
+            ds = svc.datasets.get(args.dataset) or sys.exit(f"없는 데이터셋: {args.dataset}")
+            ds._build_index()
+            if ds.index_state != "ready":
+                sys.exit(ds.index_error)
+            data = json.loads(Path(args.file).read_text(encoding="utf-8"))
+            clips = data.get("clips", data)
+            n = skip = miss = 0
+            with ds.lock:
+                ds._sync()
+                for u, lab in clips.items():
+                    if u not in ds.pos:
+                        miss += 1
+                        continue
+                    prev = ds.labels.get(u)
+                    if prev is not None and not args.overwrite:
+                        skip += 1
+                        continue
+                    new = ds.schema.normalize(lab, lab)
+                    if prev is not None and not Schema.diff(prev, new):
+                        skip += 1
+                        continue
+                    ds._record(u, args.user, "create" if prev is None else "update",
+                               prev, new, extra={"import": Path(args.file).name})
+                    n += 1
+                ds._write_labels()
+            print(f"가져옴 {n}건, 건너뜀 {skip}건, 데이터셋에 없음 {miss}건 -> {ds.labels_path}")
+            print("떠 있는 GUI 서버는 다음 폴링(수 초) 때 이력을 다시 읽어 반영합니다.")
+    except ValueError as e:
+        sys.exit(str(e))
+
+
+if __name__ == "__main__":
+    main()
