@@ -293,7 +293,7 @@ def apply(run_dir: Path, min_score: int = 2):
     macro 0.731 -> 0.760. 점수 단계가 없던 실행은 점수가 없으므로 이 조건을
     보지 않는다.
     """
-    from constrained_tier import tier_score
+    from constrained_tier import CATEGORY_RUBRICS, tier_score
     cfg0 = load_run_config(run_dir)
     if skip_reason(cfg0):
         print(f"[recheck] 반영 안 함: {skip_reason(cfg0)}")
@@ -324,18 +324,25 @@ def apply(run_dir: Path, min_score: int = 2):
             continue
         cats = [c for c in (r.get("categories") or "").split("|") if c]
         scores = _parse_scores(r.get("group_scores", ""))
+        fields = _parse_scores(r.get("field_scores", ""))
         reasons = [r.get("score_reason") or ""]
         for a in hits:
             if a["category"] not in cats:
                 cats.append(a["category"])
             if with_scores:
                 scores[a["group"]] = max(scores.get(a["group"], 0), a["score"])
+                # 칸별 점수도 같이 올린다 - 따로 재는 카테고리는 제 칸, 나머지는
+                # 묶음 칸(build_question 이 같은 기준표로 점수를 물었다).
+                f = a["category"] if a["category"] in CATEGORY_RUBRICS else a["group"]
+                fields[f] = max(fields.get(f, 0), a["score"])
             reasons.append(f"recheck {a['category']}: {a['reason']}")
         r["categories"] = "|".join(cats)
         r["n_categories"] = str(len(cats))
         r["verdict"] = "Special"
         if with_scores:
             r["group_scores"] = "|".join(f"{k}={v}" for k, v in scores.items())
+            if "field_scores" in cols:
+                r["field_scores"] = "|".join(f"{k}={v}" for k, v in fields.items())
         r["score_reason"] = " | ".join(x for x in reasons if x)
         if with_scores:
             r["tier_score"] = str(tier_score(scores) if scores else "")

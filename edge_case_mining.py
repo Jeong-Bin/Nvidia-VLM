@@ -8,7 +8,7 @@ VLM 기반 반자동 edge-case (long-tail) mining - 클립 단위.
 추론 루프는 qwen_runner.run_clip_inference 에 있다.
 
 멀티라벨이므로 한 장면에 여러 카테고리가 동시에 붙을 수 있다
-(예: 공사장에서 수신호 -> Road Construction + Manual Traffic Control).
+(예: 공사 구간을 걷는 보행자 -> Road Construction + Pedestrian on Road).
 
 Usage (보통은 run_labeled_8b.sh / run_nas_nvidia_8b.sh 가 샤드를 나눠 부른다):
   python edge_case_mining.py --only-uuids uuids.txt --use-egomotion \
@@ -1025,7 +1025,7 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
     valid = {l["category"] for l in labels if not l["is_normal"]}
     out = {"verdict": "Normal", "categories": [], "parse_ok": False,
            "observation": "", "ego_behavior": "", "unusual_elements": "",
-           "group_scores": {}, "score_reason": "",
+           "group_scores": {}, "field_scores": {}, "score_reason": "",
            "tier_score": None, "time_spans": {}, "time_spans_raw": {},
            "time_seen": {}}
     # 날씨 축은 --weather 를 껐으면 모델이 내지 않는다. 그래도 키는
@@ -1098,6 +1098,10 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
         n = _coerce_tier(obj.get(k))
         if n is not None:
             out["group_scores"][g] = max(n, out["group_scores"].get(g, n))
+            # 합치기 전 칸별 값. 묶음 점수만 남기면 Driving environment 가
+            # 3 일 때 그게 다른 카테고리의 3 인지 Unpaved road 의 3 인지
+            # 채점에서 가를 수 없다(evaluate_labels 3) 의 Others/Unpaved road).
+            out["field_scores"][name] = n
         why = _flatten_field(obj.get(f"{k}_reason", ""))
         if why:
             head = name if name == g or n is None else f"{name}={n}"

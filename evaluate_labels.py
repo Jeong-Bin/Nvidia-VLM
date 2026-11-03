@@ -43,7 +43,8 @@ from pathlib import Path
 import pandas as pd
 
 from config import SCENE_JSON as CONFIG_SCENE_JSON, LABELS_JSON
-from constrained_tier import TIER_VALUES, GROUP_RUBRICS, group_values, group_key
+from constrained_tier import (TIER_VALUES, GROUP_RUBRICS, CATEGORY_RUBRICS,
+                              group_values, group_key)
 from prompts import DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX
 
 # 난이도 축의 눈금. 등급(TIER_VALUES)과 따로 두는 이유는 두 척도가 서로
@@ -64,7 +65,7 @@ def load_labels(path: Path):
 
     scores 는 묶음 점수 {묶음 이름: 0~4} - 라벨 최상위의 "Dynamic object",
     "Driving environment" 키(constrained_tier.GROUP_RUBRICS)에서 읽는다.
-    키가 없거나 null/-1 이면 아직 안 매긴 것이라 빠진다. 0~4 밖의 정수는
+    키가 없거나 null/-1 이면 아직 안 매긴 것이라 빠진다. 기준표 눈금(group_values) 밖의 정수는
     mismatches["out_of_range"] 에 모아 돌려주고 채점에서 뺀다.
 
     날씨는 없어도 건너뛰지 않는다 - 예전 라벨 파일에는 weather 키가
@@ -94,6 +95,12 @@ def load_labels(path: Path):
         rec = {
             "categories": set(raw),
             "scores": scores,
+            # 카테고리별 점수 {이름: 0~4}. 3) 에서 Driving environment 를
+            # Others / Unpaved road 로 나눌 때 쓴다. 옛 리스트 형식이면 None.
+            "cat_scores": ({c: n for c, n in ((c, _int_or_none(x))
+                                              for c, x in raw.items())
+                            if n is not None}
+                           if isinstance(raw, dict) else None),
             "note": v.get("note", ""),
         }
         # 날씨 점수는 {"weather": {...}} 한 곳에서만 읽는다. 옛 라벨의
@@ -203,21 +210,86 @@ def load_results(run_dir: Path):
     for _, r in df.iterrows():
         cats = r.get("categories")
         cats = set(str(cats).split("|")) if isinstance(cats, str) and cats.strip() else set()
-        raw = r.get("group_scores")
-        scores = {}
-        if isinstance(raw, str) and raw.strip():
-            for part in raw.split("|"):
-                if "=" not in part:
-                    continue
-                k, _, v = part.rpartition("=")
-                n = _int_or_none(v)
-                if k.strip() and n is not None:
-                    scores[k.strip()] = n
-        rec = {"categories": cats, "scores": scores}
+        scores = _parse_eq(r.get("group_scores"))
+        rec = {"categories": cats, "scores": scores,
+               # 합치기 전 칸별 점수. 이 열이 생기기 전 실행이면 None 이고,
+               # 3) 은 score_reason 의 "Unpaved road=N:" 로 되살린다.
+               "fields": (_parse_eq(r.get("field_scores"))
+                          if "field_scores" in df.columns else None),
+               "score_reason": (r.get("score_reason")
+                                if isinstance(r.get("score_reason"), str) else "")}
         # --weather 를 끈 실행에는 이 칸이 아예 없거나 빈 값이다.
         for key, _name in DIFFICULTY_AXES:
             rec[key] = _int_or_none(r.get(key))
         out[str(r["uuid"])] = rec
+    return out
+
+
+def split_scores(g, own, rec, scenario_of, dropped=False, gt=False):
+    """묶음 g 의 점수를 Others 와 따로 재는 카테고리(own)별로 나눈다.
+
+    반환 {"Others": n, <own 이름>: n} - 나눌 수 없는 칸은 None(채점 제외).
+    묶음 점수(All)는 Others 와 own 칸의 최댓값이다.
+
+    GT: 카테고리별 점수에서 바로 - Others 는 own 이 아닌 g 카테고리 점수의
+    최댓값, own 칸은 그 카테고리 점수(없으면 0). Unknown 은 drop_unknown 이
+    이미 categories 에서 지웠으므로 여기에도 들어오지 않는다.
+
+    예측: CSV 의 field_scores(합치기 전 칸별 점수)에서. 그 열이 없던 실행은
+    score_reason 의 "Unpaved road=N:" 로 own 칸을 되살리고, Others 는 묶음
+    점수 M 이 own 칸보다 클 때만 M 으로 확정한다. own 칸이 M 과 같으면
+    Others 는 M 이하 어느 값인지 알 수 없어 None 이다. recheck 가 g 카테고리를
+    더한 클립도 그 점수가 어느 칸 것인지 남지 않아 None 이다.
+    dropped: 이 클립에서 g 의 Unknown 을 지웠으면 True - 그 뒤 own 이 아닌
+    g 카테고리가 하나도 안 남으면 Others 를 0 으로 둔다(GT 와 같은 기준).
+    """
+    import re
+    if g not in rec["scores"]:
+        return None
+    m = rec["scores"][g]
+    rest = [c for c in rec["categories"]
+            if scenario_of.get(c) == g and c not in own]
+    if gt:
+        cs = rec.get("cat_scores")
+        if cs is None:
+            return None
+        out = {"Others": max((cs.get(c, 0) for c in rest), default=0)}
+        out.update({c: cs.get(c, 0) if c in rec["categories"] else 0
+                    for c in own})
+        return out
+    if m == 0:
+        return {"Others": 0, **{c: 0 for c in own}}
+    if rec.get("fields") is not None:
+        f = rec["fields"]
+        out = {"Others": f.get(g, 0), **{c: f.get(c, 0) for c in own}}
+    else:
+        why = rec.get("score_reason") or ""
+        rechecked = {x for x in re.findall(r"recheck (.+?): ", why)
+                     if scenario_of.get(x) == g}
+        if rechecked:
+            return {"Others": None, **{c: None for c in own}}
+        out = {}
+        for c in own:
+            hit = re.search(rf"(?:^| \| ){re.escape(c)}=(\d+):", why)
+            out[c] = int(hit.group(1)) if hit else 0
+        top = max(out.values(), default=0)
+        out["Others"] = m if top < m else None
+    if dropped and not rest:
+        out["Others"] = 0
+    return out
+
+
+def _parse_eq(raw) -> dict:
+    """"Dynamic object=2|Driving environment=0" -> {이름: 정수}. 빈 값이면 {}."""
+    out = {}
+    if isinstance(raw, str) and raw.strip():
+        for part in raw.split("|"):
+            if "=" not in part:
+                continue
+            k, _, v = part.rpartition("=")
+            n = _int_or_none(v)
+            if k.strip() and n is not None:
+                out[k.strip()] = n
     return out
 
 
@@ -245,7 +317,7 @@ def f1_set(truth: set, pred: set) -> float:
     return prf(tp, len(pred - truth), len(truth - pred))[2]
 
 
-def confusion(pairs, values=None, rows=None):
+def confusion(pairs, values=None, rows=None, within=False):
     """[(truth, pred), ...] -> 문자열 혼동행렬 (행 합계 total 포함).
 
     values 를 안 주면 TIER_VALUES 를 쓴다 - 등급 개수가 바뀌어도(1~3 -> 1~4)
@@ -262,6 +334,9 @@ def confusion(pairs, values=None, rows=None):
 
     rows 를 주면 행(정답)은 그 눈금만 그린다. 카테고리 점수는 정답이 1~4
     뿐인데 예측에는 0(못 찾음)이 있어, 열과 행의 폭이 다르다.
+
+    within=True 면 Acc 오른쪽에 "Acc ±1" 열을 더한다 - 그 행에서 예측이
+    정답과 1칸 이내인 비율. 위의 within +-1 한 줄을 정답 등급별로 나눈 것이다.
     """
     if values is None:
         values = TIER_VALUES
@@ -270,12 +345,18 @@ def confusion(pairs, values=None, rows=None):
     c = Counter(pairs)
     w = 9                                    # 열 너비
     head = "       " + "".join(f"{'pred'+str(v):>{w}}" for v in values)
-    lines = [head + f"{'total':>{w}}" + f"{'Acc':>{w}}"]
+    lines = [head + f"{'total':>{w}}" + f"{'Acc':>{w}}"
+             + (f"{'Acc ±1':>{w}}" if within else "")]
     for t in rows:
         row = "".join(f"{c.get((t, p), 0):>{w}}" for p in values)
         total = sum(c.get((t, p), 0) for p in values)
         acc = f"{c.get((t, t), 0) / total * 100:.1f}%" if total else "-"
-        lines.append(f"  true{t}{row}{total:>{w}}{acc:>{w}}")
+        line = f"  true{t}{row}{total:>{w}}{acc:>{w}}"
+        if within:
+            near = sum(c.get((t, p), 0) for p in values if abs(t - p) <= 1)
+            near = f"{near / total * 100:.1f}%" if total else "-"
+            line += f"{near:>{w}}"
+        lines.append(line)
     return "\n".join(lines)
 
 
@@ -284,7 +365,7 @@ def _mse(pairs) -> float:
     return (sum((a - b) ** 2 for a, b in pairs) / len(pairs)) if pairs else 0.0
 
 
-def tier_block(name, pairs, log, values=None, rows=None):
+def tier_block(name, pairs, log, values=None, rows=None, nonzero=False):
     """한 축(safety/rarity/난이도)의 MSE / 정확일치 / 혼동행렬 / 기준선.
 
     values 로 눈금을 넘기면 혼동행렬이 그 폭으로 그려진다. 안 주면 등급
@@ -294,6 +375,13 @@ def tier_block(name, pairs, log, values=None, rows=None):
     1칸 틀리는 것과 3칸 틀리는 것(예: 정답 0인데 3으로 예측)은 안전/희귀도
     판단에서 심각도가 다른데 MAE 는 그 차이를 선형으로만 반영한다(1 vs 3).
     MSE 는 제곱이라 그 차이를 더 크게 반영한다(1 vs 9).
+
+    nonzero=True 면 정답 0 인 행을 뺀 exact / +-1 도 낸다(3) 묶음 점수,
+    "(w/o 0)"). 묶음 점수는 정답 0(그 묶음 없음)이 대부분이라 전체 정확도가
+    0-0 에 끌려 올라간다. 예측 0 은 빼지 않는다 - "정답에 무언가 있는
+    클립에서 점수를 얼마나 맞혔나"를 재므로, 그런 클립을 0 으로 놓친 것도
+    그대로 센다(정답 1 에 예측 0 은 +-1 안이다). 혼동표에도 행별
+    "Acc ±1" 열을 더한다.
     """
     if not pairs:
         log("  (no comparable rows)")
@@ -314,10 +402,18 @@ def tier_block(name, pairs, log, values=None, rows=None):
     log(f"  n              : {n}")
     log(f"  MSE            : {mse:.3f}      baseline(always {mode}): {base_mse:.3f}"
         f"   {'BEATS' if mse < base_mse else 'DOES NOT BEAT'} baseline")
-    log(f"  exact match    : {exact:6.1%}    baseline: {base_exact:6.1%}")
-    log(f"  within +-1     : {sum(abs(t-p)<=1 for t,p in pairs)/n:6.1%}")
+    within = sum(abs(t - p) <= 1 for t, p in pairs) / n
+    ex_nz = wi_nz = ""
+    if nonzero:
+        nz = [(t, p) for t, p in pairs if t != 0]
+        ex_nz = (f", {sum(t == p for t, p in nz)/len(nz):.1%}(w/o 0)" if nz
+                 else ", -(w/o 0)")
+        wi_nz = (f", {sum(abs(t - p) <= 1 for t, p in nz)/len(nz):.1%}(w/o 0)"
+                 if nz else ", -(w/o 0)")
+    log(f"  exact match    : {exact:6.1%}{ex_nz}    baseline: {base_exact:6.1%}")
+    log(f"  within +-1     : {within:6.1%}{wi_nz}")
     log("")
-    log(confusion(pairs, values, rows))
+    log(confusion(pairs, values, rows, within=nonzero))
 
 
 def write_category_lists(run_dir, per_cat, log):
@@ -584,13 +680,13 @@ def main():
         log(f"[info] unknown : {', '.join(unknown)} 은 1)~3) 집계에서 뺌 - "
             f"GT {n_gt}건, 예측 {n_pr}건(그 결과 Normal 이 된 예측 클립 "
             f"{n_pr_normal}개)")
-    # 0~4 밖의 묶음 점수 경고는 이 실행이 다룬 상위 카테고리 것만 낸다 -
+    # 눈금 밖의 묶음 점수 경고는 이 실행이 다룬 상위 카테고리 것만 낸다 -
     # Dynamic object 만 돌린 실행에서 아직 안 매긴 Driving environment 라벨
     # 경고가 수백 줄 나오면 정작 봐야 할 경고가 묻힌다.
     hits = [h for h in mismatches["out_of_range"]
             if group == "all" or group_key(h[1]) == group]
     if hits:
-        log(f"[warn] 라벨 {len(hits)}건: 묶음 점수가 0~4 밖이라 채점에서 뺌 - "
+        log(f"[warn] 라벨 {len(hits)}건: 묶음 점수가 기준표 눈금 밖이라 채점에서 뺌 - "
             + ", ".join(f"{u[:8]}:{g}={n}" for u, g, n in hits[:10])
             + (" ..." if len(hits) > 10 else ""))
     taxonomy = set()
@@ -717,20 +813,35 @@ def main():
         log(f"  macro F1  : {sum(r[4] for r in scored)/len(scored):.3f}"
             f"   (over {len(scored)} categories with >={args.min_support} labels)")
     log("")
-    log(f"  {'category':<32}{'n':>4}{'P':>8}{'R':>8}{'F1':>8}"
+    # 묶음 열: 묶음 이름의 머리글자(Dynamic object -> DO). 묶음은 scene 의
+    # 순서대로(DO 먼저, DE 다음), 묶음 안에서는 GT 건수가 많은 순.
+    # scene 에 없는 이름은 "-" 로 맨 뒤에 둔다.
+    order = list(dict.fromkeys(scenario_of.values()))
+
+    def grp(c):
+        g = scenario_of.get(c)
+        return ("".join(w[0].upper() for w in g.split()) if g else "-",
+                order.index(g) if g in order else len(order))
+
+    w = max([32] + [len(c) + 1 for c in names] + [len(c) + 1 for c in unknown])
+    log(f"  {'group':<7}{'category':<{w}}{'n':>4}{'P':>8}{'R':>8}{'F1':>8}"
         f"{'TP':>5}{'FP':>5}{'FN':>5}")
-    log("  " + "-" * 66)
-    for c, t, p, r, f, ctp, cfp, cfn in sorted(rows, key=lambda x: -x[1]):
-        log(f" {c:<32}{t:>4}{p:>8.2f}{r:>8.2f}{f:>8.2f}"
-            f"{ctp:>5}{cfp:>5}{cfn:>5}")
+    log("  " + "-" * (w + 45))
     # Unknown 은 집계에서 뺐으니 n(GT 건수)만 싣는다. 몇 번 예측했는지는
     # 옆에 따로 적는다 - GT 가 0 이면 n 만으로는 모델이 이 칸을 얼마나
     # 쓰는지 알 수 없다. 목록 파일(categories/)은 지우기 전 기준으로 쓴다.
+    # 표에서는 제 묶음의 맨 끝에 둔다.
     cset = set(common)
+    lines = [(grp(c)[1], 0, -t, f"  {grp(c)[0]:<7}{c:<{w}}{t:>4}{p:>8.2f}{r:>8.2f}"
+              f"{f:>8.2f}{ctp:>5}{cfp:>5}{cfn:>5}")
+             for c, t, p, r, f, ctp, cfp, cfn in rows]
     for c, v in unknown.items():
         g, pr = v["gt"] & cset, v["pred"] & cset
-        log(f" {c:<32}{len(g):>4}   (집계 제외 - 예측 {len(pr)}건)")
+        lines.append((grp(c)[1], 1, 0, f"  {grp(c)[0]:<7}{c:<{w}}{len(g):>4}"
+                      f"   (집계 제외 - 예측 {len(pr)}건)"))
         per_cat[c] = {"TP": g & pr, "FP": pr - g, "FN": g - pr}
+    for *_k, ln in sorted(lines, key=lambda x: x[:3]):
+        log(ln)
     write_category_lists(run_dir, per_cat, log)
 
     # ---------------- 3) GROUP SCORES ----------------
@@ -767,29 +878,70 @@ def main():
 
         all_pairs = []
         rows = []
+        n_groups = 0
         for g in groups:
             pairs = [(labels[u]["scores"][g], results[u]["scores"][g])
                      for u in common
                      if g in labels[u]["scores"] and g in results[u]["scores"]]
             if not pairs:
                 continue
+            n_groups += 1
+            # 묶음 점수는 Dynamic object 와 같이 클립당 한 쌍이다: GT 의
+            # "Driving environment" 값 vs CSV group_scores 의 같은 이름 값.
             all_pairs += pairs
+            own = [c for c, (cg, _t, _r) in CATEGORY_RUBRICS.items() if cg == g]
+            name = f"{g} (All)" if own else g
             log("")
-            log(f" {g}")
-            tier_block(g, pairs, log, values=group_values(g)
-                       if g in GROUP_RUBRICS else TIER_VALUES)
-            rows.append((g, len(pairs), _mse(pairs),
+            log(f" {name}")
+            # 표는 기준표 눈금과 상관없이 0~4 로 그린다 - Driving environment
+            # 처럼 0/1/3 만 있는 묶음도 2, 4 로 틀린 예측이 표에서 빠지지 않게.
+            tier_block(g, pairs, log, nonzero=True)
+            rows.append((name, len(pairs), _mse(pairs),
                          sum(a == b for a, b in pairs) / len(pairs)))
-        if len(rows) > 1:
+            # 따로 재는 카테고리(Unpaved road)가 있는 묶음은 칸별로도 낸다:
+            # (Others) 모델의 묶음 칸 vs GT 의 나머지 카테고리 최댓값,
+            # (<카테고리>) 그 카테고리 칸 vs GT 의 그 카테고리 점수.
+            # 두 칸 다 기준표는 0/1/3 이지만 표는 0~4 로 그린다 - 2, 4 로
+            # 틀린 예측도 보이게.
+            if not own:
+                continue
+            dropped = {u for c, v in unknown.items()
+                       if scenario_of.get(c) == g for u in v["pred"]}
+            split = {k: [[], 0] for k in ["Others"] + own}
+            for u in common:
+                gs = split_scores(g, own, labels[u], scenario_of, gt=True)
+                ps = split_scores(g, own, results[u], scenario_of,
+                                  dropped=u in dropped)
+                if gs is None or ps is None:
+                    continue
+                for k in ["Others"] + own:
+                    if ps[k] is None:
+                        split[k][1] += 1
+                    else:
+                        split[k][0].append((gs[k], ps[k]))
+            for k in ["Others"] + own:
+                sub, n_skip = split[k]
+                if not sub:
+                    continue
+                name = f"{g} ({k})"
+                log("")
+                log(f" {name}")
+                if n_skip:
+                    log(f"  ({n_skip} clip(s) skipped - 칸별 점수가 없는 옛 실행에서 "
+                        f"이 칸 값을 가를 수 없음)")
+                tier_block(name, sub, log, nonzero=True)
+                rows.append((name, len(sub), _mse(sub),
+                             sum(a == b for a, b in sub) / len(sub)))
+        if n_groups > 1:
             log("")
             log(" ALL groups")
-            tier_block("all", all_pairs, log)
+            tier_block("all", all_pairs, log, nonzero=True)
         if rows:
             log("")
-            log(f"  {'group':<28}{'n':>5}{'MSE':>8}{'Acc':>7}")
-            log("  " + "-" * 48)
+            log(f"  {'group':<38}{'n':>5}{'MSE':>8}{'Acc':>7}")
+            log("  " + "-" * 58)
             for g, n, mse, acc in rows:
-                log(f"  {g:<28}{n:>5}{mse:>8.3f}{acc:>7.2f}")
+                log(f"  {g:<38}{n:>5}{mse:>8.3f}{acc:>7.2f}")
 
         if scenario_of:
             for tag, src in (("pred", results), ("GT", labels)):

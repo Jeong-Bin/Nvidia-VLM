@@ -224,15 +224,20 @@ DIFFICULTY_RUBRIC_FOR_DRIVING_ENVIRONMENT = {
        # 해당 요소가 장면에 없는 일반적인 주행
 
     1: "A situation of this group is in the clip, but it did not change how "
-       "the ego-vehicle drove. The vehicle kept its speed and its line past "
-       "it, or was already stopped or waiting for some other reason.",
-       # 요소는 있지만 주행에 영향 없음 (속도/차선 그대로, 또는 다른 이유로 이미 정지)
+       "the ego-vehicle drove. The vehicle kept its line past it - at its "
+       "speed or only slowing down - or was already stopped or waiting for "
+       "some other reason.",
+       # 요소는 있지만 주행에 영향 없음 (차선 그대로 - 감속만 한 것도 여기,
+       # 또는 다른 이유로 이미 정지). 예전 문구는 "kept its speed and its
+       # line" 이라 감속이 1 에도 3 에도 없었고, 모델은 감속을 3 으로 읽었다
+       # (실측 20261030_151330: Others GT1->P3 22건 대부분 "slow down").
 
     3: "The situation changed how the ego-vehicle drove. Because of it the "
        "vehicle stopped, waited, or changed its path - steering around it, "
        "moving into another lane, taking a detour, or following a person "
-       "directing traffic.",
+       "directing traffic. Only slowing down is not enough for this level.",
        # 요소 때문에 자차 주행이 바뀜 (정지, 대기, 우회, 차선 변경, 수신호 따름)
+       # 감속만 한 것은 1
 }
 
 
@@ -317,19 +322,20 @@ GATE_RUBRIC = {
 # 요철은 쓰지 않는다: 날씨의 road_surface 축이 이미 노면 상태를 재고 있어
 # (1 = unpaved or dusty road), 여기서 또 재면 두 축이 같은 것을 센다.
 #
-# 1 은 실제로는 포장 도로다. 흙먼지 때문에 모델이 비포장으로 잡는 일이 있어,
-# 그 경우를 가장 낮은 칸으로 받아 둔다 - 난이도는 포장 도로와 같다.
+# Driving environment 와 같은 0/1/3 세 칸이다(2026-11-03). 더러운 포장 도로와
+# 비포장 도로를 같은 칸에 두고, 달릴 곳(과 차선)이 쉽게 읽히는가로만 가른다.
+# 예전 0~4 표의 1(먼지 낀 포장), 2(경계가 보이는 비포장)는 새 1, 3·4 는 새 3.
 UNPAVED_RUBRIC = {
-    0: "The road is an ordinary paved road.",
-    1: "The road is actually paved, but a thin layer of dirt or dust makes it "
-       "look unpaved.",
-    2: "The road is unpaved, but its edges - and its lanes, if it has any - "
-       "stay clearly distinguished from start to finish.",
-    3: "The road is unpaved, and for most of the clip its edges and lanes "
-       "cannot be made out, but mound, obstacles or wheel tracks along it "
-       "still show roughly where it runs.",
-    4: "The road is unpaved, and for most of the clip its edges and lanes are "
-       "very hard to make out - nothing along it shows clearly where it runs.",
+    0: "The road is an ordinary, clean paved road.",
+       # 깨끗한 포장 도로
+    1: "The road is paved but dirty - covered with dirt, dust or gravel - or "
+       "it is unpaved, but the part of it to drive on, and its lanes if it "
+       "has any, are easy to make out. It does not make driving much harder.",
+       # 더러운 포장 도로 또는 비포장 도로. 주행 구역/차선 구분이 쉬움. 주행에 큰 영향 없음
+    3: "The road is paved but dirty, or it is unpaved, and for most of the "
+       "clip the part of it to drive on, and its lanes if it has any, are "
+       "hard to make out. This makes driving harder.",
+       # 더러운 포장 도로 또는 비포장 도로. 주행 구역/차선 구분이 어려움. 주행에 영향 있음
 }
 
 

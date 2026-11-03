@@ -147,6 +147,11 @@ CLIP_CSV_COLUMNS = [
     # 끈 실행은 빈 칸. 맨 뒤에 붙인다 - 이 열이 생기기 전 실행의 CSV 는 헤더가
     # 달라 --resume 으로 이어 쓸 수 없다(qwen_runner 가 헤더를 대조해 멈춘다).
     "time_spans",
+    # 묶음 점수로 합치기 전 칸별 점수 "Dynamic object=2|Driving environment=1|
+    # Unpaved road=3". group_scores 는 칸을 max 로 합친 값이라, 따로 재는
+    # 카테고리(Unpaved road)와 나머지를 채점에서 나누려면 이 값이 필요하다.
+    # time_spans 처럼 맨 뒤에 붙였다 - 이전 실행의 CSV 는 --resume 불가.
+    "field_scores",
 ]
 
 
@@ -698,6 +703,8 @@ def run_clip_inference(uuids, labels, category_menu,
                             result.get(f"{k}_reason", ""))],
                 (json.dumps(result["time_spans"], ensure_ascii=False)
                  if result.get("time_spans") else ""),
+                "|".join(f"{k}={v}" for k, v in
+                         (result.get("field_scores") or {}).items()),
             ])
             f.flush()
             pbar.set_postfix_str(
