@@ -296,6 +296,8 @@ video{width:100%;background:#000;border-radius:6px}
 .nl-line:not(.has) .nm{color:var(--muted)}
 .nl-rub{color:var(--muted);font-size:11px;line-height:1.45;margin:2px 0 4px;
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+/* 날씨 축은 영어 줄과 한국어 줄을 함께 보여 주므로 3줄로 자르지 않는다. */
+.nl-rub.wx{display:block;white-space:pre-line}
 .nl-rub:empty{display:none}
 .nl-rub.diff{color:var(--warn)}
 .nl-sec{color:var(--muted);font-size:12px;font-weight:600;margin:12px 0 6px}

@@ -35,7 +35,7 @@ import pandas as pd
 
 from config import SCENE_JSON as CONFIG_SCENE_JSON
 from constrained_tier import TIER_VALUES, TIER_LABELS, tier_label
-from prompts import DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX
+from prompts import WEATHER_AXES, WEATHER_MIN, WEATHER_MAX
 
 ROOT = Path(__file__).resolve().parent
 # 기본값은 config.py 한 곳에서만 정한다. 다만 집계는 "이 실행이 실제로 쓴"
@@ -361,10 +361,10 @@ def main():
     # 등급과 달리 edge-case 여부와 무관한 축이다 - 평범한 클립도 비가 오면
     # 높다. 그래서 SPECIAL 만 따로 내지 않고 전체만 낸다. 대신 축이
     # 다섯이라, 어느 요인이 전체 난이도를 끌어올리는지 나란히 놓고 본다.
-    diff_scale = list(range(DIFFICULTY_MIN, DIFFICULTY_MAX + 1))
-    diff_series = {k: tier_series(df, k) for k, _ in DIFFICULTY_AXES}
+    diff_scale = list(range(WEATHER_MIN, WEATHER_MAX + 1))
+    diff_series = {k: tier_series(df, k) for k, _ in WEATHER_AXES}
     if any(diff_series.values()):
-        for key, name in DIFFICULTY_AXES:
+        for key, name in WEATHER_AXES:
             dist_block(log, f"{name} ({key})", diff_series[key], total,
                        diff_scale)
 
@@ -377,7 +377,7 @@ def main():
         log(f"  {'AXIS':<26}{'N':>6}{'MEAN':>8}{'VAR':>8}{'MEDIAN':>8}"
             f"{'MIN':>5}{'MAX':>5}")
         log("  " + "-" * 62)
-        for key, name in DIFFICULTY_AXES:
+        for key, name in WEATHER_AXES:
             v = sorted(diff_series[key])
             if not v:
                 log(f"  {name:<26}{0:>6}{'-':>8}{'-':>8}{'-':>8}{'-':>5}{'-':>5}")
@@ -389,7 +389,7 @@ def main():
             log(f"  {name:<26}{m:>6}{mean:>8.3f}{var:>8.3f}{med:>8g}"
                 f"{v[0]:>5}{v[-1]:>5}")
         log("  " + "-" * 62)
-        log(f"  scale {DIFFICULTY_MIN}-{DIFFICULTY_MAX}; factors are judged "
+        log(f"  scale {WEATHER_MIN}-{WEATHER_MAX}; factors are judged "
             f"independently, so they need not sum to the overall rating.")
 
     log("")

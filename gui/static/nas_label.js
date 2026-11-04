@@ -384,7 +384,7 @@ $$('.nl-lang button').forEach(b => b.onclick = () => {
 
 /* ---------- 라벨 입력 ---------- */
 function scaleMap(text) {
-  // prompts.DIFFICULTY_SCALES 는 "   0 = ..." 줄들이다.
+  // prompts.WEATHER_SCALES 는 "   0 = ..." 줄들이다.
   const m = {};
   String(text || '').split('\n').forEach(l => {
     const x = l.match(/^\s*(\d)\s*=\s*(.*)$/);
@@ -401,18 +401,22 @@ function seg(key, vals, title) {
     `<button type="button" data-v="${v}" title="${esc(title ? title(v) : '')}">${v === null ? '−' : v}</button>`).join('')}</span>`;
 }
 
+/* 고를 수 있는 점수는 기준표 눈금을 따른다(서버가 constrained_tier 에서 읽어 준다). */
+const groupVals = g => (NL.schema.group_values || {})[g] || [0, 1, 2, 3, 4];
+const catVals = c => (NL.schema.category_values || {})[c] || [1, 2, 3, 4];
+
 function buildForm() {
   const S = NL.schema;
   const groups = Object.entries(S.groups).map(([g, cats]) => {
     const gr = (S.group_rubrics[g] || {}).scale || {};
     return `<div class="nl-group">
       <div class="nl-gh"><b>${esc(g)}</b>
-        ${seg('g:' + g, [0, 1, 2, 3, 4], v => gr[v] ? `${v}: ${gr[v]}` : `${v}: (기준표에 없는 값)`)}</div>
+        ${seg('g:' + g, groupVals(g), v => gr[v] ? `${v}: ${gr[v]}` : `${v}: (기준표에 없는 값)`)}</div>
       <div class="nl-rub" id="nl-grub-${cssKey(g)}"></div>
       ${cats.map(c => {
         const rb = catRubric(c, g);
         return `<div class="nl-line" data-cat="${esc(c)}"><span class="nm" title="${esc(c)}">${esc(c)}</span>
-          ${seg('c:' + c, [null, 1, 2, 3, 4], v => v === null ? '없음' : (rb[v] ? `${v}: ${rb[v]}` : `${v}`))}</div>`;
+          ${seg('c:' + c, [null, ...catVals(c)], v => v === null ? '없음' : (rb[v] ? `${v}: ${rb[v]}` : `${v}`))}</div>`;
       }).join('')}
     </div>`;
   }).join('');
@@ -421,7 +425,7 @@ function buildForm() {
     return `<div class="nl-line"><span class="nm" title="${esc(a)}">${esc(AXIS_KO[a] || a)}
         <span class="muted mono" style="font-size:10px">${esc(a)}</span></span>
       ${seg('w:' + a, [0, 1, 2, 3, 4], v => sm[v] ? `${v}: ${sm[v]}` : String(v))}</div>
-      <div class="nl-rub" id="nl-wrub-${a}"></div>`;
+      <div class="nl-rub wx" id="nl-wrub-${a}"></div>`;
   }).join('');
   $('#nl-form').innerHTML = `
     <div class="nl-sub2">카테고리는 나온 것만 1~4로 고릅니다(−는 없음). 묶음 점수는 카테고리 최댓값이
@@ -516,16 +520,19 @@ function renderForm() {
     });
     const gr = (S.group_rubrics[g] || {}).scale || {}, mx = groupMax(g), el = $('#nl-grub-' + cssKey(g));
     const txt = gr[f.groups[g]] ? `${f.groups[g]}: ${gr[f.groups[g]]}` : '';
-    el.className = 'nl-rub' + (f.groups[g] !== mx ? ' diff' : '');
-    el.textContent = f.groups[g] !== mx
-      ? `카테고리 최댓값(${mx})과 다르게 매겼습니다. ${txt}` : txt;
+    // 눈금이 바뀌기 전에 저장한 값은 누를 버튼이 없다 - 말없이 두면 빈칸처럼 보인다.
+    const legal = groupVals(g).includes(f.groups[g]);
+    el.className = 'nl-rub' + (f.groups[g] !== mx || !legal ? ' diff' : '');
+    el.textContent = !legal
+      ? `저장된 점수 ${f.groups[g]}점은 기준표에 없습니다. ${groupVals(g).join(', ')} 중에서 고르세요.`
+      : f.groups[g] !== mx ? `카테고리 최댓값(${mx})과 다르게 매겼습니다. ${txt}` : txt;
     el.title = txt;
   }
   S.weather_axes.forEach(a => {
     on('w:' + a, f.weather[a]);
-    const sm = scaleMap(S.weather_scales[a]);
-    const wr = $('#nl-wrub-' + a);
-    wr.textContent = wr.title = f.weather[a] ? (sm[f.weather[a]] || '') : '';
+    const v = f.weather[a], wr = $('#nl-wrub-' + a);
+    const en = scaleMap(S.weather_scales[a])[v], ko = scaleMap((S.weather_scales_ko || {})[a])[v];
+    wr.textContent = wr.title = v ? [en, ko].filter(Boolean).join('\n') : '';
   });
   $$('#nl-form [data-rsf]').forEach(p => p.classList.toggle('on', f.rsf.has(p.dataset.rsf)));
   const dis = !NL.cur;

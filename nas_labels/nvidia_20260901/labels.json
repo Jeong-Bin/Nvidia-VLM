@@ -4957,6 +4957,304 @@
         "atmospheric_obscurants": 0
       },
       "note": ""
+    },
+    "054da32b-9f3d-4074-93ab-044036b679f8": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 2,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "058bf960-f531-4ae6-8b24-455d7683676e": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "0853ef8f-9d6b-4963-8ea3-fafb7e107ac7": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 2,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "0931a850-4303-47bc-a041-4e17b4e36c2b": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "0dd3eb7f-47a1-40d5-a228-d06ea1288839": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "120db5db-56d4-43b5-9453-396b9c82fb7d": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": "대형 화물차"
+    },
+    "1230b185-bca6-412f-8c90-f43a6529acb2": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 2,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "15215a0a-22c8-4894-93a0-0d91fbf73a86": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": "장애물"
+    },
+    "16e0deee-e8d7-414a-8bf0-c22feda87875": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "186504a4-04fc-4609-96be-0c1f5e7096e5": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 3,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "1f47bf7f-d233-480c-b166-7512d8e9ac97": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 3,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "1f7ef408-e2fc-4f9c-9a54-c81fbb854141": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "1fcf2fef-279b-4490-adc6-9b7d1ff0118d": {
+      "categories": {
+        "Pedestrian on Road": 2
+      },
+      "Dynamic object": 2,
+      "Driving environment": 0,
+      "rain_snow_fog": [
+        "rain"
+      ],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 1,
+        "road_surface": 1,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "2357ac16-82a9-458b-81ea-e077f2b92feb": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "259b1529-0d28-4ea5-b822-d8691e91f062": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [
+        "rain"
+      ],
+      "weather": {
+        "illumination": 3,
+        "precipitation": 4,
+        "road_surface": 2,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "25cd4769-5dcf-4b53-a351-bf2c5deb6124": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [
+        "rain"
+      ],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 2,
+        "road_surface": 1,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "26f8dc7e-a9a2-4302-b847-af2009abf677": {
+      "categories": {
+        "Road Construction": 3
+      },
+      "Dynamic object": 0,
+      "Driving environment": 3,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "275c9acf-8cb4-46ca-8335-5a7b80a501fe": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "2a48843a-2eed-4c21-94c2-1de716605b7d": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "2edf278f-d5e3-4b83-b5df-923a04335725": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "30f3d243-f26e-43f9-a63a-ac5d1b115d15": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [
+        "fog"
+      ],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 1
+      },
+      "note": ""
+    },
+    "37c25a1d-15a1-417e-9364-a6305a166423": {
+      "categories": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 2,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
     }
   }
 }

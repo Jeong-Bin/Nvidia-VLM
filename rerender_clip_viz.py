@@ -39,7 +39,7 @@ import edge_case_mining as E
 import visualize_clip as V
 from attn_timeline import curves_for, default_layers, load_spatial
 from constrained_tier import group_key, score_fields, score_dirname
-from prompts import DIFFICULTY_AXES
+from prompts import WEATHER_AXES
 
 ROOT = Path(__file__).resolve().parent
 
@@ -70,7 +70,7 @@ def row_to_result(r: dict) -> dict:
         "score_reason": r.get("score_reason", ""),
         "tier_score": max(gs.values()) if gs else None,
     }
-    for k, _ in DIFFICULTY_AXES:
+    for k, _ in WEATHER_AXES:
         res[k] = _int(r.get(k))
         res[f"{k}_reason"] = r.get(f"{k}_reason", "")
     if r.get("time_spans"):

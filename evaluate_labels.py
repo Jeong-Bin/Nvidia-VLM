@@ -45,11 +45,11 @@ import pandas as pd
 from config import SCENE_JSON as CONFIG_SCENE_JSON, LABELS_JSON
 from constrained_tier import (TIER_VALUES, GROUP_RUBRICS, CATEGORY_RUBRICS,
                               group_values, group_key, counted_score)
-from prompts import DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX
+from prompts import WEATHER_AXES, WEATHER_MIN, WEATHER_MAX
 
 # 난이도 축의 눈금. 등급(TIER_VALUES)과 따로 두는 이유는 두 척도가 서로
 # 독립으로 바뀔 수 있어서다 - 한쪽을 고칠 때 다른 쪽이 조용히 따라가면 안 된다.
-DIFFICULTY_VALUES = tuple(range(DIFFICULTY_MIN, DIFFICULTY_MAX + 1))
+WEATHER_VALUES = tuple(range(WEATHER_MIN, WEATHER_MAX + 1))
 
 ROOT = Path(__file__).resolve().parent
 # 기본값은 config.py 한 곳에서만 정한다 - 여기서 따로 들고 있다가 예전에
@@ -108,7 +108,7 @@ def load_labels(path: Path):
         # 모두 "weather" 로 옮겼고(2026-10-07), 키가 둘이던 동안 채점이
         # 엉뚱한 쪽만 읽어 5) WEATHER 절이 통째로 빠졌다(20261006_203002).
         weather = _weather_of(v)
-        for key, _ in DIFFICULTY_AXES:
+        for key, _ in WEATHER_AXES:
             rec[key] = _int_or_none(weather.get(key))
         out[uuid] = rec
     return out, data.get("_meta", {}), skipped, mismatches
@@ -229,7 +229,7 @@ def load_results(run_dir: Path):
                "score_reason": (r.get("score_reason")
                                 if isinstance(r.get("score_reason"), str) else "")}
         # --weather 를 끈 실행에는 이 칸이 아예 없거나 빈 값이다.
-        for key, _name in DIFFICULTY_AXES:
+        for key, _name in WEATHER_AXES:
             rec[key] = _int_or_none(r.get(key))
         out[str(r["uuid"])] = rec
     return out
@@ -379,7 +379,7 @@ def tier_block(name, pairs, log, values=None, rows=None, nonzero=False):
     """한 축(safety/rarity/난이도)의 MSE / 정확일치 / 혼동행렬 / 기준선.
 
     values 로 눈금을 넘기면 혼동행렬이 그 폭으로 그려진다. 안 주면 등급
-    눈금(TIER_VALUES)을 쓴다 - 난이도는 DIFFICULTY_VALUES 를 넘긴다.
+    눈금(TIER_VALUES)을 쓴다 - 난이도는 WEATHER_VALUES 를 넘긴다.
 
     MAE 대신 MSE 를 쓰는 이유: 오차 하나가 클수록 벌점을 더 준다 - 등급을
     1칸 틀리는 것과 3칸 틀리는 것(예: 정답 0인데 3으로 예측)은 안전/희귀도
@@ -966,7 +966,7 @@ def main():
     # 높다) SPECIAL 만 따로 내지 않는다. 대신 4축을 나란히 놓은 요약표를
     # 붙인다 - 축마다 표를 다시 읽지 않고 "어느 축이 틀리는가"를 보려는 것.
     diff_pairs = {}
-    for key, _name in DIFFICULTY_AXES:
+    for key, _name in WEATHER_AXES:
         diff_pairs[key] = [(labels[u][key], results[u][key]) for u in common
                            if labels[u].get(key) is not None
                            and results[u].get(key) is not None]
@@ -974,19 +974,19 @@ def main():
     if any(diff_pairs.values()):
         log("")
         log("=" * 68)
-        log(f"5) WEATHER  ({DIFFICULTY_MIN}-{DIFFICULTY_MAX})")
+        log(f"5) WEATHER  ({WEATHER_MIN}-{WEATHER_MAX})")
         log("=" * 68)
-        for key, name in DIFFICULTY_AXES:
+        for key, name in WEATHER_AXES:
             log("")
             log(f" {name} ({key})")
-            tier_block(key, diff_pairs[key], log, DIFFICULTY_VALUES)
+            tier_block(key, diff_pairs[key], log, WEATHER_VALUES)
 
         log("")
         log("-" * 68)
         log(f"  {'AXIS':<26}{'N':>6}{'MSE':>8}{'EXACT':>8}{'+-1':>8}"
             f"{'GT~':>7}{'PRED~':>7}")
         log("  " + "-" * 62)
-        for key, name in DIFFICULTY_AXES:
+        for key, name in WEATHER_AXES:
             p = diff_pairs[key]
             if not p:
                 log(f"  {name:<26}{0:>6}{'-':>8}{'-':>8}{'-':>8}{'-':>7}{'-':>7}")

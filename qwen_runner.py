@@ -36,7 +36,7 @@ from egomotion import (
 )
 from visualize_clip import render_clip_result, safe_dirname, VIZ_WIDTH
 from constrained_tier import score_dirname, score_groups, score_fields, group_key
-from prompts import DIFFICULTY_AXES
+from prompts import WEATHER_AXES
 
 
 # 27B(Qwen3.8, architectures=Qwen3_5ForConditionalGeneration)는 bf16 55.6GB /
@@ -107,12 +107,12 @@ def load_model(model_id: str):
 # 실패했고, 잘린 위치는 모두 마지막 필드(rarity_assessment) 근처였다.
 NUR_MAX_NEW_TOKENS = 800
 
-# --difficulty 를 켜면 JSON 에 필드가 8개 늘어난다(4축 x 값+근거 문장).
+# --weather 를 켜면 JSON 에 필드가 8개 늘어난다(4축 x 값+근거 문장).
 # 800 은 그 여유가 없다 - 위 실측에서 이미 마지막 필드 근처에서 잘렸고,
 # 난이도 필드는 그보다 더 뒤에 온다. 근거 문장 5개를 짧게 잡아도 약 200
 # 토큰이 더 필요하므로 그만큼 올린다. 난이도를 끈 실행의 예산은 건드리지
 # 않는다 - 예산이 바뀌면 기존 A/B 결과와 비교할 수 없게 된다.
-NUR_MAX_NEW_TOKENS_DIFFICULTY = 1100
+NUR_MAX_NEW_TOKENS_WEATHER = 1100
 # --time-spans 가 붙이는 칸. 장르 2~3개에 구간 몇 개씩([시작, 끝, 점수])이면
 # 100 토큰 안팎이지만, 모자라 JSON 이 잘리면 그 클립은 통째로 파싱 실패
 # (Normal)가 되므로 넉넉히 둔다.
@@ -138,10 +138,10 @@ CLIP_CSV_COLUMNS = [
     # 결정 마진 - 이 클립의 판정이 얼마나 아슬아슬했는지.
     # margin_min 이 작을수록 의미 없는 프롬프트 섭동에도 뒤집힌다.
     "margin_min", "margin_mean", "n_close_tokens",
-    # 난이도 4축. --difficulty 를 끈 실행에서는 전부 빈 칸이지만 열 자체는
+    # 난이도 4축. --weather 를 끈 실행에서는 전부 빈 칸이지만 열 자체는
     # 항상 쓴다 - 열 구성이 실행마다 달라지면 샤드 병합과 실행 간 비교가
     # 깨진다.
-    *[c for k, _ in DIFFICULTY_AXES for c in (k, f"{k}_reason")],
+    *[c for k, _ in WEATHER_AXES for c in (k, f"{k}_reason")],
     # --time-spans: 장르별 위험 구간 {"장르": [[시작, 끝, 점수], ...]} 의 JSON
     # (정수 초로 정리한 값 - edge_case_mining._snap_spans).
     # 끈 실행은 빈 칸. 맨 뒤에 붙인다 - 이 열이 생기기 전 실행의 CSV 는 헤더가
@@ -448,7 +448,7 @@ def run_clip_inference(uuids, labels, category_menu,
                        gt_labels=None, timeline=False,
                        want_margin=False, score_categories=True,
                        resume=False,
-                       difficulty=False, difficulty_only=False,
+                       weather=False, weather_only=False,
                        explain_traj=False, traj=None,
                        viz_per_category=None, time_spans=None,
                        attn_timeline=False):
@@ -610,16 +610,16 @@ def run_clip_inference(uuids, labels, category_menu,
                                  as_video=video_input),
                 timeline=timeline,
                 score_categories=score_categories,
-                difficulty=difficulty,
-                difficulty_only=difficulty_only,
+                weather=weather,
+                weather_only=weather_only,
                 explain_traj=explain_traj,
                 time_spans=(time_spans == "inline"))
             # followup 은 1차 대화(토큰 열 + KV 캐시)를 받아 두었다가 질문을
             # 이어 붙인다. 1차 생성 자체는 받지 않을 때와 같다.
             fu_state = {} if time_spans == "followup" else None
             gen_out = _generate(model, processor, images, prompt,
-                                max_new_tokens=(NUR_MAX_NEW_TOKENS_DIFFICULTY
-                                                if difficulty
+                                max_new_tokens=(NUR_MAX_NEW_TOKENS_WEATHER
+                                                if weather
                                                 else NUR_MAX_NEW_TOKENS)
                                 + (NUR_TIME_SPANS_EXTRA_TOKENS
                                    if time_spans == "inline" else 0),
@@ -698,7 +698,7 @@ def run_clip_inference(uuids, labels, category_menu,
                 f"{margin['margin_mean']:.4f}" if margin else "",
                 margin["n_close"] if margin else "",
                 # 난이도: 못 읽은 축은 None 이라 빈 칸으로 나간다.
-                *[v for k, _ in DIFFICULTY_AXES
+                *[v for k, _ in WEATHER_AXES
                   for v in (result.get(k) if result.get(k) is not None else "",
                             result.get(f"{k}_reason", ""))],
                 (json.dumps(result["time_spans"], ensure_ascii=False)

@@ -40,8 +40,8 @@ from constrained_tier import (TIER_LABELS, tier_score, scale_text,
                               group_rubric_blocks, group_key,
                               score_groups, score_fields, GROUP_RUBRICS,
                               own_rubric_categories, counted_score)
-from prompts import (DIFFICULTY_AXES, DIFFICULTY_MIN, DIFFICULTY_MAX,
-                     difficulty_block)
+from prompts import (WEATHER_AXES, WEATHER_MIN, WEATHER_MAX,
+                     weather_block)
 
 ROOT = Path(__file__).resolve().parent
 CAMERA_DIR = ROOT / "pav_sample" / "camera"
@@ -464,8 +464,8 @@ def build_nureasoning_prompt(category_menu: str,
                              intro: str | None = None,
                              timeline: bool = False,
                              score_categories: bool = True,
-                             difficulty: bool = False,
-                             difficulty_only: bool = False,
+                             weather: bool = False,
+                             weather_only: bool = False,
                              explain_traj: bool = False,
                              time_spans: bool = False) -> str:
     """nuReasoning 6단계 CoT + 1~10 점수를 요구하는 프롬프트.
@@ -659,7 +659,7 @@ guess - use this for step 2 and {behavior_use}):
     # 요소의 0~20초 통째 구간은 줄지 않았고(21% -> 24%, 23% -> 27%), 점수
     # 구간이 보인 시간을 그대로 베껴(105/106) 구간 안의 점수 변화가 사라졌다
     # (구간을 나눈 답 17 -> 1). 그래서 이 문구로 되돌렸다.
-    if time_spans and not difficulty_only:
+    if time_spans and not weather_only:
         if groups:
             own = _own_scale_spans(labels or [])
             steps45 += f"""{step_no}. Hazard Timing: for each type you named in step 4, split the time its
@@ -692,12 +692,12 @@ guess - use this for step 2 and {behavior_use}):
     # 숫자를 직접 비교하기 전에 같은 이름으로 한 번 더 돌려봐야 한다.
     # 뒤의 "how hard the driving CONDITIONS are" 가 실제 판단 기준을 말하고
     # 있어 제목만으로 척도가 바뀌지는 않을 것으로 본다.
-    if difficulty:
+    if weather:
         steps45 += (f"{step_no}. Weather: how hard the driving "
                     f"CONDITIONS are, judged\n   independently of the "
                     f"edge-case decision above - an ordinary clip in heavy "
                     f"rain\n   still scores high, and a rare event on a "
-                    f"clear day does not.\n") + difficulty_block()
+                    f"clear day does not.\n") + weather_block()
         step_no += 1
     tier_fields = ""
     # weather-only 는 카테고리를 아예 다루지 않는다. 그 모드에서 이 필드를
@@ -717,16 +717,16 @@ guess - use this for step 2 and {behavior_use}):
         tier_fields += (
             f' "{k}_reason": "<{why}>",\n'
             f' "{k}": <integer {scale_text(name)}>,\n')
-    if time_spans and not difficulty_only:
+    if time_spans and not weather_only:
         tier_fields += (' "time_spans": {"<exact scenario type name>": '
                         + ('[[<start seconds>, <end seconds>, <score 0-4>], '
                            '...], ...},\n' if groups else
                            '[[<start seconds>, <end seconds>], ...], ...},\n'))
-    if difficulty:
+    if weather:
         # 프롬프트 본문과 같은 순서. JSON 필드 순서가 곧 생성 순서다.
-        for key, name in DIFFICULTY_AXES:
+        for key, name in WEATHER_AXES:
             tier_fields += (
-                f''' "{key}": <integer {DIFFICULTY_MIN}-{DIFFICULTY_MAX}>,\n'''
+                f''' "{key}": <integer {WEATHER_MIN}-{WEATHER_MAX}>,\n'''
                 f''' "{key}_reason": "<one short sentence for {name}>",\n''')
     # 1단계를 시간순 서술로 할지(--timeline) 예전처럼 한 덩어리 요약으로 할지.
     #
@@ -800,14 +800,14 @@ guess - use this for step 2 and {behavior_use}):
     # 센서 사실(속도/가속도/주변 객체)은 넣지 않는다. 조도·강수·노면·대기가림은
     # 영상에서만 읽히는 값이라 자차 속도가 근거가 될 수 없고, 남겨두면 그 블록이
     # "use this for step 2 and step 3" 처럼 사라진 단계를 가리킨다((3)과 같은 문제).
-    if difficulty_only:
+    if weather_only:
         return f"""{intro}
 
 Your job is to rate the DRIVING CONDITIONS of this clip - the light, the
 weather, and the state of the road surface. You are not looking for unusual
 events or rare situations, and nothing in this task depends on whether the
 scene is ordinary: most clips are ordinary, and an ordinary clip in good
-conditions should be rated {DIFFICULTY_MIN} on every axis.
+conditions should be rated {WEATHER_MIN} on every axis.
 
 Work through these steps in order:
 1. Condition Description: describe what the scene looks like in terms of
@@ -817,7 +817,7 @@ Work through these steps in order:
    only what you can actually see; if something is not visible, say so rather
    than guessing.
 2. Weather: rate each factor from what you described in step 1.
-{difficulty_block()}
+{weather_block()}
 Respond with ONLY a JSON object, no other text:
 {{"observation": "<what the lighting, weather and road surface look like>",
 {tier_fields.rstrip().rstrip(',')}}}"""
@@ -906,7 +906,7 @@ def _flatten_field(v) -> str:
     return str(v).strip()
 
 
-def _coerce_difficulty(v) -> int | None:
+def _coerce_weather(v) -> int | None:
     """난이도 값을 0~4 정수로 만든다. 못 읽으면 None.
 
     _coerce_tier 와 따로 두는 이유는 폴백 대상이 다르기 때문이다 - 난이도는
@@ -922,12 +922,12 @@ def _coerce_difficulty(v) -> int | None:
         return None
     if isinstance(v, (int, float)):
         n = int(round(v))
-        return n if DIFFICULTY_MIN <= n <= DIFFICULTY_MAX else None
+        return n if WEATHER_MIN <= n <= WEATHER_MAX else None
     if isinstance(v, str):
         m = re.match(r"\s*(\d+)", v.strip())
         if m:
             n = int(m.group(1))
-            return n if DIFFICULTY_MIN <= n <= DIFFICULTY_MAX else None
+            return n if WEATHER_MIN <= n <= WEATHER_MAX else None
     return None
 
 
@@ -1030,7 +1030,7 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
            "time_seen": {}}
     # 날씨 축은 --weather 를 껐으면 모델이 내지 않는다. 그래도 키는
     # 항상 만들어 둔다 - 없으면 CSV 열 개수가 실행마다 달라져 병합이 깨진다.
-    for key, _ in DIFFICULTY_AXES:
+    for key, _ in WEATHER_AXES:
         out[key] = None
         out[f"{key}_reason"] = ""
 
@@ -1048,8 +1048,8 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
 
 
     # 난이도 4축. 값과 근거 문장을 따로 받는다.
-    for key, _ in DIFFICULTY_AXES:
-        out[key] = _coerce_difficulty(obj.get(key))
+    for key, _ in WEATHER_AXES:
+        out[key] = _coerce_weather(obj.get(key))
         out[f"{key}_reason"] = _flatten_field(obj.get(f"{key}_reason", ""))
 
     raw_cats = obj.get("scenario_types", [])
@@ -1413,11 +1413,11 @@ def _config_key(args, n_views=1, prompt_sha=None) -> dict:
         "score_categories": bool(args.score_categories),
         "use_3dbbox": False,
         "constrain_tiers": bool(args.constrain_tiers),
-        "difficulty": bool(args.difficulty),
-        # 키 이름은 difficulty_only 로 둔다 - 기존 실행 폴더의
+        "difficulty": bool(args.weather),
+        # 키 이름은 difficulty / difficulty_only 로 둔다 - 기존 실행 폴더의
         # run_config.json 과 같은 이름이어야 evaluate_labels 가 옛 실행도
         # 읽는다. 화면 표기만 weather 로 바뀌었다.
-        "difficulty_only": bool(args.difficulty_only),
+        "difficulty_only": bool(args.weather_only),
         "tiers_elements": False,
         "explain_traj": bool(args.explain_traj),
         # 끔 = False, inline = True 로 둔다 - 이 옵션이 on/off 였던 때의
@@ -1501,8 +1501,8 @@ def _prompt_fingerprint(args, labels, category_menu, n_views) -> str:
               f"frames={args.clip_max_frames} video={args.clip_video_input}>",
         timeline=args.timeline,
         score_categories=args.score_categories,
-        difficulty=args.difficulty,
-        difficulty_only=args.difficulty_only,
+        weather=args.weather,
+        weather_only=args.weather_only,
         explain_traj=args.explain_traj,
         time_spans=(args.time_spans == "inline"))
     # followup 은 1차 프롬프트를 바꾸지 않지만 결과(time_spans 열)를 정하므로
@@ -1586,7 +1586,7 @@ def _load_gt_labels(path):
                   and 0 <= v[g] <= 4}
         # 날씨 4축 GT - 시각화 패널이 "Weather score" 로 나란히 적는다.
         w = v.get("weather") if isinstance(v.get("weather"), dict) else {}
-        weather = {k: w[k] for k, _ in DIFFICULTY_AXES
+        weather = {k: w[k] for k, _ in WEATHER_AXES
                    if isinstance(w.get(k), int) and not isinstance(w.get(k), bool)}
         out[uuid] = {"categories": names, "scores": scores, "weather": weather}
     return out
@@ -1732,7 +1732,7 @@ if __name__ == "__main__":
                          "(<viz-dir>/<Category>/<uuid>/). Normal 클립은 대상이 "
                          "아니다. 샤드마다 따로 세므로 8샤드면 최대 8N 개가 "
                          "나온다.")
-    ap.add_argument("--weather", "--difficulty", dest="difficulty",
+    ap.add_argument("--weather", "--difficulty", dest="weather",
                     action="store_true",
                     help="날씨 4축(조도/강수/노면/대기가림)을 "
                          "0~4 로 함께 매긴다. prompts.py 의 눈금을 쓰며, "
@@ -1782,7 +1782,7 @@ if __name__ == "__main__":
                          "프롬프트와 출력은 바뀌지 않는다(기록용 계산을 옆에서 "
                          "따로 한다). 기본 off.")
     ap.add_argument("--weather-only", "--difficulty-only",
-                    dest="difficulty_only", action="store_true",
+                    dest="weather_only", action="store_true",
                     help="날씨 4축만 추론한다. edge-case 탐지"
                          "(VERDICT/CATEGORIES)와 카테고리 점수를 모두 "
                          "빼고 프롬프트를 날씨 전용으로 다시 쓴다 - 단계만 "
@@ -1823,8 +1823,8 @@ if __name__ == "__main__":
     # --weather-only 는 날씨 4축을 켜고 나머지 판정을 끈다. 사용자가
     # --weather 를 같이 적지 않아도 되게 하고, 점수를 켠 채로 들어와도
     # 프롬프트와 어긋나지 않도록 여기서 한 번에 맞춘다.
-    if args.difficulty_only:
-        args.difficulty = True
+    if args.weather_only:
+        args.weather = True
         args.score_categories = False
         print("[info] --weather-only: 날씨 4축만 추론한다 "
               "(verdict/categories/scores off)")
@@ -1832,7 +1832,7 @@ if __name__ == "__main__":
     # --time-spans: 영상 입력을 끄면 타임스탬프가 박히지 않아 모델이 장 번호로
     # 시각을 어림해야 하므로 경고만 한다. --weather-only 는 장르를 묻지 않아 끈다.
     if args.time_spans:
-        if args.difficulty_only:
+        if args.weather_only:
             args.time_spans = None
             print("[info] --weather-only: 장르를 묻지 않으므로 --time-spans 끔")
         elif args.time_spans == "followup":
@@ -2017,8 +2017,8 @@ if __name__ == "__main__":
                        use_egomotion=args.use_egomotion,
                        want_margin=args.margin,
                        score_categories=args.score_categories,
-                       difficulty=args.difficulty,
-                       difficulty_only=args.difficulty_only,
+                       weather=args.weather,
+                       weather_only=args.weather_only,
                        explain_traj=args.explain_traj,
                        time_spans=args.time_spans,
                        attn_timeline=args.attn_timeline,

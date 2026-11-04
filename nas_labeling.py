@@ -279,15 +279,27 @@ class Schema:
     묶음 점수는 보통 그 묶음 카테고리 점수의 최댓값이지만 기존 라벨에도
     다르게 매긴 건이 있어(333건 중 15건) 강제하지 않는다 - 화면이 최댓값을
     채워 주고, 사람이 바꿀 수 있다.
+
+    매길 수 있는 점수는 constrained_tier 의 기준표 눈금이다(Driving environment
+    는 0, 1, 3). 눈금이 바뀌기 전에 저장한 값은 그 클립에서 그대로 둘 때만
+    통과시킨다 - 그래야 note 만 고치는 저장이 옛 값 때문에 막히지 않는다.
     """
 
     def __init__(self, taxonomy_path: Path):
+        import constrained_tier as CT
         scene = json.loads(taxonomy_path.read_text(encoding="utf-8"))
         self.file = taxonomy_path.name
         self.groups: dict[str, list[str]] = {}
         for scen in scene.get("special", {}).get("scenarios", []):
             self.groups[scen["name"]] = [c["name"] for c in scen.get("categories", [])]
         self.cat_group = {c: g for g, cs in self.groups.items() for c in cs}
+        self.group_values = {g: list(CT.group_values(g)) if g in CT.GROUP_RUBRICS
+                             else [0, 1, 2, 3, 4] for g in self.groups}
+        # 카테고리는 붙어 있으면 1 이상이다. 눈금의 0 은 "없음" 칸이 대신한다.
+        self.cat_values = {
+            c: (sorted(v for v in CT.rubric_of(c if c in CT.CATEGORY_RUBRICS else g)[1] if v)
+                if c in CT.CATEGORY_RUBRICS or g in CT.GROUP_RUBRICS else [1, 2, 3, 4])
+            for c, g in self.cat_group.items()}
 
     def normalize(self, raw: dict, prev: dict | None) -> dict:
         if not isinstance(raw, dict):
@@ -304,6 +316,13 @@ class Schema:
                 raise ValueError(f"{what}: {lo}~{hi} 범위 밖 ({x})")
             return x
 
+        def score(v, lo, allowed, old, what):
+            x = iv(v, lo, 4, what)
+            if x not in allowed and x != old:
+                raise ValueError(f"{what}: {x}점은 기준표에 없습니다 "
+                                 f"(가능: {', '.join(map(str, allowed))})")
+            return x
+
         cr = raw.get("categories") or {}
         if not isinstance(cr, dict):
             raise ValueError("categories 는 {이름: 점수} 여야 합니다")
@@ -314,11 +333,14 @@ class Schema:
             raise ValueError("알 수 없는 카테고리: " + ", ".join(bad))
         order = [c for cs in self.groups.values() for c in cs]
         order += [c for c in cr if c not in order]
-        cats = {c: iv(cr[c], 1, 4, f"categories.{c}") for c in order if c in cr}
+        was = prev or {}
+        cats = {c: score(cr[c], 1, self.cat_values.get(c, (1, 2, 3, 4)),
+                         was.get("categories", {}).get(c), f"categories.{c}")
+                for c in order if c in cr}
 
         out = {"categories": cats}
         for g in self.groups:
-            out[g] = iv(raw.get(g, 0), 0, 4, g)
+            out[g] = score(raw.get(g, 0), 0, self.group_values[g], was.get(g), g)
 
         rsf = raw.get("rain_snow_fog") or []
         if not isinstance(rsf, list) or any(x not in RSF for x in rsf):
@@ -935,9 +957,9 @@ class LabelingService:
     def schema_info(self) -> dict:
         import constrained_tier as CT
         try:
-            from prompts import DIFFICULTY_SCALES
+            from prompts import WEATHER_SCALES, WEATHER_SCALES_KOR
         except ImportError:
-            DIFFICULTY_SCALES = {}
+            WEATHER_SCALES, WEATHER_SCALES_KOR = {}, {}
         rub = {g: {"title": GR[0], "scale": GR[1]} for g, GR in CT.GROUP_RUBRICS.items()}
         cat_rub = {c: {"group": v[0], "title": v[1], "scale": v[2]}
                    for c, v in CT.CATEGORY_RUBRICS.items()}
@@ -950,7 +972,10 @@ class LabelingService:
                    for n, v in (*rub.items(), *cat_rub.items())]
         return {"taxonomy": self.schema.file, "groups": self.schema.groups,
                 "group_rubrics": rub, "category_rubrics": cat_rub, "rubrics": rubrics,
-                "weather_axes": list(WEATHER_AXES), "weather_scales": DIFFICULTY_SCALES,
+                "group_values": self.schema.group_values,
+                "category_values": self.schema.cat_values,
+                "weather_axes": list(WEATHER_AXES), "weather_scales": WEATHER_SCALES,
+                "weather_scales_ko": WEATHER_SCALES_KOR,
                 "rain_snow_fog": list(RSF), "tiers": CT.TIER_LABELS}
 
     # --- HTTP 입구. h 는 gui_server.Handler ---

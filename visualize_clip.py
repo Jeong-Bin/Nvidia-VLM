@@ -28,7 +28,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from constrained_tier import GROUP_RUBRICS
-from prompts import DIFFICULTY_AXES, DIFFICULTY_MAX
+from prompts import WEATHER_AXES, WEATHER_MAX
 
 # 하단 패널에 표시할 단계. (result 의 키들, 화면에 쓸 제목) 순서가 곧 표시
 # 순서다.
@@ -150,7 +150,7 @@ def _num(v):
     return "-" if v is None else str(v)
 
 
-def difficulty_lines(result: dict, gt: dict | None = None) -> list[str]:
+def weather_lines(result: dict, gt: dict | None = None) -> list[str]:
     """날씨 4축을 패널에 넣을 문자열 줄로 만든다. 점수마다 GT 와 Pred 를
     이름을 붙여 나란히 적는다.
 
@@ -161,11 +161,11 @@ def difficulty_lines(result: dict, gt: dict | None = None) -> list[str]:
     GT 가 없으면(라벨 없는 실행) GT 자리는 "-" 다. 축이 하나도 없으면(날씨를
     끈 실행) 빈 리스트를 돌려주고, 호출부는 블록 자체를 만들지 않는다.
     """
-    if all(result.get(k) is None for k, _ in DIFFICULTY_AXES):
+    if all(result.get(k) is None for k, _ in WEATHER_AXES):
         return []
     gw = (gt or {}).get("weather") or {}
     lines = []
-    for key, name in DIFFICULTY_AXES:
+    for key, name in WEATHER_AXES:
         why = (result.get(f"{key}_reason") or "").strip()
         lines.append(f"• {name} (GT:{_num(gw.get(key))}, Pred:{_num(result.get(key))})"
                      + (f": {why}" if why else ""))
@@ -550,7 +550,7 @@ def build_text_panel(result: dict, width: int, scale: float = 1.0) -> np.ndarray
     # 난이도는 등급 단계 다음에 자기 블록으로 붙는다. PANEL_STEPS 에 넣지
     # 않는 이유는 형식이 다르기 때문이다 - 저쪽은 "제목 + 문단" 한 덩어리고,
     # 이건 다섯 줄이 각자 점수를 달고 있어 줄 단위로 유지해야 한다.
-    diff = difficulty_lines(result, gt)
+    diff = weather_lines(result, gt)
     if diff:
         wrapped = []
         for ln in diff:
@@ -887,11 +887,11 @@ def save_clip_json(result: dict, out_path, extra: dict | None = None) -> Path:
             payload["time_spans_answer"] = result["time_spans_answer"]
     # 난이도는 켠 실행에서만 넣는다 - 끈 실행의 json 에 전부 null 인 키가
     # 열 개 붙으면 재집계할 때 "쟀는데 못 읽음"과 구분이 안 된다.
-    if any(result.get(k) is not None for k, _ in DIFFICULTY_AXES):
+    if any(result.get(k) is not None for k, _ in WEATHER_AXES):
         payload["difficulty"] = {
-            k: {"score": result.get(k), "max": DIFFICULTY_MAX,
+            k: {"score": result.get(k), "max": WEATHER_MAX,
                 "reason": result.get(f"{k}_reason", "")}
-            for k, _ in DIFFICULTY_AXES}
+            for k, _ in WEATHER_AXES}
     # --attn-timeline 곡선(장르/이름/점수/근거별 rel, 칸 시각, 쓴 층).
     if result.get("attn_curves"):
         payload["attn_curves"] = result["attn_curves"]

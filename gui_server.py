@@ -153,9 +153,9 @@ def run_kind(rel: str) -> str:
     return "labeled" if "_eval" in rel else "unlabeled"
 
 
-# 난이도 4축 - aggregate_clip.log 의 DIFFICULTY SUMMARY 와 같은 순서/이름.
+# 난이도 4축 - aggregate_clip.log 의 WEATHER SUMMARY 와 같은 순서/이름.
 # 종합 난이도(driving_difficulty)는 뺐다 - 요인과 따로 매기면 모델이 둘을
-# 무관하게 찍어 모순된 값이 나왔다(prompts.py 의 DIFFICULTY_AXES 주석).
+# 무관하게 찍어 모순된 값이 나왔다(prompts.py 의 WEATHER_AXES 주석).
 DIFF_AXES = [
     ("illumination", "조도 (illumination)"),
     ("precipitation", "강수 (precipitation)"),
