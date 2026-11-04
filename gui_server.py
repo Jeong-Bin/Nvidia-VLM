@@ -1410,12 +1410,38 @@ class Handler(BaseHTTPRequestHandler):
                     return            # 사용자가 영상 재생을 끊은 것뿐
                 remaining -= len(chunk)
 
+    # --- 접근 제한 ---
+    # 사내망(--host 0.0.0.0)으로 열면 라벨러가 브라우저로 직접 들어온다. 다른
+    # 탭은 GPU 작업 실행, 프로젝트 파일 열람(/media)까지 되고 인증이 없으므로,
+    # 이 서버 자신(127.0.0.1, ssh 터널 포함)이 아닌 접속자는 NAS 라벨링 탭만
+    # 쓰게 한다. 관리자 계정으로 로그인하면 전부 열린다.
+    def _is_local(self) -> bool:
+        return self.client_address[0] in ("127.0.0.1", "::1", "::ffff:127.0.0.1")
+
+    def _full_access(self) -> bool:
+        return self._is_local() or (NL is not None and NL.is_admin_request(self))
+
+    @staticmethod
+    def _open_path(p: str) -> bool:
+        return (p in ("/", "/index.html", "/favicon.ico", "/api/access")
+                or p.startswith("/static/") or p.startswith("/api/nl/"))
+
+    def _deny(self):
+        return self._json({"error": "이 기능은 서버 관리자만 쓸 수 있습니다 "
+                                    "(NAS 라벨링 탭에서 관리자 계정으로 로그인)",
+                           "restricted": True}, 403)
+
     # --- 라우팅 ---
     def do_GET(self):
         u = urllib.parse.urlparse(self.path)
         p = u.path
         q = {k: v[0] for k, v in urllib.parse.parse_qs(u.query).items()}
         try:
+            if p == "/api/access":
+                full = self._full_access()
+                return self._json({"local": self._is_local(), "full": full})
+            if not self._open_path(p) and not self._full_access():
+                return self._deny()
             return self._get(p, q)
         except Exception as e:                    # 서버가 죽으면 GUI 가 먹통
             return self._err(f"{type(e).__name__}: {e}", 500)
@@ -1518,6 +1544,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if p == "/media":
             rel = q.get("path", "")
+            # 계정/세션 해시가 있는 라벨 저장소는 내주지 않는다.
+            if _safe_under(ROOT / "nas_labels", ROOT / rel):
+                return self._err("forbidden", 403)
             return self._send_file(ROOT / rel, download=q.get("dl") == "1")
 
         if p == "/api/evaluation_log":
@@ -1537,6 +1566,8 @@ class Handler(BaseHTTPRequestHandler):
                 if NL is None:
                     return self._err("NAS 라벨링 비활성: " + NL_ERROR, 503)
                 return NL.handle(self, "POST", u.path, {}, self._body())
+            if not self._full_access():
+                return self._deny()
             return self._post(u.path, self._body())
         except Exception as e:
             return self._err(f"{type(e).__name__}: {e}", 500)
@@ -1604,7 +1635,11 @@ def main():
     GUI_DIR.mkdir(exist_ok=True)
     srv = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"[gui] http://{args.host}:{args.port}")
-    print(f"[gui] 원격이면: ssh -L {args.port}:127.0.0.1:{args.port} <user>@<server>")
+    if args.host in ("127.0.0.1", "localhost", "::1"):
+        print(f"[gui] 원격이면: ssh -L {args.port}:127.0.0.1:{args.port} <user>@<server>")
+    else:
+        print(f"[gui] 사내망 접속 허용 - 이 서버 밖에서 들어온 접속자는 NAS 라벨링 탭만 "
+              f"쓸 수 있습니다(관리자 계정 로그인 시 전체).")
     print("[gui] Ctrl-C 로 종료")
     try:
         srv.serve_forever()

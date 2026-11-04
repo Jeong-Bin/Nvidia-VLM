@@ -234,6 +234,26 @@ video{width:100%;background:#000;border-radius:6px}
   .nl-formp{grid-column:2}
 }
 @media(max-width:900px){.nl-grid{grid-template-columns:1fr}.nl-formp{grid-column:auto}}
+/* [평가 기준] 블록. 큰 화면은 라벨 블록 왼쪽에 칸을 하나 더 내고 그만큼 영상
+   칸이 줄어든다. 그보다 좁으면 영상이 너무 작아지므로, 라벨 블록이 영상 아래로
+   내려가는 배치를 써서 그 왼쪽(목록 아래) 빈 자리에 넣는다. */
+.nl-rubp{position:sticky;top:64px;max-height:calc(100vh - 76px);overflow:auto}
+@media(min-width:1701px){
+  .nl-grid.rub{grid-template-columns:minmax(280px,340px) minmax(0,1fr) minmax(320px,400px) minmax(340px,420px)}
+}
+@media(min-width:1501px) and (max-width:1700px){
+  .nl-grid.rub{grid-template-columns:minmax(280px,340px) minmax(0,1fr)}
+  .nl-grid.rub .nl-formp{grid-column:2}
+}
+@media(min-width:901px) and (max-width:1700px){.nl-rubp{grid-column:1}}
+.seg.nl-lang button{width:auto;padding:2px 8px;white-space:nowrap}
+.nl-rb{margin-top:12px}
+.nl-rb h3{margin:0 0 2px;color:var(--accent);font-size:13px}
+.nl-rb p{margin:0 0 6px;color:var(--muted);font-size:11px}
+.nl-rb dl{display:grid;grid-template-columns:18px minmax(0,1fr);gap:7px 6px;margin:6px 0 0;
+  font-size:12px;line-height:1.55}
+.nl-rb dt{font-weight:650;text-align:center}
+.nl-rb dd{margin:0}
 /* 입력 칸은 화면 높이에 붙여 두고 안에서만 스크롤한다 - 페이지가 같이 내려가면
    저장 버튼과 영상이 번갈아 화면 밖으로 나간다. */
 .nl-formp{position:sticky;top:64px;max-height:calc(100vh - 76px);overflow:auto}
@@ -248,6 +268,15 @@ video{width:100%;background:#000;border-radius:6px}
   color:var(--muted);white-space:nowrap}
 .st.ok{color:var(--ok);border-color:var(--ok)}
 .st.wk{color:var(--warn);border-color:var(--warn)}
+.asg{font-size:10px;color:var(--muted);margin-left:4px}
+.asg.me{color:var(--accent)}
+.nl-bar{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;min-width:60px}
+.nl-bar>i{display:block;height:100%;background:var(--ok)}
+.nl-asg-form{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:6px 0}
+.nl-asg-form label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted)}
+.nl-asg-users{display:flex;gap:4px 12px;flex-wrap:wrap;margin:4px 0}
+.modal.nl-ask{z-index:60}
+.modal.nl-ask .box{max-width:460px}
 .nl-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
 .nl-head .mono{font-size:13px}
 .nl-sub2{color:var(--muted);font-size:11px;margin:4px 0 8px}
@@ -278,6 +307,7 @@ video{width:100%;background:#000;border-radius:6px}
 .nl-ev li .mono{color:var(--fg)}
 .nl-hist{max-height:320px;overflow:auto}
 kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted)}
+button.primary kbd{color:#000}
 </style>
 </head>
 <body>
@@ -752,6 +782,7 @@ kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-radius:
       <div class="nl-path mono" id="nl-path"></div>
       <div class="nl-counts" id="nl-counts"></div>
       <div class="nl-me"><span id="nl-me" class="muted"></span>
+        <button id="nl-assignbtn">클립 분배</button>
         <button id="nl-acct">계정</button><button id="nl-logout">로그아웃</button></div>
     </div>
     <div class="nl-grid">
@@ -763,6 +794,10 @@ kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-radius:
             <option value="labeled">라벨 완료</option>
             <option value="mine">내가 라벨한</option>
             <option value="claimed">작업 중</option></select></label>
+          <label>할당<select id="nl-assignee">
+            <option value="">전체</option>
+            <option value="@me">내 할당</option>
+            <option value="@none">미할당</option></select></label>
           <label>라벨러<select id="nl-labeler"></select></label>
           <label>정렬<select id="nl-sort">
             <option value="order">청크 순</option>
@@ -791,8 +826,14 @@ kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-radius:
           <div id="nl-hist" class="nl-hist muted">클립을 열면 표시됩니다.</div>
         </div>
       </div>
+      <div class="panel nl-rubp hide" id="nl-rubp">
+        <div class="nl-gh"><h2 style="margin:0">평가 기준</h2>
+          <span class="seg nl-lang"><button type="button" data-l="ko">한국어</button><button type="button" data-l="en">English</button></span></div>
+        <div id="nl-rubbody"></div>
+      </div>
       <div class="panel nl-formp" id="nl-formp">
-        <div class="nl-gh"><h2 style="margin:0">라벨</h2><span id="nl-dirty" class="nl-dirty"></span></div>
+        <div class="nl-gh"><h2 style="margin:0">라벨</h2><span id="nl-dirty" class="nl-dirty"></span>
+          <button type="button" class="pill" id="nl-rubtoggle" style="margin-left:auto"></button></div>
         <div id="nl-form"></div>
       </div>
     </div>
@@ -2127,13 +2168,30 @@ setInterval(() => {
       !$('#tab-nas').classList.contains('hide')) refreshJobs();
 }, 5000);
 
-// 탭 복원은 boot() 앞에 둔다. bootstrap 응답을 기다리면 그동안 엉뚱한 탭이
-// 보이고, 초기화가 실패하면 아예 복원되지 않는다.
-restoreTab();
-checkNas();
-// 사람이 터미널에서 마운트하면 배너가 알아서 사라지도록 가끔 다시 본다.
-setInterval(checkNas, 30000);
-boot().catch(e => toast('초기화 실패: ' + e.message, 8000));
+/* 사내망에서 들어온 라벨러는 NAS 라벨링 탭만 쓴다(서버가 다른 API 를 막는다).
+   이 서버 자신(ssh 터널 포함)이거나 관리자로 로그인했으면 전부 보인다. */
+let ACCESS = { full: true, local: true };
+function applyLabelerOnly() {
+  $$('nav > *').forEach(el => el.classList.toggle('hide',
+    !(el.tagName === 'BUTTON' && el.dataset.tab === 'nlabel')));
+  showTab('nlabel', { remember: false });
+  $('#hdr').textContent = 'NAS 라벨링';
+}
+(async () => {
+  try {
+    const r = await fetch('/api/access');
+    if (r.ok) ACCESS = await r.json();
+  } catch (e) {}
+  window.EDGE_ACCESS = ACCESS;
+  if (!ACCESS.full) return applyLabelerOnly();
+  // 탭 복원은 boot() 앞에 둔다. bootstrap 응답을 기다리면 그동안 엉뚱한 탭이
+  // 보이고, 초기화가 실패하면 아예 복원되지 않는다.
+  restoreTab();
+  checkNas();
+  // 사람이 터미널에서 마운트하면 배너가 알아서 사라지도록 가끔 다시 본다.
+  setInterval(checkNas, 30000);
+  boot().catch(e => toast('초기화 실패: ' + e.message, 8000));
+})();
 </script>
 <script src="/static/nas_label.js"></script>
 </body>

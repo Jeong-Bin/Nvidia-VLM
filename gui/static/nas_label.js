@@ -15,8 +15,10 @@ const NL = {
   form: null,         // 입력 중인 값
   manual: {},         // 묶음 점수를 사람이 직접 바꿨나 (아니면 카테고리 최댓값을 따라간다)
   dirty: false, inited: false, booting: false,
+  asg: null, asgVer: -1, myTotal: 0, myLeft: 0,   // 분배 현황
 };
 const LS_DS = 'edgegui.nl.ds', LS_LAST = 'edgegui.nl.last.';
+const LS_RUB = 'edgegui.nl.rubric', LS_RUBLANG = 'edgegui.nl.rubric.lang';
 const AXIS_KO = { illumination: '조도', precipitation: '강수',
   road_surface: '노면', atmospheric_obscurants: '대기 가림' };
 const RSF_KO = { rain: '비', snow: '눈', fog: '안개' };
@@ -62,8 +64,11 @@ function showLogin(msg) {
 $('#nl-login-form').onsubmit = async ev => {
   ev.preventDefault();
   try {
-    await nlapi('login', { user: $('#nl-user').value.trim(), password: $('#nl-pw').value });
+    const j = await nlapi('login', { user: $('#nl-user').value.trim(), password: $('#nl-pw').value });
     $('#nl-pw').value = '';
+    // 사내망 접속에서 관리자로 로그인하면 다른 탭도 열리므로 화면을 다시 그린다.
+    const A = window.EDGE_ACCESS;
+    if (A && !A.full && j.me && j.me.admin) return location.reload();
     await boot();
   } catch (e) { $('#nl-login-msg').textContent = e.message; }
 };
@@ -72,6 +77,8 @@ $('#nl-logout').onclick = async () => {
   releaseClaim();
   try { await nlapi('logout', {}); } catch (e) {}
   NL.cur = null; NL.dirty = false;
+  const A = window.EDGE_ACCESS;
+  if (A && !A.local && A.full) return location.reload();
   showLogin('로그아웃했습니다');
 };
 
@@ -84,10 +91,12 @@ async function boot() {
     $('#nl-login').classList.add('hide');
     $('#nl-app').classList.remove('hide');
     $('#nl-me').textContent = `${NL.me.name} (${NL.me.user})${NL.me.admin ? ' · 관리자' : ''}`;
+    $('#nl-assignbtn').textContent = NL.me.admin ? '클립 분배' : '분배 현황';
     opts($('#nl-ds'), NL.datasets.map(d => [d.id, d.name]));
     const saved = lsGet(LS_DS);
     if (saved && NL.datasets.some(d => d.id === saved)) $('#nl-ds').value = saved;
     buildForm();
+    renderRubric();
     await selectDataset($('#nl-ds').value);
   } finally { NL.booting = false; }
 }
@@ -101,6 +110,10 @@ async function selectDataset(id) {
   $('#nl-path').innerHTML = `NAS: ${esc(d.nas_path)}<br>서버: ${esc(d.local_path)}`
     + `<br>라벨 파일: ${esc(d.labels_file)}`;
   renderEmptyClip();
+  NL.asgVer = -1;
+  await loadAssign();
+  // 할당받은 청크가 있으면 처음에는 내 할당분만 보여 준다.
+  $('#nl-assignee').value = NL.asg && NL.asg.by_user[NL.me.user] ? '@me' : '';
   await loadList();
   // 마지막으로 보던 클립을 다시 연다(새로고침해도 이어서 작업).
   const last = lsGet(LS_LAST + id);
@@ -115,7 +128,8 @@ function listQuery() {
   return new URLSearchParams({
     ds: NL.ds, status: $('#nl-status').value, sort: $('#nl-sort').value,
     q: $('#nl-q').value.trim(), chunk: $('#nl-chunk').value.trim(),
-    labeler: $('#nl-labeler').value || '', offset: NL.offset, limit: NL.limit,
+    labeler: $('#nl-labeler').value || '', assignee: $('#nl-assignee').value || '',
+    offset: NL.offset, limit: NL.limit,
   }).toString();
 }
 let listRetry = null;
@@ -138,7 +152,7 @@ async function loadList() {
   renderCounts(j.counts);
   renderRows();
 }
-['#nl-status', '#nl-sort', '#nl-labeler'].forEach(s =>
+['#nl-status', '#nl-sort', '#nl-labeler', '#nl-assignee'].forEach(s =>
   $(s).onchange = () => { NL.offset = 0; loadList(); });
 $('#nl-reload').onclick = () => { NL.offset = 0; loadList(); };
 ['#nl-q', '#nl-chunk'].forEach(s => $(s).onkeydown = ev => {
@@ -162,7 +176,11 @@ function renderCounts(c) {
     <div><b>${n(c.unlabeled)}</b><span>미라벨</span></div>
     <div><b style="color:var(--ok)">${n(c.labeled)}</b><span>라벨 완료 (${pctv}%)</span></div>
     <div><b style="color:var(--warn)">${n(c.claimed)}</b><span>작업 중</span></div>
-    <div><b>${n(c.mine)}</b><span>내가 라벨한</span></div>`;
+    <div><b>${n(c.mine)}</b><span>내가 라벨한</span></div>
+    ${c.assigned ? `<div title="나에게 할당된 청크의 클립"><b style="color:var(--accent)">${n(c.assigned_labeled)}
+      <span style="font-size:12px;color:var(--muted)">/ ${n(c.assigned)}</span></b><span>내 할당 완료</span></div>` : ''}`;
+  NL.myTotal = c.assigned || 0;
+  NL.myLeft = (c.assigned || 0) - (c.assigned_labeled || 0);
   const sel = $('#nl-labeler'), keep = sel.value;
   const ls = Object.entries(c.labelers || {}).sort((a, b) => b[1] - a[1]);
   opts(sel, [['', '전체'], ...ls.map(([u, k]) => [u, `${u} (${k})`])]);
@@ -181,14 +199,19 @@ function badge(r) {
   if (c) s += ` <span class="st wk" title="${esc(c)} 님이 보고 있습니다">✎ ${esc(c)}</span>`;
   return s;
 }
-const rowsSig = () => JSON.stringify(NL.rows.map(r => [r.uuid, r.rev, r.claimed_by]));
+const rowsSig = () => JSON.stringify(NL.rows.map(r => [r.uuid, r.rev, r.claimed_by, r.assignee]));
+function asgTag(a) {
+  if (!a) return '';
+  const me = NL.me && a === NL.me.user;
+  return `<span class="asg${me ? ' me' : ''}" title="할당: ${esc(a)}">@${esc(a)}</span>`;
+}
 function renderRows() {
   NL._sig = rowsSig();
   const cur = NL.cur && NL.cur.uuid;
   $('#nl-rows').innerHTML = NL.rows.length ? NL.rows.map(r => `
     <tr data-u="${esc(r.uuid)}" class="${r.uuid === cur ? 'cur' : ''}">
       <td class="num muted">${(r.idx + 1).toLocaleString()}</td>
-      <td class="mono" title="${esc(r.uuid)} · chunk ${r.chunk}">${esc(r.uuid.slice(0, 8))}…</td>
+      <td class="mono" title="${esc(r.uuid)} · chunk ${r.chunk}${r.assignee ? ' · 할당 ' + esc(r.assignee) : ''}">${esc(r.uuid.slice(0, 8))}…${asgTag(r.assignee)}</td>
       <td>${badge(r)}</td>
       <td title="${r.labeled ? '최초 ' + esc(r.created_by) + ' ' + fmtTs(r.created_at, 1) : ''}">${r.labeled
         ? `${esc(r.updated_by)} <span class="muted">${fmtTs(r.updated_at)}${r.rev > 1 ? ` · r${r.rev}` : ''}</span>` : ''}</td>
@@ -244,7 +267,7 @@ function renderPlayer() {
     <div class="nl-ctrl">
       <button id="nl-prev" title="목록 순서상 이전 클립">◀ 이전 클립</button>
       <button id="nl-next" title="목록 순서상 다음 클립">다음 클립 ▶</button>
-      <button class="primary" id="nl-nextu" title="남이 작업 중인 클립은 건너뜁니다">다음 미라벨 ▶▶</button>
+      <button class="primary" id="nl-nextu" title="${NL.myTotal ? '내 할당 청크에서' : '미할당 청크에서'} 다음 미라벨 클립. 남이 작업 중인 클립은 건너뜁니다">다음 미라벨${NL.myTotal ? '(내 할당)' : ''} ▶▶</button>
       <label class="muted" style="margin-left:auto">속도
         <select id="nl-rate">${['0.25', '0.5', '1', '1.5', '2', '4'].map(v =>
           `<option ${v === rate ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
@@ -279,10 +302,13 @@ function renderHead() {
     <span class="mono">${esc(c.uuid)}</span>
     <button class="pill" id="nl-copy" title="uuid 복사">복사</button>
     ${badge({ labeled: r.labeled })}
-    <span class="muted">#${(c.idx + 1).toLocaleString()} · chunk ${r.chunk}</span>
+    <span class="muted">#${(c.idx + 1).toLocaleString()} · chunk ${r.chunk}
+      · ${r.assignee ? '할당 ' + esc(r.assignee) : '미할당'}</span>
     <div class="nl-sub2" style="flex-basis:100%;margin:0">${info}</div>
     ${other ? `<div class="nl-warn" style="flex-basis:100%">✎ ${esc(other)} 님이 이 클립을 보고 있습니다.
       함께 저장하면 나중에 저장한 쪽이 충돌 경고를 받습니다.</div>` : ''}
+    ${r.assignee && r.assignee !== NL.me.user && !r.labeled ? `<div class="nl-warn" style="flex-basis:100%">
+      ${esc(r.assignee)} 님에게 할당된 클립입니다. 라벨할 수는 있지만 할당받은 사람과 겹칠 수 있습니다.</div>` : ''}
     <div id="nl-banner" style="flex-basis:100%"></div>`;
   $('#nl-copy').onclick = async () => {
     try { await navigator.clipboard.writeText(c.uuid); toast('복사했습니다'); }
@@ -296,9 +322,15 @@ async function goNext(o = {}) {
   if (NL.cur) q.set('after', NL.cur.uuid);
   if (o.any) q.set('any', '1');
   if (o.dir) q.set('dir', o.dir);
+  // 미라벨 이동은 할당받은 게 있으면 내 할당분에서만, 없으면 남에게 할당되지
+  // 않은 청크에서만 고른다 - 서로의 몫을 건드리지 않게.
+  const scope = o.any ? '' : (NL.myTotal ? 'mine' : 'free');
+  if (scope) q.set('scope', scope);
   try {
     const j = await nlapi('next?' + q);
-    if (!j.uuid) return toast('남은 미라벨 클립이 없습니다');
+    if (!j.uuid) return toast(scope === 'mine'
+      ? '내게 할당된 클립을 모두 라벨링했습니다. 관리자에게 추가 분배를 요청하세요.'
+      : '남은 미라벨 클립이 없습니다 (다른 라벨러에게 할당된 클립은 제외)', 5000);
     await openClip(j.uuid, { force: true });
   } catch (e) { toast(e.message); }
 }
@@ -322,6 +354,32 @@ function releaseClaim() {
 window.addEventListener('beforeunload', ev => {
   releaseClaim();
   if (NL.dirty) { ev.preventDefault(); ev.returnValue = ''; }
+});
+
+/* ---------- 평가 기준 ----------
+   켜고 끄기와 언어는 사람마다 다르므로 이 브라우저에만 기억한다. 끄면 블록이
+   사라지므로 켜는 버튼은 라벨 블록 머리에 둔다. */
+function renderRubric() {
+  const on = lsGet(LS_RUB) !== '0', lang = lsGet(LS_RUBLANG) === 'en' ? 'en' : 'ko';
+  $('.nl-grid').classList.toggle('rub', on);
+  $('#nl-rubp').classList.toggle('hide', !on);
+  const t = $('#nl-rubtoggle');
+  t.textContent = `평가 기준 ${on ? 'On' : 'Off'}`;
+  t.classList.toggle('on', on);
+  $$('.nl-lang button').forEach(b => b.classList.toggle('on', b.dataset.l === lang));
+  const R = NL.schema.rubrics;
+  $('#nl-rubbody').innerHTML = !R ? '<p class="muted">서버를 재시작하면 표시됩니다.</p>'
+    : R.map(r => `<div class="nl-rb"><h3>${esc(r.name)}</h3>
+        ${lang === 'en' ? `<p>${esc(r.title)}</p>` : ''}
+        <dl>${Object.entries(r[lang]).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div>`).join('');
+}
+$('#nl-rubtoggle').onclick = () => {
+  lsSet(LS_RUB, lsGet(LS_RUB) === '0' ? '1' : '0');
+  renderRubric();
+};
+$$('.nl-lang button').forEach(b => b.onclick = () => {
+  lsSet(LS_RUBLANG, b.dataset.l);
+  renderRubric();
 });
 
 /* ---------- 라벨 입력 ---------- */
@@ -574,6 +632,11 @@ async function poll() {
     const j = await nlapi(`poll?ds=${encodeURIComponent(NL.ds)}&since=${NL.seq}`);
     NL.claims = j.claims || {};
     if (j.counts) renderCounts(j.counts);
+    if (j.assign_ver !== undefined && j.assign_ver !== NL.asgVer) {
+      // 분배가 바뀌었다 - 할당 표시가 달라지므로 목록을 새로 받는다.
+      await loadAssign();
+      await loadList();
+    }
     const ch = new Map((j.changed || []).map(r => [r.uuid, r]));
     NL.rows = NL.rows.map(r => {
       const c = ch.get(r.uuid);
@@ -603,6 +666,166 @@ async function poll() {
 }
 setInterval(poll, 3000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+
+/* ---------- 분배 ----------
+   관리자가 청크(약 100클립 묶음) 단위로 라벨러에게 나눠 준다. 같은 라벨러에게
+   다시 분배하면 그 라벨러의 할당 전체가 새 청크로 바뀐다(추가가 아님). 라벨러의
+   [다음 미라벨]은 자기 할당분 안에서만 움직인다. 할당은 강제가 아니다 -
+   남의 클립도 열어 고칠 수 있고(재수정), 경고만 보인다. */
+async function loadAssign() {
+  try {
+    NL.asg = await nlapi('assignments?ds=' + encodeURIComponent(NL.ds));
+  } catch (e) { NL.asg = null; return; }
+  NL.asgVer = NL.asg.assign_ver;
+  const sel = $('#nl-assignee'), keep = sel.value;
+  const name = Object.fromEntries(NL.asg.users.map(u => [u.user, u.name]));
+  const others = Object.keys(NL.asg.by_user).sort();
+  opts(sel, [['', '전체'], ['@me', '내 할당'], ['@none', '미할당'],
+    ...others.map(u => [u, `${name[u] || u} (${u})`])]);
+  sel.value = [...sel.options].some(o => o.value === keep) ? keep : '';
+  if ($('#nl-asg-body')) renderAssignModal();
+}
+
+function asgPct(d, t) { return t ? Math.round(d / t * 1000) / 10 : 0; }
+function renderAssignModal() {
+  const A = NL.asg, admin = NL.me.admin;
+  if (!A) return;
+  const name = Object.fromEntries(A.users.map(u => [u.user, u.name]));
+  const n = x => Number(x || 0).toLocaleString();
+  const rows = Object.entries(A.by_user).sort((a, b) => a[0].localeCompare(b[0])).map(([u, s]) => `
+    <tr><td><b>${esc(name[u] || u)}</b> <span class="muted mono">${esc(u)}</span></td>
+      <td class="num">${n(s.n_chunks)}</td><td class="num">${n(s.clips)}</td>
+      <td class="num">${n(s.labeled)}</td>
+      <td style="min-width:90px"><div class="nl-bar"><i style="width:${asgPct(s.labeled, s.clips)}%"></i></div>
+        <span class="muted" style="font-size:11px">${asgPct(s.labeled, s.clips)}%</span></td>
+      <td class="mono" style="font-size:11px;max-width:260px;overflow-wrap:anywhere">${esc(s.chunks)}</td>
+      ${admin ? `<td style="white-space:nowrap"><button class="pill" data-asg-edit="${esc(u)}">수정</button>
+        <button class="pill danger" data-asg-del="${esc(u)}">해제</button></td>` : ''}</tr>`).join('');
+  const labelers = A.users;
+  const form = !admin ? '' : `
+    <h3 style="margin-top:16px">청크 범위로 할당</h3>
+    <p class="muted" style="margin:2px 0">대상 라벨러의 할당을 입력한 청크로 <b>바꿉니다</b> - 기존에 받은 청크 중
+      입력에 없는 것은 해제됩니다. 청크를 더 얹어 주려면 기존 범위까지 함께 적으세요(표의 [수정]이 채워 줍니다).</p>
+    <div class="nl-asg-form">
+      <label>청크 (예: 0-9, 15, 20-29)<input type="text" id="nl-as-chunks" size="22"></label>
+      <label>대상<select id="nl-as-user">
+        ${labelers.map(u => `<option value="${esc(u.user)}">${esc(u.name)} (${esc(u.user)})</option>`).join('')}
+        <option value="">(할당 해제)</option></select></label>
+      <button class="primary" id="nl-as-go">적용</button>
+    </div>
+    <h3 style="margin-top:16px">자동 분배</h3>
+    <p class="muted" style="margin:2px 0">선택한 라벨러의 할당을 각각 새 청크 N개로 <b>바꿉니다</b>. 미라벨 클립이 남은
+      청크 중 미할당이거나 선택한 라벨러가 갖고 있던 것을 앞 번호부터 차례로 나눠 줍니다.</p>
+    <div class="nl-asg-users">${labelers.map(u => `<label class="chk"><input type="checkbox"
+      data-au="${esc(u.user)}" ${u.admin ? '' : 'checked'}> ${esc(u.name)} <span class="muted">${esc(u.user)}</span></label>`).join('')}</div>
+    <div class="nl-asg-form">
+      <label>1인당 청크 수<input type="number" id="nl-au-n" min="1" value="10" style="width:80px"></label>
+      <span class="muted" id="nl-au-hint" style="align-self:center"></span>
+      <button class="primary" id="nl-au-go">분배</button>
+    </div>`;
+  const log = (A.log || []).map(e => `<li><span class="muted">${fmtTs(e.ts, 1)}</span> ${esc(e.by)} →
+    ${e.user ? `<b>${esc(e.user)}</b> ${e.replace ? '할당 변경' : '할당'}` : '할당 해제'}${e.mode === 'auto' ? ' (자동)' : ''}:
+    <span class="mono">${esc(e.chunks || '없음')}</span> (${e.n}청크)${e.removed ? ` · 해제 <span class="mono">${esc(e.removed)}</span>` : ''}${e.replaced ? ` <span style="color:var(--warn)">(기존 할당: ${
+      Object.entries(e.replaced).map(([u, k]) => `${esc(u)} ${k}청크`).join(', ')})</span>` : ''}</li>`).join('');
+  $('#nl-asg-body').innerHTML = `
+    <p class="muted" style="margin:0 0 8px">청크 ${n(A.n_chunks)}개 · 클립 ${n(A.clips)}개 (청크당 평균 ${Math.round(A.clips / Math.max(1, A.n_chunks))}개) ·
+      미할당 청크 ${n(A.unassigned.n_chunks)}개 / 클립 ${n(A.unassigned.clips)}개</p>
+    <div class="scroll" style="max-height:300px"><table>
+      <thead><tr><th>라벨러</th><th class="num">청크</th><th class="num">클립</th><th class="num">완료</th><th>진행</th><th>청크 범위</th>${admin ? '<th></th>' : ''}</tr></thead>
+      <tbody>${rows || `<tr><td colspan="${admin ? 7 : 6}" class="muted">아직 분배된 청크가 없습니다.</td></tr>`}</tbody></table></div>
+    ${form}
+    <h3 style="margin-top:16px">분배 기록</h3>
+    <ul class="muted" style="font-size:12px;max-height:160px;overflow:auto;padding-left:18px;margin:4px 0">${log || '<li>없음</li>'}</ul>`;
+  if (!admin) return;
+  const auHint = () => {
+    const k = $$('[data-au]').filter(x => x.checked).length, per = +$('#nl-au-n').value || 0;
+    $('#nl-au-hint').textContent = `${k}명 × ${per}청크 = ${k * per}청크 (약 ${Math.round(k * per * A.clips / Math.max(1, A.n_chunks)).toLocaleString()}클립)`;
+  };
+  $$('[data-asg-edit]').forEach(btn => btn.onclick = () => {
+    const u = btn.dataset.asgEdit;
+    $('#nl-as-user').value = u;
+    $('#nl-as-chunks').value = A.by_user[u].chunks;
+    $('#nl-as-chunks').focus();
+    toast(`${u} 의 현재 범위를 채웠습니다. 고친 뒤 [적용]을 누르세요`, 3500);
+  });
+  $$('[data-asg-del]').forEach(btn => btn.onclick = async () => {
+    const u = btn.dataset.asgDel, s = A.by_user[u];
+    if (!confirm(`${u} 의 할당(${s.n_chunks}청크: ${s.chunks})을 모두 해제할까요?\n이미 한 라벨은 그대로 남습니다.`)) return;
+    try {
+      const j = await nlapi('assign', { ds: NL.ds, chunks: s.chunks, user: '' });
+      toast(`${u}: ${j.removed}개 청크를 해제했습니다`);
+      await loadAssign(); loadList();
+    } catch (e) { toast(e.message, 6000); }
+  });
+  $$('[data-au]').forEach(x => x.onchange = auHint);
+  $('#nl-au-n').oninput = auHint; auHint();
+  $('#nl-as-go').onclick = async () => {
+    const body = { ds: NL.ds, chunks: $('#nl-as-chunks').value, user: $('#nl-as-user').value };
+    try {
+      let j;
+      try { j = await nlapi('assign', body); }
+      catch (e) {
+        // 남에게 할당된 청크가 섞여 있으면 서버가 409 로 알려 준다 - 물어보고 다시 보낸다.
+        if (!(e.status === 409 && e.data && e.data.assign_conflict)) throw e;
+        const who = Object.entries(e.data.assign_conflict)
+          .map(([u, cs]) => `${u}: 청크 ${cs}`).join('\n');
+        const ok = await askYesNo('해당 청크들 중 일부는 이미 다른 라벨러에게 할당되었습니다.\n'
+          + '중복된 기존 할당을 회수하여 재할당 하시겠습니까?', who);
+        if (!ok) return;
+        j = await nlapi('assign', { ...body, force: true });
+      }
+      toast(!j.changed ? '바뀐 것이 없습니다' : body.user
+        ? `${body.user}: ${j.n_chunks}청크로 변경 (추가 ${j.added}, 해제 ${j.removed})`
+        : `${j.removed}개 청크를 할당 해제했습니다`, 4000);
+      await loadAssign(); loadList();
+    } catch (e) { toast(e.message, 6000); }
+  };
+  $('#nl-au-go').onclick = async () => {
+    const users = $$('[data-au]').filter(x => x.checked).map(x => x.dataset.au);
+    const per = +$('#nl-au-n').value || 0;
+    if (!users.length) return toast('라벨러를 고르세요');
+    if (!confirm(`${users.join(', ')} 의 할당을 각각 새 ${per}청크로 바꿀까요?\n(기존 할당은 해제됩니다)`)) return;
+    try {
+      const j = await nlapi('assign_auto', { ds: NL.ds, users, per_user: per });
+      const got = Object.entries(j.assigned).map(([u, c]) => `${u}: ${c || '(남은 청크 없음)'}`).join('\n');
+      toast('분배했습니다', 3000);
+      alert(`분배 결과\n${got}\n\n남은 미할당 청크(미라벨 있음): ${j.left}개`);
+      await loadAssign(); loadList();
+    } catch (e) { toast(e.message, 6000); }
+  };
+}
+/* 예/아니오 확인 창. confirm() 은 버튼 글자를 바꿀 수 없어 직접 그린다.
+   분배 창 위에 겹쳐 띄우므로 #modal 과 따로 body 에 붙인다. */
+function askYesNo(msg, detail) {
+  return new Promise(resolve => {
+    const el = document.createElement('div');
+    el.className = 'modal nl-ask';
+    el.innerHTML = `<div class="box" role="dialog" aria-modal="true">
+      <p style="margin:0 0 10px;line-height:1.6;white-space:pre-wrap">${esc(msg)}</p>
+      ${detail ? `<pre class="mono muted" style="margin:0 0 12px;white-space:pre-wrap;font-size:12px">${esc(detail)}</pre>` : ''}
+      <div class="row" style="justify-content:flex-end;gap:8px">
+        <button class="primary" data-a="1">예</button><button data-a="0">아니오</button></div></div>`;
+    const done = v => { document.removeEventListener('keydown', key, true); el.remove(); resolve(v); };
+    const key = ev => {
+      if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); done(false); }
+    };
+    el.onclick = ev => {
+      if (ev.target === el) return done(false);
+      const a = ev.target.closest('[data-a]');
+      if (a) done(a.dataset.a === '1');
+    };
+    document.addEventListener('keydown', key, true);
+    document.body.appendChild(el);
+    el.querySelector('[data-a="1"]').focus();
+  });
+}
+
+$('#nl-assignbtn').onclick = async () => {
+  showModal(`<h2>${NL.me.admin ? '클립 분배' : '분배 현황'}</h2><div id="nl-asg-body">불러오는 중…</div>
+    <div class="row" style="margin-top:14px"><button onclick="closeModal()" style="margin-left:auto">닫기</button></div>`);
+  await loadAssign();
+  renderAssignModal();
+};
 
 /* ---------- 계정 ---------- */
 $('#nl-acct').onclick = async () => {

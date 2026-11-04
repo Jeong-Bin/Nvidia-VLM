@@ -11,6 +11,17 @@ NAS 데이터셋의 클립을 하나씩 보며 사람이 직접 라벨을 매기
   <dataset_id>/history.jsonl  모든 생성/수정/삭제 기록 - 정본(append-only)
   <dataset_id>/labels.json    현재 라벨. test_label_333_diff3.json 과 같은
                               양식이라 evaluate_labels.py 에 그대로 넣을 수 있다.
+  <dataset_id>/assignments.jsonl  청크 분배 기록 - 정본(append-only)
+  <dataset_id>/assignments.json   라벨러별 현재 할당 청크(보기용 결과물)
+
+여러 라벨러가 써도 파일은 데이터셋당 한 벌이다. 라벨러는 각자 PC 의
+브라우저로 이 서버(gui_server.py --host 0.0.0.0)에 접속할 뿐이고, 쓰는 것은
+이 서버 프로세스 하나다. 다른 PC 에서 gui_server.py 를 따로 띄우면 그
+PC 에 별도 파일이 생기므로 그렇게 쓰지 않는다.
+
+분배: 관리자가 청크(약 100클립) 단위로 라벨러에게 나눠 준다. 라벨러의
+[다음 미라벨]은 자기 할당분 안에서만 움직인다. 강제는 아니라서 남의
+클립도 열어 고칠 수 있다(경고만 보인다).
 
 정본이 history.jsonl 인 이유:
   "누가 언제 어떻게 고쳤나"는 이력에만 있고, 라벨 파일과 이력을 따로 쓰면
@@ -30,6 +41,7 @@ NAS 데이터셋의 클립을 하나씩 보며 사람이 직접 라벨을 매기
 from __future__ import annotations
 
 import argparse
+import bisect
 import getpass
 import hashlib
 import hmac
@@ -50,6 +62,7 @@ DATASETS_JSON = ROOT / "nas_datasets.json"
 # 저장 위치. 테스트 때는 환경변수로 다른 곳을 가리켜 실제 라벨을 건드리지 않는다.
 STORE = Path(os.environ.get("NAS_LABEL_STORE") or ROOT / "nas_labels")
 
+LOCAL_ADDRS = ("127.0.0.1", "::1", "::ffff:127.0.0.1")
 COOKIE = "nl_session"
 SESSION_DAYS = 14
 PBKDF2_ITER = 200_000
@@ -90,6 +103,50 @@ class Conflict(Exception):
 
 class AuthError(Exception):
     pass
+
+
+class AssignConflict(Exception):
+    """이미 다른 라벨러에게 할당된 청크를 덮어쓰려 했다."""
+
+    def __init__(self, info: dict):
+        super().__init__("assign conflict")
+        self.info = info
+
+
+def parse_chunks(spec) -> list[int]:
+    """'0-9, 15, 20-29' -> [0..9, 15, 20..29]. 리스트를 받으면 그대로 정수화."""
+    if isinstance(spec, (list, tuple)):
+        return sorted({int(x) for x in spec})
+    out = set()
+    for part in re.split(r"[,\s]+", str(spec or "").strip()):
+        if not part:
+            continue
+        m = re.fullmatch(r"(\d+)(?:-(\d+))?", part)
+        if not m:
+            raise ValueError(f"청크 범위를 읽을 수 없습니다: {part!r} (예: 0-9, 15, 20-29)")
+        a = int(m.group(1))
+        b = int(m.group(2)) if m.group(2) else a
+        if b < a:
+            a, b = b, a
+        if b - a > 100_000:
+            raise ValueError(f"범위가 너무 넓습니다: {part}")
+        out.update(range(a, b + 1))
+    if not out:
+        raise ValueError("청크를 하나 이상 지정하세요")
+    return sorted(out)
+
+
+def fmt_chunks(chunks) -> str:
+    """[0,1,2,5,7,8] -> '0-2, 5, 7-8'"""
+    cs = sorted(chunks)
+    out, i = [], 0
+    while i < len(cs):
+        j = i
+        while j + 1 < len(cs) and cs[j + 1] == cs[j] + 1:
+            j += 1
+        out.append(str(cs[i]) if i == j else f"{cs[i]}-{cs[j]}")
+        i = j + 1
+    return ", ".join(out)
 
 
 # ---------------------------------------------------------------------------
@@ -326,6 +383,13 @@ class Dataset:
         self.dir.mkdir(parents=True, exist_ok=True)
         self.hist_path = self.dir / "history.jsonl"
         self.labels_path = self.dir / "labels.json"
+        # 청크 단위 분배. 이력과 같은 이유로 append-only 로그가 정본이고
+        # assignments.json 은 사람이 보기 위한 결과물이다.
+        self.assign_log_path = self.dir / "assignments.jsonl"
+        self.assign_path = self.dir / "assignments.json"
+        self.assign: dict[int, str] = {}           # chunk -> user
+        self.assign_events: list[dict] = []
+        self.assign_ver = 0
 
         self.lock = threading.RLock()
         self.labels: dict[str, dict] = {}
@@ -340,11 +404,13 @@ class Dataset:
         self.source = None
         self.order: list[str] | None = None
         self.chunk: dict[str, int] = {}
+        self.chunk_clips: dict[int, list[str]] = {}
         self.pos: dict[str, int] = {}
         self.index_state = "idle"          # idle | building | ready | error
         self.index_error = ""
         self._index_lock = threading.Lock()
         self._load_history()
+        self._load_assign()
 
     @staticmethod
     def _resolve(nas_path: str, mounts: dict) -> Path:
@@ -385,8 +451,12 @@ class Dataset:
                 chunk = {k[len(pre):]: _chunk_no(v[0])
                          for k, v in src.index.items() if k.startswith(pre)}
             order = sorted(chunk, key=lambda u: (chunk[u], u))
+            cc: dict[int, list[str]] = {}
+            for u in order:
+                cc.setdefault(chunk[u], []).append(u)
             with self.lock:
                 self.source, self.chunk, self.order = src, chunk, order
+                self.chunk_clips = cc
                 self.pos = {u: i for i, u in enumerate(order)}
                 self.index_state = "ready"
             print(f"[nas_label] {self.id}: 클립 {len(order):,}개", flush=True)
@@ -518,12 +588,165 @@ class Dataset:
             if self.claims.get(uuid, {}).get("user") == user:
                 del self.claims[uuid]
 
+    # --- 분배 (청크 -> 라벨러) ---
+    def _load_assign(self):
+        if not self.assign_log_path.exists():
+            return
+        with open(self.assign_log_path, encoding="utf-8") as f:
+            for n, line in enumerate(f, 1):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    self._apply_assign(json.loads(line))
+                except (json.JSONDecodeError, KeyError, ValueError) as e:
+                    print(f"[nas_label] {self.assign_log_path}:{n} 읽기 실패({e}) - 건너뜀",
+                          flush=True)
+
+    def _apply_assign(self, ev: dict):
+        chunks = parse_chunks(ev["chunks"]) if ev.get("chunks") else []
+        if ev.get("replace") and ev.get("user"):
+            # 이 라벨러의 할당 전체를 chunks 로 바꾼다(기존 것은 해제).
+            for c in [c for c, x in self.assign.items() if x == ev["user"]]:
+                del self.assign[c]
+        for c in chunks:
+            if ev.get("user"):
+                self.assign[c] = ev["user"]
+            else:
+                self.assign.pop(c, None)
+        self.assign_events.append(ev)
+        self.assign_ver += 1
+
+    def _record_assign(self, by: str, user: str | None, chunks: list[int],
+                       replaced: dict | None = None, mode: str = "manual",
+                       replace: bool = False, removed: list[int] | None = None):
+        ev = {"ts": now_iso(), "by": by, "user": user or None,
+              "action": "assign" if user else "unassign", "mode": mode,
+              "chunks": fmt_chunks(chunks), "n": len(chunks)}
+        if replace:
+            ev["replace"] = True
+        if removed:
+            ev["removed"] = fmt_chunks(removed)
+        if replaced:
+            ev["replaced"] = replaced
+        with open(self.assign_log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(ev, ensure_ascii=False) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        self._apply_assign(ev)
+        by_user: dict[str, list[int]] = {}
+        for c, x in self.assign.items():
+            by_user.setdefault(x, []).append(c)
+        _atomic_write(self.assign_path, json.dumps(
+            {"_meta": {"generated_from": self.assign_log_path.name, "updated_at": ev["ts"]},
+             "by_user": {x: fmt_chunks(cs) for x, cs in sorted(by_user.items())}},
+            ensure_ascii=False, indent=2))
+        return ev
+
+    def assignee(self, u: str) -> str | None:
+        return self.assign.get(self.chunk.get(u, -2))
+
+    def assign_chunks(self, spec, user: str | None, by: str, force: bool = False) -> dict:
+        """user 의 할당을 spec 청크로 바꾼다(기존 할당 중 spec 에 없는 것은 해제).
+
+        user 가 없으면 spec 청크를 할당 해제한다. 남에게 할당된 청크를 가져오는
+        것은 force 일 때만 한다.
+        """
+        self.require_index()
+        chunks = parse_chunks(spec)
+        bad = [c for c in chunks if c not in self.chunk_clips]
+        if bad:
+            raise ValueError(f"데이터셋에 없는 청크 {len(bad)}개: {fmt_chunks(bad)} "
+                             f"(있는 범위: {min(self.chunk_clips)}-{max(self.chunk_clips)})")
+        with self.lock:
+            if not user:
+                change = [c for c in chunks if c in self.assign]
+                if not change:
+                    return {"changed": 0, "added": 0, "removed": 0}
+                was: dict[str, int] = {}
+                for c in change:
+                    was[self.assign[c]] = was.get(self.assign[c], 0) + 1
+                self._record_assign(by, None, change, was)
+                return {"changed": len(change), "added": 0, "removed": len(change)}
+            taken: dict[str, list[int]] = {}
+            for c in chunks:
+                x = self.assign.get(c)
+                if x and x != user:
+                    taken.setdefault(x, []).append(c)
+            if taken and not force:
+                raise AssignConflict({x: fmt_chunks(cs) for x, cs in taken.items()})
+            old = {c for c, x in self.assign.items() if x == user}
+            new = set(chunks)
+            if old == new:
+                return {"changed": 0, "added": 0, "removed": 0}
+            added, removed = sorted(new - old), sorted(old - new)
+            self._record_assign(by, user, chunks,
+                                {x: len(cs) for x, cs in taken.items()} or None,
+                                replace=True, removed=removed)
+            return {"changed": len(added) + len(removed), "added": len(added),
+                    "removed": len(removed), "n_chunks": len(chunks)}
+
+    def auto_assign(self, users: list[str], per_user: int, by: str) -> dict:
+        """선택한 라벨러들의 할당을 각각 새 청크 per_user 개로 바꾼다.
+
+        후보는 미라벨 클립이 남은 청크 중 아무에게도 할당되지 않았거나 이번에
+        고른 라벨러들이 갖고 있던 것(바뀌면서 풀리므로)을 앞 번호부터.
+        """
+        self.require_index()
+        users = list(dict.fromkeys(users))
+        if not users:
+            raise ValueError("분배할 라벨러를 고르세요")
+        if not 1 <= per_user <= 10_000:
+            raise ValueError("1인당 청크 수는 1 이상이어야 합니다")
+        with self.lock:
+            sel = set(users)
+            free = [c for c in sorted(self.chunk_clips)
+                    if self.assign.get(c) in (None, *sel)
+                    and any(u not in self.labels for u in self.chunk_clips[c])]
+            got, i = {}, 0
+            for user in users:
+                take = free[i:i + per_user]
+                i += len(take)
+                old = {c for c, x in self.assign.items() if x == user}
+                if set(take) != old:
+                    self._record_assign(by, user, take, mode="auto", replace=True,
+                                        removed=sorted(old - set(take)))
+                got[user] = fmt_chunks(take)
+            return {"assigned": got, "left": max(0, len(free) - i)}
+
+    def assign_summary(self) -> dict:
+        self.require_index()
+        with self.lock:
+            per: dict[str, list[int]] = {}
+            for c, x in self.assign.items():
+                per.setdefault(x, []).append(c)
+            out = {}
+            for x, cs in per.items():
+                clips = sum(len(self.chunk_clips.get(c, [])) for c in cs)
+                done = sum(1 for c in cs for u in self.chunk_clips.get(c, []) if u in self.labels)
+                out[x] = {"chunks": fmt_chunks(cs), "n_chunks": len(cs),
+                          "clips": clips, "labeled": done}
+            free = [c for c in self.chunk_clips if c not in self.assign]
+            return {"by_user": out, "n_chunks": len(self.chunk_clips),
+                    "clips": len(self.order),
+                    "unassigned": {"n_chunks": len(free),
+                                   "clips": sum(len(self.chunk_clips[c]) for c in free)},
+                    "log": list(reversed(self.assign_events[-30:])),
+                    "assign_ver": self.assign_ver}
+
+    def _mine(self, user: str) -> tuple[int, int]:
+        cs = [c for c, x in self.assign.items() if x == user]
+        total = sum(len(self.chunk_clips.get(c, [])) for c in cs)
+        done = sum(1 for c in cs for u in self.chunk_clips.get(c, []) if u in self.labels)
+        return total, done
+
     # --- 조회 ---
     def row(self, u: str, claims: dict) -> dict:
         lab = self.labels.get(u)
         a = self.audit.get(u, {})
         r = {"uuid": u, "chunk": self.chunk.get(u), "labeled": lab is not None,
-             "rev": a.get("rev", 0), "claimed_by": claims.get(u)}
+             "rev": a.get("rev", 0), "claimed_by": claims.get(u),
+             "assignee": self.assignee(u)}
         if lab is not None:
             r.update(created_by=a.get("created_by"), created_at=a.get("created_at"),
                      updated_by=a.get("updated_by"), updated_at=a.get("updated_at"),
@@ -538,9 +761,11 @@ class Dataset:
         for u in self.labels:
             for x in self.audit[u].get("users", []):
                 by[x] = by.get(x, 0) + 1
+        at, ad = self._mine(user)
         return {"total": total, "labeled": labeled, "unlabeled": total - labeled,
                 "claimed": len(claims),
-                "mine": by.get(user, 0), "labelers": by}
+                "mine": by.get(user, 0), "labelers": by,
+                "assigned": at, "assigned_labeled": ad}
 
     def list(self, q: dict, user: str) -> dict:
         self.require_index()
@@ -560,6 +785,10 @@ class Dataset:
                         and (not who or who in self.audit[u].get("users", []))]
             else:
                 cand = self.order
+            who = q.get("assignee") or ""
+            if who:
+                want = None if who == "@none" else (user if who == "@me" else who)
+                cand = [u for u in cand if self.assign.get(self.chunk.get(u, -2)) == want]
             if needle:
                 cand = [u for u in cand if needle in u]
             if q.get("chunk", "") != "":
@@ -588,21 +817,38 @@ class Dataset:
                     "idx": self.pos[uuid], "history": list(reversed(self.hist.get(uuid, [])))}
 
     def next_clip(self, after: str | None, user: str, step: int = 1,
-                  only_unlabeled: bool = True) -> str | None:
-        """after 다음(이전)의 미라벨 클립. 남이 작업 중인 클립은 건너뛴다."""
+                  only_unlabeled: bool = True, scope: str = "any") -> str | None:
+        """after 다음(이전)의 미라벨 클립. 남이 작업 중인 클립은 건너뛴다.
+
+        scope: mine = 내게 할당된 청크만, free = 내 것 + 미할당 청크(남의 할당은
+        건너뜀), any = 전부.
+        """
         self.require_index()
         claims = self.active_claims()
-        n = len(self.order)
+        if scope == "mine":
+            cs = sorted(c for c, x in self.assign.items() if x == user)
+            seq = [u for c in cs for u in self.chunk_clips.get(c, [])]
+        else:
+            seq = self.order
+        n = len(seq)
         if not n:
             return None
-        i = self.pos.get(after, -1 if step > 0 else 0)
+        if scope == "mine":
+            # 목록 순서(order)상 after 다음에 오는 내 클립부터.
+            p = self.pos.get(after, -1)
+            ps = [self.pos[u] for u in seq]
+            i = (bisect.bisect_right(ps, p) - 1) if step > 0 else bisect.bisect_left(ps, p)
+        else:
+            i = self.pos.get(after, -1 if step > 0 else 0)
         for k in range(1, n + 1):
-            u = self.order[(i + step * k) % n]
+            u = seq[(i + step * k) % n]
             if not only_unlabeled:
                 return u
             if u in self.labels:
                 continue
             if claims.get(u) not in (None, user):
+                continue
+            if scope == "free" and self.assign.get(self.chunk.get(u, -2)) not in (None, user):
                 continue
             return u
         return None
@@ -620,7 +866,7 @@ class Dataset:
                     changed.append(self.row(u, claims))
             return {"seq": self.seq, "changed": changed, "claims": claims,
                     "counts": self.counts(user, claims) if self.order is not None else None,
-                    "index_state": self.index_state}
+                    "index_state": self.index_state, "assign_ver": self.assign_ver}
 
     # --- 쓰기 ---
     def save(self, uuid: str, raw: dict, user: str, base_rev) -> dict:
@@ -695,8 +941,15 @@ class LabelingService:
         rub = {g: {"title": GR[0], "scale": GR[1]} for g, GR in CT.GROUP_RUBRICS.items()}
         cat_rub = {c: {"group": v[0], "title": v[1], "scale": v[2]}
                    for c, v in CT.CATEGORY_RUBRICS.items()}
+        # [평가 기준] 블록. 영어 표는 모델 프롬프트에 들어가는 것과 같은 표이고,
+        # 한국어 표는 사람이 읽을 번역이다.
+        kor = {"Dynamic object": CT.DIFFICULTY_RUBRIC_FOR_DYNAMIC_OBJECT_KOR,
+               "Driving environment": CT.DIFFICULTY_RUBRIC_FOR_DRIVING_ENVIRONMENT_KOR,
+               "Unpaved road": CT.UNPAVED_RUBRIC_KOR}
+        rubrics = [{"name": n, "title": v["title"], "en": v["scale"], "ko": kor[n]}
+                   for n, v in (*rub.items(), *cat_rub.items())]
         return {"taxonomy": self.schema.file, "groups": self.schema.groups,
-                "group_rubrics": rub, "category_rubrics": cat_rub,
+                "group_rubrics": rub, "category_rubrics": cat_rub, "rubrics": rubrics,
                 "weather_axes": list(WEATHER_AXES), "weather_scales": DIFFICULTY_SCALES,
                 "rain_snow_fog": list(RSF), "tiers": CT.TIER_LABELS}
 
@@ -710,6 +963,15 @@ class LabelingService:
             return None
         m = c.get(COOKIE)
         return m.value if m else None
+
+    @staticmethod
+    def _is_local(h) -> bool:
+        return h.client_address[0] in LOCAL_ADDRS
+
+    def is_admin_request(self, h) -> bool:
+        """사내망 접속자에게 다른 탭(추론 실행 등)을 열어 줄지 - 관리자 로그인만."""
+        me = self.auth.user_for(self._token(h))
+        return bool(me and me.get("admin"))
 
     def _ds(self, q) -> Dataset:
         ds = self.datasets.get(q.get("ds") or "")
@@ -730,7 +992,7 @@ class LabelingService:
         token = self._token(h)
         me = self.auth.user_for(token)
         if ep == "me":
-            return h._json({"me": me})
+            return h._json({"me": me, "local": self._is_local(h)})
         if me is None:
             return h._err("로그인이 필요합니다", 401)
         if ep == "logout":
@@ -742,6 +1004,10 @@ class LabelingService:
             return self._route(h, method, ep, q, b, me, uid)
         except Conflict as e:
             return h._json({"error": "다른 사용자가 먼저 수정했습니다", "conflict": e.info}, 409)
+        except AssignConflict as e:
+            who = ", ".join(f"{x}: {cs}" for x, cs in e.info.items())
+            return h._json({"error": f"이미 다른 라벨러에게 할당된 청크가 있습니다 ({who})",
+                            "assign_conflict": e.info}, 409)
         except KeyError as e:
             return h._err(f"찾을 수 없음: {e.args[0] if e.args else ''}", 404)
         except RuntimeError as e:
@@ -760,9 +1026,15 @@ class LabelingService:
                 return h._json(self._ds(q).detail(q.get("uuid", "")))
             if ep == "next":
                 ds = self._ds(q)
+                scope = q.get("scope") if q.get("scope") in ("mine", "free") else "any"
                 u = ds.next_clip(q.get("after") or None, uid, -1 if q.get("dir") == "prev" else 1,
-                                 q.get("any") != "1")
+                                 q.get("any") != "1", scope)
                 return h._json({"uuid": u, "idx": ds.pos.get(u) if u else None})
+            if ep == "assignments":
+                ds = self._ds(q)
+                return h._json(dict(ds.assign_summary(), users=[
+                    {"user": k, "name": v.get("name", k), "admin": bool(v.get("admin"))}
+                    for k, v in sorted(self.auth.users().items())]))
             if ep == "poll":
                 return h._json(self._ds(q).poll(int(q.get("since") or 0), uid))
             if ep == "video":
@@ -793,6 +1065,21 @@ class LabelingService:
             else:
                 ds.claim(b.get("uuid", ""), uid)
             return h._json({"claims": ds.active_claims()})
+        if ep in ("assign", "assign_auto"):
+            if not me["admin"]:
+                return h._err("관리자만 분배할 수 있습니다", 403)
+            ds, known = self._ds(b), self.auth.users()
+            if ep == "assign":
+                target = (b.get("user") or "").strip() or None
+                if target and target not in known:
+                    raise ValueError(f"없는 계정: {target}")
+                return h._json(ds.assign_chunks(b.get("chunks"), target, uid,
+                                                bool(b.get("force"))))
+            users = [x for x in (b.get("users") or []) if x]
+            unknown = [x for x in users if x not in known]
+            if unknown:
+                raise ValueError("없는 계정: " + ", ".join(unknown))
+            return h._json(ds.auto_assign(users, int(b.get("per_user") or 0), uid))
         if ep == "passwd":
             if not self.auth.check(uid, b.get("old") or ""):
                 return h._err("현재 비밀번호가 맞지 않습니다", 400)

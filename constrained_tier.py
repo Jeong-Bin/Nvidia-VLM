@@ -126,41 +126,9 @@ def tier_label(value) -> str:
 #        "something entering its path at close range.",
 # }
 
-# 묶음 단위 난이도 기준표 (0~4).
-#
-# 점수를 카테고리마다 매기지 않고 scene_category.json 의 묶음(special
-# scenario: Dynamic object / Driving environment)마다 하나씩 매긴다. 묶음
-# 안의 카테고리는 한 기준표로 함께 잰다 - 새 카테고리가 묶음에 추가돼도
-# 기준표를 새로 만들지 않는다.
-#
-# 0 은 모델에게 보여 주는 칸이다: "그 묶음의 특수 카테고리가 클립에 없음".
-# 예전 safety 가 Normal 클립에도 0 을 줬던 것과 같다. 그래서 4단계에서
-# 이름을 댄 묶음은 1 이상, 이름을 대지 않은 묶음은 0 이어야 하고, 어긋나면
-# 채점(evaluate_labels)이 따로 센다.
-#
-# 빈 문자열인 칸이 있으면 프롬프트를 만들 때 멈춘다(check_group_rubrics).
 
 
 # Dynamic object 기준표.
-#
-# 축은 "자차에게 남은 여유"(시간 + 공간)다. 거리만 쓰면 정차 중 앞을 지나는
-# 보행자가 높게 나오고, 속도만 쓰면 인파 사이 서행이 낮게 나온다. 각 칸은
-# 앞 칸보다 시간이나 공간 여유가 줄기만 하도록 잡았다(0 없음 -> 1 요구 없음
-# -> 2 둘 다 충분 -> 3 공간 부족 -> 4 시간 없음). 다만 모델에게는 여유를 재라고
-# 하지 않고, 그 여유를 드러내는 관찰 가능한 사실로만 적는다 - 단안 영상으로는
-# 거리도 시간 여유도 재기 어렵고, "risk"/"average" 같은 판단어를 넣을 때마다
-# 성능이 떨어졌다(급제동을 근거로 지정 시 66% -> 37%).
-#
-#   1 옆 차로의 트램처럼 경로가 겹치지 않는 평범한 교통, 정차 중 대기.
-#     도로 밖 객체는 excludes 로 카테고리에서 빠지므로 여기 오지 않는다.
-#   3 자전거처럼 옆으로 벗어날 수 있는 상대가 바로 옆에 있으면 공간 여유가
-#     겉보기 간격보다 작다("could swerve or wobble"). 여러 도로 사용자를
-#     동시에 상대한 장면도 여기다(5단계의 "situation is scored as one").
-#   4 예고 없는 등장 - 자차 반응의 세기는 묻지 않는다. 실제 도로의 GT4 는
-#     감속 1.7~3.7 m/s^2 로 일상 수준이었다(실측 20261006_143241).
-#
-# 객체는 "it" 이 아니라 "the road user" 로 부른다 - 앞 문장 주어가 자차면 it
-# 이 자차로 읽힌다.
 DIFFICULTY_RUBRIC_FOR_DYNAMIC_OBJECT = {
     0: "None of the road users listed for this group is in the clip. This is "
        "ordinary driving.",
@@ -213,10 +181,7 @@ DIFFICULTY_RUBRIC_FOR_DYNAMIC_OBJECT = {
        # 서행 중 충돌도 포함. 단, 정지 중 충돌은 포함하지 않음
 }
 
-# 주행 환경은 0/1/3 세 칸만 둔다 - 환경 요소는 자차 주행을 바꿨는가/아닌가로
-# 갈리고, 바꿨다면 그 자체로 가장 어려운 칸으로 본다. 2, 4 는 없다.
-# 단 Unpaved road 는 이 표가 아니라 UNPAVED_RUBRIC 으로 따로 잰다
-# (CATEGORY_RUBRICS 참고).
+# Driving Environment 기준표
 DIFFICULTY_RUBRIC_FOR_DRIVING_ENVIRONMENT = {
     0: "This is a normal driving situation. Nothing about the road or its "
        "surroundings - works, barriers, railway crossings, the road surface "
@@ -240,8 +205,7 @@ DIFFICULTY_RUBRIC_FOR_DRIVING_ENVIRONMENT = {
     3: "Because of the situation the ego-vehicle came to a stop, waited, or "
        "left its lane - moving into another lane, taking a detour, steering "
        "out of its lane around it, or following a person directing traffic. "
-       "Slowing down alone, or steering within its own lane, is not this "
-       "level.",
+       "Slowing down alone, or steering within its own lane, is not this level.",
        # 요소 때문에 정지, 대기, 차로 이탈(차선 변경, 우회, 피해 나감,
        # 수신호 따름). 감속만, 차로 안 조향은 1.
        # 예전 첫 문장 "The situation changed how the ego-vehicle drove" 는
@@ -250,91 +214,7 @@ DIFFICULTY_RUBRIC_FOR_DRIVING_ENVIRONMENT = {
        # driving behavior") - 확인할 수 있는 행동만 남긴다.
 }
 
-
-# ---------------------------------------------------------------------------
-# 이하 카테고리별 기준표(1~4)는 묶음 단위로 바꾸기 전의 것이다. 지금은
-# 프롬프트에 싣지 않는다 - 통합 기준표 문구를 쓸 때 참고하려고 남긴다.
-# ---------------------------------------------------------------------------
-DYNAMIC_RUBRIC = {
-    1: "The ego-vehicle was already stopped - for a red light, a queue or a "
-       "stop line - or barely moving at walking pace or slower, as when "
-       "creeping forward in a queue, before it came into the path ahead or "
-       "passed close alongside. The vehicle simply waited for it to pass.",
-    2: "The ego-vehicle was still moving when it saw it coming into the path "
-       "ahead, and slowed down or came to a stop for it in good time, or "
-       "steered around it - even if the light also turned amber or red at "
-       "that moment. Or the vehicle kept its speed and its line because it "
-       "moved out of the path on its own or yielded the way first.",
-    3: "It and the moving ego-vehicle came close alongside each other - it moved "
-       "past the vehicle, or it stood still at the edge of the vehicle's lane while "
-       "the vehicle went by. The vehicle steered away from it - or, with no room to "
-       "do so, kept its speed and its line and went by within a very short distance of it.",
-    4: "It got into the path of the moving ego-vehicle without warning - it "
-       "stepped, ran or darted out, came out from behind something or out of "
-       "the dark, or suddenly turned or swerved in front of or beside the "
-       "vehicle - so there was no chance to see it coming. This counts "
-       "whatever the vehicle then did, even if it only slowed down. A "
-       "collision, at any speed, belongs here too.",
-}
-
-
-# for Road Construction
-#
-# 칸은 "공사가 어디까지 들어왔나"로 가른다 - 모델이 화면에서 확인할 수 있는
-# 위치이고, 회피 정도나 "주의해서" 같은 판단어를 쓰지 않는다.
-#   2/3 경계: 공사 옆이 차가 달릴 수 있는 곳인가. 예전 3("그 방향으로 차로를
-#     바꿀 수 없다")은 옆 차로가 없는 좁은 도로에서 늘 참이라 2 를 3 으로
-#     끌어갔다(실측 20261002_175140: GT2->P3 4건 중 메모 "Narrow road" 다수).
-#   3/4 경계: 자차 차로 안으로 일부라도 들어왔는가. 예전 4 는 "차로가 닫혀
-#     옮겨야 했다"만 받아, 콘이 차로에 일부 들어와 감속/정지만 한 경우를
-#     모델이 3 으로 읽었다(GT4->P3 9건 중 "cones directly in the lane" 3건).
-CONSTRUCTION_RUBRIC = {
-    1: "A construction site, traffic cone, or traffic barricade is located very far from the ego-vehicle's lane. "
-       "Therefore, the ego-vehicle maintained its speed and route regardless of its presence.",
-    2: "The construction site or traffic cone is located next to the ego-vehicle. "
-       "However, since this is an area where the ego-vehicle is normally unable to go "
-       "—such as a pedestrian walkway, parking area, or the first lane of the opposite direction—there is no direct impact.",
-    3: "The works sit right beside the ego-vehicle's lane, on a lane or road "
-       "surface the ego-vehicle itself could otherwise drive on, such as a "
-       "neighbouring lane going the same way. None of them - no cone, "
-       "equipment or work area - comes into the ego-vehicle's own lane. The "
-       "vehicle stayed in its lane and went past alongside them.",
-    4: "Cones, equipment or the work area come into the ego-vehicle's own "
-       "lane, even partly. Because of that the vehicle had to steer around "
-       "them, slow down or stop, or follow the cones into another lane or onto "
-       "a temporary lane laid out for it.",
-}
-
-# for Manual Traffic Control, Railway crossing, Barrier arm
-GATE_RUBRIC = {
-    1: "A barrier, a level crossing, or a person controlling traffic is visible "
-       "but does not control the ego-vehicle's way - it controls a side "
-       "entrance, the opposite carriageway, cross traffic, or a way the "
-       "vehicle never takes. The vehicle held its speed and its line.",
-    2: "It controls the way the ego-vehicle is taking, but that way was open - "
-       "the barrier was up, or the person controlling traffic let the vehicle "
-       "through, whether with a wave, by showing a sign that lets traffic go "
-       "(such as SLOW), or simply by standing aside without stopping it - so "
-       "the vehicle drove straight through without stopping or slowing for it.",
-    3: "It closed the ego-vehicle's way - the barrier was down; where there is "
-       "no barrier, a red light or flashing signal held traffic back; or the "
-       "person controlling traffic signalled it to stop or sent it another way - "
-       "so the vehicle came to a stop and waited for the way to clear, or turned "
-       "off onto the way it was directed to.",
-    4: "It closed as the ego-vehicle was about to pass - the barrier came "
-       "down, the signal changed, or the person controlling traffic suddenly "
-       "signalled it to stop - so the vehicle had to stop sharply.",
-}
-
 # for Unpaved road
-#
-# 한 축 - 길의 가장자리(와 차선)가 얼마나 읽히는가 - 로만 가른다. 노면의
-# 요철은 쓰지 않는다: 날씨의 road_surface 축이 이미 노면 상태를 재고 있어
-# (1 = unpaved or dusty road), 여기서 또 재면 두 축이 같은 것을 센다.
-#
-# Driving environment 와 같은 0/1/3 세 칸이다(2026-11-03). 더러운 포장 도로와
-# 비포장 도로를 같은 칸에 두고, 달릴 곳(과 차선)이 쉽게 읽히는가로만 가른다.
-# 예전 0~4 표의 1(먼지 낀 포장), 2(경계가 보이는 비포장)는 새 1, 3·4 는 새 3.
 UNPAVED_RUBRIC = {
     0: "The road is an ordinary, clean paved road.",
        # 깨끗한 포장 도로
@@ -348,22 +228,134 @@ UNPAVED_RUBRIC = {
        # 더러운 포장 도로 또는 비포장 도로. 주행 구역/차선 구분이 어려움. 주행에 영향 있음
 }
 
+# 한국어 버전
+DIFFICULTY_RUBRIC_FOR_DYNAMIC_OBJECT_KOR = {
+    0: "이 그룹에 속한 도로 이용자 중 어떤 것도 영상에 나오지 않는다. 이것은 일반적인 운전 상황이다.",
+    1: "이 그룹의 도로 이용자가 있긴 하지만, 자차에 아무런 요구도 하지 않았다. "
+        "일반 차량처럼 일정한 거리를 유지하며 자신의 차선이나 경로를 지켰고, "
+        "자차의 진로를 방해하지도 않았다. "
+        "혹은 자차가 이미 정지해 있거나 (신호등, 정체, 정지선 때문에) "
+        "거의 보행 속도로 움직이며 도로 이용자가 지나가기를 기다렸을 뿐이다.",
+    2: "자차는 주행 중이었고 앞쪽에서 다가오는 대상을 충분한 시간과 공간을 두고 감지했다. "
+        "따라서 신호등이 황색이나 적색으로 바뀌었더라도, 자차는 적시에 속도를 줄이거나, "
+        "정지하거나, 양보하거나, 방향을 틀어 차량과 충돌을 피했다. "
+        "또한, 대상이 먼저 비켜주거나 양보해 준 경우에는 기존 속도와 차선을 유지했다. "
+        "이 기준은 주행 중인 자차를 향해 옆 차선에서 다가오는 자전거처럼 갑자기 방향을 바꾸거나 비틀거릴 수 있는 대상에도 적용된다.",
+    3: "자차는 다가오는 도로 이용자를 감지했지만, 공간이 부족했다. "
+        "도로 이용자는 차량을 지나쳐 가거나, 움직일 수 있는 도로 이용자는 차량이 지나갈 때 "
+        "차선 가장자리에 서서 옆 차선의 차량보다 훨씬 가까이 붙어 있었다. "
+        "또는 차량 바로 옆에서 차선 하나 없이 서서 차량의 진로를 방해할 수 있는 위치에 서 있거나 걸어갔다. "
+        "아니면 차량은 여러 도로 이용자 사이를 비집고 지나가거나, 옆으로 비켜서거나, 그 사이를 뚫고 지나가야 했다.",
+    4: "도로 이용자가 아무런 경고 없이 움직이는 자차의 진로에 갑자기 뛰어든 경우, "
+        "즉 발을 내딛거나, 뛰쳐나오거나, 돌진하거나, 갑자기 차선에서 나오거나, 어둠 속에서 갑자기 나타나거나, "
+        "차량 앞이나 옆으로 갑자기 방향을 틀거나 급회전하는 등, 운전자가 대상의 접근을 전혀 알아차릴 수 없었던 경우를 말한다. "
+        "이때 자차가 그 후에 어떤 행동을 했든, 심지어 단순히 속도를 줄인 경우라도 모두 포함된다. "
+        "아슬아슬한 충돌이나 근접 충돌 또한 속도와 관계없이, 심지어 자차가 아주 느리게 움직이던 경우에도 이 범주에 속하며, "
+        "이는 모든 하위 단계보다 우선한다."
+}
+
+DIFFICULTY_RUBRIC_FOR_DRIVING_ENVIRONMENT_KOR = {
+    0: "이는 일반적인 주행 상황이다. 도로 또는 주변 환경(공사, 차단기, 철도 건널목, 노면 또는 그 위의 물체) " 
+        "중 어느 것도 주행을 방해하지 않는다.",
+    1: "이 영상에는 해당 그룹의 상황이 담겨 있지만, 자차는 마치 그 그룹이 없었을 때처럼 주행했다. "
+        "자신의 차선을 유지하며 원래 속도를 유지하거나 약간만 줄이고 차선 안에서 방향을 조절했다. "
+        "또는 다른 차량 뒤에 줄을 서거나, 교차로나 신호등에서 멈추거나, 원래 가려던 길로 방향을 바꾸는 등 "
+        "다른 이유로 멈추거나, 기다리거나, 방향을 바꾸기도 했다.",
+    3: "그 상황 때문에 자차는 정지하거나, 대기하거나, 차선을 이탈하여 다른 차선으로 이동하거나, "
+        "우회하거나, 차선을 벗어나 주변을 피해 가거나, 교통 정리를 하는 사람을 따라가는 등의 행동을 했다. "
+        "단순히 속도를 줄이거나 차선 내에서 방향을 바꾸는 것은 이 수준에 해당하지 않는다."
+}
+
+UNPAVED_RUBRIC_KOR = {
+    0: "그 길은 평범하고 깨끗한 포장도로다.",
+    1: "도로는 포장되어 있지만 흙, 먼지 또는 자갈로 덮여 있어 더럽거나, "
+        "포장되지 않았지만 차량이 다닐 수 있는 부분과 차선이 있다면 쉽게 구분할 수 있다. "
+        "운전하는 데 큰 어려움은 없다.",
+    3: "도로는 포장되어 있지만 더럽거나, 포장되지 않은 상태이며, "
+        "영상 대부분에서 주행해야 할 부분과 차선(있다면)을 제대로 구분하기 어렵다. "
+        "이 때문에 운전이 더욱 어려워진다.",
+}
+
+
+# DYNAMIC_RUBRIC = {
+#     1: "The ego-vehicle was already stopped - for a red light, a queue or a "
+#        "stop line - or barely moving at walking pace or slower, as when "
+#        "creeping forward in a queue, before it came into the path ahead or "
+#        "passed close alongside. The vehicle simply waited for it to pass.",
+#     2: "The ego-vehicle was still moving when it saw it coming into the path "
+#        "ahead, and slowed down or came to a stop for it in good time, or "
+#        "steered around it - even if the light also turned amber or red at "
+#        "that moment. Or the vehicle kept its speed and its line because it "
+#        "moved out of the path on its own or yielded the way first.",
+#     3: "It and the moving ego-vehicle came close alongside each other - it moved "
+#        "past the vehicle, or it stood still at the edge of the vehicle's lane while "
+#        "the vehicle went by. The vehicle steered away from it - or, with no room to "
+#        "do so, kept its speed and its line and went by within a very short distance of it.",
+#     4: "It got into the path of the moving ego-vehicle without warning - it "
+#        "stepped, ran or darted out, came out from behind something or out of "
+#        "the dark, or suddenly turned or swerved in front of or beside the "
+#        "vehicle - so there was no chance to see it coming. This counts "
+#        "whatever the vehicle then did, even if it only slowed down. A "
+#        "collision, at any speed, belongs here too.",
+# }
+
+
+# for Road Construction
+# CONSTRUCTION_RUBRIC = {
+#     1: "A construction site, traffic cone, or traffic barricade is located very far from the ego-vehicle's lane. "
+#        "Therefore, the ego-vehicle maintained its speed and route regardless of its presence.",
+#     2: "The construction site or traffic cone is located next to the ego-vehicle. "
+#        "However, since this is an area where the ego-vehicle is normally unable to go "
+#        "—such as a pedestrian walkway, parking area, or the first lane of the opposite direction—there is no direct impact.",
+#     3: "The works sit right beside the ego-vehicle's lane, on a lane or road "
+#        "surface the ego-vehicle itself could otherwise drive on, such as a "
+#        "neighbouring lane going the same way. None of them - no cone, "
+#        "equipment or work area - comes into the ego-vehicle's own lane. The "
+#        "vehicle stayed in its lane and went past alongside them.",
+#     4: "Cones, equipment or the work area come into the ego-vehicle's own "
+#        "lane, even partly. Because of that the vehicle had to steer around "
+#        "them, slow down or stop, or follow the cones into another lane or onto "
+#        "a temporary lane laid out for it.",
+# }
+
+# for Manual Traffic Control, Railway crossing, Barrier arm
+# GATE_RUBRIC = {
+#     1: "A barrier, a level crossing, or a person controlling traffic is visible "
+#        "but does not control the ego-vehicle's way - it controls a side "
+#        "entrance, the opposite carriageway, cross traffic, or a way the "
+#        "vehicle never takes. The vehicle held its speed and its line.",
+#     2: "It controls the way the ego-vehicle is taking, but that way was open - "
+#        "the barrier was up, or the person controlling traffic let the vehicle "
+#        "through, whether with a wave, by showing a sign that lets traffic go "
+#        "(such as SLOW), or simply by standing aside without stopping it - so "
+#        "the vehicle drove straight through without stopping or slowing for it.",
+#     3: "It closed the ego-vehicle's way - the barrier was down; where there is "
+#        "no barrier, a red light or flashing signal held traffic back; or the "
+#        "person controlling traffic signalled it to stop or sent it another way - "
+#        "so the vehicle came to a stop and waited for the way to clear, or turned "
+#        "off onto the way it was directed to.",
+#     4: "It closed as the ego-vehicle was about to pass - the barrier came "
+#        "down, the signal changed, or the person controlling traffic suddenly "
+#        "signalled it to stop - so the vehicle had to stop sharply.",
+# }
+
+
 
 # for Obstacle on Road
-OBSTACLE_RUBRIC = {
-    1: "A small object - a branch, a bit of debris, a scrap of litter - lies "
-       "in the ego-vehicle's path, small enough to drive over. The vehicle "
-       "drove over it or past it without changing its speed or its line.",
-    2: "An object lies right beside the ego-vehicle's path, partly over the "
-       "edge of its lane. To keep a safe gap the vehicle eased off a little or "
-       "edged slightly away from it.",
-    3: "An object too large to drive over lies in the ego-vehicle's path "
-       "ahead. The vehicle saw it from a distance and steered around it or "
-       "came gradually to a stop.",
-    4: "An object too large to drive over fell into the ego-vehicle's path, "
-       "or came into view suddenly from behind the vehicle ahead. The vehicle "
-       "had to brake hard, stop, or swerve urgently.",
-}
+# OBSTACLE_RUBRIC = {
+#     1: "A small object - a branch, a bit of debris, a scrap of litter - lies "
+#        "in the ego-vehicle's path, small enough to drive over. The vehicle "
+#        "drove over it or past it without changing its speed or its line.",
+#     2: "An object lies right beside the ego-vehicle's path, partly over the "
+#        "edge of its lane. To keep a safe gap the vehicle eased off a little or "
+#        "edged slightly away from it.",
+#     3: "An object too large to drive over lies in the ego-vehicle's path "
+#        "ahead. The vehicle saw it from a distance and steered around it or "
+#        "came gradually to a stop.",
+#     4: "An object too large to drive over fell into the ego-vehicle's path, "
+#        "or came into view suddenly from behind the vehicle ahead. The vehicle "
+#        "had to brake hard, stop, or swerve urgently.",
+# }
 
 
 
