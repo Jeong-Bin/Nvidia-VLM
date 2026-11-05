@@ -127,7 +127,11 @@ def main():
         tok = AutoTokenizer.from_pretrained(key.get("model") or argv.get("model"))
 
     per_cat = argv.get("viz_per_category")
-    view = "camera_front_wide_120fov"
+    # 데이터셋 id 로 돈 실행은 그 데이터셋의 소스와 뷰로 다시 그린다.
+    from clip_source import dataset_profile
+    if dataset_profile(argv.get("data")):
+        E.set_clip_source(argv["data"])
+    view = E.FRONT_VIEWS[0]
     out_root = run / args.out_dir
     counts = Counter()
     n = 0
@@ -191,7 +195,7 @@ def main():
                  "ego_speed_kmh": r.get("ego_speed_kmh") or None}
         for i, od in enumerate(out_dirs):
             V.render_clip_result(r["uuid"], E.clip_path(view, r["uuid"]), res, od,
-                                 max_width=args.width,
+                                 max_width=args.width, traj_view=view,
                                  attn_focus=(targets[i] if targets else None),
                                  gt=(gt or {}).get(r["uuid"]), extra=extra,
                                  video_name=args.video_name,

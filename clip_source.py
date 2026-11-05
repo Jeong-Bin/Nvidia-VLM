@@ -15,6 +15,7 @@ import json
 import os
 import re
 import struct
+import sys
 import time
 import zipfile
 from pathlib import Path
@@ -22,6 +23,19 @@ from pathlib import Path
 CHUNK_GLOB = "*.chunk_*.zip"
 # NAS 스냅샷 경로. 날짜 폴더로 버전을 나눠 두었다 - 최신을 가리킨다.
 NAS_CAMERA_DIR = "/mnt/nas/NVIDIA_DATASET/20260901/camera"
+# 데이터셋 목록. [NAS 라벨링] 탭과 추론이 같은 파일을 본다. 시험 때는 환경변수로
+# 다른 파일을 가리켜 실제 설정을 건드리지 않는다.
+DATASETS_JSON = Path(os.environ.get("NAS_DATASETS_JSON")
+                     or Path(__file__).resolve().parent / "nas_datasets.json")
+# 프로필에 적지 않은 값은 NVIDIA 데이터셋의 값이다. 기존 실행의 프롬프트와
+# 프레임 선택이 그대로여야 하므로 바꾸지 않는다.
+PROFILE_DEFAULTS = {
+    "view": "camera_front_wide_120fov",   # 추론과 재생에 쓰는 카메라
+    "source_fps": 30.0,                   # mp4 의 프레임 속도. 샘플 간격을 정한다
+    "camera_text": "front-wide",          # 프롬프트가 모델에게 말하는 카메라
+    "egomotion": True,                    # egomotion 라벨이 있는가
+    "trajectory": True,                   # 궤적을 그릴 캘리브레이션이 있는가
+}
 BUILD_WAIT_S = 900      # 남이 만드는 인덱스를 기다릴 최대 시간
 STALE_LOCK_S = 1800     # 이보다 오래된 락은 죽은 프로세스의 것으로 본다
 
@@ -30,6 +44,37 @@ def _chunk_no(path) -> int:
     """파일명에서 청크 번호를 뽑는다. 못 읽으면 -1(맨 앞으로)."""
     m = re.search(r"chunk_(\d+)", Path(path).name)
     return int(m.group(1)) if m else -1
+
+
+def resolve_nas_path(nas_path: str, mounts: dict) -> Path:
+    """NAS 쪽 경로를 이 서버에서 읽을 경로로 바꾼다."""
+    p = Path(nas_path)
+    if p.exists():
+        return p
+    for pre in sorted(mounts, key=len, reverse=True):
+        if nas_path == pre or nas_path.startswith(pre.rstrip("/") + "/"):
+            return Path(mounts[pre] + nas_path[len(pre.rstrip("/")):])
+    return p
+
+
+def dataset_profiles() -> dict:
+    """nas_datasets.json 의 데이터셋들. {id: 프로필}."""
+    try:
+        cfg = json.loads(DATASETS_JSON.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    out = {}
+    for d in cfg.get("datasets", []):
+        prof = {**PROFILE_DEFAULTS, **d}
+        prof["camera_dir"] = str(resolve_nas_path(d["nas_path"], cfg.get("mounts", {}))
+                                 / "camera")
+        out[d["id"]] = prof
+    return out
+
+
+def dataset_profile(spec) -> dict | None:
+    """--data 값이 등록된 데이터셋 id 면 그 프로필, 아니면 None."""
+    return dataset_profiles().get(spec) if spec else None
 
 
 class _ZipSlice(io.RawIOBase):
@@ -184,7 +229,7 @@ class ZipSource:
                 el = time.time() - t0
                 eta = el / done * (len(jobs) - done)
                 print(f"  [clip_source] 인덱싱 {done}/{len(jobs)} "
-                      f"({el:.0f}s, 남은 ~{eta:.0f}s)", flush=True)
+                      f"({el:.0f}s, 남은 ~{eta:.0f}s)", file=sys.stderr, flush=True)
         return idx
 
     def _fingerprint(self):
@@ -224,7 +269,7 @@ class ZipSource:
                 old_n = (blob.get("fingerprint") or {}).get("zips", "?")
                 print(f"  [clip_source] 청크 구성이 바뀌었습니다 "
                       f"({old_n} -> {fp['zips']}개). 인덱스를 다시 만듭니다.",
-                      flush=True)
+                      file=sys.stderr, flush=True)
 
         # 샤드 8개가 동시에 시작하면 전부 "캐시 없음"을 보고 각자 1000개
         # zip 을 훑는다 - 같은 일을 8중으로 하면서 SMB 를 서로 막아 8배가
@@ -243,7 +288,7 @@ class ZipSource:
             return self._idx
 
         print("  [clip_source] 다른 프로세스가 인덱스를 만드는 중 - 기다립니다",
-              flush=True)
+              file=sys.stderr, flush=True)
         for _ in range(BUILD_WAIT_S):
             time.sleep(1)
             if self.cache.exists():
@@ -346,6 +391,7 @@ def make_source(spec: str | None = None, *, root: Path | None = None):
     spec:
       "local" 또는 None  -> ROOT/pav_sample/camera
       "nas"              -> NAS 기본 경로의 청크 zip
+      nas_datasets.json 의 id -> 그 데이터셋의 청크 zip
       그 밖의 문자열      -> 경로로 해석, mp4 가 보이면 local, zip 이면 zip
     """
     root = Path(root or Path(__file__).resolve().parent)
@@ -353,6 +399,12 @@ def make_source(spec: str | None = None, *, root: Path | None = None):
         return LocalSource(root / "pav_sample" / "camera")
     if spec == "nas":
         return ZipSource(Path(NAS_CAMERA_DIR))
+    prof = dataset_profile(spec)
+    if prof:
+        d = Path(prof["camera_dir"])
+        if not d.is_dir():
+            raise FileNotFoundError(f"{spec}: {d} 가 없습니다 (변환 전이거나 NAS 미마운트)")
+        return ZipSource(d)
     p = Path(spec)
     if not p.exists():
         raise FileNotFoundError(f"데이터 경로 없음: {p}")

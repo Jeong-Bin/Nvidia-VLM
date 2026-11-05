@@ -368,14 +368,6 @@
               [
                 "Cones take up part of the ego-vehicle's lane and it steers around them",
                 3
-              ],
-              [
-                "Cones line the edge of the ego-vehicle's lane and it keeps its lane at a steady speed, steering a little within it",
-                1
-              ],
-              [
-                "The ego-vehicle waits in a queue behind other vehicles in a construction zone - it would have waited there anyway",
-                1
               ]
             ],
             "recheck_keywords": [
@@ -407,16 +399,6 @@
             ],
             "excludes": [
               ""
-            ],
-            "score_examples": [
-              [
-                "The barrier arm is up and the ego-vehicle drives over the rail tracks, slowing a little",
-                1
-              ],
-              [
-                "The barrier arm is down and the ego-vehicle stops and waits for it to lift",
-                3
-              ]
             ],
             "recheck_keywords": [
               "railway",

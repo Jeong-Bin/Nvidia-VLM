@@ -969,8 +969,11 @@ async function boot() {
   $('#s-diffrow').insertAdjacentHTML('beforeend', diffInputs('s'));
   $('#sp-diffrow').insertAdjacentHTML('beforeend', diffInputs('sp'));
   $('#ns-diffrow').insertAdjacentHTML('beforeend', diffInputs('ns'));
-  for (const s of ['#ev-labels', '#s-labels', '#l-file', '#r-labels'])
-    opts($(s), BOOT.labels, BOOT.default_labels);
+  // 채점 쪽은 [NAS 라벨링] 결과도 고를 수 있다. 라벨 편집은 고쳐도 되는 파일만 준다.
+  opts($('#l-file'), BOOT.labels, BOOT.default_labels);
+  for (const s of ['#ev-labels', '#s-labels', '#r-labels'])
+    opts($(s), BOOT.eval_labels || BOOT.labels, BOOT.default_labels);
+  initDataSelects();
   for (const s of ['#c-file', '#r-scene', '#n-scene', '#sg-scene'])
     opts($(s), BOOT.scenes, BOOT.default_scene);
   for (const s of ['#r-model', '#n-model', '#sg-model'])
@@ -1512,11 +1515,47 @@ $('#r-model').addEventListener('change', onModelChange);
 $('#r-diffonly').addEventListener('change', () => { syncDiffOnly('r','only'); previewCmd(); });
 
 /* ---------- 6. NAS 전체 추론 ---------- */
+/* 데이터 선택. nas_datasets.json 에 등록한 데이터셋을 목록에 더하고, 고른
+   데이터셋에 없는 기능은 끈다. 서버(edge_case_mining)도 같은 조합을 거부한다.
+   화면은 실행 전에 알려 주기 위한 것이다. */
+const dataProfile = v => ((BOOT && BOOT.datasets) || []).find(d => d.id === v);
+function applyDataProfile(prefix) {
+  const p = dataProfile($(`#${prefix}-data`).value);
+  const set = (el, off, value) => {
+    if (off && el.value !== value) {
+      el.value = value;
+      el.dispatchEvent(new Event('change'));
+    }
+    el.disabled = off;
+    el.title = off ? '이 데이터셋에는 없는 기능입니다' : '';
+  };
+  set($(`#${prefix}-ego`), !!p && !p.egomotion, '0');
+  set($(`#${prefix}-traj`), !!p && !p.trajectory, '');
+  // 라벨 샘플 추론은 그 데이터셋의 [NAS 라벨링] 결과로 채점한다.
+  const lab = $(`#${prefix}-labels`);
+  if (p && lab) {
+    const want = `nas_labels/${p.id}/labels.json`;
+    if ([...lab.options].some(o => o.value === want)) {
+      lab.value = want;
+      lab.dispatchEvent(new Event('change'));
+    }
+  }
+}
+function initDataSelects() {
+  for (const prefix of ['r', 'n', 'sg']) {
+    const sel = $(`#${prefix}-data`);
+    (BOOT.datasets || []).forEach(d => sel.insertAdjacentHTML('beforeend',
+      `<option value="${esc(d.id)}">${esc(d.name)}</option>`));
+    sel.addEventListener('change', () => applyDataProfile(prefix));
+    applyDataProfile(prefix);
+  }
+}
 function nasClipsText() {
   // 서버가 clip_source 인덱스 캐시에서 읽어 온 실제 클립 수. 캐시가 없으면
   // 숫자 없이 "전체"라고만 쓴다 - 낡은 수를 박아두면 데이터가 늘 때마다
   // 조용히 틀린 안내를 하게 된다(실제로 98,039 로 굳어 있었다).
-  const n = BOOT && BOOT.nas_clips;
+  const p = dataProfile($('#n-data').value);
+  const n = p ? p.clips : BOOT && BOOT.nas_clips;
   return n ? n.toLocaleString() + ' 클립' : '전체';
 }
 function onNasModelChange() {

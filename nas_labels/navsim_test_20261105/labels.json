@@ -1,0 +1,13 @@
+{
+  "_meta": {
+    "labeled_by": "",
+    "date": "",
+    "source_run": "",
+    "guide": "",
+    "dataset": "/volume1/OPEN_DATASET/NAVSIM/20261105",
+    "view": "cam_f0",
+    "taxonomy": "scene_category_3.2.json",
+    "generated_from": "history.jsonl (nas_labeling.py)"
+  },
+  "clips": {}
+}

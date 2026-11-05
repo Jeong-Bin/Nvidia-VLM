@@ -3,7 +3,9 @@
     "[NAS 라벨링] 탭이 보여줄 데이터셋 목록. 항목을 추가하고 GUI 서버를 재시작하면 탭의 데이터셋 선택에 나온다.",
     "nas_path 는 NAS(Synology) 쪽 경로다. 이 서버에서는 mounts 의 앞부분을 바꿔 읽는다(/volume1/OPEN_DATASET -> /mnt/nas).",
     "id 는 라벨 저장 폴더 이름(nas_labels/<id>/)이 되므로 한 번 정하면 바꾸지 않는다.",
-    "taxonomy 는 카테고리 목록을 읽을 씬 정의 파일. test_label_333_diff3.json 이 이 파일 기준이다."
+    "taxonomy 는 카테고리 목록을 읽을 씬 정의 파일. test_label_333_diff3.json 이 이 파일 기준이다.",
+    "id 는 추론의 --data 값으로도 쓴다(GUI 의 데이터 선택). 아래 값을 적지 않으면 NVIDIA 기준이다:",
+    "view 카메라, source_fps mp4 프레임 속도, camera_text 프롬프트가 말하는 카메라, egomotion/trajectory 해당 자료 유무."
   ],
   "mounts": {
     "/volume1/OPEN_DATASET": "/mnt/nas"
@@ -15,6 +17,16 @@
       "name": "NVIDIA_DATASET 20260901",
       "nas_path": "/volume1/OPEN_DATASET/NVIDIA_DATASET/20260901",
       "view": "camera_front_wide_120fov"
+    },
+    {
+      "id": "navsim_test_20261105",
+      "name": "NavSim test (OpenScene v1.1)",
+      "nas_path": "/volume1/OPEN_DATASET/NAVSIM/20261105",
+      "view": "cam_f0",
+      "source_fps": 2,
+      "camera_text": "front",
+      "egomotion": false,
+      "trajectory": false
     }
   ]
 }

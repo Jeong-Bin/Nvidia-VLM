@@ -62,6 +62,11 @@ FRONT_VIEWS = [
 # front_wide 단독 모드에서 쓰는 뷰. FRONT_VIEWS[0] 과 같아야 한다
 # (clip_frame_count / list_scene_uuids 가 [0] 을 기준 뷰로 쓰므로).
 SINGLE_VIEW = [FRONT_VIEWS[0]]
+# 프롬프트가 모델에게 말하는 카메라. --data 가 데이터셋 id 면 프로필 값으로 바뀐다.
+DEFAULT_CAMERA_TEXT = "front-wide"
+CAMERA_TEXT = DEFAULT_CAMERA_TEXT
+# --data 로 고른 데이터셋의 프로필(clip_source.dataset_profile). 없으면 None.
+DATASET = None
 
 
 def views_for(single_view: bool = False) -> list[str]:
@@ -249,17 +254,28 @@ def _mirror_clip_source():
     if other is not None and other is not sys.modules[__name__]:
         other.CLIP_SOURCE = CLIP_SOURCE
         other.CAMERA_DIR = CAMERA_DIR
+        for name in ("FRONT_VIEWS", "SINGLE_VIEW", "SOURCE_FPS", "CAMERA_TEXT", "DATASET"):
+            setattr(other, name, globals()[name])
 
 
 def set_clip_source(spec):
     """--data 값으로 프레임 소스를 정한다. None/"local" 이면 기존 동작."""
-    global CLIP_SOURCE, CAMERA_DIR
+    global CLIP_SOURCE, CAMERA_DIR, DATASET
+    global FRONT_VIEWS, SINGLE_VIEW, SOURCE_FPS, CAMERA_TEXT
     if spec in (None, "local"):
         CLIP_SOURCE = None
         _mirror_clip_source()
         return None
-    from clip_source import make_source
+    from clip_source import dataset_profile, make_source
     CLIP_SOURCE = make_source(spec, root=ROOT)
+    DATASET = dataset_profile(spec)
+    if DATASET:
+        # 다른 데이터셋의 카메라는 NVIDIA 의 전방 3뷰와 이름도 대수도 다르다.
+        if DATASET["view"] != FRONT_VIEWS[0]:
+            FRONT_VIEWS = [DATASET["view"]]
+            SINGLE_VIEW = [DATASET["view"]]
+        SOURCE_FPS = float(DATASET["source_fps"])
+        CAMERA_TEXT = DATASET["camera_text"]
     if getattr(CLIP_SOURCE, "kind", None) == "local":
         CAMERA_DIR = CLIP_SOURCE.camera_dir
     _mirror_clip_source()
@@ -324,7 +340,7 @@ SOURCE_FPS = 30.0           # 실측: 200 클립 중앙값 30.000 fps (33.30 ms)
 
 def sample_clip_indices(uuid: str, fps: float = CLIP_FPS,
                         max_frames: int = CLIP_MAX_FRAMES,
-                        source_fps: float = SOURCE_FPS):
+                        source_fps: float | None = None):
     """클립 전체에서 fps 간격으로 frame_idx 를 뽑는다 (최대 max_frames 장).
 
     30fps 소스에서 1fps 면 30 프레임마다 한 장. 클립이 max_frames 초보다 길면
@@ -334,7 +350,9 @@ def sample_clip_indices(uuid: str, fps: float = CLIP_FPS,
     total = clip_frame_count(uuid)
     if total <= 0:
         return []
-    step = max(1, int(round(source_fps / fps)))
+    # 기본값을 인자에 박지 않는다 - 정의할 때 값이 굳으면 데이터셋 프로필이
+    # 듣지 않아서, 2fps 영상을 15장 건너뛰며 읽는다(40장 중 3장).
+    step = max(1, int(round((source_fps or SOURCE_FPS) / fps)))
     idxs = list(range(0, total, step))
     if len(idxs) > max_frames:
         idxs = [int(i) for i in np.linspace(0, total - 1, num=max_frames)]
@@ -440,13 +458,13 @@ def clip_intro(n_frames: int, n_views: int, fps: float = CLIP_FPS,
     span = n_frames / max(fps, 1e-6) / max(n_views, 1)
     if as_video:
         return (f"""You are an autonomous-driving scene analyst. You are shown a
-{span:.0f}-second video from the vehicle's front-wide camera, sampled at about
+{span:.0f}-second video from the vehicle's {CAMERA_TEXT} camera, sampled at about
 {fps:g} frame per second. Each frame is tagged with its timestamp, and the LAST
 frame is the most recent moment. Read it as a sequence: what changes over time
 tells you how the scene and the ego-vehicle evolved.""")
 
     if n_views == 1:
-        what = (f"{n_frames} images from the vehicle's front-wide camera, "
+        what = (f"{n_frames} images from the vehicle's {CAMERA_TEXT} camera, "
                 f"in time order, about {1/fps:.0f} second apart, covering "
                 f"roughly {span:.0f} seconds of driving")
     else:
@@ -1362,7 +1380,7 @@ def _config_key(args, n_views=1, prompt_sha=None) -> dict:
     save_run_config 와 이어받기 대조(_check_resume)가 같은 함수를 써야,
     기록한 값과 대조하는 값이 어긋나지 않는다.
     """
-    return {
+    key = {
         # 사람이 붙인 실행 설명. 설정만으로는 구분이 안 되는 실험
         # (예: 라벨 파일 내용을 고쳤을 때)을 나중에 알아보게 해준다.
         "memo": args.memo,
@@ -1428,6 +1446,11 @@ def _config_key(args, n_views=1, prompt_sha=None) -> dict:
         "group": args.group,
         "num_shards": args.num_shards,
     }
+    # 데이터셋 id 로 고른 실행에만 붙인다. --data nas / local 실행의 key 는
+    # 그대로여야 옛 실행을 --resume 으로 이어받을 수 있다.
+    if DATASET:
+        key["dataset"] = DATASET["id"]
+    return key
 
 
 def save_run_config(args, run_dir, n_views=1, prompt_sha=None):
@@ -1498,7 +1521,11 @@ def _prompt_fingerprint(args, labels, category_menu, n_views) -> str:
         category_menu, labels,
         behavior_facts="<BEHAVIOR>" if args.use_egomotion else "",
         intro=f"<INTRO views={n_views} fps={args.clip_fps} "
-              f"frames={args.clip_max_frames} video={args.clip_video_input}>",
+              f"frames={args.clip_max_frames} video={args.clip_video_input}"
+              # 카메라 문구도 모델이 읽는 글이다. 기본값이면 적지 않아야 기존
+              # 실행의 prompt_sha 가 그대로다.
+              + (f" camera={CAMERA_TEXT}" if CAMERA_TEXT != DEFAULT_CAMERA_TEXT else "")
+              + ">",
         timeline=args.timeline,
         score_categories=args.score_categories,
         weather=args.weather,
@@ -1804,13 +1831,23 @@ if __name__ == "__main__":
                          "절반이 된다(실측 4,449 -> 2,296).")
     ap.add_argument("--data", default="local",
                     help="프레임 소스. local(기본, pav_sample) | nas(NAS 청크 "
-                         "zip) | 임의 경로. zip 이 보이면 zip 모드로 자동 판별.")
+                         "zip) | nas_datasets.json 의 데이터셋 id | 임의 경로. "
+                         "zip 이 보이면 zip 모드로 자동 판별. 데이터셋 id 를 "
+                         "주면 뷰, 영상 fps, 프롬프트의 카메라 문구도 그 "
+                         "데이터셋을 따른다.")
     args = ap.parse_args()
 
     # 프레임 소스를 먼저 정한다 - 이후 list_scene_uuids 등이 이걸 본다.
     _src = set_clip_source(args.data)
     if _src is not None:
         print(f"[data] {args.data} -> {_src.kind}", flush=True)
+    # 없는 라벨을 읽으려 들면 클립마다 실패하거나 빈 값이 프롬프트에 들어간다.
+    if DATASET and args.use_egomotion and not DATASET["egomotion"]:
+        raise SystemExit(f"[error] {DATASET['id']} 에는 egomotion 라벨이 없습니다. "
+                         f"--use-egomotion 을 빼세요.")
+    if DATASET and (args.traj or args.explain_traj) and not DATASET["trajectory"]:
+        raise SystemExit(f"[error] {DATASET['id']} 에는 궤적을 그릴 자료가 없습니다. "
+                         f"--traj / --explain-traj 를 빼세요.")
 
     SCENE_JSON = Path(args.scene_json)
     if not SCENE_JSON.exists():

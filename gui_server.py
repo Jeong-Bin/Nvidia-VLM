@@ -77,6 +77,37 @@ def list_label_files() -> list[str]:
     return sorted(p.name for p in ROOT.glob("test_label_*.json"))
 
 
+def list_eval_label_files() -> list[str]:
+    """채점에 쓸 수 있는 라벨 파일. [NAS 라벨링] 탭의 결과도 고를 수 있다.
+
+    라벨 편집 탭에는 넣지 않는다 - nas_labels 의 labels.json 은 이력에서 다시
+    만들어지는 파일이라 직접 고치면 사라진다.
+    """
+    return list_label_files() + sorted(
+        str(p.relative_to(ROOT)) for p in (ROOT / "nas_labels").glob("*/labels.json"))
+
+
+def inference_datasets() -> list[dict]:
+    """추론 화면의 데이터 선택에 더할 데이터셋. 기본 NAS 데이터는 "nas" 가 이미 맡는다."""
+    from clip_source import NAS_CAMERA_DIR, dataset_profiles
+    out = []
+    for d in dataset_profiles().values():
+        if Path(d["camera_dir"]) == Path(NAS_CAMERA_DIR):
+            continue
+        ds = NL.datasets.get(d["id"]) if NL else None
+        out.append({"id": d["id"], "name": d.get("name", d["id"]),
+                    "egomotion": bool(d["egomotion"]), "trajectory": bool(d["trajectory"]),
+                    "clips": len(ds.order) if ds and ds.order is not None else None})
+    return out
+
+
+def run_dataset(run_dir):
+    """이 실행이 데이터셋 id 로 돌았으면 그 Dataset. 영상을 맞는 소스에서 열 때 쓴다."""
+    if run_dir is None or NL is None:
+        return None
+    return NL.datasets.get(run_config_of(run_dir).get("argv", {}).get("data"))
+
+
 def is_v2_scene(path: Path) -> bool:
     """2.0 스키마인가 - special.scenarios[].categories[] 에 templates 키가 있나.
 
@@ -555,7 +586,12 @@ def clip_detail(uuid: str, run_dir: Path | None, labels_path: Path) -> dict:
                 pass
     # 원본 클립(시각화가 없어도 영상은 볼 수 있어야 한다)
     view = "camera_front_wide_120fov"
-    if CLIP_SOURCE is not None:
+    ds = run_dataset(run_dir)
+    if ds is not None:
+        # 서버의 기본 소스가 아니라 그 실행이 읽은 데이터셋에서 연다.
+        if ds.source is not None and ds.source.exists(ds.view, uuid):
+            out["source_video"] = f"clip/{uuid}?ds={ds.id}"
+    elif CLIP_SOURCE is not None:
         # NAS 청크 zip 은 mp4 가 파일로 없다. /clip/<uuid> 로 서빙한다.
         if CLIP_SOURCE.exists(view, uuid):
             out["source_video"] = f"clip/{uuid}"
@@ -1340,16 +1376,23 @@ class Handler(BaseHTTPRequestHandler):
         except (json.JSONDecodeError, UnicodeDecodeError):
             return {}
 
-    def _send_clip(self, uuid: str, view: str = "camera_front_wide_120fov"):
+    def _send_clip(self, uuid: str, view: str = "camera_front_wide_120fov",
+                   ds: str | None = None):
         """NAS 청크 zip 안의 mp4 를 Range 지원해서 그대로 흘려보낸다.
 
         zip 이 무압축(store)이라 내부 mp4 는 연속 바이트 구간이다. 그래서
         구간만 열어주면(open_video) 일반 파일과 똑같이 seek 이 된다.
         """
-        if CLIP_SOURCE is None or not CLIP_SOURCE.exists(view, uuid):
+        src = CLIP_SOURCE
+        if ds:
+            d = NL.datasets.get(ds) if NL else None
+            if d is None:
+                return self._err("no such dataset: " + ds, 404)
+            src, view = d.source, d.view
+        if src is None or not src.exists(view, uuid):
             return self._err("not found: " + uuid, 404)
-        size = CLIP_SOURCE.size_of(view, uuid)
-        self._stream(lambda: CLIP_SOURCE.open_video(view, uuid), size,
+        size = src.size_of(view, uuid)
+        self._stream(lambda: src.open_video(view, uuid), size,
                      "video/mp4", f"{uuid}.{view}.mp4")
 
     def _send_file(self, path: Path, download=False):
@@ -1469,6 +1512,8 @@ class Handler(BaseHTTPRequestHandler):
             _scenes = list_scene_files()
             return self._json({
                 "labels": _labels,
+                "eval_labels": list_eval_label_files(),
+                "datasets": inference_datasets(),
                 "scenes": _scenes,
                 # 가장 최근에 손댄 파일을 기본으로 고른다. config.py 값은
                 # 그 파일이 목록에 없을 때(지워졌거나 스키마가 걸러졌을 때)
@@ -1509,7 +1554,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(evaluate_run(d, lp))
 
         if p.startswith("/clip/"):
-            return self._send_clip(p[len("/clip/"):])
+            return self._send_clip(p[len("/clip/"):], ds=q.get("ds"))
 
         if p == "/api/clip":
             uuid = q.get("uuid", "")

@@ -204,11 +204,12 @@ if [ -z "$TOTAL_CLIPS" ]; then
   TOTAL_CLIPS="$("$PYBIN" - "$DATA" <<'PY'
 import sys
 try:
-    from clip_source import make_source
+    from clip_source import dataset_profile, make_source
     # 기준 뷰는 edge_case_mining 이 실제로 쓰는 것과 같아야 한다. 여기에
     # 이름을 또 적어두면 뷰가 바뀔 때 진행률 분모만 조용히 어긋난다.
     from edge_case_mining import FRONT_VIEWS
-    print(len(make_source(sys.argv[1]).uuids(FRONT_VIEWS[0])))
+    prof = dataset_profile(sys.argv[1])    # 데이터셋 id 면 그 데이터셋의 뷰
+    print(len(make_source(sys.argv[1]).uuids(prof["view"] if prof else FRONT_VIEWS[0])))
 except Exception as e:
     print(f"[error] 클립 목록을 못 읽었습니다: {e}", file=sys.stderr)
     print(0)

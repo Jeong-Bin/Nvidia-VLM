@@ -58,7 +58,7 @@ from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-DATASETS_JSON = ROOT / "nas_datasets.json"
+DATASETS_JSON = Path(os.environ.get("NAS_DATASETS_JSON") or ROOT / "nas_datasets.json")
 # 저장 위치. 테스트 때는 환경변수로 다른 곳을 가리켜 실제 라벨을 건드리지 않는다.
 STORE = Path(os.environ.get("NAS_LABEL_STORE") or ROOT / "nas_labels")
 
@@ -436,13 +436,8 @@ class Dataset:
 
     @staticmethod
     def _resolve(nas_path: str, mounts: dict) -> Path:
-        p = Path(nas_path)
-        if p.exists():
-            return p
-        for pre in sorted(mounts, key=len, reverse=True):
-            if nas_path == pre or nas_path.startswith(pre.rstrip("/") + "/"):
-                return Path(mounts[pre] + nas_path[len(pre.rstrip("/")):])
-        return p
+        from clip_source import resolve_nas_path
+        return resolve_nas_path(nas_path, mounts)
 
     # --- 클립 목록 ---
     def start_index(self):
