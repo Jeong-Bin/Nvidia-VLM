@@ -35,7 +35,7 @@ from prompts import WEATHER_AXES, WEATHER_MAX
 #
 # 1단계와 2단계를 한 칸에 합친 이유: 둘 다 "무엇이 보였나"를 서술하는 문단
 # 이라 따로 두면 패널 높이만 늘고 읽는 순서는 그대로다. 검수자가 실제로
-# 대조하는 것은 아래 카테고리별 점수이므로, 서술은 짧게 묶어 위에 둔다.
+# 대조하는 것은 아래 클래스별 점수이므로, 서술은 짧게 묶어 위에 둔다.
 PANEL_STEPS = [
     (("observation", "ego_behavior"), "1. Scene Description & Ego Behavior"),
     (("unusual_elements",), "2. Unusual Element"),
@@ -49,7 +49,7 @@ BG = (255, 255, 255)
 TEXT_DARK = (26, 26, 26)
 TEXT_MID = (51, 51, 51)
 TEXT_MUTED = (120, 120, 120)
-ACCENT = (179, 84, 30)      # 제목/카테고리 강조 (주황)
+ACCENT = (179, 84, 30)      # 제목/클래스 강조 (주황)
 RULE = (221, 221, 221)
 
 # --time-spans 구간 띠 색(RGB). 장르가 아니라 구간 위험도(0~4)로 칠한다.
@@ -117,7 +117,7 @@ VIZ_WIDTH = 1280
 
 
 def safe_dirname(name: str) -> str:
-    """카테고리 이름을 폴더명으로 쓸 수 있게 다듬는다.
+    """클래스 이름을 폴더명으로 쓸 수 있게 다듬는다.
 
     현재 분류 체계에는 경로에 위험한 문자가 없지만(공백만 있다), 체계는
     사람이 손으로 고치는 json 이라 슬래시가 들어올 수 있다 - 그때 엉뚱한
@@ -171,7 +171,7 @@ def weather_lines(result: dict, gt: dict | None = None) -> list[str]:
                      + (f": {why}" if why else ""))
     return lines
 
-# 카테고리 -> 묶음 이름.
+# 클래스 -> 묶음 이름.
 #
 # scene_category.json 을 읽어 채우되, 못 읽으면 빈 채로 둔다. 시각화가 씬
 # 파일을 못 찾았다고 해서 영상 생성이 실패하면 안 된다.
@@ -179,24 +179,24 @@ SCENARIO_OF = {}
 
 
 def load_scenario_map(scene_json) -> None:
-    """scene_category.json 에서 카테고리->묶음 표를 읽어 둔다."""
+    """scene_category.json 에서 클래스->묶음 표를 읽어 둔다."""
     try:
         data = json.loads(Path(scene_json).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return
     SCENARIO_OF.clear()
     for sc in data.get("special", {}).get("scenarios", []):
-        for c in sc.get("categories", []):
+        for c in sc.get("classes", []):
             SCENARIO_OF[c["name"]] = sc["name"]
 
 
 def _sorted_names(names) -> list[str]:
-    """카테고리 이름을 알파벳 오름차순(대소문자 무시)으로."""
+    """클래스 이름을 알파벳 오름차순(대소문자 무시)으로."""
     return sorted(names or [], key=str.lower)
 
 
-def category_score_lines(result: dict, gt: dict | None) -> list[str]:
-    """카테고리와 상위 카테고리 점수를 패널에 넣을 문자열 줄로 만든다.
+def class_score_lines(result: dict, gt: dict | None) -> list[str]:
+    """클래스와 상위 클래스 점수를 패널에 넣을 문자열 줄로 만든다.
     점수마다 GT 와 Pred 를 이름을 붙여 나란히 적는다.
 
         • GT   : Cyclist on Road, Pedestrian on Road
@@ -206,24 +206,24 @@ def category_score_lines(result: dict, gt: dict | None) -> list[str]:
         • Driving environment (GT:0, Pred:0)
            : <Driving environment 근거> Unpaved road=3: <근거>
 
-    상위 카테고리 줄은 GT 나 Pred 어느 한쪽이라도 값이 있는 것만 낸다 -
-    상위 카테고리 하나만 돌린 실행(--group)에 빈 줄이 붙지 않게. GT 가
+    상위 클래스 줄은 GT 나 Pred 어느 한쪽이라도 값이 있는 것만 낸다 -
+    상위 클래스 하나만 돌린 실행(--group)에 빈 줄이 붙지 않게. GT 가
     없으면(라벨 없는 실행) GT 줄을 빼고 점수의 GT 자리는 "-" 다.
-    카테고리는 GT/Pred 모두 알파벳 오름차순(대소문자 무시)으로 적는다 -
+    클래스는 GT/Pred 모두 알파벳 오름차순(대소문자 무시)으로 적는다 -
     모델이 낸 순서대로 두면 같은 집합도 순서가 달라 눈으로 맞대기 어렵다.
     """
-    pred_cats = result.get("categories") or []
+    pred_cats = result.get("classes") or []
     pred_scores = result.get("group_scores") or {}
     gt_scores = (gt or {}).get("scores") or {}
     if gt is None and not pred_cats and not pred_scores:
         return []
     lines = []
     if gt is not None:
-        lines.append("• GT   : " + (", ".join(_sorted_names(gt.get("categories")))
+        lines.append("• GT   : " + (", ".join(_sorted_names(gt.get("classes")))
                                    or "None"))
     lines.append("• Pred : " + (", ".join(_sorted_names(pred_cats)) or "None"))
     # 근거는 " | " 로 이어 붙어 온다(parse_nureasoning_output). "<묶음>: ..."
-    # 조각은 그 묶음 점수 줄 바로 밑에 단다. 따로 재는 카테고리(Unpaved
+    # 조각은 그 묶음 점수 줄 바로 밑에 단다. 따로 재는 클래스(Unpaved
     # road=3: ...) 조각은 앞 묶음의 근거에 이어 붙인다 - 그 칸도 그 묶음
     # 점수에 합쳐지기 때문. 묶음 이름이 없는 조각(recheck 가 쓴 근거 등)은
     # 맨 끝에 그대로 둔다.
@@ -347,9 +347,9 @@ def build_timeline_strip(result: dict, duration: float, width: int,
     반환: (RGB ndarray, {"x0", "x1", "y0", "y1", "duration"}) 또는 None.
     """
     spans = result.get("time_spans") or {}
-    cats = _sorted_names(result.get("categories"))
+    cats = _sorted_names(result.get("classes"))
     attn = result.get("attn_curves") or {}
-    heat = attn.get("categories") or {}
+    heat = attn.get("classes") or {}
     has_spans = bool(spans or result.get("_time_spans_on"))
     if not cats or not (has_spans or heat):
         return None
@@ -522,9 +522,9 @@ def build_text_panel(result: dict, width: int, scale: float = 1.0) -> np.ndarray
     # 폰트 크기의 약 0.55 배다.
     width_chars = max(40, int((width - 2 * pad) / (fs_body * 0.55)))
 
-    cats = result.get("categories") or []
+    cats = result.get("classes") or []
     # 정답 라벨(gt)이 함께 넘어오면 3번 칸이 GT 와 Pred 를 한 줄씩 짝지어
-    # 보여준다(category_score_lines).
+    # 보여준다(class_score_lines).
     gt = result.get("_gt")
 
     blocks = []
@@ -533,10 +533,10 @@ def build_text_panel(result: dict, width: int, scale: float = 1.0) -> np.ndarray
         body = " ".join(str(result.get(k) or "").strip() for k in keys).strip()
         blocks.append((title, _wrap(body, width_chars), None))
 
-    # 카테고리별 점수. GT 와 Pred 를 한 줄씩 짝지어 놓는다 - 검수자가 실제로
+    # 클래스별 점수. GT 와 Pred 를 한 줄씩 짝지어 놓는다 - 검수자가 실제로
     # 대조하는 것이 이 값이고, 분모를 함께 적어야 2 가 중간인지 상한인지
     # 읽힌다(rubric 마다 폭이 달라질 수 있다).
-    score_lines = category_score_lines(result, gt)
+    score_lines = class_score_lines(result, gt)
     if score_lines:
         wrapped = []
         for ln in score_lines:
@@ -544,7 +544,7 @@ def build_text_panel(result: dict, width: int, scale: float = 1.0) -> np.ndarray
             ind = "     " if ln.startswith("   : ") else "    "
             wrapped.extend(textwrap.wrap(ln, width=width_chars,
                                          subsequent_indent=ind) or [ln])
-        blocks.append((f"{len(blocks) + 1}. Categories & Difficulty score",
+        blocks.append((f"{len(blocks) + 1}. Classes & Difficulty score",
                        wrapped, None))
 
     # 난이도는 등급 단계 다음에 자기 블록으로 붙는다. PANEL_STEPS 에 넣지
@@ -566,7 +566,7 @@ def build_text_panel(result: dict, width: int, scale: float = 1.0) -> np.ndarray
     # --- 높이 계산 ---
     h = pad
     h += int(fs_head * 1.6) + int(6 * scale)        # uuid 헤드라인
-    h += int(fs_body * 1.6) + gap                   # 카테고리 줄
+    h += int(fs_body * 1.6) + gap                   # 클래스 줄
     for _, lines, gt_line in blocks:
         h += title_h + len(lines) * line_h + gap
         if gt_line:
@@ -588,13 +588,13 @@ def build_text_panel(result: dict, width: int, scale: float = 1.0) -> np.ndarray
     d.text((pad, y), head, font=f_head, fill=TEXT_DARK)
     y += int(fs_head * 1.6) + int(6 * scale)
 
-    # 카테고리 이름은 3번 칸이 점수와 함께 찍으므로 여기서는 판정과 개수만
+    # 클래스 이름은 3번 칸이 점수와 함께 찍으므로 여기서는 판정과 개수만
     # 적는다 - 같은 목록을 두 번 쓰면 패널만 길어지고 읽는 것은 아래 칸이다.
     verdict = result.get("verdict") or ("Special" if cats else "Normal")
     d.text((pad, y), f"{verdict}  ", font=f_title,
            fill=ACCENT if cats else TEXT_MUTED)
     d.text((pad + d.textlength(f"{verdict}  ", font=f_title), y),
-           f"({len(cats)} categor{'y' if len(cats) == 1 else 'ies'})",
+           f"({len(cats)} {'class' if len(cats) == 1 else 'classes'})",
            font=f_title, fill=TEXT_MUTED)
     y += int(fs_body * 1.6) + gap
 
@@ -866,7 +866,7 @@ def save_clip_json(result: dict, out_path, extra: dict | None = None) -> Path:
     payload = {
         "uuid": result.get("_uuid", ""),
         "verdict": result.get("verdict"),
-        "categories": result.get("categories", []),
+        "classes": result.get("classes", []),
         "reasoning": {k: result.get(k, "")
                       for keys, _ in PANEL_STEPS for k in keys},
         "group_scores": result.get("group_scores") or {},

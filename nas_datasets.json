@@ -5,7 +5,7 @@
     "id 는 라벨 저장 폴더 이름(nas_labels/<id>/)이 되므로 한 번 정하면 바꾸지 않는다.",
     "taxonomy 는 카테고리 목록을 읽을 씬 정의 파일. test_label_333_diff3.json 이 이 파일 기준이다.",
     "id 는 추론의 --data 값으로도 쓴다(GUI 의 데이터 선택). 아래 값을 적지 않으면 NVIDIA 기준이다:",
-    "view 카메라, source_fps mp4 프레임 속도, camera_text 프롬프트가 말하는 카메라, egomotion/trajectory 해당 자료 유무."
+    "view 카메라, source_fps mp4 프레임 속도, camera_text 프롬프트가 말하는 카메라, egomotion/trajectory 해당 자료 유무, ego_file 2Hz 자차 시계열(없으면 100Hz 라벨을 읽는다)."
   ],
   "mounts": {
     "/volume1/OPEN_DATASET": "/mnt/nas"
@@ -25,7 +25,8 @@
       "view": "cam_f0",
       "source_fps": 2,
       "camera_text": "front",
-      "egomotion": false,
+      "egomotion": true,
+      "ego_file": "ego_2hz.json",
       "trajectory": false
     }
   ]

@@ -8,9 +8,9 @@
   충분하고, 새 의존성이 0 이면 그 사고가 반복될 여지도 0 이다.
 
 제공 기능(요청 3가지):
-  1) 추론 실행 + 성능 리포트 + 카테고리별 TP/FP/FN 목록 + 영상 다운로드
-  2) 씬(카테고리 정의)과 라벨 추가/수정
-  3) 씬 검색 - uuid / 카테고리 / 점수 필터
+  1) 추론 실행 + 성능 리포트 + 클래스별 TP/FP/FN 목록 + 영상 다운로드
+  2) 씬(클래스 정의)과 라벨 추가/수정
+  3) 씬 검색 - uuid / 클래스 / 점수 필터
 
 채점은 evaluate_labels.py 의 함수를 그대로 불러 쓴다. 지표 계산을 여기서
 다시 구현하면 CLI 와 GUI 가 서로 다른 숫자를 내놓게 되고, 그건 이 프로젝트가
@@ -109,7 +109,7 @@ def run_dataset(run_dir):
 
 
 def is_v2_scene(path: Path) -> bool:
-    """2.0 스키마인가 - special.scenarios[].categories[] 에 templates 키가 있나.
+    """2.0 스키마인가 - special.scenarios[].classes[] 에 templates 키가 있나.
 
     1.x 는 같은 자리에 synonyms/prompt_templates(_candidates) 를 쓴다. 그 파일을
     GUI 에서 열면 모든 값이 0/빈칸으로 보이고, 저장하면 2.0 필드로 덮어써
@@ -119,7 +119,7 @@ def is_v2_scene(path: Path) -> bool:
     try:
         d = json.loads(path.read_text(encoding="utf-8"))
         for scen in d.get("special", {}).get("scenarios", []):
-            for cat in scen.get("categories", []):
+            for cat in scen.get("classes", []):
                 return "templates" in cat
     except (json.JSONDecodeError, OSError, AttributeError):
         pass
@@ -151,13 +151,13 @@ def newest_of(names: list[str], fallback: str) -> str:
     return best
 
 
-def taxonomy_categories(scene_path: Path) -> list[dict]:
+def taxonomy_classes(scene_path: Path) -> list[dict]:
     """[{scenario, name, templates, template_candidates}] - 프롬프트 메뉴와
     같은 순서. scenario 가 곧 묶음 점수(Dynamic object 등)의 이름이다."""
     scene = json.loads(Path(scene_path).read_text(encoding="utf-8"))
     out = []
     for scen in scene.get("special", {}).get("scenarios", []):
-        for cat in scen.get("categories", []):
+        for cat in scen.get("classes", []):
             out.append({
                 "scenario": scen["name"],
                 "name": cat["name"],
@@ -232,7 +232,7 @@ def aggregate_run(run_dir: Path) -> dict:
     rows, seen = [], set()
     for f in files:
         with open(f, encoding="utf-8", newline="") as fh:
-            for r in _csv.DictReader(fh):
+            for r in map(config.new_names, _csv.DictReader(fh)):
                 u = (r.get("uuid") or "").strip()
                 if u and u not in seen:
                     seen.add(u)
@@ -247,11 +247,11 @@ def aggregate_run(run_dir: Path) -> dict:
     total = len(rows)
     cat_of = []
     for r in rows:
-        raw = (r.get("categories") or "").strip()
+        raw = (r.get("classes") or "").strip()
         cat_of.append([c for c in raw.split("|") if c.strip()] if raw else [])
     edge = sum(1 for c in cat_of if c)
 
-    # 카테고리 빈도 - 분류 체계 순서를 유지해 0건도 남긴다(있는데 0인 것과
+    # 클래스 빈도 - 분류 체계 순서를 유지해 0건도 남긴다(있는데 0인 것과
     # 아예 정의에 없는 것은 다르다).
     # 실행에 기록된 분류 체계를 쓰되, 그 파일이 사라졌으면(이름이 바뀌거나
     # 지워진 옛 실행) 현재 기본값으로 대신한다. 없으면 시나리오 묶음이 전부
@@ -264,7 +264,7 @@ def aggregate_run(run_dir: Path) -> dict:
             sp = ROOT / sp
     if sp is None or not sp.exists():
         sp = Path(config.SCENE_JSON)
-    tax = taxonomy_categories(sp) if sp.exists() else []
+    tax = taxonomy_classes(sp) if sp.exists() else []
     order = [(c["scenario"], c["name"]) for c in tax]
     seen_names = {n for _, n in order}
     for cats in cat_of:
@@ -281,7 +281,7 @@ def aggregate_run(run_dir: Path) -> dict:
                      "pct_edge": (n / edge * 100) if edge else 0.0})
     occurrences = sum(len(c) for c in cat_of)
 
-    # 클립당 카테고리 개수 분포
+    # 클립당 클래스 개수 분포
     per_clip = {}
     for cats in cat_of:
         if cats:
@@ -314,7 +314,7 @@ def aggregate_run(run_dir: Path) -> dict:
         "run": rel_run_name(run_dir),
         "clips": {"total": total, "edge": edge, "normal": total - edge,
                   "edge_pct": (edge / total * 100) if total else 0.0},
-        "categories": freq,
+        "classes": freq,
         "occurrences": occurrences,
         "avg_per_edge": (occurrences / edge) if edge else 0.0,
         "per_clip": [{"k": k, "n": per_clip[k]} for k in sorted(per_clip)],
@@ -360,7 +360,7 @@ def run_config_of(d: Path) -> dict:
     p = d / "run_config.json"
     if p.exists():
         try:
-            return json.loads(p.read_text(encoding="utf-8"))
+            return config.read_run_config(p)
         except (json.JSONDecodeError, OSError):
             pass
     return {}
@@ -402,7 +402,7 @@ def find_viz(run_dir: Path, uuid: str) -> dict:
 # 채점 - evaluate_labels.py 의 함수를 그대로 쓴다
 # ---------------------------------------------------------------------------
 def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
-    """한 실행의 성능 리포트 + 카테고리별 TP/FP/FN uuid 목록."""
+    """한 실행의 성능 리포트 + 클래스별 TP/FP/FN uuid 목록."""
     labels_path = Path(labels_path) if labels_path else labels_path_for_run(run_dir)
     if not labels_path.exists():
         return {"error": f"labels not found: {labels_path}"}
@@ -411,7 +411,7 @@ def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
     pred = EV.load_results(run_dir)
     if not pred:
         return {"error": f"no clip_results*.csv in {run_dir.name}"}
-    # 상위 카테고리 하나만 다룬 실행(--group)은 GT 도 그 범위로 줄인다 -
+    # 상위 클래스 하나만 다룬 실행(--group)은 GT 도 그 범위로 줄인다 -
     # CLI 채점(evaluate_labels.py)과 같은 숫자가 나와야 한다.
     _cfg = run_config_of(run_dir)
     _scene = Path((_cfg.get("key") or {}).get("scene_json") or config.SCENE_JSON)
@@ -425,10 +425,10 @@ def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
         return {"error": "라벨과 결과에 겹치는 uuid 가 없습니다"}
     missing = sorted(set(truth) - set(pred))
 
-    # --- 1) Verdict: 카테고리가 하나라도 있으면 Special ---
+    # --- 1) Verdict: 클래스가 하나라도 있으면 Special ---
     v_tp = v_fp = v_fn = v_tn = 0
     for u in common:
-        t, p = bool(truth[u]["categories"]), bool(pred[u]["categories"])
+        t, p = bool(truth[u]["classes"]), bool(pred[u]["classes"])
         if t and p:
             v_tp += 1
         elif p and not t:
@@ -440,9 +440,9 @@ def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
     v_p, v_r, v_f = EV.prf(v_tp, v_fp, v_fn)
     n = len(common)
 
-    # --- 2) 카테고리별 (멀티라벨) ---
+    # --- 2) 클래스별 (멀티라벨) ---
     # 분류 체계에 있는 이름은 GT/예측이 0건이어도 표에 남긴다 - 빠지면
-    # "모델이 못 맞춘 것"과 "애초에 없는 카테고리"가 구분되지 않는다.
+    # "모델이 못 맞춘 것"과 "애초에 없는 클래스"가 구분되지 않는다.
     scene_json = run_config_of(run_dir).get("key", {}).get("scene_json")
     tax_names = []
     if scene_json:
@@ -450,18 +450,18 @@ def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
         if not sp.is_absolute():
             sp = ROOT / sp
         if sp.exists():
-            tax_names = [c["name"] for c in taxonomy_categories(sp)]
+            tax_names = [c["name"] for c in taxonomy_classes(sp)]
     names = sorted((set(tax_names)
-                    | {c for u in common for c in truth[u]["categories"]}
-                    | {c for u in common for c in pred[u]["categories"]})
+                    | {c for u in common for c in truth[u]["classes"]}
+                    | {c for u in common for c in pred[u]["classes"]})
                    - set(unknown))
 
     per_cat = []
     micro_tp = micro_fp = micro_fn = 0
     for name in names:
-        tp = [u for u in common if name in truth[u]["categories"] and name in pred[u]["categories"]]
-        fp = [u for u in common if name not in truth[u]["categories"] and name in pred[u]["categories"]]
-        fn = [u for u in common if name in truth[u]["categories"] and name not in pred[u]["categories"]]
+        tp = [u for u in common if name in truth[u]["classes"] and name in pred[u]["classes"]]
+        fp = [u for u in common if name not in truth[u]["classes"] and name in pred[u]["classes"]]
+        fn = [u for u in common if name in truth[u]["classes"] and name not in pred[u]["classes"]]
         p, r, f = EV.prf(len(tp), len(fp), len(fn))
         support = len(tp) + len(fn)
         micro_tp += len(tp); micro_fp += len(fp); micro_fn += len(fn)
@@ -488,7 +488,7 @@ def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
             "n_tp": len(tp), "n_fp": len(fp), "n_fn": len(fn),
         })
     macro_f1 = sum(c["f1"] for c in solid) / len(solid) if solid else 0.0
-    per_clip = sum(EV.f1_set(truth[u]["categories"], pred[u]["categories"])
+    per_clip = sum(EV.f1_set(truth[u]["classes"], pred[u]["classes"])
                    for u in common) / n
 
     # --- 3) 묶음 점수 ---
@@ -531,10 +531,10 @@ def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
             "tp": v_tp, "fp": v_fp, "fn": v_fn, "tn": v_tn,
             "accuracy": (v_tp + v_tn) / n,
             "precision": v_p, "recall": v_r, "f1": v_f,
-            "n_special_truth": sum(1 for u in common if truth[u]["categories"]),
-            "n_normal_truth": sum(1 for u in common if not truth[u]["categories"]),
+            "n_special_truth": sum(1 for u in common if truth[u]["classes"]),
+            "n_normal_truth": sum(1 for u in common if not truth[u]["classes"]),
         },
-        "categories": per_cat,
+        "classes": per_cat,
         "micro_f1": micro_f1, "macro_f1": macro_f1, "per_clip_f1": per_clip,
         "tiers": tiers,
         "config": run_config_of(run_dir).get("key", {}),
@@ -548,7 +548,7 @@ def clip_detail(uuid: str, run_dir: Path | None, labels_path: Path) -> dict:
     truth, _, _, _ = EV.load_labels(labels_path)
     if uuid in truth:
         t = truth[uuid]
-        out["truth"] = {"categories": sorted(t["categories"]),
+        out["truth"] = {"classes": sorted(t["classes"]),
                         "scores": t["scores"],
                         "note": t["note"],
                         # 날씨는 EV.load_labels 가 버리므로 따로 읽는다.
@@ -563,7 +563,7 @@ def clip_detail(uuid: str, run_dir: Path | None, labels_path: Path) -> dict:
         rows = EV.load_results(run_dir)
         if uuid in rows:
             r = rows[uuid]
-            out["pred"] = {"categories": sorted(r["categories"]),
+            out["pred"] = {"classes": sorted(r["classes"]),
                            "scores": r["scores"]}
         # 난이도와 근거는 CSV 에서 가져온다. result.json 은 시각화를 만들
         # 때만 생기므로, --no-viz 로 돌린 실행에서는 서술이 통째로 빈다.
@@ -609,7 +609,7 @@ def clip_detail(uuid: str, run_dir: Path | None, labels_path: Path) -> dict:
 # 딕셔너리인데, 편집기의 쉼표 구분 입력칸이 예전에 그 키에 리스트를 써서
 # 저장 한 번에 날씨 점수를 지웠다. 그 입력칸은 rain_snow_fog(리스트)에 쓴다.
 # 묶음 점수(GROUP_RUBRICS 의 이름: "Dynamic object" 등)는 라벨 최상위 키다.
-LABEL_FIELDS = ("categories", "influenced_ego",
+LABEL_FIELDS = ("classes", "influenced_ego",
                 "rain_snow_fog", "is_night", "note", *GROUP_RUBRICS)
 
 
@@ -641,9 +641,9 @@ def write_labels_file(name: str, data: dict):
 def upsert_label(file_name: str, uuid: str, patch: dict) -> dict:
     data = read_labels_file(file_name)
     clips = data.setdefault("clips", {})
-    # categories 는 그 클립에 나온 카테고리 이름 리스트이고, 점수는 묶음마다
+    # classes 는 그 클립에 나온 클래스 이름 리스트이고, 점수는 묶음마다
     # 최상위 키("Dynamic object": 0~4)에 따로 둔다.
-    cur = clips.get(uuid, {"categories": [], "influenced_ego": False,
+    cur = clips.get(uuid, {"classes": [], "influenced_ego": False,
                            "rain_snow_fog": [], "is_night": False, "note": ""})
     for k in LABEL_FIELDS:
         if k in patch:
@@ -678,11 +678,11 @@ def write_scene_file(name: str, data: dict):
     os.replace(tmp, p)
 
 
-def upsert_category(scene_name: str, scenario: str, cat: dict,
+def upsert_class(scene_name: str, scenario: str, cat: dict,
                     old_name: str | None = None) -> dict:
-    """카테고리 추가/수정. old_name 을 주면 이름 변경으로 처리한다.
+    """클래스 추가/수정. old_name 을 주면 이름 변경으로 처리한다.
 
-    카테고리 이름은 프롬프트 메뉴와 정답 라벨이 문자열로 맞춰 쓰는 키라서,
+    클래스 이름은 프롬프트 메뉴와 정답 라벨이 문자열로 맞춰 쓰는 키라서,
     이름을 바꾸면 기존 라벨이 매칭되지 않는다 - 그래서 이름 변경은
     호출한 쪽이 old_name 을 명시했을 때만 한다.
     """
@@ -691,7 +691,7 @@ def upsert_category(scene_name: str, scenario: str, cat: dict,
     scenarios = data.setdefault("special", {}).setdefault("scenarios", [])
     target = next((s for s in scenarios if s["name"] == scenario), None)
     if target is None:
-        target = {"name": scenario, "categories": []}
+        target = {"name": scenario, "classes": []}
         scenarios.append(target)
 
     entry = {
@@ -701,30 +701,30 @@ def upsert_category(scene_name: str, scenario: str, cat: dict,
     }
     look = old_name or cat["name"]
     for s in scenarios:
-        for i, c in enumerate(s.get("categories", [])):
+        for i, c in enumerate(s.get("classes", [])):
             if c["name"] == look:
                 # GUI 가 편집하지 않는 필드(excludes, score_examples)는 기존
                 # 값을 살린다 - 예전에는 편집 한 번에 조용히 지워졌다.
                 entry = {**c, **entry}
                 if s is target:
-                    target["categories"][i] = entry
+                    target["classes"][i] = entry
                 else:      # 시나리오가 바뀐 경우 - 옮긴다
-                    del s["categories"][i]
-                    target["categories"].append(entry)
+                    del s["classes"][i]
+                    target["classes"].append(entry)
                 write_scene_file(scene_name, data)
                 return entry
-    target["categories"].append(entry)
+    target["classes"].append(entry)
     write_scene_file(scene_name, data)
     return entry
 
 
-def delete_category(scene_name: str, name: str) -> bool:
+def delete_class(scene_name: str, name: str) -> bool:
     p = ROOT / scene_name
     data = json.loads(p.read_text(encoding="utf-8"))
     for s in data.get("special", {}).get("scenarios", []):
-        for i, c in enumerate(s.get("categories", [])):
+        for i, c in enumerate(s.get("classes", [])):
             if c["name"] == name:
-                del s["categories"][i]
+                del s["classes"][i]
                 write_scene_file(scene_name, data)
                 return True
     return False
@@ -740,7 +740,7 @@ DIFF_KEYS = [k for k, _ in DIFF_AXES]
 def load_pred_rows(run_dir: Path) -> dict:
     """실행 CSV -> {uuid: {...}}. 난이도 4축과 근거 텍스트까지 들고 온다.
 
-    EV.load_results 는 채점에 필요한 categories/scores 만 준다.
+    EV.load_results 는 채점에 필요한 classes/scores 만 준다.
     씬 검색은 난이도로도 거르고 팝업에 근거를 보여줘야 해서 원본 행이
     통째로 필요하다.
     """
@@ -751,14 +751,14 @@ def load_pred_rows(run_dir: Path) -> dict:
     out = {}
     for f in files:
         with open(f, encoding="utf-8", newline="") as fh:
-            for r in _csv.DictReader(fh):
+            for r in map(config.new_names, _csv.DictReader(fh)):
                 u = (r.get("uuid") or "").strip()
                 if not u or u in out:
                     continue
-                raw = (r.get("categories") or "").strip()
+                raw = (r.get("classes") or "").strip()
                 out[u] = {
                     "uuid": u,
-                    "categories": [c for c in raw.split("|") if c.strip()],
+                    "classes": [c for c in raw.split("|") if c.strip()],
                     "scores": _parse_scores(r.get("group_scores")),
                     "score_max": None,   # 아래에서 채운다
                     "difficulty": {k: _as_int(r.get(k)) for k in DIFF_KEYS},
@@ -797,7 +797,7 @@ def _parse_scores(raw) -> dict:
 
 
 def _max_or_none(scores):
-    """{카테고리: 점수} -> 최댓값. 비었으면 None(=필터에서 거르지 않음)."""
+    """{클래스: 점수} -> 최댓값. 비었으면 None(=필터에서 거르지 않음)."""
     vals = [v for v in (scores or {}).values() if isinstance(v, int)]
     return max(vals) if vals else None
 
@@ -835,7 +835,7 @@ def _diff_ok(d: dict, q: dict) -> bool:
 def search_nas_clips(q: dict) -> dict:
     """NAS 마이닝 실행(unlabeled/)의 예측 자체를 검색한다.
 
-    라벨 검색과 달리 대조할 정답이 없다. 그래서 모델이 낸 카테고리·점수·
+    라벨 검색과 달리 대조할 정답이 없다. 그래서 모델이 낸 클래스·점수·
     난이도를 그대로 조건으로 쓴다.
     """
     run = (q.get("run") or "").strip()
@@ -850,10 +850,10 @@ def search_nas_clips(q: dict) -> dict:
 
     uuid_q = (q.get("uuid") or "").strip().lower()
     text_q = (q.get("text") or "").strip().lower()
-    cats = [c for c in (q.get("categories") or "").split("|") if c]
+    cats = [c for c in (q.get("classes") or "").split("|") if c]
     cat_mode = q.get("cat_mode", "any")
-    # 점수 필터는 "이 클립에서 가장 높은 카테고리 점수" 기준이다 - 검수
-    # 우선순위가 그것이고, 카테고리마다 따로 거르면 멀티라벨 클립에서
+    # 점수 필터는 "이 클립에서 가장 높은 클래스 점수" 기준이다 - 검수
+    # 우선순위가 그것이고, 클래스마다 따로 거르면 멀티라벨 클립에서
     # 어느 쪽을 따라야 할지 정해지지 않는다.
     smin = int(q.get("score_min", min(TIER_VALUES)))
     smax = int(q.get("score_max", max(TIER_VALUES)))
@@ -863,7 +863,7 @@ def search_nas_clips(q: dict) -> dict:
     for u, r in preds.items():
         if uuid_q and uuid_q not in u.lower():
             continue
-        pc = set(r["categories"])
+        pc = set(r["classes"])
         if cats:
             hit = set(cats) & pc
             if cat_mode == "any" and not hit:
@@ -946,7 +946,7 @@ def _diff_ok_prefixed(d: dict, q: dict, prefix: str) -> bool:
 
 
 def search_clips(q: dict) -> dict:
-    """라벨 기준 검색. uuid / 카테고리 / 점수 필터.
+    """라벨 기준 검색. uuid / 클래스 / 점수 필터.
 
     run 을 주면 그 실행의 예측도 함께 붙여, 검색 결과에서 바로 맞았는지
     틀렸는지 볼 수 있게 한다.
@@ -964,7 +964,7 @@ def search_clips(q: dict) -> dict:
             pred_rows = load_pred_rows(d)
 
     uuid_q = (q.get("uuid") or "").strip().lower()
-    cats = [c for c in (q.get("categories") or "").split("|") if c]
+    cats = [c for c in (q.get("classes") or "").split("|") if c]
     cat_mode = q.get("cat_mode", "any")          # any | all | none
     special = q.get("special", "")               # "" | special | normal
     note_q = (q.get("note") or "").strip().lower()
@@ -974,9 +974,9 @@ def search_clips(q: dict) -> dict:
     # GT 로 읽는다 - 이 이름으로 저장해 둔 북마크나 옛 링크가 계속 같은 뜻을
     # 갖게 하려는 것이다.
     #
-    # 점수는 카테고리마다 붙으므로 클립 하나에 여러 값이 있다. 필터는 그중
+    # 점수는 클래스마다 붙으므로 클립 하나에 여러 값이 있다. 필터는 그중
     # 최댓값으로 건다 - 검수 우선순위가 "이 클립에서 가장 심한 요소"이고,
-    # 카테고리마다 따로 걸면 멀티라벨 클립에서 어느 쪽을 따를지 정해지지
+    # 클래스마다 따로 걸면 멀티라벨 클립에서 어느 쪽을 따를지 정해지지
     # 않는다.
     gt_smin = q.get("score_min", q.get("gt_score_min"))
     gt_smax = q.get("score_max", q.get("gt_score_max"))
@@ -992,7 +992,7 @@ def search_clips(q: dict) -> dict:
     for u, t in truth.items():
         if uuid_q and uuid_q not in u.lower():
             continue
-        tc = t["categories"]
+        tc = t["classes"]
         if cats:
             hit = set(cats) & tc
             if cat_mode == "any" and not hit:
@@ -1020,15 +1020,15 @@ def search_clips(q: dict) -> dict:
                              q.get("pred_score_min"), q.get("pred_score_max")):
                 continue
 
-        row = {"uuid": u, "categories": sorted(tc), "scores": t["scores"],
+        row = {"uuid": u, "classes": sorted(tc), "scores": t["scores"],
                "score_max": _max_or_none(t["scores"]),
                "note": t.get("note", ""),
                "gt_weather": gt_diff.get(u)}
         if u in pred_rows:
             row["difficulty"] = pred_rows[u]["difficulty"]
         if u in pred:
-            pc = pred[u]["categories"]
-            row["pred_categories"] = sorted(pc)
+            pc = pred[u]["classes"]
+            row["pred_classes"] = sorted(pc)
             row["pred_scores"] = pred[u]["scores"]
             row["pred_score_max"] = _max_or_none(pred[u]["scores"])
             row["correct"] = (pc == tc)
@@ -1219,11 +1219,11 @@ def build_command(opts: dict, jid: str = "adhoc") -> list[str]:
     # 시각화 기본값이 스크립트마다 반대다: labeled_* 는 off(--viz 로 켬),
     # nas_* 는 on(--no-viz 로 끔). 켤 때는 --viz-normal/--viz-special 로
     # 어느 쪽이든 명시적으로 켜지고, 끌 때는 nas_* 에만 --no-viz 가 필요하다.
-    # 세 갈래다: 전부 생성 / 카테고리별 N개만 / 생성 안 함.
+    # 세 갈래다: 전부 생성 / 클래스별 N개만 / 생성 안 함.
     if single:
         cmd += ["--viz-normal", "--viz-special"]
-    elif opts.get("viz_per_category"):
-        cmd += ["--viz-per-category", str(opts["viz_per_category"])]
+    elif opts.get("viz_per_class"):
+        cmd += ["--viz-per-class", str(opts["viz_per_class"])]
     elif opts.get("viz"):
         cmd += ["--viz-normal", "--viz-special"]
     elif nas:
@@ -1237,11 +1237,11 @@ def build_command(opts: dict, jid: str = "adhoc") -> list[str]:
     # 날씨 4축은 점수와 별개 축이라 기본 off - 켤 때만 넘긴다.
     elif opts.get("difficulty"):
         cmd += ["--weather"]
-    # Unknown 카테고리(예상 못한 새 종류)를 메뉴에 넣는다. 화면 기본값은 켜짐,
-    # CLI 기본값은 꺼짐이다. 날씨만 추론하면 카테고리를 다루지 않으므로 뺀다.
-    if opts.get("unknown_categories") and not opts.get("difficulty_only"):
-        cmd += ["--unknown-categories"]
-    # 다룰 상위 카테고리(all / dynamic_object / driving_environment).
+    # Unknown 클래스(예상 못한 새 종류)를 메뉴에 넣는다. 화면 기본값은 켜짐,
+    # CLI 기본값은 꺼짐이다. 날씨만 추론하면 클래스를 다루지 않으므로 뺀다.
+    if opts.get("unknown_classes") and not opts.get("difficulty_only"):
+        cmd += ["--unknown-classes"]
+    # 다룰 상위 클래스(all / dynamic_object / driving_environment).
     if opts.get("group") and opts["group"] != "all" and not opts.get("difficulty_only"):
         cmd += ["--group", opts["group"]]
     # 장르별 위험 구간(--time-spans). inline = 1차 답변 JSON 에 칸 추가(원본
@@ -1571,7 +1571,7 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/taxonomy":
             name = q.get("scene") or Path(config.SCENE_JSON).name
             return self._json({"scene": name,
-                               "categories": taxonomy_categories(ROOT / name)})
+                               "classes": taxonomy_classes(ROOT / name)})
 
         if p == "/api/labels":
             name = q.get("labels") or Path(config.LABELS_JSON).name
@@ -1628,16 +1628,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"deleted": ok})
             return self._json({"saved": upsert_label(name, uuid, b.get("patch", {}))})
 
-        if p == "/api/category":
+        if p == "/api/class":
             scene = b.get("scene") or Path(config.SCENE_JSON).name
             if b.get("delete"):
-                return self._json({"deleted": delete_category(scene, b["name"])})
+                return self._json({"deleted": delete_class(scene, b["name"])})
             cat = {"name": (b.get("name") or "").strip(),
                    "templates": b.get("templates", []),
                    "template_candidates": b.get("template_candidates", [])}
             if not cat["name"]:
-                return self._err("카테고리 이름이 비었습니다")
-            return self._json({"saved": upsert_category(
+                return self._err("클래스 이름이 비었습니다")
+            return self._json({"saved": upsert_class(
                 scene, b.get("scenario") or "Dynamic object", cat,
                 b.get("old_name"))})
 

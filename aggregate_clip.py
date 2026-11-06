@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""클립 모드 결과(8개 GPU 샤드)를 합쳐 카테고리별로 집계한다 (uuid 하나가 한 행).
+"""클립 모드 결과(8개 GPU 샤드)를 합쳐 클래스별로 집계한다 (uuid 하나가 한 행).
 
 집계 내용:
-  1) 클립 개요 - SPECIAL(카테고리 1개 이상) / NORMAL
-  2) 카테고리별 클립 수와 비율. 멀티라벨이라 한 클립이 여러 카테고리에
-     동시에 잡히면 그 카테고리 각각에 1 씩 반영한다 - 따라서 카테고리
+  1) 클립 개요 - SPECIAL(클래스 1개 이상) / NORMAL
+  2) 클래스별 클립 수와 비율. 멀티라벨이라 한 클립이 여러 클래스에
+     동시에 잡히면 그 클래스 각각에 1 씩 반영한다 - 따라서 클래스
      합계는 클립 수를 넘고 비율 합도 100% 를 넘을 수 있다.
   3) 동시 출현 - 한 클립에 몇 개가 같이 붙는지, 어떤 쌍이 자주 겹치는지
   4) 등급 분포 - safety/rarity 의 값별 개수와 비율, 평균/분산/중앙값.
@@ -33,27 +33,27 @@ from pathlib import Path
 
 import pandas as pd
 
-from config import SCENE_JSON as CONFIG_SCENE_JSON
+from config import OLD_NAMES, SCENE_JSON as CONFIG_SCENE_JSON
 from constrained_tier import TIER_VALUES, TIER_LABELS, tier_label
 from prompts import WEATHER_AXES, WEATHER_MIN, WEATHER_MAX
 
 ROOT = Path(__file__).resolve().parent
 # 기본값은 config.py 한 곳에서만 정한다. 다만 집계는 "이 실행이 실제로 쓴"
 # 정의를 우선하므로, run_config.json 이 있으면 아래 scene_json_for_run() 이
-# 그쪽을 쓴다 - 기본값으로 집계하면 다른 체계로 돌린 결과의 카테고리가
+# 그쪽을 쓴다 - 기본값으로 집계하면 다른 체계로 돌린 결과의 클래스가
 # 통째로 0 으로 나온다.
 SCENE_JSON = CONFIG_SCENE_JSON
 
 # 클립 모드 CSV 를 알아보는 표지. 다른 CSV 를 잘못 넣으면 조용히 0 이 나오는
 # 대신 분명히 알린다.
-REQUIRED_COLS = ("uuid", "categories", "n_categories")
+REQUIRED_COLS = ("uuid", "classes", "n_classes")
 
 
 def scene_json_for_run(run_dir):
-    """이 실행이 실제로 쓴 카테고리 정의. 없으면 config.py 기본값.
+    """이 실행이 실제로 쓴 클래스 정의. 없으면 config.py 기본값.
 
     edge_case_mining.py 샤드 0 이 남긴 run_config.json 을 본다. 집계 기준이
-    실행 기준과 어긋나면 멀쩡한 카테고리가 전부 0 으로 찍혀서, 모델이 못
+    실행 기준과 어긋나면 멀쩡한 클래스가 전부 0 으로 찍혀서, 모델이 못
     맞춘 것인지 이름이 안 맞은 것인지 구분할 수 없게 된다.
     """
     cfg_path = Path(run_dir) / "run_config.json"
@@ -82,18 +82,18 @@ def latest_run_dir():
     return max(cands, key=lambda p: p.stat().st_mtime) if cands else None
 
 
-def load_categories(scene_json: Path):
-    """[(scenario, category), ...] - 표의 행 순서를 json 정의 순서로 고정."""
+def load_classes(scene_json: Path):
+    """[(scenario, class), ...] - 표의 행 순서를 json 정의 순서로 고정."""
     scene = json.loads(scene_json.read_text(encoding="utf-8"))
     out = []
     for scen in scene["special"]["scenarios"]:
-        for cat in scen["categories"]:
+        for cat in scen["classes"]:
             out.append((scen["name"], cat["name"]))
     return out
 
 
-def split_categories(cell) -> list[str]:
-    """CSV 의 categories 칸("A|B") -> ["A", "B"]. 비어있으면 []."""
+def split_classes(cell) -> list[str]:
+    """CSV 의 classes 칸("A|B") -> ["A", "B"]. 비어있으면 []."""
     if not isinstance(cell, str) or not cell.strip():
         return []
     return [c for c in (p.strip() for p in cell.split("|")) if c]
@@ -123,7 +123,7 @@ def dist_block(log, title, values, total, scale, labels=None,
                note=""):
     """점수 한 축의 분포 - 값별 개수/비율과 평균/분산/중앙값.
 
-    카테고리 점수(1~4)와 날씨 4축(0~4)이 같이 쓴다. 눈금이 달라도
+    클래스 점수(1~4)와 날씨 4축(0~4)이 같이 쓴다. 눈금이 달라도
     여전히 scale 로 받고, 라벨이 있는 축(None/Low/Moderate/...)만 labels 를 준다.
 
     라벨이 없는 데이터에서는 정답과 대조할 수 없으므로(evaluate_labels.py 의
@@ -203,7 +203,7 @@ def main():
     ap.add_argument("--pattern", default="clip_results*.csv",
                     help="합칠 샤드 CSV 패턴 (기본 clip_results*.csv)")
     ap.add_argument("--top-pairs", type=int, default=10,
-                    help="함께 등장하는 카테고리 쌍을 몇 개까지 보여줄지")
+                    help="함께 등장하는 클래스 쌍을 몇 개까지 보여줄지")
     args = ap.parse_args()
 
     run_dir = Path(args.run_dir) if args.run_dir else latest_run_dir()
@@ -218,7 +218,7 @@ def main():
 
     frames, per_file = [], []
     for f in files:
-        d = pd.read_csv(f)
+        d = pd.read_csv(f).rename(columns=OLD_NAMES)
         per_file.append((Path(f).name, len(d)))
         frames.append(d)
     df = pd.concat(frames, ignore_index=True)
@@ -261,7 +261,7 @@ def main():
         if n_fail:
             log(f"[warn] JSON parse failed on {n_fail} clips ({pct(n_fail):.1f}%)")
 
-    cat_lists = df["categories"].apply(split_categories)
+    cat_lists = df["classes"].apply(split_classes)
     labeled = cat_lists.apply(bool)
     n_edge = int(labeled.sum())
 
@@ -273,26 +273,26 @@ def main():
     log(f"{'WHAT':<40}{'COUNT':>10}{'%':>10}")
     log("-" * 64)
     log(f"{'total clips':<40}{total:>10}{100.0:>9.1f}%")
-    log(f"{'SPECIAL (>=1 category)':<40}{n_edge:>10}{pct(n_edge):>9.1f}%")
-    log(f"{'NORMAL    (no category)':<40}{total-n_edge:>10}"
+    log(f"{'SPECIAL (>=1 class)':<40}{n_edge:>10}{pct(n_edge):>9.1f}%")
+    log(f"{'NORMAL    (no class)':<40}{total-n_edge:>10}"
         f"{pct(total-n_edge):>9.1f}%")
     log("-" * 64)
     log(f"{'TOTAL':<40}{total:>10}{100.0:>9.1f}%")
-    log("(a clip with several categories counts once as SPECIAL)")
+    log("(a clip with several classes counts once as SPECIAL)")
 
-    # --- 2) 카테고리 빈도 (멀티라벨: 클립 하나가 여러 곳에 반영된다) ---
+    # --- 2) 클래스 빈도 (멀티라벨: 클립 하나가 여러 곳에 반영된다) ---
     counts = Counter()
     for lst in cat_lists:
-        counts.update(lst)          # 한 클립의 카테고리 각각에 1
+        counts.update(lst)          # 한 클립의 클래스 각각에 1
     scene_json = scene_json_for_run(run_dir)
-    known = load_categories(scene_json)
+    known = load_classes(scene_json)
     known_names = {c for _, c in known}
 
     log("")
     log("=" * 64)
-    log("CATEGORY FREQUENCY  (clips per category; multi-label)")
+    log("CLASS FREQUENCY  (clips per class; multi-label)")
     log("=" * 64)
-    log(f"{'SCENARIO':<22}{'CATEGORY':<32}{'CLIPS':>6}{'% ALL':>8}{'% EDGE':>8}")
+    log(f"{'SCENARIO':<22}{'CLASS':<32}{'CLIPS':>6}{'% ALL':>8}{'% EDGE':>8}")
     log("-" * 64)
     for scenario, cat in known:
         n = counts.get(cat, 0)
@@ -309,15 +309,15 @@ def main():
     log("-" * 64)
     log(f"{'TOTAL label occurrences':<54}{n_labels:>6}{pct(n_labels):>7.1f}%")
     if n_edge:
-        log(f"{'avg categories per edge-case clip':<54}"
+        log(f"{'avg classes per edge-case clip':<54}"
             f"{n_labels / n_edge:>6.2f}")
     log("(% ALL = share of all clips, % EDGE = share of edge-case clips;")
-    log(" a clip with 2 categories is counted in both, so sums exceed 100%)")
+    log(" a clip with 2 classes is counted in both, so sums exceed 100%)")
 
     # --- 3) 동시 출현 ---
     size_dist = Counter(cat_lists.apply(len))
     log("")
-    log("categories per clip: " + ", ".join(
+    log("classes per clip: " + ", ".join(
         f"{k}:{size_dist[k]}" for k in sorted(size_dist)))
 
     pairs = Counter()
@@ -334,7 +334,7 @@ def main():
     # 라벨 없는 실행에서는 evaluate_labels.py 를 못 돌리므로 여기서 본다.
     #
     # 점수는 클립마다 묶음(Dynamic object / Driving environment)별로 하나씩
-    # 붙는다. 0 은 "그 묶음의 특수 카테고리 없음"이라 Normal 클립도 0 으로
+    # 붙는다. 0 은 "그 묶음의 특수 클래스 없음"이라 Normal 클립도 0 으로
     # 들어온다 - 그래서 분모는 점수를 읽은 클립 수다. 묶음마다 기준표가
     # 달라 따로 낸다.
     tier_labels = {v: tier_label(v) for v in TIER_VALUES}

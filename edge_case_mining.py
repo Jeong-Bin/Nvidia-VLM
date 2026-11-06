@@ -7,7 +7,7 @@ VLM 기반 반자동 edge-case (long-tail) mining - 클립 단위.
 자차 행동 -> 특이 요소 -> scenario_types -> 묶음 점수 ...)을 받는다.
 추론 루프는 qwen_runner.run_clip_inference 에 있다.
 
-멀티라벨이므로 한 장면에 여러 카테고리가 동시에 붙을 수 있다
+멀티라벨이므로 한 장면에 여러 클래스가 동시에 붙을 수 있다
 (예: 공사 구간을 걷는 보행자 -> Road Construction + Pedestrian on Road).
 
 Usage (보통은 run_labeled_8b.sh / run_nas_nvidia_8b.sh 가 샤드를 나눠 부른다):
@@ -39,7 +39,7 @@ import visualize_clip as VZ
 from constrained_tier import (TIER_LABELS, tier_score, scale_text,
                               group_rubric_blocks, group_key,
                               score_groups, score_fields, GROUP_RUBRICS,
-                              own_rubric_categories, counted_score)
+                              own_rubric_classes, counted_score)
 from prompts import (WEATHER_AXES, WEATHER_MIN, WEATHER_MAX,
                      weather_block)
 
@@ -49,7 +49,7 @@ CAMERA_DIR = ROOT / "pav_sample" / "camera"
 # 프레임 소스. None 이면 CAMERA_DIR 아래의 mp4 파일을 직접 연다.
 # --data 로 NAS 청크 zip 을 고르면 set_clip_source() 가 여기에 꽂는다.
 CLIP_SOURCE = None
-# 카테고리 정의와 정답 라벨의 기본값은 config.py 한 곳에서만 정한다.
+# 클래스 정의와 정답 라벨의 기본값은 config.py 한 곳에서만 정한다.
 # (예전에는 여기/evaluate_labels/aggregate_clip/셸 스크립트가 각자
 #  다른 값을 들고 있어 같은 실행을 서로 다른 체계로 해석한 적이 있다.)
 SCENE_JSON = CONFIG_SCENE_JSON
@@ -75,35 +75,35 @@ def views_for(single_view: bool = False) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# 라벨 로딩 (배열 스키마: {normal,special}.scenarios[].categories[])
+# 라벨 로딩 (배열 스키마: {normal,special}.scenarios[].classes[])
 #
 # normal 도 special 과 완전히 동일한 구조를 쓴다 (예: "Normal Driving",
-# "Normal Stop" 카테고리). 2단계 매칭에서는 이 둘을 special 카테고리와
+# "Normal Stop" 클래스). 2단계 매칭에서는 이 둘을 special 클래스와
 # 동등한 후보로 취급한다 - is_normal 플래그로만 구분.
 # ---------------------------------------------------------------------------
 def load_labels(scene_json: Path):
-    """scene_category.json -> [{scenario, category, templates, template_candidates, is_normal}, ...]"""
+    """scene_category.json -> [{scenario, class, templates, template_candidates, is_normal}, ...]"""
     data = json.loads(scene_json.read_text(encoding="utf-8"))
 
     labels = []
     for section, is_normal in (("normal", True), ("special", False)):
         for scen in data.get(section, {}).get("scenarios", []):
             scenario_name = scen["name"]
-            for cat in scen.get("categories", []):
+            for cat in scen.get("classes", []):
                 labels.append(
                     {
                         "scenario": scenario_name,
-                        "category": cat["name"],
+                        "class": cat["name"],
                         "templates": cat.get("templates", []),
                         "template_candidates": cat.get("template_candidates", []),
-                        # 이 카테고리가 "아닌" 경우. 긍정 예시만으로는 경계가
-                        # 안 잡히는 카테고리에만 쓴다 (없으면 빈 리스트).
+                        # 이 클래스가 "아닌" 경우. 긍정 예시만으로는 경계가
+                        # 안 잡히는 클래스에만 쓴다 (없으면 빈 리스트).
                         "excludes": cat.get("excludes", []),
                         # [[상황, 점수], ...] - 4단계 rubric 표 아래에 싣는
                         # 예시(constrained_tier.group_rubric_blocks). 없으면 빈 리스트.
                         "score_examples": cat.get("score_examples", []),
-                        # "unknown": true 인 카테고리(예상 못한 새 종류)는
-                        # --unknown-categories 를 줄 때만 메뉴에 넣는다.
+                        # "unknown": true 인 클래스(예상 못한 새 종류)는
+                        # --unknown-classes 를 줄 때만 메뉴에 넣는다.
                         "unknown": bool(cat.get("unknown")),
                         "is_normal": is_normal,
                     }
@@ -112,44 +112,44 @@ def load_labels(scene_json: Path):
 
 
 def _examples_for(lab):
-    """카테고리 하나에서 예시로 쓸 문자열 리스트 - templates 전부.
+    """클래스 하나에서 예시로 쓸 문자열 리스트 - templates 전부.
 
-    templates 가 빈 카테고리는 template_candidates(상황 서술 문장)로 대체한다.
+    templates 가 빈 클래스는 template_candidates(상황 서술 문장)로 대체한다.
     """
     return lab["templates"] or lab["template_candidates"]
 
 
-def build_category_menu(labels, notes=()):
-    """프롬프트에 넣을 special 카테고리 목록.
+def build_class_menu(labels, notes=()):
+    """프롬프트에 넣을 special 클래스 목록.
 
     형식: `- Road Construction(roadwork, traffic cone)`
-    카테고리명과 예시를 한 덩어리로 묶어 제시하므로, 모델이 별도의 매칭 단계
-    없이 정확한 카테고리명으로 바로 답할 수 있다.
+    클래스명과 예시를 한 덩어리로 묶어 제시하므로, 모델이 별도의 매칭 단계
+    없이 정확한 클래스명으로 바로 답할 수 있다.
 
     templates 는 전부 노출하는 것이 기본이다. 예전에는 상위 2개만 썼는데
     (전부 나열하면 판별이 경직된다는 20260724 관찰), scene_category_2.0
     부터 templates 를 그 자체로 판별 기준이 되도록 다듬었으므로 잘라내지
     않는다.
     normal 은 제외 - Q1(Normal/Special)이 그 역할을 하고, Q2 는 special
-    카테고리만 나열하는 자리이기 때문.
+    클래스만 나열하는 자리이기 때문.
     """
     lines = []
     for lab in labels:
         if lab["is_normal"]:
             continue
         ex = _examples_for(lab)
-        lines.append(f"- {lab['category']}({', '.join(ex)})" if ex
-                     else f"- {lab['category']}")
+        lines.append(f"- {lab['class']}({', '.join(ex)})" if ex
+                     else f"- {lab['class']}")
         # 부정 조건은 별도 줄로. 실측(20260818, 100클립): Jaywalking 은 긍정
         # 예시에 "where there is no crosswalk" 가 있는데도 횡단보도를 정상
         # 통행하는 보행자를 20건 오탐했다 (FP 20 = 전체 FP 38 의 53%).
-        # 모델이 "crossing the street" 자체를 카테고리로 읽고 있어서,
+        # 모델이 "crossing the street" 자체를 클래스로 읽고 있어서,
         # 긍정 예시를 늘리는 대신 무엇이 아닌지를 못박는다.
         # 빈 문자열("excludes": [""])은 빈 NOT 줄이 되지 않게 건너뛴다.
         for ex_line in lab["excludes"]:
             if str(ex_line).strip():
-                lines.append(f"    NOT this category: {ex_line}")
-    # 여러 카테고리에 공통인 규칙(scene_category.json 의 special.menu_notes)은
+                lines.append(f"    NOT this class: {ex_line}")
+    # 여러 클래스에 공통인 규칙(scene_category.json 의 special.menu_notes)은
     # 메뉴 끝에 한 번만 싣는다. 예전에는 "중앙분리대/갓길/주차 차로는 도로
     # 밖이 아니다" 같은 문장이 Pedestrian/Cyclist/Emergency Vehicle 의
     # excludes 마다 반복돼 메뉴가 길어졌다(프롬프트가 길수록 탐지가 떨어진
@@ -160,7 +160,7 @@ def build_category_menu(labels, notes=()):
 
 
 def load_menu_notes(scene_json) -> list[str]:
-    """scene_category.json 의 special.menu_notes - 카테고리 공통 규칙 문장들."""
+    """scene_category.json 의 special.menu_notes - 클래스 공통 규칙 문장들."""
     data = json.loads(Path(scene_json).read_text(encoding="utf-8"))
     return list(data.get("special", {}).get("menu_notes", []))
 
@@ -276,6 +276,9 @@ def set_clip_source(spec):
             SINGLE_VIEW = [DATASET["view"]]
         SOURCE_FPS = float(DATASET["source_fps"])
         CAMERA_TEXT = DATASET["camera_text"]
+        if DATASET["ego_path"]:
+            import egomotion
+            egomotion.set_tracks(DATASET["ego_path"])
     if getattr(CLIP_SOURCE, "kind", None) == "local":
         CAMERA_DIR = CLIP_SOURCE.camera_dir
     _mirror_clip_source()
@@ -411,12 +414,12 @@ def sample_clip_frames(uuid: str, fps: float = CLIP_FPS,
 # ---------------------------------------------------------------------------
 # 프롬프트 문구 실험 (20260728, 공사장 클립 3프레임 + 평범한 6프레임으로 검증):
 #   - "Mere presence is not enough ..." 같은 억제 규칙을 넣으면 탐지가 0 이 된다.
-#     명백한 공사장에서도 categories 가 비어버림.
-#   - verdict 와 categories 를 묶으면("카테고리를 하나라도 적으면 Special")
+#     명백한 공사장에서도 classes 가 비어버림.
+#   - verdict 와 classes 를 묶으면("클래스를 하나라도 적으면 Special")
 #     역시 탐지가 0 이 된다. 모델이 Special 선언에 보수적이라, 나열이 Special 을
 #     강제하는 구조에서는 아예 나열을 포기한다.
-#   - 카테고리를 먼저 묻고 verdict 를 나중에 물어도 탐지가 0. evidence 에는
-#     "Construction site ..." 라고 쓰면서 categories 는 비우는 모순이 나타난다.
+#   - 클래스를 먼저 묻고 verdict 를 나중에 물어도 탐지가 0. evidence 에는
+#     "Construction site ..." 라고 쓰면서 classes 는 비우는 모순이 나타난다.
 #   => 판정은 "이상 요소를 나열했는가"로만 정한다. 조건을 거는 순간 탐지가 죽는다.
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
@@ -476,12 +479,12 @@ The LAST image is the most recent moment. Read them as a sequence: what changes
 from one image to the next tells you how the scene and the ego-vehicle evolved.""")
 
 
-def build_nureasoning_prompt(category_menu: str,
+def build_nureasoning_prompt(class_menu: str,
                              labels: list | None = None,
                              behavior_facts: str = "",
                              intro: str | None = None,
                              timeline: bool = False,
-                             score_categories: bool = True,
+                             score_classes: bool = True,
                              weather: bool = False,
                              weather_only: bool = False,
                              explain_traj: bool = False,
@@ -498,7 +501,7 @@ def build_nureasoning_prompt(category_menu: str,
     6개 축이 모두 나빠졌다. 원인은 "궤적으로 어떤 도로 사용자와 실제로
     상호작용하는지 보라" 는 문구가 필터로 읽힌 것이다 - 경로 밖의 보행자를
     특이 요소에서 통째로 빼버려, 놓친 클립 6건 모두 unusual_elements 가
-    비었다. 이 프롬프트는 이미 "지나쳤더라도 카테고리에 넣으라" 고 지시하고
+    비었다. 이 프롬프트는 이미 "지나쳤더라도 클래스에 넣으라" 고 지시하고
     있어 정면으로 충돌한다. 짧게 줄여도 설명 없는 쪽이 계속 나았다.
 
     설명을 빼도 모델이 초록 선을 객체로 오신고하는 일은 없었다(실측 0건).
@@ -527,7 +530,7 @@ def build_nureasoning_prompt(category_menu: str,
         # 2026-10-23 에 지웠다.)
         # 3단계에서 영향 여부를 빼서 그 판단은 5단계 점수에서만 한다.
         behavior_use = ("for the scores in step 5"
-                        if score_categories and score_groups(labels or [])
+                        if score_classes and score_groups(labels or [])
                         else "for nothing else")
         fact_block += f"""
 HOW THE EGO-VEHICLE'S BEHAVIOUR CHANGED (measured from vehicle sensors, not a
@@ -551,9 +554,9 @@ guess - use this for step 2 and {behavior_use}):
 
     # 묶음(Dynamic object / Driving environment)마다 점수 하나. 묶음과 그
     # 기준표는 labels(scene_category.json)와 constrained_tier.GROUP_RUBRICS
-    # 에서 오므로 카테고리 파일을 바꾸면 여기도 따라간다. 기준표 칸이 비어
+    # 에서 오므로 클래스 파일을 바꾸면 여기도 따라간다. 기준표 칸이 비어
     # 있으면 group_rubric_blocks 가 멈춘다.
-    groups = score_groups(labels or []) if score_categories else []
+    groups = score_groups(labels or []) if score_classes else []
     rubric_body = group_rubric_blocks(labels or []) if groups else ""
 
     # egomotion 을 켠 실행에서는 감속/조향이 100Hz 라벨로 이미 계산돼 있다.
@@ -574,18 +577,18 @@ guess - use this for step 2 and {behavior_use}):
         "\n   so treat it as evidence only when the video shows what caused it."
         if behavior_facts else "")
 
-    # 4단계: 클립에 나온 카테고리 이름을 명시적으로 고른다(scenario_types).
+    # 4단계: 클립에 나온 클래스 이름을 명시적으로 고른다(scenario_types).
     #
     # 예전에는 3단계 끝의 "Also name the matching scenario types" 한 문장과
-    # JSON 맨 끝의 scenario_types 로 이름을 받았다. 점수가 카테고리가 아니라
-    # 묶음에 붙게 되면서, 어느 카테고리가 나왔는지는 이 목록만 말해 준다
-    # (GUI 카테고리 검색과 탐지 채점이 이것을 쓴다). 그래서 단계로 올리고,
+    # JSON 맨 끝의 scenario_types 로 이름을 받았다. 점수가 클래스가 아니라
+    # 묶음에 붙게 되면서, 어느 클래스가 나왔는지는 이 목록만 말해 준다
+    # (GUI 클래스 검색과 탐지 채점이 이것을 쓴다). 그래서 단계로 올리고,
     # JSON 에서도 점수보다 앞에 둔다 - 5단계의 "이름을 댄 묶음은 1 이상,
     # 대지 않은 묶음은 0" 규칙이 생성 순서상 이미 적은 목록을 참조하게.
     #
     # 5단계: 묶음마다 0~4 점수 하나와 그 근거.
     #
-    # 카테고리마다 점수를 매기던 방식에서 바꾼 이유는 새 카테고리가 생겨도
+    # 클래스마다 점수를 매기던 방식에서 바꾼 이유는 새 클래스가 생겨도
     # 기준표를 늘리지 않고 한 통합 기준으로 재기 위해서다. 대가는 요소가
     # 여럿일 때 무엇이 점수를 정했는지 숫자만으로 알 수 없다는 것 - 그래서
     # 근거에 "어느 종류가, 무엇을 해서" 그 점수인지 적게 한다.
@@ -611,7 +614,7 @@ guess - use this for step 2 and {behavior_use}):
     step_no = 4
     steps45 = f"""{step_no}. Scenario Types: name every scenario type from the list above that
    matches an element in step 3, copying the names EXACTLY. An element that a
-   type's "NOT this category" lines exclude is not named. If none matches,
+   type's "NOT this class" lines exclude is not named. If none matches,
    give an empty list.
 """
     step_no += 1
@@ -632,7 +635,7 @@ guess - use this for step 2 and {behavior_use}):
    never lowers the score. Several elements count together only when the
    vehicle had to deal with them at the same moment - weaving through a crowd,
    say - and then that situation is scored as one. An element that its type's
-   "NOT this category" lines exclude never sets the score.
+   "NOT this class" lines exclude never sets the score.
    These scores are INDEPENDENT of weather, lighting, or road/atmospheric
    conditions - rain, nighttime, fog, or a wet road do not by themselves raise
    any score. Score what actually happened in the scene, not how hard the
@@ -718,14 +721,14 @@ guess - use this for step 2 and {behavior_use}):
                     f"clear day does not.\n") + weather_block()
         step_no += 1
     tier_fields = ""
-    # weather-only 는 카테고리를 아예 다루지 않는다. 그 모드에서 이 필드를
+    # weather-only 는 클래스를 아예 다루지 않는다. 그 모드에서 이 필드를
     # 남기면 스키마가 프롬프트 본문에 없는 scenario type 을 요구하게 되어,
-    # 모델이 카테고리를 지어내거나 빈 딕셔너리를 채우느라 예산을 쓴다.
-    # main() 이 --weather-only 에 score_categories=False 를 함의시키지만,
+    # 모델이 클래스를 지어내거나 빈 딕셔너리를 채우느라 예산을 쓴다.
+    # main() 이 --weather-only 에 score_classes=False 를 함의시키지만,
     # 함수를 직접 부르는 경로(테스트/다른 호출부)도 있어 여기서 막는다.
     # 묶음마다 근거 -> 점수 순서. 키는 묶음 이름에서 만든다
     # (constrained_tier.group_key: "Dynamic object" -> "dynamic_object").
-    # 자기 기준표로 따로 재는 카테고리(Unpaved road)는 그 묶음 칸 바로 뒤에
+    # 자기 기준표로 따로 재는 클래스(Unpaved road)는 그 묶음 칸 바로 뒤에
     # 제 칸을 받는다.
     for name, g in (score_fields(labels or []) if groups else []):
         k = group_key(name)
@@ -760,7 +763,7 @@ guess - use this for step 2 and {behavior_use}):
     # (실측 20261013_101558, 2차 확인 전: yes 99건 중 0~1점 19건 - 빨간불에
     # 서서 기다림처럼 기준표상 1점, no 38건 중 2점 4건 - 근거 문장이 바로잡음).
     #
-    # 그 칸에 장르 후보(Pre-Categories, "어느 장르로 보이는가, 없으면 none")를
+    # 그 칸에 장르 후보(Pre-Classes, "어느 장르로 보이는가, 없으면 none")를
     # 적게 해 봤더니 4단계가 거르지 못하고 후보를 그대로 옮겨 적었다
     # (실측 20261013_110400, 2차 확인 전 TP/FP/FN 85/36/30 -> 109/95/6,
     # F1 72.0 -> 68.3). 인도 위 보행자에도 "Pedestrian on Road" 를 붙이는 등
@@ -840,7 +843,7 @@ Respond with ONLY a JSON object, no other text:
 {{"observation": "<what the lighting, weather and road surface look like>",
 {tier_fields.rstrip().rstrip(',')}}}"""
 
-    # 카테고리 메뉴 바로 아래의 "무엇을 넣는가" 지시.
+    # 클래스 메뉴 바로 아래의 "무엇을 넣는가" 지시.
     #
     # 예전에는 "자차가 반응하지 않았어도 넣어라 - 빼는 이유가 될 수 없다"였다.
     # 모델이 영향 없는 요소를 "적을 필요 없다"며 빼는 경향이 실측으로 확인돼
@@ -848,10 +851,10 @@ Respond with ONLY a JSON object, no other text:
     # 경로 밖 객체는 excludes 로 빼므로 "절대 빼지 마라"가 excludes 와 정면으로
     # 부딪친다.
     #
-    # "경로 밖이면 빼라"로 바꾸지도 않는다 - 이 문장은 모든 카테고리에 걸리는데,
+    # "경로 밖이면 빼라"로 바꾸지도 않는다 - 이 문장은 모든 클래스에 걸리는데,
     # 도로 밖 공사(CONSTRUCTION 1)나 자차가 안 가는 길의 차단기(GATE 1)는 경로
-    # 밖이어도 카테고리다. 그래서 빼는 기준은 카테고리 설명과 "NOT this
-    # category" 줄에 맡기고, 반응 여부만은 기준이 아니라고 남긴다. 새 DYNAMIC
+    # 밖이어도 클래스다. 그래서 빼는 기준은 클래스 설명과 "NOT this
+    # class" 줄에 맡기고, 반응 여부만은 기준이 아니라고 남긴다. 새 DYNAMIC
     # 에도 자차가 반응하지 않은 칸(2, 3 의 "그대로 주행")이 있어 이 보호 장치는
     # 여전히 필요하다.
     #
@@ -876,10 +879,10 @@ or unusual road situation - and to name which of the types below it matches.
 {job_note}
 
 SCENARIO TYPES:
-{category_menu}
+{class_menu}
 
 List EVERY type you can actually see. What decides whether an element counts is
-the type's description and its "NOT this category" lines - never whether the
+the type's description and its "NOT this class" lines - never whether the
 ego-vehicle reacted to it. An element the ego-vehicle drove past without slowing
 or steering can still count{influence_ref}. If you see no unusual element at all, return
 an empty list.
@@ -1026,8 +1029,8 @@ def _extract_tier(text: str) -> str:
 def parse_nureasoning_output(text: str, labels: list) -> dict:
     """nuReasoning 출력 -> 결과 dict (CSV 한 행과 시각화의 재료).
 
-      scenario_types -> categories   (메뉴에 있는 이름만, 대소문자 차이는 흡수)
-      verdict        -> categories 가 비어 있지 않으면 "Special"
+      scenario_types -> classes   (메뉴에 있는 이름만, 대소문자 차이는 흡수)
+      verdict        -> classes 가 비어 있지 않으면 "Special"
       observation 등 -> 단계별 답을 그대로 보존
 
     group_scores 는 {묶음 이름: 0~4 정수} - Dynamic object / Driving
@@ -1037,11 +1040,11 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
 
     tier_score 는 그중 최댓값 - 시각화 폴더를 나누는 데만 쓴다.
 
-    파싱에 실패하면 카테고리 없이 Normal 이 되어, 없는 special 을 만들어내는 대신 놓치는
+    파싱에 실패하면 클래스 없이 Normal 이 되어, 없는 special 을 만들어내는 대신 놓치는
     쪽으로 떨어진다.
     """
-    valid = {l["category"] for l in labels if not l["is_normal"]}
-    out = {"verdict": "Normal", "categories": [], "parse_ok": False,
+    valid = {l["class"] for l in labels if not l["is_normal"]}
+    out = {"verdict": "Normal", "classes": [], "parse_ok": False,
            "observation": "", "ego_behavior": "", "unusual_elements": "",
            "group_scores": {}, "field_scores": {}, "score_reason": "",
            "tier_score": None, "time_spans": {}, "time_spans_raw": {},
@@ -1076,14 +1079,15 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
     raw_cats = list(raw_cats)
 
     # 모델이 scenario_types 를 비워두고 unusual_elements 안에 scenario_type 을
-    # 넣어버리는 경우가 있다(실측 20260811). 그대로 두면 카테고리가 통째로
+    # 넣어버리는 경우가 있다(실측 20260811). 그대로 두면 클래스가 통째로
     # 사라지므로 거기서도 걷어온다 - 어차피 아래에서 유효성 검사를 거친다.
     nested = obj.get("unusual_elements", [])
     if isinstance(nested, (list, tuple)):
         for el in nested:
             if not isinstance(el, dict):
                 continue
-            for key in ("scenario_type", "scenario_types", "category"):
+            # category 는 모델이 습관처럼 쓰는 필드 이름이라 계속 받는다.
+            for key in ("scenario_type", "scenario_types", "class", "category"):
                 v = el.get(key)
                 if isinstance(v, str):
                     raw_cats.append(v)
@@ -1095,21 +1099,21 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
         cat = _closest_valid(str(c).strip(), valid)
         if cat and cat not in seen:
             seen.add(cat)
-            out["categories"].append(cat)
+            out["classes"].append(cat)
 
     # 묶음 점수(0~4). 묶음마다 "<키>_reason" 과 "<키>" 를 받는다
     # (constrained_tier.group_key). 0 도 그대로 담는다 - 이제 0 은 "그 묶음의
-    # 특수 카테고리 없음"이라는 기준표의 칸이다.
+    # 특수 클래스 없음"이라는 기준표의 칸이다.
     #
-    # 점수와 카테고리 목록이 어긋나도(이름을 댄 묶음이 0, 대지 않은 묶음이
+    # 점수와 클래스 목록이 어긋나도(이름을 댄 묶음이 0, 대지 않은 묶음이
     # 1 이상) 여기서 고치지 않는다. 고치면 모델의 실제 판단이 결과에서
     # 사라진다 - 어긋남은 채점(evaluate_labels)이 따로 센다. 따로 재는
-    # 카테고리 칸만 예외다(아래).
+    # 클래스 칸만 예외다(아래).
     #
-    # 따로 재는 카테고리(Unpaved road)의 칸은 그 묶음 점수에 최댓값으로
-    # 합친다 - GT 의 묶음 점수도 카테고리 점수 중 최댓값이다. 그 칸의 값은
+    # 따로 재는 클래스(Unpaved road)의 칸은 그 묶음 점수에 최댓값으로
+    # 합친다 - GT 의 묶음 점수도 클래스 점수 중 최댓값이다. 그 칸의 값은
     # 근거 앞에 "Unpaved road=2: ..." 로 남겨 합치기 전 판단도 CSV 에 남긴다.
-    # 단 그 카테고리를 이름 대지 않았으면 묶음 점수에는 0 으로 넣는다
+    # 단 그 클래스를 이름 대지 않았으면 묶음 점수에는 0 으로 넣는다
     # (constrained_tier.counted_score). field_scores 에는 원래 값을 둔다.
     reasons = []
     for name, g in score_fields(labels):
@@ -1118,10 +1122,10 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
             continue
         n = _coerce_tier(obj.get(k))
         if n is not None:
-            counted = counted_score(name, n, out["categories"])
+            counted = counted_score(name, n, out["classes"])
             out["group_scores"][g] = max(counted, out["group_scores"].get(g, counted))
             # 합치기 전 칸별 값. 묶음 점수만 남기면 Driving environment 가
-            # 3 일 때 그게 다른 카테고리의 3 인지 Unpaved road 의 3 인지
+            # 3 일 때 그게 다른 클래스의 3 인지 Unpaved road 의 3 인지
             # 채점에서 가를 수 없다(evaluate_labels 3) 의 Others/Unpaved road).
             out["field_scores"][name] = n
         why = _flatten_field(obj.get(f"{k}_reason", ""))
@@ -1135,12 +1139,12 @@ def parse_nureasoning_output(text: str, labels: list) -> dict:
     # 장르 목록에 없는 이름의 구간은 시각화에서 무엇의 띠인지 설명할 수 없다.
     (out["time_spans"], out["time_spans_raw"],
      out["time_seen"]) = _parse_time_spans(obj.get("time_spans"), valid,
-                                           set(out["categories"]))
+                                           set(out["classes"]))
 
     # 판정은 오직 "edge-case 요소를 하나라도 나열했는가". 별도 질문을 두지
-    # 않는 이유는 20260728 실험 - verdict 를 따로 물어 categories 와 묶으면
+    # 않는 이유는 20260728 실험 - verdict 를 따로 물어 classes 와 묶으면
     # 모델이 Special 선언에 보수적이라 나열 자체를 포기했다.
-    out["verdict"] = "Special" if out["categories"] else "Normal"
+    out["verdict"] = "Special" if out["classes"] else "Normal"
     return out
 
 
@@ -1263,7 +1267,7 @@ def _parse_time_spans(raw, valid: set, named: set) -> tuple[dict, dict, dict]:
         for el in raw:
             if isinstance(el, dict):
                 name = (el.get("type") or el.get("scenario_type")
-                        or el.get("category") or el.get("name"))
+                        or el.get("class") or el.get("category") or el.get("name"))
                 spans = (el.get("spans") or el.get("span") or el.get("time")
                          or el.get("stretches") or el)
                 if name:
@@ -1289,14 +1293,14 @@ def _parse_time_spans(raw, valid: set, named: set) -> tuple[dict, dict, dict]:
 
 
 def _own_scale_spans(labels) -> str:
-    """Hazard Timing 에 덧붙이는 문장 - 자기 기준표로 따로 재는 카테고리(Unpaved
-    road)의 구간은 그 표의 눈금으로 매기라는 것. 그런 카테고리가 없으면 "" 라
+    """Hazard Timing 에 덧붙이는 문장 - 자기 기준표로 따로 재는 클래스(Unpaved
+    road)의 구간은 그 표의 눈금으로 매기라는 것. 그런 클래스가 없으면 "" 라
     Dynamic object 만 다루는 실행의 프롬프트는 바뀌지 않는다.
     """
     return "".join(
         f" Score {c} stretches on the {c} scale ({scale_text(c)}) instead, "
         f"never higher than the {c} score in step 5."
-        for g in score_groups(labels) for c in own_rubric_categories(labels, g))
+        for g in score_groups(labels) for c in own_rubric_classes(labels, g))
 
 
 def followup_time_spans_question(scored: bool, labels=None) -> str:
@@ -1335,7 +1339,7 @@ def parse_time_spans_answer(text: str, labels: list, named: set) -> tuple[dict, 
 
     {"time_spans": {...}} 로 감싸지 않고 장르 딕셔너리만 내는 경우도 받는다.
     """
-    valid = {l["category"] for l in labels if not l["is_normal"]}
+    valid = {l["class"] for l in labels if not l["is_normal"]}
     m = re.search(r"\{.*\}", text or "", re.DOTALL)
     if not m:
         return {}, {}, {}
@@ -1386,7 +1390,7 @@ def _config_key(args, n_views=1, prompt_sha=None) -> dict:
         "memo": args.memo,
         "model": args.model,
         "scene_json": args.scene_json,
-        # 카테고리 파일 "내용" 의 지문. 경로가 같아도 templates 나 excludes
+        # 클래스 파일 "내용" 의 지문. 경로가 같아도 templates 나 excludes
         # 를 고치면 프롬프트가 달라진다 - 이어받기가 그것을 알아채야 한다.
         "scene_json_sha": _file_sha(args.scene_json),
         # 프롬프트 틀의 지문. rubric 문장이나 단계 지시를 코드에서 고치면
@@ -1428,7 +1432,7 @@ def _config_key(args, n_views=1, prompt_sha=None) -> dict:
         "ego_ablation": None,
         "header_style": "v1",
         "margin": bool(args.margin),
-        "score_categories": bool(args.score_categories),
+        "score_classes": bool(args.score_classes),
         "use_3dbbox": False,
         "constrain_tiers": bool(args.constrain_tiers),
         "difficulty": bool(args.weather),
@@ -1442,7 +1446,7 @@ def _config_key(args, n_views=1, prompt_sha=None) -> dict:
         # run_config 와 같은 값이어야 --resume 대조가 통과한다.
         "time_spans": {None: False, "inline": True}.get(args.time_spans,
                                                          args.time_spans),
-        "unknown_categories": bool(args.unknown_categories),
+        "unknown_classes": bool(args.unknown_classes),
         "group": args.group,
         "num_shards": args.num_shards,
     }
@@ -1509,16 +1513,16 @@ def save_run_config(args, run_dir, n_views=1, prompt_sha=None):
 RESUME_IGNORED_KEYS = {"memo", "num_shards", "gt_labels", "gt_labels_sha"}
 
 
-def _prompt_fingerprint(args, labels, category_menu, n_views) -> str:
+def _prompt_fingerprint(args, labels, class_menu, n_views) -> str:
     """모델이 읽는 프롬프트 틀의 해시.
 
     클립마다 달라지는 부분(프레임 수, 자차 행동 문장)은 자리표시자로 둔다 -
-    지문이 잡아야 하는 것은 rubric, 단계 지시, 카테고리 메뉴처럼 코드와
+    지문이 잡아야 하는 것은 rubric, 단계 지시, 클래스 메뉴처럼 코드와
     설정 파일에서 오는 부분이다.
     """
     import hashlib
     text = build_nureasoning_prompt(
-        category_menu, labels,
+        class_menu, labels,
         behavior_facts="<BEHAVIOR>" if args.use_egomotion else "",
         intro=f"<INTRO views={n_views} fps={args.clip_fps} "
               f"frames={args.clip_max_frames} video={args.clip_video_input}"
@@ -1527,7 +1531,7 @@ def _prompt_fingerprint(args, labels, category_menu, n_views) -> str:
               + (f" camera={CAMERA_TEXT}" if CAMERA_TEXT != DEFAULT_CAMERA_TEXT else "")
               + ">",
         timeline=args.timeline,
-        score_categories=args.score_categories,
+        score_classes=args.score_classes,
         weather=args.weather,
         weather_only=args.weather_only,
         explain_traj=args.explain_traj,
@@ -1536,7 +1540,7 @@ def _prompt_fingerprint(args, labels, category_menu, n_views) -> str:
     # 이어 묻는 질문도 지문에 넣는다.
     if args.time_spans == "followup":
         text += "\n<FOLLOWUP>\n" + followup_time_spans_question(
-            bool(args.score_categories and score_groups(labels or [])), labels)
+            bool(args.score_classes and score_groups(labels or [])), labels)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
@@ -1592,9 +1596,9 @@ def _check_resume(args, run_dir, n_views, prompt_sha):
 
 
 def _load_gt_labels(path):
-    """test_label.json -> {uuid: {categories, scores}}. 없으면 None.
+    """test_label.json -> {uuid: {classes, scores}}. 없으면 None.
 
-    categories 는 이름 리스트다(옛 라벨의 {이름: 점수} 딕셔너리도 이름만
+    classes 는 이름 리스트다(옛 라벨의 {이름: 점수} 딕셔너리도 이름만
     받는다). scores 는 묶음 점수 {묶음 이름: 0~4} - 라벨의 최상위
     "Dynamic object" / "Driving environment" 키에서 읽는다. 아직 안 매긴
     묶음(키 없음, null, -1)은 빠진다.
@@ -1607,7 +1611,7 @@ def _load_gt_labels(path):
     for uuid, v in clips.items():
         if not isinstance(v, dict):
             continue
-        names = list(v.get("categories") or [])
+        names = list(v.get("classes") or [])
         scores = {g: v[g] for g in GROUP_RUBRICS
                   if isinstance(v.get(g), int) and not isinstance(v.get(g), bool)
                   and 0 <= v[g] <= 4}
@@ -1615,7 +1619,7 @@ def _load_gt_labels(path):
         w = v.get("weather") if isinstance(v.get("weather"), dict) else {}
         weather = {k: w[k] for k, _ in WEATHER_AXES
                    if isinstance(w.get(k), int) and not isinstance(w.get(k), bool)}
-        out[uuid] = {"categories": names, "scores": scores, "weather": weather}
+        out[uuid] = {"classes": names, "scores": scores, "weather": weather}
     return out
 
 
@@ -1670,7 +1674,7 @@ if __name__ == "__main__":
                          "상황(Jaywalking, Side Street 등)은 놓칠 수 있다. "
                          "프롬프트 문구와 시각화 레이아웃도 함께 바뀐다.")
     ap.add_argument("--scene-json", default=str(SCENE_JSON),
-                    help=f"카테고리 정의 JSON (기본 {SCENE_JSON.name}, "
+                    help=f"클래스 정의 JSON (기본 {SCENE_JSON.name}, "
                          "config.py 에서 정함).")
     ap.add_argument("--only-uuids", default=None,
                     help="이 파일에 적힌 uuid(한 줄에 하나)만 처리한다. "
@@ -1683,7 +1687,7 @@ if __name__ == "__main__":
                          "다시 돌린다 - 그 옛 행은 이어받기 전에 백업 후 "
                          "지워야 중복이 생기지 않는다(resume_run.py, 셸 "
                          "스크립트의 --resume 이 자동으로 한다). 설정(모델/"
-                         "카테고리/프롬프트/fps 등)이 원래 실행과 다르면 "
+                         "클래스/프롬프트/fps 등)이 원래 실행과 다르면 "
                          "거부한다. 클립 모드 전용.")
     ap.add_argument("--resume-prepare", action="store_true",
                     help="--resume 의 준비 단계만 한다: 설정 대조, 열 구성 "
@@ -1708,7 +1712,7 @@ if __name__ == "__main__":
                          "영상과 result.json 을 클립마다 저장한다.")
     ap.add_argument("--clip-viz-all", action="store_true",
                     help="edge-case 요소가 없는 클립까지 전부 영상으로 만든다. "
-                         "기본은 카테고리가 하나 이상 붙은 클립만 - 전량은 "
+                         "기본은 클래스가 하나 이상 붙은 클립만 - 전량은 "
                          "클립당 약 39MB 라 금방 수십 GB 가 된다.")
     ap.add_argument("--gt-labels", default=str(LABELS_JSON),
                     help=f"정답 라벨 json (기본 {LABELS_JSON.name}, config.py "
@@ -1728,17 +1732,17 @@ if __name__ == "__main__":
                          "run_config.json 에 저장되고 evaluation.log 머리에 "
                          "찍힌다. 예: --memo \"Too Close Person 제거\"")
     ap.add_argument("--viz-normal", action="store_true",
-                    help="카테고리가 없는(Normal) 클립을 시각화한다. "
+                    help="클래스가 없는(Normal) 클립을 시각화한다. "
                          "결과는 <viz-dir>/normal/score_<N>/ 아래.")
     ap.add_argument("--viz-special", action="store_true",
-                    help="카테고리가 하나 이상인(Special) 클립을 시각화한다. "
+                    help="클래스가 하나 이상인(Special) 클립을 시각화한다. "
                          "결과는 <viz-dir>/special/score_<N>/ 아래.")
     ap.add_argument("--clip-viz-width", type=int, default=None,
                     help="시각화 영상 폭 (기본 1280). 0 을 주면 원본 해상도.")
     ap.add_argument("--not-save-low", type=lambda s: s not in ("0", "false", "False"),
                     default=True,
                     help="묶음 점수가 전부 0/1 인 Special 클립은 시각화에서 "
-                         "제외한다 (기본 True). 카테고리가 나열됐지만 모델 "
+                         "제외한다 (기본 True). 클래스가 나열됐지만 모델 "
                          "스스로 '자차에 영향 없음'으로 판단한 경우다. "
                          "CSV/scenario_types 에는 영향 없음 - 시각화 대상만 "
                          "줄인다. --not-save-low=0 으로 끌 수 있다. "
@@ -1746,17 +1750,17 @@ if __name__ == "__main__":
                          "이 조건이 성립하지 "
                          "않으므로, 필터는 저절로 무력화된다"
                          "(놓치는 것보다 더 보는 쪽).")
-    # 상위 카테고리 점수(5단계)는 항상 묻는다 - 이제 이것이 기본 평가다.
-    # 예전의 --no-category-scores(와 옛 이름 --no-safety-tier 등)는 없앴다.
+    # 상위 클래스 점수(5단계)는 항상 묻는다 - 이제 이것이 기본 평가다.
+    # 예전의 --no-class-scores(와 옛 이름 --no-safety-tier 등)는 없앴다.
     # 점수 단계가 빠지는 경우는 --weather-only(탐지까지 뺌)뿐이고, 아래에서
-    # score_categories 를 끈다.
-    ap.set_defaults(score_categories=True)
-    ap.add_argument("--viz-per-category", type=int, default=None,
+    # score_classes 를 끈다.
+    ap.set_defaults(score_classes=True)
+    ap.add_argument("--viz-per-class", type=int, default=None,
                     metavar="N",
-                    help="카테고리마다 최초 N개 클립만 시각화한다. 폴더를 "
-                         "score 가 아니라 카테고리 이름으로 나누고, 한 클립이 "
-                         "여러 카테고리를 받으면 해당 폴더 전부에 중복 저장한다 "
-                         "(<viz-dir>/<Category>/<uuid>/). Normal 클립은 대상이 "
+                    help="클래스마다 최초 N개 클립만 시각화한다. 폴더를 "
+                         "score 가 아니라 클래스 이름으로 나누고, 한 클립이 "
+                         "여러 클래스를 받으면 해당 폴더 전부에 중복 저장한다 "
+                         "(<viz-dir>/<Class>/<uuid>/). Normal 클립은 대상이 "
                          "아니다. 샤드마다 따로 세므로 8샤드면 최대 8N 개가 "
                          "나온다.")
     ap.add_argument("--weather", "--difficulty", dest="weather",
@@ -1767,20 +1771,20 @@ if __name__ == "__main__":
                          "aggregate_clip.log 분포에 실린다. 기본 off - "
                          "출력 토큰이 늘어 느려지므로 필요한 실행에서만 켠다.")
     ap.add_argument("--group", default="all",
-                    help="다룰 상위 카테고리: all(기본) / dynamic_object / "
+                    help="다룰 상위 클래스: all(기본) / dynamic_object / "
                          "driving_environment (scene_category.json 의 special "
                          "scenario 이름을 소문자_밑줄로 쓴 것). 하나를 고르면 "
-                         "그 상위 카테고리의 카테고리만 메뉴에 넣고, 점수도 그 "
-                         "상위 카테고리 하나만 매긴다. 채점은 GT 를 같은 범위로 "
+                         "그 상위 클래스의 클래스만 메뉴에 넣고, 점수도 그 "
+                         "상위 클래스 하나만 매긴다. 채점은 GT 를 같은 범위로 "
                          "줄여서 한다.")
-    ap.add_argument("--unknown-categories", action="store_true",
-                    help="scene_category.json 에서 \"unknown\": true 인 카테고리"
-                         "(예상 못한 동적 객체 / 주행 환경)를 카테고리 메뉴에 "
+    ap.add_argument("--unknown-classes", action="store_true",
+                    help="scene_category.json 에서 \"unknown\": true 인 클래스"
+                         "(예상 못한 동적 객체 / 주행 환경)를 클래스 메뉴에 "
                          "넣는다. 기본 off - "
                          "넣었다 뺐다 하며 효과를 보는 ablation 용이다. 메뉴가 "
-                         "길어지면 다른 카테고리 탐지가 떨어진 전례가 있어 "
+                         "길어지면 다른 클래스 탐지가 떨어진 전례가 있어 "
                          "(5,585 -> 6,389자에서 F1 80.4 -> 74.0) 기본은 뺀다. "
-                         "점수는 그 카테고리가 속한 상위 카테고리(Dynamic object "
+                         "점수는 그 클래스가 속한 상위 클래스(Dynamic object "
                          "/ Driving environment) 기준표로 잰다.")
     ap.add_argument("--explain-traj", action="store_true",
                     help="--traj 로 그린 초록 선이 자차의 미래 궤적임을 "
@@ -1811,11 +1815,11 @@ if __name__ == "__main__":
     ap.add_argument("--weather-only", "--difficulty-only",
                     dest="weather_only", action="store_true",
                     help="날씨 4축만 추론한다. edge-case 탐지"
-                         "(VERDICT/CATEGORIES)와 카테고리 점수를 모두 "
+                         "(VERDICT/CLASSES)와 클래스 점수를 모두 "
                          "빼고 프롬프트를 날씨 전용으로 다시 쓴다 - 단계만 "
                          "끄면 '조도/날씨를 서술하지 마라'(1단계)와 '조도/날씨를 "
                          "점수로 매겨라'(4단계)가 충돌한다. --weather 를 "
-                         "자동으로 켜며, 점수/카테고리 CSV 열은 빈 값이 된다"
+                         "자동으로 켜며, 점수/클래스 CSV 열은 빈 값이 된다"
                          "(열 구성 자체는 유지해 실행 간 비교가 깨지지 않는다).")
     ap.add_argument("--no-constrain-tiers", dest="constrain_tiers",
                     action="store_false",
@@ -1845,6 +1849,11 @@ if __name__ == "__main__":
     if DATASET and args.use_egomotion and not DATASET["egomotion"]:
         raise SystemExit(f"[error] {DATASET['id']} 에는 egomotion 라벨이 없습니다. "
                          f"--use-egomotion 을 빼세요.")
+    # 파일이 없으면 클립마다 사실이 빠진 채 조용히 돌아간다.
+    if (DATASET and args.use_egomotion and DATASET["ego_path"]
+            and not Path(DATASET["ego_path"]).exists()):
+        raise SystemExit(f"[error] 자차 시계열이 없습니다: {DATASET['ego_path']}\n"
+                         f"        navsim_convert.py --ego-only 로 만드세요.")
     if DATASET and (args.traj or args.explain_traj) and not DATASET["trajectory"]:
         raise SystemExit(f"[error] {DATASET['id']} 에는 궤적을 그릴 자료가 없습니다. "
                          f"--traj / --explain-traj 를 빼세요.")
@@ -1862,9 +1871,9 @@ if __name__ == "__main__":
     # 프롬프트와 어긋나지 않도록 여기서 한 번에 맞춘다.
     if args.weather_only:
         args.weather = True
-        args.score_categories = False
+        args.score_classes = False
         print("[info] --weather-only: 날씨 4축만 추론한다 "
-              "(verdict/categories/scores off)")
+              "(verdict/classes/scores off)")
 
     # --time-spans: 영상 입력을 끄면 타임스탬프가 박히지 않아 모델이 장 번호로
     # 시각을 어림해야 하므로 경고만 한다. --weather-only 는 장르를 묻지 않아 끈다.
@@ -1900,37 +1909,37 @@ if __name__ == "__main__":
         args.viz_dir = str(Path(args.out).parent)
 
     labels = load_labels(SCENE_JSON)
-    # Unknown 카테고리(scene_category.json 에서 "unknown": true - 예상 못한
+    # Unknown 클래스(scene_category.json 에서 "unknown": true - 예상 못한
     # 동적 객체 / 주행 환경)는 기본으로 메뉴에서 뺀다. 넣었다 뺐다 하며 효과를
-    # 보는 ablation 용이다. 빼는 위치가 여기여야 메뉴, 기준표 머리의 카테고리
+    # 보는 ablation 용이다. 빼는 위치가 여기여야 메뉴, 기준표 머리의 클래스
     # 목록, 파싱의 유효 이름이 모두 함께 따라간다.
-    if not args.unknown_categories:
+    if not args.unknown_classes:
         labels = [l for l in labels if not l.get("unknown")]
-    # --group: 상위 카테고리 하나만 다룬다(all / dynamic_object /
-    # driving_environment). 다른 상위 카테고리의 카테고리는 메뉴에서 빠지고,
-    # 5단계도 그 상위 카테고리 점수 하나만 묻는다 - 아직 기준표를 다 채우지
-    # 않은 상위 카테고리를 빼고 돌릴 수 있다. 채점(evaluate_labels)도
+    # --group: 상위 클래스 하나만 다룬다(all / dynamic_object /
+    # driving_environment). 다른 상위 클래스의 클래스는 메뉴에서 빠지고,
+    # 5단계도 그 상위 클래스 점수 하나만 묻는다 - 아직 기준표를 다 채우지
+    # 않은 상위 클래스를 빼고 돌릴 수 있다. 채점(evaluate_labels)도
     # run_config 의 group 을 보고 GT 를 같은 범위로 줄인다.
     if args.group != "all":
         _known = {group_key(l["scenario"]) for l in labels if not l["is_normal"]}
         if args.group not in _known:
             raise SystemExit(f"[error] --group {args.group}: {SCENE_JSON.name} "
-                             f"에 없는 상위 카테고리입니다 (가능: all, "
+                             f"에 없는 상위 클래스입니다 (가능: all, "
                              f"{', '.join(sorted(_known))})")
         labels = [l for l in labels
                   if l["is_normal"] or group_key(l["scenario"]) == args.group]
-    # 시각화 패널이 카테고리마다 쓰는 rubric 의 상한(분모)을 알아야 하므로,
-    # 카테고리->묶음 표를 여기서 한 번 넘겨 둔다.
+    # 시각화 패널이 클래스마다 쓰는 rubric 의 상한(분모)을 알아야 하므로,
+    # 클래스->묶음 표를 여기서 한 번 넘겨 둔다.
     VZ.load_scenario_map(SCENE_JSON)
     n_special = sum(1 for l in labels if not l["is_normal"])
-    category_menu = build_category_menu(labels, notes=load_menu_notes(SCENE_JSON))
-    print(f"[info] labels: {SCENE_JSON.name} - {n_special} special categories")
+    class_menu = build_class_menu(labels, notes=load_menu_notes(SCENE_JSON))
+    print(f"[info] labels: {SCENE_JSON.name} - {n_special} special classes")
     print(f"[info] sensor facts: egomotion={'ON' if args.use_egomotion else 'OFF'}")
     _views = views_for(args.single_view)
     print(f"[info] camera views: {len(_views)} "
           f"({'front-wide only' if args.single_view else 'front 3-view'})")
 
-    prompt_sha = _prompt_fingerprint(args, labels, category_menu, len(_views))
+    prompt_sha = _prompt_fingerprint(args, labels, class_menu, len(_views))
 
     # --resume: 원래 실행과 대조한 뒤 끝난 클립 목록을 얻는다.
     #
@@ -2049,11 +2058,11 @@ if __name__ == "__main__":
     from qwen_runner import run_clip_inference
     # 이 import 가 edge_case_mining 사본을 만든다 - 프레임 소스를 옮겨 심는다
     _mirror_clip_source()
-    run_clip_inference(uuids, labels, category_menu,
+    run_clip_inference(uuids, labels, class_menu,
                        model_id=args.model, out_csv=args.out,
                        use_egomotion=args.use_egomotion,
                        want_margin=args.margin,
-                       score_categories=args.score_categories,
+                       score_classes=args.score_classes,
                        weather=args.weather,
                        weather_only=args.weather_only,
                        explain_traj=args.explain_traj,
@@ -2064,7 +2073,7 @@ if __name__ == "__main__":
                        max_frames=args.clip_max_frames,
                        max_long_side=args.clip_long_side,
                        viz_dir=(args.viz_dir if args.clip_viz else None),
-                       viz_per_category=args.viz_per_category,
+                       viz_per_class=args.viz_per_class,
                        viz_only_edge=not args.clip_viz_all,
                        not_save_low=args.not_save_low,
                        gt_labels=_load_gt_labels(args.gt_labels),

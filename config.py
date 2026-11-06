@@ -2,7 +2,7 @@
 """클립 파이프라인이 공유하는 경로 설정 - 단일 진실 공급원.
 
 왜 이 파일이 필요한가:
-  카테고리 정의와 정답 라벨의 기본값이 예전에는 다섯 군데에 흩어져 있었다
+  클래스 정의와 정답 라벨의 기본값이 예전에는 다섯 군데에 흩어져 있었다
   (edge_case_mining.py, evaluate_labels.py, aggregate_clip.py, run_eval.sh,
   run_video_C.sh). 그 값들이 서로 어긋나면서 실제로 사고가 났다 - 같은
   실행 결과를 aggregate_clip.py 는 D 기준으로 집계하고 evaluate_labels.py
@@ -20,11 +20,12 @@
 셸에서 읽는 법:
   python3 -c 'import config; print(config.SCENE_JSON)'
 """
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 
-# 카테고리 분류 체계. 모델 프롬프트의 카테고리 메뉴, 집계 대상 목록,
+# 클래스 분류 체계. 모델 프롬프트의 클래스 메뉴, 집계 대상 목록,
 # 채점 시 라벨 이름 검증이 모두 이 파일을 본다.
 SCENE_JSON = ROOT / "scene_category_3.0.json"
 
@@ -44,3 +45,23 @@ if __name__ == "__main__":
     else:
         print(f"SCENE_JSON  = {SCENE_JSON}")
         print(f"LABELS_JSON = {LABELS_JSON}")
+
+# 이름을 class 로 바꾸기 전에 끝난 실행의 CSV 와 run_config.json 은 옛 이름을
+# 그대로 갖고 있다. 결과 파일은 고치지 않고 읽을 때 새 이름으로 맞춘다.
+OLD_NAMES = {"categories": "classes", "n_categories": "n_classes", "category": "class",
+             "score_categories": "score_classes", "unknown_categories": "unknown_classes",
+             "viz_per_category": "viz_per_class"}
+
+
+def new_names(d: dict) -> dict:
+    return {OLD_NAMES.get(k, k): v for k, v in d.items()}
+
+
+def read_run_config(path) -> dict:
+    """run_config.json 을 읽어 key 와 argv 의 옛 이름을 맞춘다."""
+    cfg = json.loads(Path(path).read_text(encoding="utf-8"))
+    for block in ("key", "argv"):
+        if block in cfg:
+            cfg[block] = new_names(cfg[block])
+    return cfg
+

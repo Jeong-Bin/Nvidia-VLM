@@ -11,7 +11,7 @@
 # 결과: results/<YYYYMMDD_HHMMSS>_eval/
 #   clip_results_shard_N.csv   샤드별 추론 결과
 #   evaluation.log             4개 축 성능 리포트 (정답 대조)
-#   aggregate_clip.log         모델 출력 분포 (카테고리/등급/난이도)
+#   aggregate_clip.log         모델 출력 분포 (클래스/등급/난이도)
 #   run.log                    전체 로그
 set -u
 cd /home/etri/Jeongbin/Nvidia-VLM
@@ -55,7 +55,7 @@ if [ -z "$PYBIN" ] || ! pyok "$PYBIN"; then
   echo "        conda activate base 후 다시 돌리거나 PYBIN=<경로> 로 지정하세요." >&2
   exit 2
 fi
-# 카테고리 정의와 정답 라벨의 기본값은 config.py 가 단일 진실 공급원이다.
+# 클래스 정의와 정답 라벨의 기본값은 config.py 가 단일 진실 공급원이다.
 # 여기서 기본값을 들고 있으면 안 된다 - 예전에는 이 스크립트가 자기 값을
 # 항상 명령행으로 넘겨서, config/argparse 쪽 기본값을 아무리 고쳐도
 # 반영되지 않았다. 미지정이면 아래에서 플래그 자체를 생략한다.
@@ -71,7 +71,7 @@ Usage: bash run_labeled_8b.sh [options]
 
 Options (환경변수로도 지정 가능 - 명령행이 우선):
   --labels PATH          정답 라벨 json (기본: config.py 의 LABELS_JSON)  [LABELS]
-  --scene-json PATH      카테고리 정의 (기본: config.py 의 SCENE_JSON)    [SCENE_JSON]
+  --scene-json PATH      클래스 정의 (기본: config.py 의 SCENE_JSON)    [SCENE_JSON]
   --num-shards N         GPU/shard 개수 (기본 8)                     [NSHARDS]
   --gpus 1,2,3,4,6,7     쓸 GPU 번호. 샤드 수가 이 개수로 정해지고 샤드 k 는
                          k 번째로 적은 GPU 에서 돈다 (기본: 0..N-1)       [GPUS]
@@ -90,7 +90,7 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --memo "TEXT"          이 실행이 무엇을 시험하는지 한 줄 메모.
                          evaluation.log 머리에 [info] MEMO 로 찍힌다      [MEMO]
   --use-egomotion        egomotion 사실(자차 행동 요약)을 주입 (기본 off) [USE_EGOMOTION=1]
-  --unknown-categories    Unknown 카테고리(예상 못한 동적 객체/주행 환경)를
+  --unknown-classes    Unknown 클래스(예상 못한 동적 객체/주행 환경)를
                           메뉴에 넣는다 (기본 off, ablation 용)   [UNKNOWN_CATS=1]
   --time-spans [MODE]     장르마다 시간 구간별 위험도(0~4)를 받아 시각화 영상
                           재생 바 위에 점수별 색 띠로 그린다 (기본 off)
@@ -100,7 +100,7 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --attn-timeline         1차 생성 중 출력 토큰이 영상의 어느 시점을 봤는지
                           어텐션을 기록해 재생 바에 히트맵으로 그린다
                           (프롬프트/출력 그대로, 기본 off)   [ATTN_TIMELINE=1]
-  --group G               다룰 상위 카테고리: all(기본) / dynamic_object /
+  --group G               다룰 상위 클래스: all(기본) / dynamic_object /
                           driving_environment               [TARGET_GROUP]
   --weather              날씨 4축(조도/강수/노면/대기가림)을
                          0~4 로 함께 매긴다. 시각화 패널과
@@ -108,20 +108,20 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --weather-only         날씨 4축만 추론한다. edge-case 탐지와 점수를
                          모두 빼고 프롬프트를 날씨 전용으로 바꾼다
                          (--weather 를 자동으로 켠다)         [WEATHER_ONLY=1]
-  --viz-per-category N   카테고리마다 최초 N개 클립만 시각화한다. 폴더를
-                         score 대신 카테고리 이름으로 나눈다      [VIZ_PER_CAT]
+  --viz-per-class N   클래스마다 최초 N개 클립만 시각화한다. 폴더를
+                         score 대신 클래스 이름으로 나눈다      [VIZ_PER_CAT]
   --no-video-input       프레임을 비디오가 아니라 낱장으로 넘긴다     [VIDEO_INPUT=0]
   --clip-fps F           초당 몇 장 뽑을지 (기본 1.0)                 [CLIP_FPS]
   --clip-max-frames N    클립당 최대 프레임 (기본 20)                 [CLIP_MAX_FRAMES]
   --eval-only DIR        추론을 건너뛰고 그 폴더의 결과만 채점한다
-  --recheck              (기본 켜짐) 1차 추론 뒤, 카테고리를 못 찾았는데 장면 설명에
-                         그 객체가 나온 클립만 골라 영상과 함께 그 카테고리를 다시
+  --recheck              (기본 켜짐) 1차 추론 뒤, 클래스를 못 찾았는데 장면 설명에
+                         그 객체가 나온 클립만 골라 영상과 함께 그 클래스를 다시
                          묻는다(recheck_missed.py). 2차 전 채점은
                          evaluation_before_recheck.log 로 남긴다
   --no-recheck           2차 확인을 끈다 (1차 결과만 채점)           [RECHECK=0]
   --recheck-min-score N  2차 확인 YES 중 점수 N 이상만 반영 (기본 2 = '있지만
                          영향 없음' YES 를 버림, 1 = 전부 반영)  [RECHECK_MIN_SCORE]
-  --recheck-only DIR     이미 끝난 실행 폴더에 2차 확인만 덧붙인다. 라벨/카테고리는
+  --recheck-only DIR     이미 끝난 실행 폴더에 2차 확인만 덧붙인다. 라벨/클래스는
                          그 실행 것을 쓰고, 끝나면 전/후 채점을 모두 남긴다
   --resume DIR           중단되었거나 일부 샤드가 실패한 실행을 이어받는다.
                          결과가 있는 클립(n_frames>0)은 건너뛰고, 행이
@@ -129,7 +129,7 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
                          결과와 합쳐 전체 클립으로 다시 채점한다
                          (evaluation.log / aggregate_clip.log 를 새로 쓰고,
                          이전 것은 DIR/logs_before_resume_<시각>/ 에 남긴다).
-                         원래 실행과 같은 옵션을 줘야 한다 - 모델/카테고리/
+                         원래 실행과 같은 옵션을 줘야 한다 - 모델/클래스/
                          프롬프트/fps 등이 다르면 시작 전에 거부한다.
                          uuid 목록은 DIR/eval_uuids.txt 를 그대로 쓴다.
                          --labels / --scene-json 은 생략하면 원래 실행이
@@ -177,14 +177,14 @@ while [ $# -gt 0 ]; do
     --weather-only|--difficulty-only)
                          WEATHER_ONLY=1 ;;
     --explain-traj)      EXPLAIN_TRAJ=1 ;;
-    --unknown-categories) UNKNOWN_CATS=1 ;;
+    --unknown-classes) UNKNOWN_CATS=1 ;;
     --attn-timeline)      ATTN_TIMELINE=1 ;;
     --time-spans=*)       TIME_SPANS="${1#*=}" ;;
     --time-spans)         case "${2:-}" in inline|followup) shift; TIME_SPANS="$1" ;; *) TIME_SPANS=inline ;; esac ;;
     --group=*)           TARGET_GROUP="${1#*=}" ;;
     --group)             shift; TARGET_GROUP="${1:-all}" ;;
-    --viz-per-category=*) VIZ_PER_CAT="${1#*=}" ;;
-    --viz-per-category)  shift; VIZ_PER_CAT="${1:-}" ;;
+    --viz-per-class=*) VIZ_PER_CAT="${1#*=}" ;;
+    --viz-per-class)  shift; VIZ_PER_CAT="${1:-}" ;;
     --no-egomotion)      USE_EGOMOTION=0 ;;   # 옛 이름 - 이제 기본이 off 라 무의미하지만 받아준다
     --no-video-input)    VIDEO_INPUT=0 ;;
     --clip-fps=*)        CLIP_FPS="${1#*=}" ;;
@@ -209,15 +209,15 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-# --resume: 정답 라벨과 카테고리 정의는 명시하지 않으면 원래 실행 것을 쓴다.
+# --resume: 정답 라벨과 클래스 정의는 명시하지 않으면 원래 실행 것을 쓴다.
 #
-# config.py 의 기본값(라벨/카테고리)은 GUI 가 실제로 넘기는 파일과 다르다.
+# config.py 의 기본값(라벨/클래스)은 GUI 가 실제로 넘기는 파일과 다르다.
 # 이어받을 때 그 기본값으로 떨어지면 두 가지가 조용히 틀어진다(실측
-# 20261002_165800_eval 이어받기): 카테고리 정의는 설정 대조에서 걸리지만,
+# 20261002_165800_eval 이어받기): 클래스 정의는 설정 대조에서 걸리지만,
 # 라벨은 대조 대상이 아니라 그대로 진행되어 evaluation.log 가 다른 라벨
 # 파일(230클립)로 채점되고, 새로 그린 시각화 82개에 엉뚱한 GT 가 찍혔다.
 # 라벨은 run.log 의 첫 "[info] labels" 줄(원래 실행이 쓴 파일)에서 읽는다.
-# --recheck-only 도 같은 이유로 그 실행의 라벨/카테고리를 쓴다.
+# --recheck-only 도 같은 이유로 그 실행의 라벨/클래스를 쓴다.
 INHERIT_DIR="${RESUME_DIR:-${RECHECK_ONLY:-}}"
 if [ -n "$INHERIT_DIR" ] && [ -f "${INHERIT_DIR%/}/run_config.json" ]; then
   if [ -z "$LABELS_SET" ]; then
@@ -264,7 +264,7 @@ fi
 # 로 남겨 같은 폴더 안에서 전/후를 바로 비교한다.
 run_recheck() {
   local dir="$1"
-  # 날씨만 추론한 실행은 카테고리가 없어 2차 확인할 것이 없다.
+  # 날씨만 추론한 실행은 클래스가 없어 2차 확인할 것이 없다.
   if [ "${WEATHER_ONLY:-0}" = "1" ] || [ "${DIFFICULTY_ONLY:-0}" = "1" ]; then
     echo "[recheck] 건너뜀: --weather-only 실행"
     return 0
@@ -390,7 +390,7 @@ esac
 [ "${WEATHER:-0}" = "1" ]         && OPTS="$OPTS --weather"
 [ "${WEATHER_ONLY:-0}" = "1" ]    && OPTS="$OPTS --weather-only"
 [ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
-[ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-categories"
+[ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-classes"
 [ "${ATTN_TIMELINE:-0}" = "1" ] && OPTS="$OPTS --attn-timeline"
 case "${TIME_SPANS:-0}" in
   0|"") ;;
@@ -399,9 +399,9 @@ case "${TIME_SPANS:-0}" in
   *) echo "[error] --time-spans: inline 또는 followup (받은 값: $TIME_SPANS)" >&2; exit 1 ;;
 esac
 [ -n "${TARGET_GROUP:-}" ] && [ "$TARGET_GROUP" != "all" ] && OPTS="$OPTS --group $TARGET_GROUP"
-[ -n "${VIZ_PER_CAT:-}" ]        && OPTS="$OPTS --viz-per-category $VIZ_PER_CAT"
+[ -n "${VIZ_PER_CAT:-}" ]        && OPTS="$OPTS --viz-per-class $VIZ_PER_CAT"
 [ "${VIDEO_INPUT:-1}" = "0" ]   && OPTS="$OPTS --clip-no-video-input"
-# --viz-per-category 는 그 자체가 "시각화하라"는 뜻이다 - 로컬 스크립트는
+# --viz-per-class 는 그 자체가 "시각화하라"는 뜻이다 - 로컬 스크립트는
 # 시각화가 기본 off 라, 이걸 안 켜주면 아무것도 저장되지 않는다.
 [ -n "${VIZ_PER_CAT:-}" ] && CLIP_VIZ=1
 [ "${CLIP_VIZ:-0}" = "1" ]      && OPTS="$OPTS --clip-viz"
@@ -456,7 +456,7 @@ fi
   echo "[info] run dir     : $RUN_DIR"
   [ -n "$RESUME_FLAG" ] && echo "[info] resume      : $(date '+%Y-%m-%d %H:%M:%S') 이어받기"
   echo "[info] labels      : $LABELS  ($TOTAL_CLIPS clips)"
-  echo "[info] categories  : ${SCENE_JSON:-$("$PYBIN" -c 'import config; print(config.SCENE_JSON.name)') (config.py)}"
+  echo "[info] classes  : ${SCENE_JSON:-$("$PYBIN" -c 'import config; print(config.SCENE_JSON.name)') (config.py)}"
   echo "[info] opts        : $OPTS"
   echo "[info] shards      : $NSHARDS  (GPU ${GPU_LIST[*]})"
   echo "[info] python      : $PYBIN"

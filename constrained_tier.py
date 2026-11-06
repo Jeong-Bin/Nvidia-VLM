@@ -21,8 +21,8 @@ import re
 # 20건 중 18건을 2로 예측). 위에 더 극단적인 칸을 두면 3 이 "최악"이 아니라
 # "심각한 편"이 되어 쓰기 쉬워진다. 4 를 실제로 찾는 것은 목표가 아니다.
 #
-# 0 은 rubric 에 없다. 모든 rubric 이 1 에서 시작하고, 0 은 "그 카테고리가
-# 이 클립에 없다" 는 뜻으로만 남는다 - 없는 카테고리는 애초에 점수를 받지
+# 0 은 rubric 에 없다. 모든 rubric 이 1 에서 시작하고, 0 은 "그 클래스가
+# 이 클립에 없다" 는 뜻으로만 남는다 - 없는 클래스는 애초에 점수를 받지
 # 않으므로 모델이 0 을 낼 일도 없다. 값 자체는 계속 허용한다: GT 라벨이
 # 채점에서 0 을 쓸 수 있다.
 TIER_LABELS = {0: "Absent", 1: "Low", 2: "Moderate", 3: "High", 4: "Extreme"}
@@ -61,7 +61,7 @@ def tier_label(value) -> str:
 # 눈금이 0 이 아니라 1 에서 시작한다.
 #
 # 0 은 원래 "그 요소가 장면에 아예 없다" 를 위한 칸이었는데, 없는 요소는
-# 애초에 categories 에 적히지 않으므로 점수를 받을 일이 없다. 빈 칸을 두면
+# 애초에 classes 에 적히지 않으므로 점수를 받을 일이 없다. 빈 칸을 두면
 # 모델이 그것을 채우려 하므로(실측 20260812: Animal 7건이 내용과 무관하게
 # 전부 rarity=2) 아예 없앤다.
 # IMPACT_RUBRIC_0 = {
@@ -86,7 +86,7 @@ def tier_label(value) -> str:
 
 
 # for Animal on Road, Pedestrian on Road, Cyclist on Road
-# (Emergency Vehicle 은 탐지 전용으로 뺐다 - RUBRIC_BY_CATEGORY 주석)
+# (Emergency Vehicle 은 탐지 전용으로 뺐다 - RUBRIC_BY_CLASS 주석)
 
 
 # DYNAMIC_RUBRIC = {
@@ -362,15 +362,15 @@ GROUP_RUBRICS = {
         DIFFICULTY_RUBRIC_FOR_DRIVING_ENVIRONMENT),
 }
 
-# 묶음 안에서 묶음 기준표 대신 자기 기준표로 따로 재는 카테고리.
+# 묶음 안에서 묶음 기준표 대신 자기 기준표로 따로 재는 클래스.
 # 이름 -> (묶음, 제목, 기준표).
 #
 # Unpaved road 는 "자차 주행을 바꿨는가"가 아니라 "길이 어디로 나 있는지
 # 읽히는가"로 갈려 Driving environment 의 0/1/3 칸에 맞지 않는다. 그래서
 # JSON 에 칸을 따로 받고("unpaved_road"), 묶음 점수는 묶음 칸과 이 칸 중 큰
-# 값으로 한다(parse_nureasoning_output) - GT 의 묶음 점수도 카테고리 점수 중
+# 값으로 한다(parse_nureasoning_output) - GT 의 묶음 점수도 클래스 점수 중
 # 최댓값으로 매긴다.
-CATEGORY_RUBRICS = {
+CLASS_RUBRICS = {
     "Unpaved road": (
         "Driving environment",
         "whether the road was unpaved, and how clearly it showed where it runs",
@@ -392,45 +392,45 @@ def score_groups(labels) -> list[str]:
     return out
 
 
-def counted_score(name: str, n: int, categories) -> int:
+def counted_score(name: str, n: int, classes) -> int:
     """칸 점수 중 묶음 점수에 넣는 값.
 
-    따로 재는 카테고리(Unpaved road)의 칸은 모델이 그 카테고리를 이름 댔을
-    때만 센다 - 아니면 0. 이 칸은 카테고리와 상관없이 매 클립 답을 받는데,
+    따로 재는 클래스(Unpaved road)의 칸은 모델이 그 클래스를 이름 댔을
+    때만 센다 - 아니면 0. 이 칸은 클래스와 상관없이 매 클립 답을 받는데,
     이름을 대지 않은 클립에서 모델이 노면 상태(날씨 Road_surface)를 이 칸에
     매겼다(실측 20261103_142530: Unpaved road 를 안 댔는데 1 이상 17건, 15건이
-    GT 0, 모두 road_surface >= 1, 눈금 밖 2 점 7건도 전부 여기). 카테고리를
+    GT 0, 모두 road_surface >= 1, 눈금 밖 2 점 7건도 전부 여기). 클래스를
     빼고 판단한 쪽을 믿는다. 모델이 낸 원래 값은 field_scores 에 그대로 남는다.
     """
-    if name in CATEGORY_RUBRICS and name not in categories:
+    if name in CLASS_RUBRICS and name not in classes:
         return 0
     return n
 
 
-def own_rubric_categories(labels, group: str) -> list[str]:
-    """그 묶음에서 자기 기준표(CATEGORY_RUBRICS)로 따로 재는 카테고리, 메뉴 순서대로."""
-    return [l["category"] for l in labels
+def own_rubric_classes(labels, group: str) -> list[str]:
+    """그 묶음에서 자기 기준표(CLASS_RUBRICS)로 따로 재는 클래스, 메뉴 순서대로."""
+    return [l["class"] for l in labels
             if not l.get("is_normal") and l["scenario"] == group
-            and l["category"] in CATEGORY_RUBRICS]
+            and l["class"] in CLASS_RUBRICS]
 
 
 def score_fields(labels) -> list[tuple[str, str]]:
     """모델에게 점수를 받는 칸 [(칸 이름, 묶음)], 프롬프트 순서대로.
 
-    묶음마다 묶음 칸 하나, 이어서 그 묶음에서 따로 재는 카테고리 칸.
+    묶음마다 묶음 칸 하나, 이어서 그 묶음에서 따로 재는 클래스 칸.
     JSON 키는 칸 이름의 group_key 다("Unpaved road" -> "unpaved_road").
     """
     out = []
     for g in score_groups(labels):
         out.append((g, g))
-        out += [(c, g) for c in own_rubric_categories(labels, g)]
+        out += [(c, g) for c in own_rubric_classes(labels, g)]
     return out
 
 
 def rubric_of(name: str) -> tuple[str, dict]:
-    """칸 이름(묶음 또는 따로 재는 카테고리) -> (제목, 기준표)."""
-    if name in CATEGORY_RUBRICS:
-        return CATEGORY_RUBRICS[name][1:]
+    """칸 이름(묶음 또는 따로 재는 클래스) -> (제목, 기준표)."""
+    if name in CLASS_RUBRICS:
+        return CLASS_RUBRICS[name][1:]
     return GROUP_RUBRICS[name]
 
 
@@ -443,18 +443,18 @@ def values_text(vals) -> str:
 
 
 def scale_text(name: str) -> str:
-    """그 칸(묶음 또는 따로 재는 카테고리) 기준표의 눈금 표기."""
+    """그 칸(묶음 또는 따로 재는 클래스) 기준표의 눈금 표기."""
     return values_text(rubric_of(name)[1])
 
 
 def group_values(group: str) -> tuple[int, ...]:
     """그 묶음 점수가 가질 수 있는 값(0~4).
 
-    묶음 기준표의 눈금에, 그 묶음에서 따로 재는 카테고리 기준표의 눈금을
+    묶음 기준표의 눈금에, 그 묶음에서 따로 재는 클래스 기준표의 눈금을
     더한 것이다 - 묶음 점수가 둘 중 큰 값이라 어느 쪽 눈금이든 될 수 있다.
     """
     vals = set(GROUP_RUBRICS[group][1])
-    for g, _title, rubric in CATEGORY_RUBRICS.values():
+    for g, _title, rubric in CLASS_RUBRICS.values():
         if g == group:
             vals |= set(rubric)
     return tuple(sorted(vals))
@@ -470,17 +470,17 @@ def check_group_rubrics(labels) -> None:
         if g not in GROUP_RUBRICS:
             problems.append(f"{g!r}: GROUP_RUBRICS 에 기준표가 없음")
             continue
-        for name in [g] + own_rubric_categories(labels, g):
+        for name in [g] + own_rubric_classes(labels, g):
             empty = [v for v, t in sorted(rubric_of(name)[1].items())
                      if not str(t).strip()]
             if empty:
                 problems.append(f"{name!r}: {empty} 점 문구가 비어 있음")
     for lab in labels:
-        c = lab["category"]
-        if c in CATEGORY_RUBRICS and not lab.get("is_normal") \
-                and lab["scenario"] != CATEGORY_RUBRICS[c][0]:
-            problems.append(f"{c!r}: CATEGORY_RUBRICS 는 "
-                            f"{CATEGORY_RUBRICS[c][0]!r} 소속인데 카테고리 "
+        c = lab["class"]
+        if c in CLASS_RUBRICS and not lab.get("is_normal") \
+                and lab["scenario"] != CLASS_RUBRICS[c][0]:
+            problems.append(f"{c!r}: CLASS_RUBRICS 는 "
+                            f"{CLASS_RUBRICS[c][0]!r} 소속인데 클래스 "
                             f"파일에서는 {lab['scenario']!r} 아래에 있음")
     if problems:
         raise ValueError("묶음 기준표를 먼저 채워야 합니다 - "
@@ -490,12 +490,12 @@ def check_group_rubrics(labels) -> None:
 def group_rubric_blocks(labels) -> str:
     """프롬프트 5단계에 넣을 묶음별 기준표.
 
-    각 표 머리에 그 묶음에 속한 카테고리를 적어, 모델이 어느 표로 어느
-    종류를 재는지 알게 한다. 카테고리별 score_examples(scene_category.json)는
-    그 카테고리를 재는 표 아래에 붙인다 - 보통은 묶음 표, 따로 재는
-    카테고리(CATEGORY_RUBRICS)는 자기 표.
+    각 표 머리에 그 묶음에 속한 클래스를 적어, 모델이 어느 표로 어느
+    종류를 재는지 알게 한다. 클래스별 score_examples(scene_category.json)는
+    그 클래스를 재는 표 아래에 붙인다 - 보통은 묶음 표, 따로 재는
+    클래스(CLASS_RUBRICS)는 자기 표.
 
-    따로 재는 카테고리는 묶음 표 머리의 카테고리 목록에서 빠지고, 묶음 표
+    따로 재는 클래스는 묶음 표 머리의 클래스 목록에서 빠지고, 묶음 표
     바로 뒤에 자기 표로 나온다.
     """
     check_group_rubrics(labels)
@@ -504,8 +504,8 @@ def group_rubric_blocks(labels) -> str:
     for lab in labels:
         if lab.get("is_normal"):
             continue
-        g, c = lab["scenario"], lab["category"]
-        name = c if c in CATEGORY_RUBRICS else g
+        g, c = lab["scenario"], lab["class"]
+        name = c if c in CLASS_RUBRICS else g
         if name == g:
             members.setdefault(g, []).append(c)
         for ex in lab.get("score_examples") or []:
@@ -531,22 +531,22 @@ def group_rubric_blocks(labels) -> str:
     out = []
     for g in score_groups(labels):
         out.append(block(g, f"{g} ({', '.join(members.get(g, []))})"))
-        # 5단계의 "이름을 댄 묶음은 1 이상" 규칙은 그대로 두고, 이 카테고리가
+        # 5단계의 "이름을 댄 묶음은 1 이상" 규칙은 그대로 두고, 이 클래스가
         # 묶음 칸을 끌어올리지 않게만 한다 - 묶음 점수는 어차피 두 칸 중 큰
         # 값이라 묶음 칸이 1 이어도 결과는 같다.
-        for c in own_rubric_categories(labels, g):
+        for c in own_rubric_classes(labels, g):
             out.append(block(c, c, note=(
                 f"{c} is scored only on this scale, in its own field - it "
                 f"never raises the {g} score above.")))
     return "\n".join(out)
 
 
-# 점수 예시는 코드가 아니라 scene_category.json 의 카테고리별
-# "score_examples" 에서 읽는다 - group_rubric_blocks 가 그 카테고리가 속한
+# 점수 예시는 코드가 아니라 scene_category.json 의 클래스별
+# "score_examples" 에서 읽는다 - group_rubric_blocks 가 그 클래스가 속한
 # 묶음 표 아래에 싣는다.
 #
 # 예전에는 여기 CONTRAST_EXAMPLES 4쌍("... -> low / ... -> high")을 두었다.
-# safety 등급 시절 예시라 카테고리별 기준표와 충돌해 지웠다(실측
+# safety 등급 시절 예시라 클래스별 기준표와 충돌해 지웠다(실측
 # 20261006_134008: 근거에 "-> low/high" 를 쓴 7건이 전부 틀렸다).
 
 
@@ -560,7 +560,7 @@ def tier_score(group_scores) -> int | None:
     """묶음 점수 중 최댓값. 읽을 수 있는 값이 하나도 없으면 None.
 
     group_scores 는 {묶음 이름: 0~4} 딕셔너리다. 점수를 끈 실행처럼 값이
-    아예 없을 때만 None 이다 - 0 은 "특수 카테고리 없음"이라는 정상 값이다.
+    아예 없을 때만 None 이다 - 0 은 "특수 클래스 없음"이라는 정상 값이다.
     """
     if not isinstance(group_scores, dict):
         return None

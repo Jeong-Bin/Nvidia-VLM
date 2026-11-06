@@ -17,13 +17,18 @@ NVIDIA PhysicalAI-AV 는 클립마다 egomotion 파일을 제공한다(100Hz):
 
 egomotion 라벨은 zip 청크 안에 들어있으므로(파일 수 = 클립 수), 압축을
 풀지 않고 zip 에서 직접 읽되 uuid -> zip 위치를 한 번만 인덱싱해 캐시한다.
+
+NavSim 은 라벨 파일 대신 프레임마다 2Hz 값만 있다. navsim_convert.py 가 만든
+ego_2hz.json 을 set_tracks() 로 꽂으면 같은 요약과 문장을 2Hz 기준으로 만든다.
 """
 from __future__ import annotations
 
 import io
+import json
 import zipfile
 from functools import lru_cache
 from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -132,6 +137,39 @@ NOTABLE_DROP_KMH = -15.0        # 큰 속도 하락 (실측 12.0%)
 NOTABLE_HEADING_DEG = 30.0      # 뚜렷한 조향 (실측 9.8%)
 
 
+class EgoLimits(NamedTuple):
+    """가속도 임계값. 샘플링 주기마다 같은 사건이 다른 값으로 보여 따로 둔다."""
+    hard_brake: float
+    notable_decel: float
+    decel: float
+    accel: float
+
+
+LIMITS_100HZ = EgoLimits(HARD_BRAKE_AX, NOTABLE_DECEL_MS2, DECEL_MS2, ACCEL_MS2)
+# 2Hz 값은 순간 최대를 못 본다. NavSim 의 ax 는 속도 차분과 거의 같아(상관 0.98,
+# 기울기 1.00) 약 0.5초 평균에 가깝다. NVIDIA 100Hz 를 0.5초 평균 + 2Hz 로 줄여
+# 원래 판정과 맞춰 보면(600클립) 같은 -3.0 은 급제동의 21% 만 잡고, -2.0 이 F1
+# 최고(0.72)다. 보조 근거 +-1.0 은 감속 일치 97.5%, 가속 일치 96.3% 였다.
+LIMITS_2HZ = EgoLimits(-2.0, -2.0, -1.0, 1.0)
+
+# 2Hz 자차 시계열. set_tracks() 를 부르지 않으면 100Hz 라벨을 읽는다.
+_TRACKS_PATH: Path | None = None
+_TRACKS: dict | None = None
+
+
+def set_tracks(path) -> None:
+    """이 파일의 시계열을 쓴다. 실제로 읽는 것은 처음 필요할 때다."""
+    global _TRACKS_PATH, _TRACKS
+    _TRACKS_PATH, _TRACKS = Path(path), None
+
+
+def _track(uuid: str) -> dict | None:
+    global _TRACKS
+    if _TRACKS is None:
+        _TRACKS = json.loads(_TRACKS_PATH.read_text(encoding="utf-8"))["clips"]
+    return _TRACKS.get(uuid)
+
+
 def _yaw_deg(qx, qy, qz, qw) -> np.ndarray:
     """쿼터니언 -> yaw(deg). 차량 heading."""
     siny = 2.0 * (qw * qz + qx * qy)
@@ -188,6 +226,8 @@ def ego_clip_behavior(uuid: str) -> dict | None:
       stopped_s           정차해 있던 총 시간 (s)
       ends_stopped        클립 끝에 멈춰 있는가
     """
+    if _TRACKS_PATH is not None:
+        return _track_behavior(_track(uuid))
     ts = frame_timestamps(uuid)
     ego = _ego_arrays_full(uuid)
     if ts is None or ego is None or len(ts) < 2:
@@ -211,6 +251,33 @@ def ego_clip_behavior(uuid: str) -> dict | None:
 
     t_w = t[sel]
     sp_w, ax_w, yaw_w = speed[sel], ax[sel], yaw[sel]
+    # 샘플 간격이 일정하다고 보고 정차 시간을 센다 (100Hz 라벨)
+    dt_s = span_s / max(len(sp_w) - 1, 1)
+    stopped_s = float((sp_w < STOP_SPEED).sum() * dt_s)
+    return _summarize(t_w, sp_w, ax_w, yaw_w, t_beg, span_s, stopped_s, LIMITS_100HZ)
+
+
+def _track_behavior(tr: dict | None) -> dict | None:
+    """2Hz 시계열의 클립 요약. 프레임과 같은 시각의 값이라 구간을 맞출 필요가 없다."""
+    if tr is None or len(tr["t_us"]) < 2:
+        return None
+    t = np.asarray(tr["t_us"], dtype=np.float64)
+    speed = np.hypot(tr["vx"], tr["vy"])
+    span_s = float(t[-1] - t[0]) / 1e6
+    if span_s < 1.0:
+        return None
+    # 샘플 하나가 앞뒤 간격의 절반씩을 맡는다. 1초 빠진 곳이 있는 클립이 있어
+    # 샘플 수에 간격을 곱하면 정차 시간이 틀린다.
+    gap = np.diff(t) / 1e6
+    weight = np.r_[gap, 0.0] / 2 + np.r_[0.0, gap] / 2
+    stopped_s = float(weight[speed < STOP_SPEED].sum())
+    return _summarize(t, speed, np.asarray(tr["ax"], dtype=np.float64),
+                      np.asarray(tr["yaw_deg"], dtype=np.float64),
+                      float(t[0]), span_s, stopped_s, LIMITS_2HZ)
+
+
+def _summarize(t_w, sp_w, ax_w, yaw_w, t_beg, span_s, stopped_s, lim: EgoLimits) -> dict:
+    """구간 시계열 -> ego_clip_behavior 의 요약 dict."""
     v0, v1 = float(sp_w[0]), float(sp_w[-1])
 
     # heading 은 ±180 에서 튀므로 unwrap 후 누적 변화를 본다
@@ -222,17 +289,13 @@ def ego_clip_behavior(uuid: str) -> dict | None:
     min_ax, max_ax = float(ax_w[i_min_ax]), float(ax_w.max())
     dv = v1 - v0
 
-    # 샘플 간격이 일정하다고 보고 정차 시간을 센다 (100Hz 라벨)
-    dt_s = span_s / max(len(sp_w) - 1, 1)
-    stopped_s = float((sp_w < STOP_SPEED).sum() * dt_s)
-
     came_to_stop = v0 >= CREEP_SPEED and v1 < STOP_SPEED
     started_moving = v0 < STOP_SPEED and v1 >= CREEP_SPEED
     # 순변화가 1차 근거. 순간가속도는 순변화가 같은 방향일 때만 보조로 쓴다 -
     # 그렇지 않으면 감속 구간에서 튄 +ax 하나로 "가속"이 되어버린다.
-    decelerating = dv <= -SPEED_CHANGE_MS or (min_ax <= DECEL_MS2
+    decelerating = dv <= -SPEED_CHANGE_MS or (min_ax <= lim.decel
                                               and dv <= -SPEED_MIN_MS)
-    accelerating = dv >= SPEED_CHANGE_MS or (max_ax >= ACCEL_MS2
+    accelerating = dv >= SPEED_CHANGE_MS or (max_ax >= lim.accel
                                              and dv >= SPEED_MIN_MS)
     steering = abs(heading_delta) >= HEADING_CHANGE_DEG
 
@@ -255,11 +318,11 @@ def ego_clip_behavior(uuid: str) -> dict | None:
         "decelerating": decelerating,
         "accelerating": accelerating,
         "steering": steering,
-        "is_hard_braking": min_ax < HARD_BRAKE_AX,
+        "is_hard_braking": min_ax < lim.hard_brake,
         "changed": bool(came_to_stop or started_moving or decelerating
                         or accelerating or steering),
         "notable": bool(came_to_stop or started_moving
-                        or min_ax <= NOTABLE_DECEL_MS2
+                        or min_ax <= lim.notable_decel
                         or (dv * 3.6) <= NOTABLE_DROP_KMH
                         or abs(heading_delta) >= NOTABLE_HEADING_DEG),
     }

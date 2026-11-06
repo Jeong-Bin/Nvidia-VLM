@@ -124,8 +124,8 @@ NUR_FOLLOWUP_MAX_NEW_TOKENS = 300
 
 # 클립 모드 CSV 의 열. 헤더와 빈 행이 같은 정의를 봐야 어긋나지 않는다.
 CLIP_CSV_COLUMNS = [
-    "uuid", "n_frames", "verdict", "n_categories",
-    "categories", "parse_ok", "observation", "ego_behavior",
+    "uuid", "n_frames", "verdict", "n_classes",
+    "classes", "parse_ok", "observation", "ego_behavior",
     "unusual_elements",
     # 묶음 점수(0~4). "Dynamic object=2|Driving environment=0" 형태로 한 칸에
     # 담는다 - 묶음마다 열을 만들면 scene_category.json 의 묶음을 고칠 때마다
@@ -149,7 +149,7 @@ CLIP_CSV_COLUMNS = [
     "time_spans",
     # 묶음 점수로 합치기 전 칸별 점수 "Dynamic object=2|Driving environment=1|
     # Unpaved road=3". group_scores 는 칸을 max 로 합친 값이라, 따로 재는
-    # 카테고리(Unpaved road)와 나머지를 채점에서 나누려면 이 값이 필요하다.
+    # 클래스(Unpaved road)와 나머지를 채점에서 나누려면 이 값이 필요하다.
     # time_spans 처럼 맨 뒤에 붙였다 - 이전 실행의 CSV 는 --resume 불가.
     "field_scores",
 ]
@@ -221,7 +221,7 @@ def _decision_margin(gen_out, tokenizer):
     """생성 토큰의 1위-2위 확률차를 재되, 판정에 실제로 쓰이는 자리만 본다.
 
     왜 필요한가: 이 파이프라인은 결정적이다(같은 입력 -> 같은 출력, 실측
-    115/115 일치). 그런데 카테고리 메뉴의 마침표 하나를 빼자 10/115 클립의
+    115/115 일치). 그런데 클래스 메뉴의 마침표 하나를 빼자 10/115 클립의
     예측이 뒤집혀 accuracy 가 2.7%p 움직였다. 토큰 수도 위치도 그대로이고
     바뀐 것은 토큰 하나의 임베딩뿐이었다 - 즉 그 10개는 1위와 2위가 백지
     한 장 차이인 경계선 클립이고, 의미 없는 섭동에도 넘어간다.
@@ -229,12 +229,12 @@ def _decision_margin(gen_out, tokenizer):
     왜 전체 토큰의 최솟값을 쓰면 안 되는가:
       처음에 그렇게 재봤더니 3/3 클립이 margin_min=0.0000 이었다. 0 이
       나온 자리를 열어보니 산문 안의 ',' vs '.', ' in' vs ' with' 같은
-      말투 선택이었다. 그런 동점은 어느 쪽이 이겨도 카테고리도 등급도
+      말투 선택이었다. 그런 동점은 어느 쪽이 이겨도 클래스도 등급도
       바뀌지 않는다 - 지표가 판정이 아니라 문장 표현의 흔들림을 재고
       있었고, 모든 클립이 0 으로 뭉개져 아무것도 구분하지 못했다.
 
     그래서 JSON 값이 시작되는 자리(따옴표/괄호/숫자 직후)만 센다. 여기서
-    갈리면 카테고리 이름이나 등급 숫자가 실제로 바뀐다.
+    갈리면 클래스 이름이나 등급 숫자가 실제로 바뀐다.
 
     돌려주는 값:
       margin_min  판정 자리 중 가장 아슬아슬했던 확률차. 클립이 뒤집힐지를
@@ -435,7 +435,7 @@ def build_clip_ego_facts(uuid, use_egomotion):
     return describe_clip_behavior(ch), ch
 
 
-def run_clip_inference(uuids, labels, category_menu,
+def run_clip_inference(uuids, labels, class_menu,
                        model_id="Qwen/Qwen3-VL-8B-Instruct",
                        out_csv="clip_results.csv",
                        use_egomotion=False,
@@ -446,11 +446,11 @@ def run_clip_inference(uuids, labels, category_menu,
                        viz_width=VIZ_WIDTH, video_input=True,
                        viz_normal=None, viz_special=None,
                        gt_labels=None, timeline=False,
-                       want_margin=False, score_categories=True,
+                       want_margin=False, score_classes=True,
                        resume=False,
                        weather=False, weather_only=False,
                        explain_traj=False, traj=None,
-                       viz_per_category=None, time_spans=None,
+                       viz_per_class=None, time_spans=None,
                        attn_timeline=False):
     """클립 전체(20초)를 fps 간격으로 넣어 클립 단위로 판정한다 (uuid 하나 = CSV 한 행).
 
@@ -462,7 +462,7 @@ def run_clip_inference(uuids, labels, category_menu,
     추론 내용을 붙인다. viz_only_edge=True(기본)면 edge-case 요소가 하나라도
     잡힌 클립만 만든다 - 전량은 클립당 약 39MB 라 금방 수십 GB 가 된다.
 
-    gt_labels({uuid: {categories, safety, rarity}})를 주면 시각화 패널에
+    gt_labels({uuid: {classes, safety, rarity}})를 주면 시각화 패널에
     GT 와 Pred 를 나란히 그린다 - 검수자가 라벨과 예측을 한 화면에서
     비교할 수 있게 한다. 없는 uuid 는 그냥 Pred 만 그린다.
 
@@ -471,12 +471,12 @@ def run_clip_inference(uuids, labels, category_menu,
     이면 예전 방식(viz_only_edge + not_save_low)으로 동작한다.
 
     not_save_low=True(기본)면 거기서 한 번 더 거른다: 묶음 점수가 전부
-    1 이하인 Special 클립은 저장하지 않는다 - 카테고리는 나열됐지만 자차에 영향이
+    1 이하인 Special 클립은 저장하지 않는다 - 클래스는 나열됐지만 자차에 영향이
     없다고 모델 스스로 판단한 경우다. 탐지(scenario_types, CSV)는 건드리지
     않고 시각화 대상만 줄인다 - 이 필터가 틀려도 재추론 없이 CSV 로 다시
     뽑을 수 있다.
 
-    score_categories 는 5단계(묶음 점수)를 끈다. 끄면 프롬프트와 출력
+    score_classes 는 5단계(묶음 점수)를 끈다. 끄면 프롬프트와 출력
     스키마에서 빠지고 CSV 에서 빈 칸이 되며 tier_score 도 비게 된다. 값이
     없으면 not_save_low 조건이 성립하지 않아 그 필터는 저절로 무력화된다.
     """
@@ -505,14 +505,14 @@ def run_clip_inference(uuids, labels, category_menu,
 
     n_special = sum(1 for l in labels if not l["is_normal"])
     print(f"[clip] {len(uuids)} clips | {len(views)} view(s) | {fps}fps "
-          f"max {max_frames} frames @ {max_long_side}px | {n_special} categories")
+          f"max {max_frames} frames @ {max_long_side}px | {n_special} classes")
     print(f"[clip] input mode: {'VIDEO (temporal merge + timestamps)' if video_input else 'image list'}")
-    print(f"[clip] category scores: {'on' if score_categories else 'off'}")
+    print(f"[clip] class scores: {'on' if score_classes else 'off'}")
 
     cat_counts = Counter()
-    # --viz-per-category N: 카테고리마다 최초 N개 클립만 시각화한다.
-    # 폴더는 score 가 아니라 카테고리 이름으로 나누고, 한 클립이 여러
-    # 카테고리를 받으면 해당 폴더 전부에 중복 저장한다.
+    # --viz-per-class N: 클래스마다 최초 N개 클립만 시각화한다.
+    # 폴더는 score 가 아니라 클래스 이름으로 나누고, 한 클립이 여러
+    # 클래스를 받으면 해당 폴더 전부에 중복 저장한다.
     viz_cat_counts = Counter()
     n_parse_fail = n_viz = n_edge = 0
     # 영상을 못 읽어 모델에 넣지 않은 클립. 파싱 실패와 따로 센다 - 둘은
@@ -529,7 +529,7 @@ def run_clip_inference(uuids, labels, category_menu,
                   f"  width {viz_width or 'original'}")
         else:
             print(f"[clip] viz -> {viz_path}/score_<N>/<uuid>/{{clip.mp4,result.json}}"
-                  + ("  (clips with >=1 category only)" if viz_only_edge
+                  + ("  (clips with >=1 class only)" if viz_only_edge
                      else "  (all clips)")
                   + f"  width {viz_width or 'original'}")
     t_start = time.time()
@@ -605,11 +605,11 @@ def run_clip_inference(uuids, labels, category_menu,
             behavior, ego = build_clip_ego_facts(uuid, use_egomotion)
 
             prompt = build_nureasoning_prompt(
-                category_menu, labels, behavior_facts=behavior,
+                class_menu, labels, behavior_facts=behavior,
                 intro=clip_intro(len(images), len(views), fps=fps,
                                  as_video=video_input),
                 timeline=timeline,
-                score_categories=score_categories,
+                score_classes=score_classes,
                 weather=weather,
                 weather_only=weather_only,
                 explain_traj=explain_traj,
@@ -632,14 +632,14 @@ def run_clip_inference(uuids, labels, category_menu,
             raw, margin = gen_out if want_margin else (gen_out, None)
             result = parse_nureasoning_output(raw, labels)
             # 장르를 댄 클립만 곡선을 만든다(관심 토큰이 장르 이름과 점수다).
-            if attn_out.get("rows") is not None and result["categories"]:
+            if attn_out.get("rows") is not None and result["classes"]:
                 from attn_timeline import (curves_for, save_npz, default_layers,
                                            spatial_maps)
                 rows_ = attn_out["rows"]
                 gk = {n: group_key(n) for n, _g in (score_fields(labels)
-                                                    if score_categories else [])}
+                                                    if score_classes else [])}
                 curves = curves_for(rows_, attn_out["gen_ids"],
-                                    processor.tokenizer, result["categories"], gk)
+                                    processor.tokenizer, result["classes"], gk)
                 curves["times"] = attn_out["times"]
                 curves["layers"] = default_layers(rows_.shape[1])
                 result["attn_curves"] = curves
@@ -648,7 +648,7 @@ def run_clip_inference(uuids, labels, category_menu,
                 # 정할 수 없을 때 쓴다.
                 spatial = None
                 if attn_out.get("spatial_rows") is not None:
-                    sets = {c: curves["tokens"][c] for c in result["categories"]
+                    sets = {c: curves["tokens"][c] for c in result["classes"]
                             if c in curves["tokens"]}
                     if len(sets) > 1:
                         sets["__all__"] = sorted({k for ks in sets.values()
@@ -662,19 +662,19 @@ def run_clip_inference(uuids, labels, category_menu,
                          sink=attn_out.get("sink"), spatial=spatial)
             if fu_state is not None:
                 # 장르를 하나도 대지 않았으면 물을 대상이 없다.
-                if result["categories"] and fu_state:
+                if result["classes"] and fu_state:
                     q = followup_time_spans_question(
-                        bool(score_categories and score_groups(labels)), labels)
+                        bool(score_classes and score_groups(labels)), labels)
                     ans = _continue_chat(model, processor, fu_state, q,
                                          max_new_tokens=NUR_FOLLOWUP_MAX_NEW_TOKENS)
                     (result["time_spans"], result["time_spans_raw"],
                      result["time_seen"]) = parse_time_spans_answer(
-                        ans, labels, set(result["categories"]))
+                        ans, labels, set(result["classes"]))
                     result["time_spans_answer"] = ans
                 fu_state.clear()
                 torch.cuda.empty_cache()
 
-            cats = result["categories"]
+            cats = result["classes"]
             cat_counts.update(cats)
             n_edge += bool(cats)
             n_parse_fail += not result["parse_ok"]
@@ -721,7 +721,7 @@ def run_clip_inference(uuids, labels, category_menu,
                 # 예전 방식으로 호출된 경우 - 기존 동작을 그대로 유지한다.
                 want_viz = is_special or not viz_only_edge
                 if want_viz and not_save_low and is_special:
-                    # 묶음 점수가 전부 1 이하면 모델이 "카테고리는 있지만 자차에
+                    # 묶음 점수가 전부 1 이하면 모델이 "클래스는 있지만 자차에
                     # 영향 없음"으로 본 것이다. 점수를 끈 실행에서는 tier_score
                     # 가 None 이라 이 조건이 성립하지 않아 필터가 저절로
                     # 무력화된다.
@@ -730,17 +730,17 @@ def run_clip_inference(uuids, labels, category_menu,
             else:
                 want_viz = (viz_special if is_special else viz_normal) or False
 
-            # 카테고리별 N개 모드는 special 클립만, 아직 정원이 안 찬
-            # 카테고리에 한해 만든다.
+            # 클래스별 N개 모드는 special 클립만, 아직 정원이 안 찬
+            # 클래스에 한해 만든다.
             targets = None
-            if viz_per_category:
+            if viz_per_class:
                 targets = [c for c in cats
-                           if viz_cat_counts[c] < viz_per_category]
+                           if viz_cat_counts[c] < viz_per_class]
                 want_viz = bool(targets)
 
             if viz_path and want_viz:
                 if targets is not None:
-                    # <viz_dir>/<Category>/<uuid>/ - 여러 카테고리면 전부에
+                    # <viz_dir>/<Class>/<uuid>/ - 여러 클래스면 전부에
                     # 같은 클립을 넣는다(중복 저장이 의도된 동작).
                     out_dirs = [viz_path / safe_dirname(c) / uuid
                                 for c in targets]
@@ -783,10 +783,10 @@ def run_clip_inference(uuids, labels, category_menu,
         print(f"[warn] 영상을 다 읽지 못해 추론하지 않은 클립: "
               f"프레임 없음 {n_no_frames} / 일부만 읽힘 {n_partial} - "
               f"CSV 에 n_frames=0 으로 남았고 --resume 으로 다시 돌릴 수 있다")
-    print(f"[clip] SPECIAL (>=1 category): {n_edge}/{n} ({100*n_edge/n:.1f}%)")
-    print(f"[clip] NORMAL   (no category)  : {n-n_edge}/{n} "
+    print(f"[clip] SPECIAL (>=1 class): {n_edge}/{n} ({100*n_edge/n:.1f}%)")
+    print(f"[clip] NORMAL   (no class)  : {n-n_edge}/{n} "
           f"({100*(n-n_edge)/n:.1f}%)")
-    print("[clip] categories:")
+    print("[clip] classes:")
     for c, v in cat_counts.most_common():
         print(f"   {c:32} {v:4d}  ({100*v/n:5.1f}%)")
     if viz_path:

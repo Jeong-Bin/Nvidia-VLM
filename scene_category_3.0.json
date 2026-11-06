@@ -22,7 +22,7 @@
     "scenarios": [
       {
         "name": "Normal driving scenario",
-        "categories": [
+        "classes": [
           {
             "name": "Normal Driving",
             "templates": [
@@ -77,7 +77,7 @@
     "scenarios": [
       {
         "name": "Dynamic object",
-        "categories": [
+        "classes": [
           {
             "name": "Emergency Vehicle",
             "templates": [
@@ -282,8 +282,8 @@
             ],
             "template_candidates": [],
             "excludes": [
-              "Tram or rail tracks with no tram vehicle on them - the tracks alone are not this category.",
-              "A full-size passenger or freight train on a railway line - this category is the tram vehicle that runs through the streets.",
+              "Tram or rail tracks with no tram vehicle on them - the tracks alone are not this class.",
+              "A full-size passenger or freight train on a railway line - this class is the tram vehicle that runs through the streets.",
               "A bus, including an articulated bus or a trolleybus running under overhead wires - it does not run on rails."
             ],
             "score_examples": [
@@ -313,14 +313,14 @@
             "template_candidates": [],
             "excludes": [
               "Anything that fits one of the types above - a pedestrian, cyclist, animal, emergency vehicle or tram - is that type, not this one.",
-              "Ordinary traffic - cars, buses, or trucks driving, turning, stopping or parking the way traffic normally does - is not this category, however busy it is."
+              "Ordinary traffic - cars, buses, or trucks driving, turning, stopping or parking the way traffic normally does - is not this class, however busy it is."
             ]
           }
         ]
       },
       {
         "name": "Driving environment",
-        "categories": [
+        "classes": [
           {
             "name": "Road Construction",
             "templates": [
@@ -417,7 +417,7 @@
               ""
             ],
             "excludes": [
-              "A barrier or gate where no rails are present - what makes this category is the tracks crossing the road, not the barrier. If you cannot see rails, it is not this category."
+              "A barrier or gate where no rails are present - what makes this class is the tracks crossing the road, not the barrier. If you cannot see rails, it is not this class."
             ],
             "recheck_keywords": [
               "railway",
@@ -443,7 +443,7 @@
               "A security checkpoint barrier blocks the way forward"
             ],
             "excludes": [
-              "A barrier arm at a railway crossing - when rails cross the road, that is the Railway crossing category."
+              "A barrier arm at a railway crossing - when rails cross the road, that is the Railway crossing class."
             ],
             "recheck_keywords": [
               "barrier arm",
@@ -506,8 +506,8 @@
               "rock"
             ],
             "excludes": [
-              "A barrier arm at a railway crossing, car park or toll plaza - a barrier arm is a control device that lifts to let traffic through, not an object left on the road. That is the Barrier arm category.",
-              "An object lying entirely outside the ego-vehicle's path - in another lane, on the verge or beyond the kerb - that the vehicle never has to drive over or around. Only an object in the ego-vehicle's path, or at the very edge of its lane, is this category.",
+              "A barrier arm at a railway crossing, car park or toll plaza - a barrier arm is a control device that lifts to let traffic through, not an object left on the road. That is the Barrier arm class.",
+              "An object lying entirely outside the ego-vehicle's path - in another lane, on the verge or beyond the kerb - that the vehicle never has to drive over or around. Only an object in the ego-vehicle's path, or at the very edge of its lane, is this class.",
               "A vehicle - moving, parked, or stopped in traffic ahead - is never an obstacle.",
               "Road markings such as a crosswalk or painted lines are not objects.",
               "Cat's eyes or road studs - the small reflectors set into the road surface along the lane lines - are part of the road, not objects on it."
@@ -531,8 +531,8 @@
             "template_candidates": [],
             "excludes": [
               "Anything that fits one of the types above - road works, a person controlling traffic, a railway crossing, a barrier arm, an unpaved road or an object on the road - is that type, not this one.",
-              "Ordinary road layout - junctions, roundabouts, lane merges, speed bumps, tunnels, bridges - is not this category.",
-              "Weather, darkness, glare or a wet or snowy road surface is not this category - those are rated separately."
+              "Ordinary road layout - junctions, roundabouts, lane merges, speed bumps, tunnels, bridges - is not this class.",
+              "Weather, darkness, glare or a wet or snowy road surface is not this class - those are rated separately."
             ]
           }
         ]

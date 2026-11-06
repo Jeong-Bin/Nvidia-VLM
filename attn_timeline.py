@@ -237,15 +237,15 @@ def _toks_in(spans, a: int, b: int) -> list[int]:
     return [k for k, (x, y) in enumerate(spans) if x < b and y > a and y > x]
 
 
-def curves_for(rows: np.ndarray, gen_ids, tokenizer, categories: list[str],
+def curves_for(rows: np.ndarray, gen_ids, tokenizer, classes: list[str],
                group_keys: dict[str, str], layers: list[int] | None = None,
                drop_first: bool | None = None) -> dict:
     """관심 토큰들의 시간 곡선(rel). 칸마다 하나, 뺀 칸은 None.
 
-    categories : 1차 답의 scenario_types 에서 이름을 댄 장르
+    classes : 1차 답의 scenario_types 에서 이름을 댄 장르
     group_keys : {"Dynamic object": "dynamic_object", ...} - JSON 키
     반환:
-      "categories": {장르: 곡선} - 시각화가 장르 줄에 그리는 것. 그 장르 이름을
+      "classes": {장르: 곡선} - 시각화가 장르 줄에 그리는 것. 그 장르 이름을
                     고른 토큰(scenario_types 안의 첫 토큰)과 점수 근거 문장 중
                     그 장르를 다룬 부분("Animal: ...")의 토큰을 합쳐 평균한다.
       "name":       {장르: 곡선} - 이름 토큰만
@@ -270,18 +270,18 @@ def curves_for(rows: np.ndarray, gen_ids, tokenizer, categories: list[str],
         r = (p[ks].mean(axis=0) / base).round(4).tolist()
         return [None] * first + r
 
-    out = {"categories": {}, "name": {}, "score": {}, "reason": {}, "tokens": {}}
+    out = {"classes": {}, "name": {}, "score": {}, "reason": {}, "tokens": {}}
     name_tok = {}
     m = re.search(r'"scenario_types"\s*:\s*\[(.*?)\]', text, re.DOTALL)
     if m:
         region_a, region = m.start(1), m.group(1)
-        for c in categories:
+        for c in classes:
             i = region.lower().find(c.lower())
             k = _tok_at(spans, region_a + i) if i >= 0 else None
             if k is not None:
                 name_tok[c] = k
                 out["name"][c] = rel([k])
-    seg_toks = {c: [] for c in categories}
+    seg_toks = {c: [] for c in classes}
     for g, key in group_keys.items():
         ms = re.search(r'"%s"\s*:\s*(\d)' % re.escape(key), text)
         if ms:
@@ -298,18 +298,18 @@ def curves_for(rows: np.ndarray, gen_ids, tokenizer, categories: list[str],
                 out["tokens"][f"{g} reason"] = ks
             # 근거 문장을 장르 이름이 나오는 자리에서 끊어 장르별로 나눈다.
             # 이름이 하나도 안 나오고 장르가 하나뿐이면 문장 전체가 그 장르 몫이다.
-            hits = sorted((rtext.lower().find(c.lower()), c) for c in categories
+            hits = sorted((rtext.lower().find(c.lower()), c) for c in classes
                           if rtext.lower().find(c.lower()) >= 0)
             if hits:
                 for (pos, c), nxt in zip(hits, hits[1:] + [(len(rtext), None)]):
                     seg_toks[c] += _toks_in(spans, ra + pos, ra + nxt[0])
-            elif len(categories) == 1 and ks:
-                seg_toks[categories[0]] += ks
-    for c in categories:
+            elif len(classes) == 1 and ks:
+                seg_toks[classes[0]] += ks
+    for c in classes:
         ks = ([name_tok[c]] if c in name_tok else []) + seg_toks[c]
         r = rel(ks)
         if r is not None:
-            out["categories"][c] = r
+            out["classes"][c] = r
             out["tokens"][c] = sorted(set(ks))
     return out
 

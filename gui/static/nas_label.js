@@ -13,7 +13,7 @@ const NL = {
   seq: 0, rows: [], offset: 0, limit: 100, total: 0, claims: {},
   cur: null,          // {uuid, rev, label, row, history, idx}
   form: null,         // 입력 중인 값
-  manual: {},         // 묶음 점수를 사람이 직접 바꿨나 (아니면 카테고리 최댓값을 따라간다)
+  manual: {},         // 묶음 점수를 사람이 직접 바꿨나 (아니면 클래스 최댓값을 따라간다)
   dirty: false, inited: false, booting: false,
   asg: null, asgVer: -1, myTotal: 0, myLeft: 0,   // 분배 현황
 };
@@ -393,7 +393,7 @@ function scaleMap(text) {
   return m;
 }
 function catRubric(c, g) {
-  const own = NL.schema.category_rubrics[c];
+  const own = NL.schema.class_rubrics[c];
   return own ? own.scale : (NL.schema.group_rubrics[g] || {}).scale || {};
 }
 function seg(key, vals, title) {
@@ -403,7 +403,7 @@ function seg(key, vals, title) {
 
 /* 고를 수 있는 점수는 기준표 눈금을 따른다(서버가 constrained_tier 에서 읽어 준다). */
 const groupVals = g => (NL.schema.group_values || {})[g] || [0, 1, 2, 3, 4];
-const catVals = c => (NL.schema.category_values || {})[c] || [1, 2, 3, 4];
+const catVals = c => (NL.schema.class_values || {})[c] || [1, 2, 3, 4];
 
 function buildForm() {
   const S = NL.schema;
@@ -428,7 +428,7 @@ function buildForm() {
       <div class="nl-rub wx" id="nl-wrub-${a}"></div>`;
   }).join('');
   $('#nl-form').innerHTML = `
-    <div class="nl-sub2">카테고리는 나온 것만 1~4로 고릅니다(−는 없음). 묶음 점수는 카테고리 최댓값이
+    <div class="nl-sub2">클래스는 나온 것만 1~4로 고릅니다(−는 없음). 묶음 점수는 클래스 최댓값이
       자동으로 들어가며, 직접 바꿀 수 있습니다. 버튼에 마우스를 올리면 기준표가 보입니다.</div>
     ${groups}
     <div class="nl-sec">비 / 눈 / 안개</div>
@@ -491,7 +491,7 @@ function fillForm(label) {
   if (!S) return;
   const L = label || {};
   NL.form = {
-    cats: { ...(L.categories || {}) },
+    cats: { ...(L.classes || {}) },
     groups: Object.fromEntries(Object.keys(S.groups).map(g => [g, L[g] ?? 0])),
     rsf: new Set(L.rain_snow_fog || []),
     weather: Object.fromEntries(S.weather_axes.map(a => [a, (L.weather || {})[a] ?? 0])),
@@ -500,10 +500,10 @@ function fillForm(label) {
   NL.manual = Object.fromEntries(Object.keys(S.groups).map(g => [g, NL.form.groups[g] !== groupMax(g)]));
   $('#nl-note').value = NL.form.note;
   NL.dirty = false;
-  // 옛 분류 체계에만 있는 카테고리는 화면에 칸이 없다 - 그대로 저장된다는 것만 알린다.
+  // 옛 분류 체계에만 있는 클래스는 화면에 칸이 없다 - 그대로 저장된다는 것만 알린다.
   const known = new Set(Object.values(S.groups).flat());
   const legacy = Object.keys(NL.form.cats).filter(c => !known.has(c));
-  if (legacy.length) toast('현재 분류 체계에 없는 카테고리(그대로 유지됨): ' + legacy.join(', '), 5000);
+  if (legacy.length) toast('현재 분류 체계에 없는 클래스(그대로 유지됨): ' + legacy.join(', '), 5000);
   renderForm();
 }
 
@@ -525,7 +525,7 @@ function renderForm() {
     el.className = 'nl-rub' + (f.groups[g] !== mx || !legal ? ' diff' : '');
     el.textContent = !legal
       ? `저장된 점수 ${f.groups[g]}점은 기준표에 없습니다. ${groupVals(g).join(', ')} 중에서 고르세요.`
-      : f.groups[g] !== mx ? `카테고리 최댓값(${mx})과 다르게 매겼습니다. ${txt}` : txt;
+      : f.groups[g] !== mx ? `클래스 최댓값(${mx})과 다르게 매겼습니다. ${txt}` : txt;
     el.title = txt;
   }
   S.weather_axes.forEach(a => {
@@ -548,7 +548,7 @@ function updateDirty() {
 }
 
 function collect() {
-  const f = NL.form, out = { categories: { ...f.cats } };
+  const f = NL.form, out = { classes: { ...f.cats } };
   Object.keys(NL.schema.groups).forEach(g => { out[g] = f.groups[g]; });
   out.rain_snow_fog = NL.schema.rain_snow_fog.filter(x => f.rsf.has(x));
   out.weather = { ...f.weather };
@@ -607,7 +607,7 @@ function fmtV(v) {
 }
 function fieldKo(f) {
   if (f.startsWith('weather.')) return '날씨·' + (AXIS_KO[f.slice(8)] || f.slice(8));
-  if (f.startsWith('categories.')) return f.slice(11);
+  if (f.startsWith('classes.')) return f.slice(11);
   if (f === 'rain_snow_fog') return '비/눈/안개';
   return f;
 }

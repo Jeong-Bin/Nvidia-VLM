@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
-"""놓친 카테고리를 후보만 골라 2차로 다시 묻는다 (recheck).
+"""놓친 클래스를 후보만 골라 2차로 다시 묻는다 (recheck).
 
 왜 필요한가:
   1차 추론에서 놓치는 클립의 대부분은 "1단계 장면 설명에는 적고 3단계 요소
   나열로 옮기지 못한" 경우다. 실측(20261012_165207, Dynamic object 만):
-  GT 에 동적 카테고리가 있는데 하나도 못 찾은 30개 중 18개가 장면 설명에
+  GT 에 동적 클래스가 있는데 하나도 못 찾은 30개 중 18개가 장면 설명에
   그 객체를 적어 두었다("…cyclists cross the intersection…" 인데 3단계 빈칸).
-  그렇다고 장면 설명에 키워드가 있으면 무조건 올리면, GT 에 동적 카테고리가
+  그렇다고 장면 설명에 키워드가 있으면 무조건 올리면, GT 에 동적 클래스가
   없는 225개 중 35개도 같은 키워드가 있어(그중 15개는 인도 위) 오탐이 더
   많이 생긴다. 그래서 키워드로는 "후보"만 고르고, 후보마다 영상과 함께 그
-  카테고리 하나만 짧게 다시 물어 확인한다.
+  클래스 하나만 짧게 다시 물어 확인한다.
 
 1차 프롬프트는 건드리지 않는다 - 지금까지 맞춰 온 탐지/점수 동작을 그대로
 두고, 이 단계의 효과만 따로 재기 위해서다.
 
 후보:
-  1차에서 카테고리를 하나도 못 찾은(Normal) 클립 중, 장면 설명/요소 나열에
-  어떤 카테고리의 recheck_keywords(scene_category.json)가 나온 클립.
-  카테고리 범위는 1차 실행과 같다(run_config 의 group, unknown_categories).
+  1차에서 클래스를 하나도 못 찾은(Normal) 클립 중, 장면 설명/요소 나열에
+  어떤 클래스의 recheck_keywords(scene_category.json)가 나온 클립.
+  클래스 범위는 1차 실행과 같다(run_config 의 group, unknown_classes).
 
-질문 하나에 카테고리 하나: 그 카테고리의 메뉴 항목(설명 + NOT 줄)만 보여 주고
-"이 클립에 이것으로 칠 요소가 있나"를 묻는다. 있으면 그 카테고리가 속한
-상위 카테고리 기준표(1~4)로 점수도 받는다 - 1차에서 그 상위 카테고리는
+질문 하나에 클래스 하나: 그 클래스의 메뉴 항목(설명 + NOT 줄)만 보여 주고
+"이 클립에 이것으로 칠 요소가 있나"를 묻는다. 있으면 그 클래스가 속한
+상위 클래스 기준표(1~4)로 점수도 받는다 - 1차에서 그 상위 클래스는
 0 이었으므로(아무것도 못 찾음) 이 점수로 채운다.
 
 쓰는 법 (GPU 필요):
@@ -42,6 +42,7 @@ import json
 import re
 import sys
 import time
+import config
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -53,17 +54,17 @@ csv.field_size_limit(10**9)
 
 
 # ---------------------------------------------------------------------------
-# 실행 설정 / 카테고리
+# 실행 설정 / 클래스
 # ---------------------------------------------------------------------------
 def load_run_config(run_dir: Path) -> dict:
     p = run_dir / "run_config.json"
     if not p.exists():
         raise SystemExit(f"[error] {p} 가 없습니다 - 1차 실행 설정을 알 수 없습니다")
-    return json.loads(p.read_text(encoding="utf-8"))
+    return config.read_run_config(p)
 
 
 def run_labels(cfg: dict):
-    """1차 실행과 같은 범위의 카테고리 목록(load_labels 결과)과 scene 경로."""
+    """1차 실행과 같은 범위의 클래스 목록(load_labels 결과)과 scene 경로."""
     import edge_case_mining as E
     from constrained_tier import group_key
     key = cfg.get("key", {})
@@ -71,7 +72,7 @@ def run_labels(cfg: dict):
     if not scene.is_absolute():
         scene = ROOT / scene
     labels = E.load_labels(scene)
-    if not key.get("unknown_categories"):
+    if not key.get("unknown_classes"):
         labels = [l for l in labels if not l.get("unknown")]
     group = key.get("group") or "all"
     if group != "all":
@@ -80,24 +81,25 @@ def run_labels(cfg: dict):
     # recheck_keywords 는 load_labels 가 싣지 않으므로 scene 에서 따로 읽는다.
     data = json.loads(scene.read_text(encoding="utf-8"))
     kw = {c["name"]: c.get("recheck_keywords", [])
-          for s in data["special"]["scenarios"] for c in s["categories"]}
+          for s in data["special"]["scenarios"] for c in s["classes"]}
     for l in labels:
-        l["recheck_keywords"] = kw.get(l["category"], [])
+        l["recheck_keywords"] = kw.get(l["class"], [])
     return labels, scene
 
 
 def read_rows(path: Path) -> tuple[list[str], list[dict]]:
     with open(path, newline="", encoding="utf-8") as f:
         r = csv.DictReader(f)
-        return list(r.fieldnames or []), list(r)
+        return ([config.OLD_NAMES.get(c, c) for c in r.fieldnames or []],
+                [config.new_names(x) for x in r])
 
 
 # ---------------------------------------------------------------------------
 # 후보
 # ---------------------------------------------------------------------------
 def find_candidates(rows: list[dict], labels: list) -> list[tuple[str, str]]:
-    """[(uuid, 카테고리)] - 1차에서 Normal 인데 서술에 키워드가 나온 것."""
-    pats = {l["category"]: [re.compile(k, re.I) for k in l["recheck_keywords"]]
+    """[(uuid, 클래스)] - 1차에서 Normal 인데 서술에 키워드가 나온 것."""
+    pats = {l["class"]: [re.compile(k, re.I) for k in l["recheck_keywords"]]
             for l in labels if not l["is_normal"] and l["recheck_keywords"]}
     out = []
     for r in rows:
@@ -106,7 +108,7 @@ def find_candidates(rows: list[dict], labels: list) -> list[tuple[str, str]]:
                 continue
         except ValueError:
             continue
-        if (r.get("categories") or "").strip():
+        if (r.get("classes") or "").strip():
             continue
         text = " ".join(r.get(k) or "" for k in
                         ("observation", "unusual_elements", "ego_behavior"))
@@ -121,10 +123,10 @@ def find_candidates(rows: list[dict], labels: list) -> list[tuple[str, str]]:
 # ---------------------------------------------------------------------------
 def build_question(intro: str, behavior: str, observation: str, lab: dict) -> str:
     import edge_case_mining as E
-    from constrained_tier import CATEGORY_RUBRICS, rubric_of, values_text
-    entry = E.build_category_menu([lab])
-    # 자기 기준표로 따로 재는 카테고리(Unpaved road)는 그 표로 묻는다.
-    group = (lab["category"] if lab["category"] in CATEGORY_RUBRICS
+    from constrained_tier import CLASS_RUBRICS, rubric_of, values_text
+    entry = E.build_class_menu([lab])
+    # 자기 기준표로 따로 재는 클래스(Unpaved road)는 그 표로 묻는다.
+    group = (lab["class"] if lab["class"] in CLASS_RUBRICS
              else lab["scenario"])
     title, rubric = rubric_of(group)
     scale = "\n".join(f"     {v} = {rubric[v]}" for v in sorted(rubric) if v >= 1)
@@ -139,7 +141,7 @@ Check ONE scenario type only:
 {entry}
 
 Does this clip contain an element that counts as this type? Decide only by the
-type's description and its "NOT this category" lines - never by whether the
+type's description and its "NOT this class" lines - never by whether the
 ego-vehicle reacted to it. If it counts, also score how much it made driving
 harder for the ego-vehicle ({group} - {title}):
 {scale}
@@ -170,7 +172,7 @@ def parse_answer(text: str) -> dict:
     except (TypeError, ValueError):
         n = 0
     # 있다고 했는데 점수가 0~4 밖이거나 0 이면 1 로 둔다 - 4단계 규칙과 같이
-    # "이름을 댄 상위 카테고리는 최소 1" 이다.
+    # "이름을 댄 상위 클래스는 최소 1" 이다.
     out["score"] = min(max(n, 1), 4) if out["present"] else 0
     out["reason"] = str(obj.get("reason") or "").strip()
     out["parse_ok"] = True
@@ -178,24 +180,24 @@ def parse_answer(text: str) -> dict:
 
 
 def _answers(run_dir: Path) -> dict:
-    """{(uuid, 카테고리): 답} - 모든 샤드 파일에서 읽는다. 같은 질문이 여럿이면
+    """{(uuid, 클래스): 답} - 모든 샤드 파일에서 읽는다. 같은 질문이 여럿이면
     나중 것을 쓴다(같은 프롬프트라 답도 같다)."""
     out = {}
     for p in sorted((run_dir / RECHECK_DIR).glob("recheck_shard_*.jsonl")):
         for line in p.read_text(encoding="utf-8").splitlines():
             try:
-                d = json.loads(line)
-                out[(d["uuid"], d["category"])] = d
+                d = config.new_names(json.loads(line))
+                out[(d["uuid"], d["class"])] = d
             except Exception:
                 pass
     return out
 
 
 def skip_reason(cfg: dict) -> str | None:
-    """2차 확인을 하지 않을 실행이면 그 이유. 날씨만 추론한 실행은 카테고리를
+    """2차 확인을 하지 않을 실행이면 그 이유. 날씨만 추론한 실행은 클래스를
     찾지 않았으므로 놓친 것을 다시 물을 대상이 없다."""
     if (cfg.get("key") or {}).get("difficulty_only"):
-        return "날씨만 추론한 실행(--weather-only)이라 카테고리가 없음"
+        return "날씨만 추론한 실행(--weather-only)이라 클래스가 없음"
     return None
 
 
@@ -208,7 +210,7 @@ def run_shard(run_dir: Path, num_shards: int, shard_id: int):
         return
     key, argv = cfg.get("key", {}), cfg.get("argv", {})
     labels, _ = run_labels(cfg)
-    by_name = {l["category"]: l for l in labels}
+    by_name = {l["class"]: l for l in labels}
     src = run_dir / (BACKUP_NAME if (run_dir / BACKUP_NAME).exists() else MERGED_NAME)
     _, rows = read_rows(src)
     rows_by_uuid = {r["uuid"]: r for r in rows}
@@ -257,7 +259,7 @@ def run_shard(run_dir: Path, num_shards: int, shard_id: int):
                               as_video=as_video, video_fps=fps,
                               thinking=(model_id in Q.THINKING_MODELS))
             ans = parse_answer(raw)
-            f.write(json.dumps({"uuid": uuid, "category": cat,
+            f.write(json.dumps({"uuid": uuid, "class": cat,
                                 "group": by_name[cat]["scenario"], **ans,
                                 "raw": raw}, ensure_ascii=False) + "\n")
             f.flush()
@@ -293,14 +295,14 @@ def apply(run_dir: Path, min_score: int = 2):
     macro 0.731 -> 0.760. 점수 단계가 없던 실행은 점수가 없으므로 이 조건을
     보지 않는다.
     """
-    from constrained_tier import CATEGORY_RUBRICS, tier_score
+    from constrained_tier import CLASS_RUBRICS, tier_score
     cfg0 = load_run_config(run_dir)
     if skip_reason(cfg0):
         print(f"[recheck] 반영 안 함: {skip_reason(cfg0)}")
         return
-    # 점수 단계가 없던 실행(옛 --no-tiers-elements)이면 카테고리만 추가하고
+    # 점수 단계가 없던 실행(옛 --no-tiers-elements)이면 클래스만 추가하고
     # 점수 칸은 건드리지 않는다 - 1차 결과에 없던 점수가 일부 클립에만 생긴다.
-    with_scores = bool((cfg0.get("key") or {}).get("score_categories", True))
+    with_scores = bool((cfg0.get("key") or {}).get("score_classes", True))
     merged, backup = run_dir / MERGED_NAME, run_dir / BACKUP_NAME
     if not backup.exists():
         if not merged.exists():
@@ -322,22 +324,22 @@ def apply(run_dir: Path, min_score: int = 2):
         hits = yes.get(r["uuid"])
         if not hits:
             continue
-        cats = [c for c in (r.get("categories") or "").split("|") if c]
+        cats = [c for c in (r.get("classes") or "").split("|") if c]
         scores = _parse_scores(r.get("group_scores", ""))
         fields = _parse_scores(r.get("field_scores", ""))
         reasons = [r.get("score_reason") or ""]
         for a in hits:
-            if a["category"] not in cats:
-                cats.append(a["category"])
+            if a["class"] not in cats:
+                cats.append(a["class"])
             if with_scores:
                 scores[a["group"]] = max(scores.get(a["group"], 0), a["score"])
-                # 칸별 점수도 같이 올린다 - 따로 재는 카테고리는 제 칸, 나머지는
+                # 칸별 점수도 같이 올린다 - 따로 재는 클래스는 제 칸, 나머지는
                 # 묶음 칸(build_question 이 같은 기준표로 점수를 물었다).
-                f = a["category"] if a["category"] in CATEGORY_RUBRICS else a["group"]
+                f = a["class"] if a["class"] in CLASS_RUBRICS else a["group"]
                 fields[f] = max(fields.get(f, 0), a["score"])
-            reasons.append(f"recheck {a['category']}: {a['reason']}")
-        r["categories"] = "|".join(cats)
-        r["n_categories"] = str(len(cats))
+            reasons.append(f"recheck {a['class']}: {a['reason']}")
+        r["classes"] = "|".join(cats)
+        r["n_classes"] = str(len(cats))
         r["verdict"] = "Special"
         if with_scores:
             r["group_scores"] = "|".join(f"{k}={v}" for k, v in scores.items())

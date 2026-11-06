@@ -38,14 +38,14 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --gpus 0,1,2             사용할 GPU 목록 (기본 0,1,2 - bf16 55.6GB 기준) [GPUS]
   --model ID               모델 (기본 Qwen/Qwen3.8-27B)                   [MODEL]
   --data SRC               프레임 소스 local|nas|경로 (기본 local)        [DATA]
-  --scene-json PATH        카테고리 정의 (기본: config.py 의 SCENE_JSON) [SCENE_JSON]
+  --scene-json PATH        클래스 정의 (기본: config.py 의 SCENE_JSON) [SCENE_JSON]
   --no-viz                 시각화 mp4 를 만들지 않는다                   [CLIP_VIZ=0]
   --viz-all                edge-case 가 아닌 클립까지 전부 시각화        [VIZ_ALL=1]
-  --viz-normal             Normal(카테고리 없음) 클립도 시각화           [VIZ_NORMAL=1]
-  --viz-special            Special(카테고리 있음) 클립을 시각화          [VIZ_SPECIAL=1]
+  --viz-normal             Normal(클래스 없음) 클립도 시각화           [VIZ_NORMAL=1]
+  --viz-special            Special(클래스 있음) 클립을 시각화          [VIZ_SPECIAL=1]
   --use-egomotion          egomotion 사실을 주입 (기본 off)              [USE_EGOMOTION=1]
   --traj center|width      자차 미래 궤적을 프레임에 그린다 (기본 off)   [TRAJ]
-  --unknown-categories    Unknown 카테고리(예상 못한 동적 객체/주행 환경)를
+  --unknown-classes    Unknown 클래스(예상 못한 동적 객체/주행 환경)를
                           메뉴에 넣는다 (기본 off, ablation 용)   [UNKNOWN_CATS=1]
   --time-spans [MODE]     장르마다 시간 구간별 위험도(0~4)를 받아 시각화 영상
                           재생 바 위에 점수별 색 띠로 그린다 (기본 off)
@@ -55,11 +55,11 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --attn-timeline         1차 생성 중 출력 토큰이 영상의 어느 시점을 봤는지
                           어텐션을 기록해 재생 바에 히트맵으로 그린다
                           (프롬프트/출력 그대로, 기본 off)   [ATTN_TIMELINE=1]
-  --group G               다룰 상위 카테고리: all(기본) / dynamic_object /
+  --group G               다룰 상위 클래스: all(기본) / dynamic_object /
                           driving_environment               [TARGET_GROUP]
   --weather                날씨 4축을 0~4 로 함께 매긴다               [WEATHER=1]
   --weather-only           날씨 4축만 추론한다 (탐지/점수 전부 off)    [WEATHER_ONLY=1]
-  --viz-per-category N     카테고리마다 최초 N개 클립만 시각화           [VIZ_PER_CAT]
+  --viz-per-class N     클래스마다 최초 N개 클립만 시각화           [VIZ_PER_CAT]
   --clip-fps F              초당 몇 장 뽑을지 (기본 edge_case_mining.py) [CLIP_FPS]
   --clip-max-frames N       클립당 최대 프레임                          [CLIP_MAX_FRAMES]
   --memo "TEXT"             이 실행이 무엇을 시험하는지 한 줄 메모       [MEMO]
@@ -97,14 +97,14 @@ while [ $# -gt 0 ]; do
     --weather-only|--difficulty-only)
                              WEATHER_ONLY=1 ;;
     --explain-traj)          EXPLAIN_TRAJ=1 ;;
-    --unknown-categories)   UNKNOWN_CATS=1 ;;
+    --unknown-classes)   UNKNOWN_CATS=1 ;;
     --attn-timeline)        ATTN_TIMELINE=1 ;;
     --time-spans=*)         TIME_SPANS="${1#*=}" ;;
     --time-spans)           case "${2:-}" in inline|followup) shift; TIME_SPANS="$1" ;; *) TIME_SPANS=inline ;; esac ;;
     --group=*)           TARGET_GROUP="${1#*=}" ;;
     --group)             shift; TARGET_GROUP="${1:-all}" ;;
-    --viz-per-category=*)  VIZ_PER_CAT="${1#*=}" ;;
-    --viz-per-category)    shift; VIZ_PER_CAT="${1:-}" ;;
+    --viz-per-class=*)  VIZ_PER_CAT="${1#*=}" ;;
+    --viz-per-class)    shift; VIZ_PER_CAT="${1:-}" ;;
     --traj=*)                TRAJ="${1#*=}" ;;
     --traj)                   shift; TRAJ="${1:-center}" ;;
     --clip-fps=*)            CLIP_FPS="${1#*=}" ;;
@@ -178,7 +178,7 @@ OPTS="--single-view --num-shards 1 --shard-id 0 --model $MODEL"
 [ "${WEATHER:-0}" = "1" ]         && OPTS="$OPTS --weather"
 [ "${WEATHER_ONLY:-0}" = "1" ]    && OPTS="$OPTS --weather-only"
 [ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
-[ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-categories"
+[ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-classes"
 [ "${ATTN_TIMELINE:-0}" = "1" ] && OPTS="$OPTS --attn-timeline"
 case "${TIME_SPANS:-0}" in
   0|"") ;;
@@ -187,9 +187,9 @@ case "${TIME_SPANS:-0}" in
   *) echo "[error] --time-spans: inline 또는 followup (받은 값: $TIME_SPANS)" >&2; exit 1 ;;
 esac
 [ -n "${TARGET_GROUP:-}" ] && [ "$TARGET_GROUP" != "all" ] && OPTS="$OPTS --group $TARGET_GROUP"
-[ -n "${VIZ_PER_CAT:-}" ]        && OPTS="$OPTS --viz-per-category $VIZ_PER_CAT"
+[ -n "${VIZ_PER_CAT:-}" ]        && OPTS="$OPTS --viz-per-class $VIZ_PER_CAT"
 [ -n "${TRAJ:-}" ]              && OPTS="$OPTS --traj $TRAJ"
-# --viz-per-category 는 그 자체가 "시각화하라"는 뜻이다 - 로컬 스크립트는
+# --viz-per-class 는 그 자체가 "시각화하라"는 뜻이다 - 로컬 스크립트는
 # 시각화가 기본 off 라, 이걸 안 켜주면 아무것도 저장되지 않는다.
 [ -n "${VIZ_PER_CAT:-}" ] && CLIP_VIZ=1
 [ "${CLIP_VIZ:-1}" = "1" ]      && OPTS="$OPTS --clip-viz"

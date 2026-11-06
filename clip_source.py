@@ -34,6 +34,7 @@ PROFILE_DEFAULTS = {
     "source_fps": 30.0,                   # mp4 의 프레임 속도. 샘플 간격을 정한다
     "camera_text": "front-wide",          # 프롬프트가 모델에게 말하는 카메라
     "egomotion": True,                    # egomotion 라벨이 있는가
+    "ego_file": None,                     # 2Hz 자차 시계열. 없으면 100Hz 라벨을 읽는다
     "trajectory": True,                   # 궤적을 그릴 캘리브레이션이 있는가
 }
 BUILD_WAIT_S = 900      # 남이 만드는 인덱스를 기다릴 최대 시간
@@ -66,8 +67,9 @@ def dataset_profiles() -> dict:
     out = {}
     for d in cfg.get("datasets", []):
         prof = {**PROFILE_DEFAULTS, **d}
-        prof["camera_dir"] = str(resolve_nas_path(d["nas_path"], cfg.get("mounts", {}))
-                                 / "camera")
+        root = resolve_nas_path(d["nas_path"], cfg.get("mounts", {}))
+        prof["camera_dir"] = str(root / "camera")
+        prof["ego_path"] = str(root / prof["ego_file"]) if prof["ego_file"] else None
         out[d["id"]] = prof
     return out
 

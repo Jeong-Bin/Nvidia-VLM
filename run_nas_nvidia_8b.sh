@@ -18,7 +18,7 @@
 # 결과: results/<YYYYMMDD_HHMMSS>_video8b/
 #   clip_results_shard_N.csv   샤드별 결과
 #   clip_results_all.csv       병합본 (aggregate_clip.py 가 생성)
-#   aggregate_clip.log         카테고리 + 등급 분포 집계
+#   aggregate_clip.log         클래스 + 등급 분포 집계
 #   viz/<uuid>/{clip.mp4,result.json}   edge-case 클립 시각화
 #   run_shard_N.log            샤드별 원본 로그
 set -u
@@ -80,12 +80,12 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
                          n_frames=0 으로 남은 클립은 다시 돌린다. 그 옛 실패
                          행은 샤드를 띄우기 전에 DIR/resume_backup_<시각>/ 에
                          백업한 뒤 지운다. 원래 실행과 같은 옵션을 줘야 한다 -
-                         모델/카테고리/프롬프트/fps 등이 다르면 거부한다.
-  --scene-json PATH      카테고리 정의 (기본: config.py 의 SCENE_JSON)  [SCENE_JSON]
+                         모델/클래스/프롬프트/fps 등이 다르면 거부한다.
+  --scene-json PATH      클래스 정의 (기본: config.py 의 SCENE_JSON)  [SCENE_JSON]
   --no-viz               시각화 mp4 를 만들지 않는다                    [CLIP_VIZ=0]
   --viz-all              edge-case 가 아닌 클립까지 전부 시각화         [VIZ_ALL=1]
-  --viz-normal           Normal(카테고리 없음) 클립도 시각화            [VIZ_NORMAL=1]
-  --viz-special          Special(카테고리 있음) 클립을 시각화           [VIZ_SPECIAL=1]
+  --viz-normal           Normal(클래스 없음) 클립도 시각화            [VIZ_NORMAL=1]
+  --viz-special          Special(클래스 있음) 클립을 시각화           [VIZ_SPECIAL=1]
   --viz-width N          시각화 영상 폭 (기본 1280, 0=원본)            [VIZ_WIDTH]
   --save-low             Safety/Rarity 가 둘 다 Low 인 클립도 시각화     [NOT_SAVE_LOW=0]
   --timeline             1단계를 시간순 서술로 (기본 off)            [TIMELINE=1]
@@ -95,7 +95,7 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --attn-timeline         1차 생성 중 모델이 영상의 어디를 봤는지 어텐션을
                           기록해 시각화에 히트맵으로 그린다
                           (프롬프트/출력 그대로, 기본 off)   [ATTN_TIMELINE=1]
-  --unknown-categories    Unknown 카테고리(예상 못한 동적 객체/주행 환경)를
+  --unknown-classes    Unknown 클래스(예상 못한 동적 객체/주행 환경)를
                           메뉴에 넣는다 (기본 off, ablation 용)   [UNKNOWN_CATS=1]
   --time-spans [MODE]     장르마다 시간 구간별 위험도(0~4)를 받아 시각화 영상
                           재생 바 위에 점수별 색 띠로 그린다 (기본 off)
@@ -105,7 +105,7 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --attn-timeline         1차 생성 중 출력 토큰이 영상의 어느 시점을 봤는지
                           어텐션을 기록해 재생 바에 히트맵으로 그린다
                           (프롬프트/출력 그대로, 기본 off)   [ATTN_TIMELINE=1]
-  --group G               다룰 상위 카테고리: all(기본) / dynamic_object /
+  --group G               다룰 상위 클래스: all(기본) / dynamic_object /
                           driving_environment               [TARGET_GROUP]
   --weather              날씨 4축(조도/강수/노면/대기가림)을
                          0~4 로 함께 매긴다. 시각화 패널과
@@ -113,8 +113,8 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --weather-only         날씨 4축만 추론한다. edge-case 탐지와 점수를
                          모두 빼고 프롬프트를 날씨 전용으로 바꾼다
                          (--weather 를 자동으로 켠다)         [WEATHER_ONLY=1]
-  --viz-per-category N   카테고리마다 최초 N개 클립만 시각화한다. 폴더를
-                         score 대신 카테고리 이름으로 나눈다      [VIZ_PER_CAT]
+  --viz-per-class N   클래스마다 최초 N개 클립만 시각화한다. 폴더를
+                         score 대신 클래스 이름으로 나눈다      [VIZ_PER_CAT]
   --no-video-input       프레임을 비디오가 아니라 낱장으로 넘긴다       [VIDEO_INPUT=0]
   --clip-fps F           초당 몇 장 뽑을지 (기본 1.0)                   [CLIP_FPS]
   --clip-max-frames N    클립당 최대 프레임 (기본 20)                   [CLIP_MAX_FRAMES]
@@ -163,15 +163,15 @@ while [ $# -gt 0 ]; do
     --weather-only|--difficulty-only)
                          WEATHER_ONLY=1 ;;
     --explain-traj)      EXPLAIN_TRAJ=1 ;;
-    --unknown-categories) UNKNOWN_CATS=1 ;;
+    --unknown-classes) UNKNOWN_CATS=1 ;;
     --attn-timeline)      ATTN_TIMELINE=1 ;;
     --attn-timeline)      ATTN_TIMELINE=1 ;;
     --time-spans=*)       TIME_SPANS="${1#*=}" ;;
     --time-spans)         case "${2:-}" in inline|followup) shift; TIME_SPANS="$1" ;; *) TIME_SPANS=inline ;; esac ;;
     --group=*)           TARGET_GROUP="${1#*=}" ;;
     --group)             shift; TARGET_GROUP="${1:-all}" ;;
-    --viz-per-category=*) VIZ_PER_CAT="${1#*=}" ;;
-    --viz-per-category)  shift; VIZ_PER_CAT="${1:-}" ;;
+    --viz-per-class=*) VIZ_PER_CAT="${1#*=}" ;;
+    --viz-per-class)  shift; VIZ_PER_CAT="${1:-}" ;;
     --no-egomotion)      USE_EGOMOTION=0 ;;   # 옛 이름 - 이제 기본이 off 라 무의미하지만 받아준다
     --no-video-input)    VIDEO_INPUT=0 ;;
     --clip-fps=*)        CLIP_FPS="${1#*=}" ;;
@@ -244,7 +244,7 @@ OPTS="--single-view --data $DATA"
 [ "${WEATHER:-0}" = "1" ]         && OPTS="$OPTS --weather"
 [ "${WEATHER_ONLY:-0}" = "1" ]    && OPTS="$OPTS --weather-only"
 [ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
-[ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-categories"
+[ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-classes"
 [ "${ATTN_TIMELINE:-0}" = "1" ] && OPTS="$OPTS --attn-timeline"
 [ "${ATTN_TIMELINE:-0}" = "1" ] && OPTS="$OPTS --attn-timeline"
 case "${TIME_SPANS:-0}" in
@@ -254,9 +254,9 @@ case "${TIME_SPANS:-0}" in
   *) echo "[error] --time-spans: inline 또는 followup (받은 값: $TIME_SPANS)" >&2; exit 1 ;;
 esac
 [ -n "${TARGET_GROUP:-}" ] && [ "$TARGET_GROUP" != "all" ] && OPTS="$OPTS --group $TARGET_GROUP"
-[ -n "${VIZ_PER_CAT:-}" ]        && OPTS="$OPTS --viz-per-category $VIZ_PER_CAT"
+[ -n "${VIZ_PER_CAT:-}" ]        && OPTS="$OPTS --viz-per-class $VIZ_PER_CAT"
 [ "${VIDEO_INPUT:-1}" = "0" ]   && OPTS="$OPTS --clip-no-video-input"
-# --viz-per-category 는 그 자체가 "시각화하라"는 뜻이다 - 로컬 스크립트는
+# --viz-per-class 는 그 자체가 "시각화하라"는 뜻이다 - 로컬 스크립트는
 # 시각화가 기본 off 라, 이걸 안 켜주면 아무것도 저장되지 않는다.
 [ -n "${VIZ_PER_CAT:-}" ] && CLIP_VIZ=1
 [ "${CLIP_VIZ:-1}" = "1" ]      && OPTS="$OPTS --clip-viz"
@@ -310,7 +310,7 @@ fi
   [ -n "$RESUME_FLAG" ] && echo "[info] resume      : $(date '+%Y-%m-%d %H:%M:%S') 이어받기"
   echo "[info] data        : $DATA  (no ground-truth labels - 분포만 집계한다)"
   echo "[info] clips       : $TOTAL_CLIPS  ($NSHARDS shards, GPU 0-$((NSHARDS-1)))"
-  echo "[info] categories  : ${SCENE_JSON:-$("$PYBIN" -c 'import config; print(config.SCENE_JSON.name)') (config.py)}"
+  echo "[info] classes  : ${SCENE_JSON:-$("$PYBIN" -c 'import config; print(config.SCENE_JSON.name)') (config.py)}"
   echo "[info] python      : $PYBIN"
   echo "[info] input       : clip mode, front-wide only, video input=${VIDEO_INPUT:-1}"
   echo "[info] egomotion   : ${USE_EGOMOTION:-0} (1=on, 0=off)"
@@ -370,7 +370,7 @@ except Exception:
 
   # 결과 분포 집계 -> <run-dir>/aggregate_clip.log
   #   - Normal / Special 개수와 비율
-  #   - 카테고리별 개수, 전체 대비 비율, special 대비 비율
+  #   - 클래스별 개수, 전체 대비 비율, special 대비 비율
   #   - safety/rarity 등급별 개수/비율과 평균/분산/중앙값
   # 라벨이 없으니 evaluate_labels.py 는 돌리지 않는다 - 대조할 정답이 없다.
   "$PYBIN" -u aggregate_clip.py --run-dir "$RUN_DIR"

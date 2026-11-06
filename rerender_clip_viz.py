@@ -6,7 +6,7 @@ CSV(1차 결과)와 <run>/attn/*.npz(--attn-timeline 기록)만으로 영상 + r
 바꾼 뒤 이미 끝난 실행에 적용할 때 쓴다.
 
 어느 클립을 그리나: 실행 때와 같은 규칙을 따른다(run_config.json 의 설정).
-  --viz-per-category N 이었으면 장르마다 N개 - viz/<장르>/<uuid>/
+  --viz-per-class N 이었으면 장르마다 N개 - viz/<장르>/<uuid>/
     이 정원은 샤드(GPU)마다 따로 센다. 실행 때 샤드 k 가 eval_uuids.txt 순서의
     k, k+n, k+2n... 번째 클립을 맡아 제 몫의 정원을 채웠으므로, 같은 순서와
     같은 샤드 나누기로 다시 세야 원래와 같은 클립이 나온다.
@@ -36,6 +36,7 @@ from pathlib import Path
 import numpy as np
 
 import edge_case_mining as E
+import config
 import visualize_clip as V
 from attn_timeline import curves_for, default_layers, load_spatial
 from constrained_tier import group_key, score_fields, score_dirname
@@ -53,7 +54,7 @@ def _int(v):
 
 def row_to_result(r: dict) -> dict:
     """CSV 한 행 -> render_clip_result 가 받는 result dict."""
-    cats = [c for c in (r.get("categories") or "").split("|") if c]
+    cats = [c for c in (r.get("classes") or "").split("|") if c]
     gs = {}
     for part in (r.get("group_scores") or "").split("|"):
         k, _, v = part.rpartition("=")
@@ -61,7 +62,7 @@ def row_to_result(r: dict) -> dict:
             gs[k] = _int(v)
     res = {
         "verdict": r.get("verdict") or ("Special" if cats else "Normal"),
-        "categories": cats,
+        "classes": cats,
         "parse_ok": r.get("parse_ok") == "1",
         "observation": r.get("observation", ""),
         "ego_behavior": r.get("ego_behavior", ""),
@@ -97,14 +98,15 @@ def main():
     args = ap.parse_args()
 
     run = Path(args.run_dir)
-    cfg = json.loads((run / "run_config.json").read_text(encoding="utf-8"))
+    cfg = config.read_run_config(run / "run_config.json")
     argv = cfg.get("argv", {})
     key = cfg.get("key", {})
 
     csv_path = run / "before_recheck_clip_results_all.csv"
     if args.final or not csv_path.exists():
         csv_path = run / "clip_results_all.csv"
-    rows = list(csv.DictReader(open(csv_path, newline="", encoding="utf-8")))
+    rows = [config.new_names(r) for r in
+            csv.DictReader(open(csv_path, newline="", encoding="utf-8"))]
     print(f"[info] csv  : {csv_path.name} ({len(rows)} clips)")
 
     scene = Path(key.get("scene_json") or argv.get("scene_json") or E.SCENE_JSON)
@@ -126,7 +128,7 @@ def main():
         from transformers import AutoTokenizer
         tok = AutoTokenizer.from_pretrained(key.get("model") or argv.get("model"))
 
-    per_cat = argv.get("viz_per_category")
+    per_cat = argv.get("viz_per_class")
     # 데이터셋 id 로 돈 실행은 그 데이터셋의 소스와 뷰로 다시 그린다.
     from clip_source import dataset_profile
     if dataset_profile(argv.get("data")):
@@ -152,7 +154,7 @@ def main():
         if _int(r.get("n_frames")) in (None, 0):
             continue
         res = row_to_result(r)
-        cats = res["categories"]
+        cats = res["classes"]
         if not cats:
             continue
         if per_cat:

@@ -5,18 +5,18 @@
 
 목표 지표 (이 셋으로 파이프라인의 좋고 나쁨을 판단한다):
 
-  1) VERDICT     Normal/Special 이진 판정. categories 가 비었는가로 파생되며,
-                 파이프라인의 판정 규칙과 정확히 같다. All(카테고리 전체)과
+  1) VERDICT     Normal/Special 이진 판정. classes 가 비었는가로 파생되며,
+                 파이프라인의 판정 규칙과 정확히 같다. All(클래스 전체)과
                  묶음(Dynamic object / Driving environment)별로 따로 낸다.
-  2) CATEGORIES  멀티라벨 F1. "정답 n개 중 m개" (m/n) 를 쓰지 않는 이유는
+  2) CLASSES  멀티라벨 F1. "정답 n개 중 m개" (m/n) 를 쓰지 않는 이유는
                  그 식의 분모가 정답 쪽이라 오탐에 벌점이 없기 때문이다 -
                  정답이 [Jaywalking] 인데 모델이 4개를 다 찍어도 1.0 이 되어,
                  "전부 찍기"가 최적 전략이 되어버린다. F1 은 precision 을
                  함께 보므로 그 문제가 없다.
   3) SCORES      묶음(Dynamic object / Driving environment)마다 클립당
-                 0~4 점수 하나. 0 은 "그 묶음의 특수 카테고리 없음"이라
+                 0~4 점수 하나. 0 은 "그 묶음의 특수 클래스 없음"이라
                  Normal 클립도 채점에 들어간다. 묶음마다 표를 따로 내고,
-                 묶음 점수와 카테고리 목록이 어긋난 건수도 센다.
+                 묶음 점수와 클래스 목록이 어긋난 건수도 센다.
   5) WEATHER     날씨 4축(조도/강수/노면/대기가림). 목표 지표와
                  같은 방식으로 채점한다. 등급과 달리 edge-case 여부와 무관한
                  축이라(평범한 클립도 비가 오면 높다) SPECIAL 만 따로 내지
@@ -42,8 +42,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from config import SCENE_JSON as CONFIG_SCENE_JSON, LABELS_JSON
-from constrained_tier import (TIER_VALUES, GROUP_RUBRICS, CATEGORY_RUBRICS,
+from config import (OLD_NAMES, SCENE_JSON as CONFIG_SCENE_JSON, LABELS_JSON,
+                    read_run_config)
+from constrained_tier import (TIER_VALUES, GROUP_RUBRICS, CLASS_RUBRICS,
                               group_values, group_key, counted_score)
 from prompts import WEATHER_AXES, WEATHER_MIN, WEATHER_MAX
 
@@ -58,9 +59,9 @@ DEFAULT_LABELS = LABELS_JSON
 
 
 def load_labels(path: Path):
-    """정답 라벨 -> {uuid: {categories, scores, note, <날씨 4축>}}.
+    """정답 라벨 -> {uuid: {classes, scores, note, <날씨 4축>}}.
 
-    categories 는 그 클립에 나온 특수 카테고리 이름 리스트다. 옛 라벨의
+    classes 는 그 클립에 나온 특수 클래스 이름 리스트다. 옛 라벨의
     {이름: 점수} 딕셔너리도 받되 이름만 쓴다.
 
     scores 는 묶음 점수 {묶음 이름: 0~4} - 라벨 최상위의 "Dynamic object",
@@ -79,7 +80,7 @@ def load_labels(path: Path):
     for uuid, v in clips.items():
         if not isinstance(v, dict):
             continue
-        raw = v.get("categories")
+        raw = v.get("classes")
         if raw is None:
             skipped.append(uuid)
             continue
@@ -93,9 +94,9 @@ def load_labels(path: Path):
                 continue
             scores[g] = n
         rec = {
-            "categories": set(raw),
+            "classes": set(raw),
             "scores": scores,
-            # 카테고리별 점수 {이름: 0~4}. 3) 에서 Driving environment 를
+            # 클래스별 점수 {이름: 0~4}. 3) 에서 Driving environment 를
             # Others / Unpaved road 로 나눌 때 쓴다. 옛 리스트 형식이면 None.
             "cat_scores": ({c: n for c, n in ((c, _int_or_none(x))
                                               for c, x in raw.items())
@@ -115,27 +116,27 @@ def load_labels(path: Path):
 
 
 def restrict_to_group(labels: dict, run_cfg: dict, scene_path: Path):
-    """실행이 상위 카테고리 하나만 다뤘으면(--group) GT 를 그 범위로 줄인다.
+    """실행이 상위 클래스 하나만 다뤘으면(--group) GT 를 그 범위로 줄인다.
 
     Dynamic object 만 찾은 실행을 GT 전체로 채점하면, 그 실행이 애초에 찾을
-    수 없던 Driving environment 카테고리가 전부 놓침이 되고, 환경 카테고리만
+    수 없던 Driving environment 클래스가 전부 놓침이 되고, 환경 클래스만
     있는 클립은 Special 인데 Normal 로 판정한 것으로 세진다. 그래서 GT 의
-    카테고리와 묶음 점수를 실행이 다룬 상위 카테고리로 줄인다(labels 를 바로
-    고친다). 반환: (group, 뺀 카테고리 수, 그 결과 Normal 이 된 클립 수).
+    클래스와 묶음 점수를 실행이 다룬 상위 클래스로 줄인다(labels 를 바로
+    고친다). 반환: (group, 뺀 클래스 수, 그 결과 Normal 이 된 클립 수).
     """
     group = (((run_cfg or {}).get("key") or {}).get("group")) or "all"
     if group == "all" or not Path(scene_path).exists():
         return group, 0, 0
     scene = json.loads(Path(scene_path).read_text(encoding="utf-8"))
     keep = {c["name"] for s in scene["special"]["scenarios"]
-            if group_key(s["name"]) == group for c in s["categories"]}
+            if group_key(s["name"]) == group for c in s["classes"]}
     n_drop = n_normal = 0
     for rec in labels.values():
-        drop = rec["categories"] - keep
+        drop = rec["classes"] - keep
         if drop:
             n_drop += len(drop)
-            rec["categories"] = rec["categories"] & keep
-            if not rec["categories"]:
+            rec["classes"] = rec["classes"] & keep
+            if not rec["classes"]:
                 n_normal += 1
         rec["scores"] = {g: v for g, v in rec["scores"].items()
                          if group_key(g) == group}
@@ -143,45 +144,45 @@ def restrict_to_group(labels: dict, run_cfg: dict, scene_path: Path):
 
 
 def drop_unknown(labels: dict, results: dict, scene_path: Path) -> dict:
-    """Unknown 카테고리("unknown": true)를 1)~3) 집계에서 뺀다.
+    """Unknown 클래스("unknown": true)를 1)~3) 집계에서 뺀다.
 
     Unknown 은 예상 못한 새 종류를 건지려는 칸이라 GT 에 거의 없다
     (test_label_333_diff2: 0건). 그러면 예측은 전부 FP 가 되는데, 그게
     틀린 건지 GT 가 안 매긴 건지 구분할 수 없다. 그리고 Dynamic object 만
     돌린 실행에서는 메뉴에 없는 공사/비포장/건널목이 Unknown 으로 쏠려
     판정 FP 를 크게 부풀렸다(20261013_113147: Unknown 만 붙은 FP 클립 30개).
-    그래서 GT 와 예측 양쪽의 카테고리 목록에서 지운다(labels/results 를
+    그래서 GT 와 예측 양쪽의 클래스 목록에서 지운다(labels/results 를
     바로 고친다).
 
-    지운 뒤 그 상위 카테고리의 카테고리가 하나도 안 남으면 그 점수는
-    0 으로 바꾼다 - "그 묶음 없음 = 0" 규칙과 맞추기 위해서. 다른 카테고리가
+    지운 뒤 그 상위 클래스의 클래스가 하나도 안 남으면 그 점수는
+    0 으로 바꾼다 - "그 묶음 없음 = 0" 규칙과 맞추기 위해서. 다른 클래스가
     남으면 점수는 그대로 둔다(어느 요소가 점수를 정했는지는 근거 문장에만
     있어 기계적으로 가를 수 없다).
 
     반환: {Unknown 이름: {"gt": set(uuid), "pred": set(uuid)}} - 지우기 전
-    목록. 2) 표에 n 만 싣고 categories/ 목록 파일을 쓰는 데 쓴다.
+    목록. 2) 표에 n 만 싣고 classes/ 목록 파일을 쓰는 데 쓴다.
     """
     if not Path(scene_path).exists():
         return {}
     scene = json.loads(Path(scene_path).read_text(encoding="utf-8"))
     scenario_of = {c["name"]: s["name"] for s in scene["special"]["scenarios"]
-                   for c in s["categories"]}
+                   for c in s["classes"]}
     unk = {c["name"] for s in scene["special"]["scenarios"]
-           for c in s["categories"] if c.get("unknown")}
+           for c in s["classes"] if c.get("unknown")}
     info = {c: {"gt": set(), "pred": set()} for c in sorted(unk)}
     for tag, src in (("gt", labels), ("pred", results)):
         for u, rec in src.items():
-            hit = rec["categories"] & unk
+            hit = rec["classes"] & unk
             if not hit:
                 continue
             for c in hit:
                 info[c][tag].add(u)
-            rest = rec["categories"] - unk
+            rest = rec["classes"] - unk
             for g in {scenario_of[c] for c in hit}:
                 if g in rec["scores"] and not any(
                         scenario_of.get(x) == g for x in rest):
                     rec["scores"][g] = 0
-            rec["categories"] = rest
+            rec["classes"] = rest
     return info
 
 
@@ -195,20 +196,21 @@ def _weather_of(v: dict) -> dict:
 
 
 def load_results(run_dir: Path):
-    """모델 결과 CSV(샤드 병합) -> {uuid: {categories, scores, <날씨>}}.
+    """모델 결과 CSV(샤드 병합) -> {uuid: {classes, scores, <날씨>}}.
 
     group_scores 열은 "Dynamic object=2|Driving environment=0" 형태다.
-    점수를 끈 실행이나 묶음 점수 이전(카테고리별 점수) 실행에는 이 열이
+    점수를 끈 실행이나 묶음 점수 이전(클래스별 점수) 실행에는 이 열이
     없거나 비어 있어 scores 가 비고, 그러면 3) 섹션이 통째로 빠진다.
     """
     files = sorted(glob.glob(str(run_dir / "clip_results*.csv")))
     if not files:
         return {}
-    df = pd.concat([pd.read_csv(f) for f in files], ignore_index=True)
+    df = pd.concat([pd.read_csv(f).rename(columns=OLD_NAMES) for f in files],
+                   ignore_index=True)
     df = df.drop_duplicates(subset="uuid", keep="first")
     out = {}
     for _, r in df.iterrows():
-        cats = r.get("categories")
+        cats = r.get("classes")
         cats = set(str(cats).split("|")) if isinstance(cats, str) and cats.strip() else set()
         scores = _parse_eq(r.get("group_scores"))
         # 합치기 전 칸별 점수. 이 열이 생기기 전 실행이면 None 이고,
@@ -216,15 +218,15 @@ def load_results(run_dir: Path):
         fields = (_parse_eq(r.get("field_scores"))
                   if "field_scores" in df.columns else None)
         if fields:
-            # 따로 재는 카테고리 칸은 그 카테고리를 이름 댔을 때만 센다
+            # 따로 재는 클래스 칸은 그 클래스를 이름 댔을 때만 센다
             # (counted_score). 파서도 같은 규칙으로 묶음 점수를 내지만, 규칙이
             # 생기기 전 실행(20261103_142530 등)도 같은 기준으로 채점하도록
             # 칸별 점수에서 묶음 점수를 다시 낸다.
             fields = {k: counted_score(k, v, cats) for k, v in fields.items()}
-            for c, (g, _t, _r) in CATEGORY_RUBRICS.items():
+            for c, (g, _t, _r) in CLASS_RUBRICS.items():
                 if c in fields and g in scores:
                     scores[g] = max(fields.get(g, 0), fields[c])
-        rec = {"categories": cats, "scores": scores,
+        rec = {"classes": cats, "scores": scores,
                "fields": fields,
                "score_reason": (r.get("score_reason")
                                 if isinstance(r.get("score_reason"), str) else "")}
@@ -236,35 +238,35 @@ def load_results(run_dir: Path):
 
 
 def split_scores(g, own, rec, scenario_of, dropped=False, gt=False):
-    """묶음 g 의 점수를 Others 와 따로 재는 카테고리(own)별로 나눈다.
+    """묶음 g 의 점수를 Others 와 따로 재는 클래스(own)별로 나눈다.
 
     반환 {"Others": n, <own 이름>: n} - 나눌 수 없는 칸은 None(채점 제외).
     묶음 점수(All)는 Others 와 own 칸의 최댓값이다.
 
-    GT: 카테고리별 점수에서 바로 - Others 는 own 이 아닌 g 카테고리 점수의
-    최댓값, own 칸은 그 카테고리 점수(없으면 0). Unknown 은 drop_unknown 이
-    이미 categories 에서 지웠으므로 여기에도 들어오지 않는다.
+    GT: 클래스별 점수에서 바로 - Others 는 own 이 아닌 g 클래스 점수의
+    최댓값, own 칸은 그 클래스 점수(없으면 0). Unknown 은 drop_unknown 이
+    이미 classes 에서 지웠으므로 여기에도 들어오지 않는다.
 
     예측: CSV 의 field_scores(합치기 전 칸별 점수)에서. 그 열이 없던 실행은
     score_reason 의 "Unpaved road=N:" 로 own 칸을 되살리고, Others 는 묶음
     점수 M 이 own 칸보다 클 때만 M 으로 확정한다. own 칸이 M 과 같으면
-    Others 는 M 이하 어느 값인지 알 수 없어 None 이다. recheck 가 g 카테고리를
+    Others 는 M 이하 어느 값인지 알 수 없어 None 이다. recheck 가 g 클래스를
     더한 클립도 그 점수가 어느 칸 것인지 남지 않아 None 이다.
     dropped: 이 클립에서 g 의 Unknown 을 지웠으면 True - 그 뒤 own 이 아닌
-    g 카테고리가 하나도 안 남으면 Others 를 0 으로 둔다(GT 와 같은 기준).
+    g 클래스가 하나도 안 남으면 Others 를 0 으로 둔다(GT 와 같은 기준).
     """
     import re
     if g not in rec["scores"]:
         return None
     m = rec["scores"][g]
-    rest = [c for c in rec["categories"]
+    rest = [c for c in rec["classes"]
             if scenario_of.get(c) == g and c not in own]
     if gt:
         cs = rec.get("cat_scores")
         if cs is None:
             return None
         out = {"Others": max((cs.get(c, 0) for c in rest), default=0)}
-        out.update({c: cs.get(c, 0) if c in rec["categories"] else 0
+        out.update({c: cs.get(c, 0) if c in rec["classes"] else 0
                     for c in own})
         return out
     if m == 0:
@@ -342,7 +344,7 @@ def confusion(pairs, values=None, rows=None, within=False):
     성능이 갈라져 보인다. 행 합계가 0 이면(그 등급의 정답이 없으면)
     비율을 낼 수 없으므로 '-' 로 둔다.
 
-    rows 를 주면 행(정답)은 그 눈금만 그린다. 카테고리 점수는 정답이 1~4
+    rows 를 주면 행(정답)은 그 눈금만 그린다. 클래스 점수는 정답이 1~4
     뿐인데 예측에는 0(못 찾음)이 있어, 열과 행의 폭이 다르다.
 
     within=True 면 Acc 오른쪽에 "Acc ±1" 열을 더한다 - 그 행에서 예측이
@@ -426,22 +428,22 @@ def tier_block(name, pairs, log, values=None, rows=None, nonzero=False):
     log(confusion(pairs, values, rows, within=nonzero))
 
 
-def write_category_lists(run_dir, per_cat, log):
-    """카테고리별 TP/FP/FN 클립 목록을 <run-dir>/categories/<name>/ 에 쓴다.
+def write_class_lists(run_dir, per_cat, log):
+    """클래스별 TP/FP/FN 클립 목록을 <run-dir>/classes/<name>/ 에 쓴다.
 
-    왜 필요한가: 표의 숫자(P/R/F1)는 어느 카테고리가 문제인지는 알려주지만
+    왜 필요한가: 표의 숫자(P/R/F1)는 어느 클래스가 문제인지는 알려주지만
     "어떤 클립에서" 틀렸는지는 알려주지 않는다. 오분류를 눈으로 확인하려면
     매번 CSV 와 라벨을 대조해야 했다. uuid 목록을 파일로 떨궈두면 시각화
     폴더(viz/)에서 바로 찾아볼 수 있다.
 
     TP = 정답에도 있고 예측에도 있음
-    FP = 정답에는 없는데 예측함 (정답이 Normal 이거나 다른 카테고리인 경우)
+    FP = 정답에는 없는데 예측함 (정답이 Normal 이거나 다른 클래스인 경우)
     FN = 정답에는 있는데 예측 못 함
 
-    카테고리명에 / 가 들어가면 경로가 깨지므로 _ 로 바꾼다. 폴더는 실행할
+    클래스명에 / 가 들어가면 경로가 깨지므로 _ 로 바꾼다. 폴더는 실행할
     때마다 새로 쓰되(덮어쓰기), 예전 실행의 목록을 지우지는 않는다.
     """
-    base = Path(run_dir) / "categories"
+    base = Path(run_dir) / "classes"
     n_files = 0
     for cat, buckets in sorted(per_cat.items()):
         safe = cat.replace("/", "_").strip() or "_unnamed"
@@ -454,7 +456,7 @@ def write_category_lists(run_dir, per_cat, log):
             (d / f"{kind}.txt").write_text(
                 "".join(u + "\n" for u in uuids), encoding="utf-8")
             n_files += 1
-    log(f"  [saved] {base}/  ({len(per_cat)} categories, {n_files} files)")
+    log(f"  [saved] {base}/  ({len(per_cat)} classes, {n_files} files)")
 
 
 def log_run_config(run_dir, log):
@@ -469,7 +471,7 @@ def log_run_config(run_dir, log):
         log("[info] config  : (run_config.json 없음 - 이 기능 이전 실행)")
         return None
     try:
-        cfg = json.loads(path.read_text(encoding="utf-8"))
+        cfg = read_run_config(path)
     except (json.JSONDecodeError, OSError) as e:
         log(f"[warn] run_config.json 읽기 실패: {e}")
         return None
@@ -486,7 +488,7 @@ def log_run_config(run_dir, log):
     if cfg.get("timestamp"):
         log(f"[info] run at  : {cfg['timestamp']}")
     log(f"[info] model   : {key.get('model','?')}")
-    # 카테고리 정의와 GT 라벨은 성능 숫자를 좌우하는데도 파일명이 비슷해
+    # 클래스 정의와 GT 라벨은 성능 숫자를 좌우하는데도 파일명이 비슷해
     # (scene_category_C/D, test_label/_D) 헷갈리기 쉽다 - 한 줄에 모아 둔다.
     log(f"[info] scene   : {key.get('scene_json','?')}"
         + (f"   gt-labels(viz): {key['gt_labels']}"
@@ -526,8 +528,8 @@ def _scores_onoff(key):
     켜져 있었으면 on 으로 읽는다 - 그때의 '점수 단계가 있었는가' 에 해당하는
     값이 그것이다.
     """
-    if "score_categories" in key:
-        return _onoff(key["score_categories"])
+    if "score_classes" in key:
+        return _onoff(key["score_classes"])
     old = [key[k] for k in ("safety_tiers", "rarity_tiers", "score_tiers")
            if k in key]
     return _onoff(any(old)) if old else "?"
@@ -618,7 +620,7 @@ def main():
     ap.add_argument("--out", default=None,
                     help="결과를 저장할 로그 파일. 생략 시 <run-dir>/evaluation.log")
     ap.add_argument("--min-support", type=int, default=3,
-                    help="카테고리별 지표를 따로 보여줄 최소 정답 건수 (기본 3)")
+                    help="클래스별 지표를 따로 보여줄 최소 정답 건수 (기본 3)")
     args = ap.parse_args()
 
     run_dir = Path(args.run_dir)
@@ -647,7 +649,7 @@ def main():
         log(f"[info] labeled_by={meta.get('labeled_by','?')} "
             f"date={meta.get('date','?')}")
     if skipped:
-        log(f"[warn] {len(skipped)} label(s) missing categories - skipped")
+        log(f"[warn] {len(skipped)} label(s) missing classes - skipped")
 
     common = [u for u in labels if u in results]
     missing = [u for u in labels if u not in results]
@@ -663,11 +665,11 @@ def main():
             f"성능 비교에 쓰면 안 된다.")
         log("")
 
-    # 카테고리 이름이 taxonomy 와 어긋나면 그 카테고리의 F1 이 0 으로 나온다.
+    # 클래스 이름이 taxonomy 와 어긋나면 그 클래스의 F1 이 0 으로 나온다.
     # 실제 성능이 아니라 버전 불일치인데 숫자만 보면 구분이 안 되므로, 채점
     # 전에 짚어준다. 실측 사례: 예전 실행이 소문자 'cyclist' 를 쓰던 시절의
     # 결과를 대문자 'Cyclist' 라벨로 채점하자 F1=0.00 이 나왔다.
-    # 검증 기준은 "이 실행이 실제로 쓴" 카테고리 정의여야 한다. 채점기가
+    # 검증 기준은 "이 실행이 실제로 쓴" 클래스 정의여야 한다. 채점기가
     # 자기 기본값으로 검사하면, D 로 돌린 결과를 C 기준으로 훑으면서
     # 멀쩡한 이름을 "taxonomy 에 없다" 고 경고하게 된다.
     SCENE_JSON = Path((run_cfg or {}).get("key", {}).get("scene_json")
@@ -676,8 +678,8 @@ def main():
         SCENE_JSON = ROOT / SCENE_JSON
     group, n_drop, n_normal = restrict_to_group(labels, run_cfg, SCENE_JSON)
     if group != "all":
-        log(f"[info] group   : {group} - 이 실행이 다루지 않은 상위 카테고리의 "
-            f"GT 카테고리 {n_drop}개를 채점에서 뺌(그 결과 Normal 이 된 클립 "
+        log(f"[info] group   : {group} - 이 실행이 다루지 않은 상위 클래스의 "
+            f"GT 클래스 {n_drop}개를 채점에서 뺌(그 결과 Normal 이 된 클립 "
             f"{n_normal}개)")
     # Unknown 2종은 1)~3) 집계에서 뺀다(drop_unknown). 2) 표에는 n 만 싣는다.
     unknown = drop_unknown(labels, results, SCENE_JSON)
@@ -685,12 +687,12 @@ def main():
         cset = set(common)
         n_gt = sum(len(v["gt"] & cset) for v in unknown.values())
         n_pr = sum(len(v["pred"] & cset) for v in unknown.values())
-        n_pr_normal = sum(1 for u in common if not results[u]["categories"]
+        n_pr_normal = sum(1 for u in common if not results[u]["classes"]
                           and any(u in v["pred"] for v in unknown.values()))
         log(f"[info] unknown : {', '.join(unknown)} 은 1)~3) 집계에서 뺌 - "
             f"GT {n_gt}건, 예측 {n_pr}건(그 결과 Normal 이 된 예측 클립 "
             f"{n_pr_normal}개)")
-    # 눈금 밖의 묶음 점수 경고는 이 실행이 다룬 상위 카테고리 것만 낸다 -
+    # 눈금 밖의 묶음 점수 경고는 이 실행이 다룬 상위 클래스 것만 낸다 -
     # Dynamic object 만 돌린 실행에서 아직 안 매긴 Driving environment 라벨
     # 경고가 수백 줄 나오면 정작 봐야 할 경고가 묻힌다.
     hits = [h for h in mismatches["out_of_range"]
@@ -700,28 +702,28 @@ def main():
             + ", ".join(f"{u[:8]}:{g}={n}" for u, g, n in hits[:10])
             + (" ..." if len(hits) > 10 else ""))
     taxonomy = set()
-    # 카테고리 -> 묶음. 3) 절에서 그 카테고리가 어느 rubric 으로 채점됐는지
+    # 클래스 -> 묶음. 3) 절에서 그 클래스가 어느 rubric 으로 채점됐는지
     # 함께 찍으려고 들고 있는다.
     scenario_of = {}
     if SCENE_JSON.exists():
         scene = json.loads(SCENE_JSON.read_text(encoding="utf-8"))
         taxonomy = {c["name"] for s in scene["special"]["scenarios"]
-                    for c in s["categories"]}
+                    for c in s["classes"]}
         scenario_of = {c["name"]: s["name"]
                        for s in scene["special"]["scenarios"]
-                       for c in s["categories"]}
-        lab_names = {c for u in common for c in labels[u]["categories"]}
-        res_names = {c for u in common for c in results[u]["categories"]}
+                       for c in s["classes"]}
+        lab_names = {c for u in common for c in labels[u]["classes"]}
+        res_names = {c for u in common for c in results[u]["classes"]}
         for tag, names in (("labels", lab_names), ("results", res_names)):
             bad = names - taxonomy
             if bad:
-                log(f"[warn] {tag} use category names not in "
+                log(f"[warn] {tag} use class names not in "
                     f"{SCENE_JSON.name}: {sorted(bad)}")
         only_lab = sorted(lab_names - res_names)
         only_res = sorted(res_names - lab_names)
         if only_lab and only_res:
             log(f"[warn] names present only in labels {only_lab} vs only in "
-                f"results {only_res} - if these look like the same category "
+                f"results {only_res} - if these look like the same class "
                 f"spelled differently, the run predates the current taxonomy "
                 f"and its scores below are meaningless for those rows.")
     if not common:
@@ -730,8 +732,8 @@ def main():
         return
 
     # ---------------- 1) VERDICT ----------------
-    # All 은 카테고리가 하나라도 있으면 Special(파이프라인의 판정 규칙). 묶음별
-    # 판정은 그 묶음의 카테고리만 보고 같은 규칙을 적용한다 - 어느 묶음에서
+    # All 은 클래스가 하나라도 있으면 Special(파이프라인의 판정 규칙). 묶음별
+    # 판정은 그 묶음의 클래스만 보고 같은 규칙을 적용한다 - 어느 묶음에서
     # 오탐/놓침이 나는지가 All 하나로는 안 보인다(20261028_100903: Dynamic
     # 만 돌린 실행에서 공사/비포장이 Obstacle on Road 로 들어가 FP 31 -> 72).
     # 정답도 예측도 Special 이 하나도 없는 묶음(--group 으로 다루지 않은
@@ -740,7 +742,7 @@ def main():
     scopes = [("All", None)] + [(g, g) for g in groups_in_scene]
     log("")
     log("=" * 68)
-    log("1) VERDICT  (Special = has >=1 category; per group: >=1 of that group)")
+    log("1) VERDICT  (Special = has >=1 class; per group: >=1 of that group)")
     log("=" * 68)
     summary = []
     for name, g in scopes:
@@ -749,8 +751,8 @@ def main():
                         {c for c in cats if scenario_of.get(c) == g})
         tp = fp = fn = tn = 0
         for u in common:
-            t = special(labels[u]["categories"])
-            p = special(results[u]["categories"])
+            t = special(labels[u]["classes"])
+            p = special(results[u]["classes"])
             tp += t and p
             fp += (not t) and p
             fn += t and (not p)
@@ -777,32 +779,32 @@ def main():
             log(f"  {name:<22}{ns:>8}{tp:>5}{fp:>5}{fn:>5}"
                 f"{acc:>8.1%}{P:>8.1%}{R:>8.1%}{F:>8.1%}")
 
-    # ---------------- 2) CATEGORIES ----------------
-    per_clip = [f1_set(labels[u]["categories"], results[u]["categories"])
+    # ---------------- 2) CLASSES ----------------
+    per_clip = [f1_set(labels[u]["classes"], results[u]["classes"])
                 for u in common]
-    sp = [u for u in common if labels[u]["categories"]]
-    per_clip_sp = [f1_set(labels[u]["categories"], results[u]["categories"])
+    sp = [u for u in common if labels[u]["classes"]]
+    per_clip_sp = [f1_set(labels[u]["classes"], results[u]["classes"])
                    for u in sp]
 
-    # taxonomy 에 정의된 카테고리는 정답도 예측도 0건이어도 모두 표기한다.
-    # 빠져 있으면 "모델이 한 번도 못 찾은 카테고리"와 "애초에 목록에 없는
-    # 카테고리"가 로그에서 구분되지 않는다 - 실측(20260818)에서 실제로
+    # taxonomy 에 정의된 클래스는 정답도 예측도 0건이어도 모두 표기한다.
+    # 빠져 있으면 "모델이 한 번도 못 찾은 클래스"와 "애초에 목록에 없는
+    # 클래스"가 로그에서 구분되지 않는다 - 실측(20260818)에서 실제로
     # Unusual Traffic Pattern 이 표에서 사라져 왜 없는지 되짚어야 했다.
     # 라벨/예측에만 있고 taxonomy 에 없는 이름도 빠뜨리지 않고 함께 싣는다
     # (위 [warn] 이 가리키는 버전 불일치를 표에서도 확인할 수 있어야 한다).
     names = sorted((taxonomy
-                    | {c for u in common for c in labels[u]["categories"]}
-                    | {c for u in common for c in results[u]["categories"]})
+                    | {c for u in common for c in labels[u]["classes"]}
+                    | {c for u in common for c in results[u]["classes"]})
                    - set(unknown))
     rows, micro = [], [0, 0, 0]
-    per_cat = {}                      # 카테고리 -> {TP/FP/FN: [uuid, ...]}
+    per_cat = {}                      # 클래스 -> {TP/FP/FN: [uuid, ...]}
     for c in names:
-        hit = [u for u in common if c in labels[u]["categories"]
-               and c in results[u]["categories"]]
-        false_pos = [u for u in common if c not in labels[u]["categories"]
-                     and c in results[u]["categories"]]
-        false_neg = [u for u in common if c in labels[u]["categories"]
-                     and c not in results[u]["categories"]]
+        hit = [u for u in common if c in labels[u]["classes"]
+               and c in results[u]["classes"]]
+        false_pos = [u for u in common if c not in labels[u]["classes"]
+                     and c in results[u]["classes"]]
+        false_neg = [u for u in common if c in labels[u]["classes"]
+                     and c not in results[u]["classes"]]
         per_cat[c] = {"TP": hit, "FP": false_pos, "FN": false_neg}
         t = len(hit) + len(false_neg)
         ctp, cfp, cfn = len(hit), len(false_pos), len(false_neg)
@@ -811,7 +813,7 @@ def main():
 
     log("")
     log("=" * 68)
-    log("2) CATEGORIES  (multi-label)")
+    log("2) CLASSES  (multi-label)")
     log("=" * 68)
     log(f"  per-clip F1, all {len(common)} clips  : {sum(per_clip)/len(per_clip):.3f}")
     if per_clip_sp:
@@ -821,7 +823,7 @@ def main():
     scored = [r for r in rows if r[1] >= args.min_support]
     if scored:
         log(f"  macro F1  : {sum(r[4] for r in scored)/len(scored):.3f}"
-            f"   (over {len(scored)} categories with >={args.min_support} labels)")
+            f"   (over {len(scored)} classes with >={args.min_support} labels)")
     log("")
     # 묶음 열: 묶음 이름의 머리글자(Dynamic object -> DO). 묶음은 scene 의
     # 순서대로(DO 먼저, DE 다음), 묶음 안에서는 GT 건수가 많은 순.
@@ -834,12 +836,12 @@ def main():
                 order.index(g) if g in order else len(order))
 
     w = max([32] + [len(c) + 1 for c in names] + [len(c) + 1 for c in unknown])
-    log(f"  {'group':<7}{'category':<{w}}{'n':>4}{'P':>8}{'R':>8}{'F1':>8}"
+    log(f"  {'group':<7}{'class':<{w}}{'n':>4}{'P':>8}{'R':>8}{'F1':>8}"
         f"{'TP':>5}{'FP':>5}{'FN':>5}")
     log("  " + "-" * (w + 45))
     # Unknown 은 집계에서 뺐으니 n(GT 건수)만 싣는다. 몇 번 예측했는지는
     # 옆에 따로 적는다 - GT 가 0 이면 n 만으로는 모델이 이 칸을 얼마나
-    # 쓰는지 알 수 없다. 목록 파일(categories/)은 지우기 전 기준으로 쓴다.
+    # 쓰는지 알 수 없다. 목록 파일(classes/)은 지우기 전 기준으로 쓴다.
     # 표에서는 제 묶음의 맨 끝에 둔다.
     cset = set(common)
     lines = [(grp(c)[1], 0, -t, f"  {grp(c)[0]:<7}{c:<{w}}{t:>4}{p:>8.2f}{r:>8.2f}"
@@ -852,20 +854,20 @@ def main():
         per_cat[c] = {"TP": g & pr, "FP": pr - g, "FN": g - pr}
     for *_k, ln in sorted(lines, key=lambda x: x[:3]):
         log(ln)
-    write_category_lists(run_dir, per_cat, log)
+    write_class_lists(run_dir, per_cat, log)
 
     # ---------------- 3) GROUP SCORES ----------------
     # 묶음(Dynamic object / Driving environment)마다 클립당 0~4 점수 하나.
     #
-    # 0 은 "그 묶음의 특수 카테고리 없음"이라는 기준표의 칸이다. 그래서
+    # 0 은 "그 묶음의 특수 클래스 없음"이라는 기준표의 칸이다. 그래서
     # Normal 클립도 0/0 으로 채점에 들어가고, 탐지를 놓친 것도 예측 0 으로
-    # 자연히 잡힌다 - 예전 카테고리별 점수에서 따로 만들던 pred0 이 이제
+    # 자연히 잡힌다 - 예전 클래스별 점수에서 따로 만들던 pred0 이 이제
     # 기준표 안에 있다.
     #
     # 채점 대상은 GT 와 예측이 둘 다 그 묶음 점수를 가진 클립이다. GT 를
     # 아직 안 매긴 클립(키 없음/null/-1)은 빠진다.
     #
-    # 묶음 점수와 카테고리 목록의 어긋남도 센다: 그 묶음 카테고리를 적고도
+    # 묶음 점수와 클래스 목록의 어긋남도 센다: 그 묶음 클래스를 적고도
     # 0 이거나, 하나도 적지 않고 1 이상인 경우. 프롬프트가 "이름을 댄 묶음은
     # 1 이상, 대지 않은 묶음은 0" 을 요구하므로, 이 수가 크면 모델이 그
     # 규칙을 못 지키는 것이다. 라벨 쪽 어긋남도 함께 내 라벨 실수를 잡는다.
@@ -881,7 +883,7 @@ def main():
         def conflicts(rec):
             bad = []
             for g, n in rec["scores"].items():
-                has = any(scenario_of.get(c) == g for c in rec["categories"])
+                has = any(scenario_of.get(c) == g for c in rec["classes"])
                 if (n == 0 and has) or (n >= 1 and not has):
                     bad.append(g)
             return bad
@@ -899,7 +901,7 @@ def main():
             # 묶음 점수는 Dynamic object 와 같이 클립당 한 쌍이다: GT 의
             # "Driving environment" 값 vs CSV group_scores 의 같은 이름 값.
             all_pairs += pairs
-            own = [c for c, (cg, _t, _r) in CATEGORY_RUBRICS.items() if cg == g]
+            own = [c for c, (cg, _t, _r) in CLASS_RUBRICS.items() if cg == g]
             name = f"{g} (All)" if own else g
             log("")
             log(f" {name}")
@@ -908,9 +910,9 @@ def main():
             tier_block(g, pairs, log, nonzero=True)
             rows.append((name, len(pairs), _mse(pairs),
                          sum(a == b for a, b in pairs) / len(pairs)))
-            # 따로 재는 카테고리(Unpaved road)가 있는 묶음은 칸별로도 낸다:
-            # (Others) 모델의 묶음 칸 vs GT 의 나머지 카테고리 최댓값,
-            # (<카테고리>) 그 카테고리 칸 vs GT 의 그 카테고리 점수.
+            # 따로 재는 클래스(Unpaved road)가 있는 묶음은 칸별로도 낸다:
+            # (Others) 모델의 묶음 칸 vs GT 의 나머지 클래스 최댓값,
+            # (<클래스>) 그 클래스 칸 vs GT 의 그 클래스 점수.
             # 두 칸 다 기준표는 0/1/3 이지만 표는 0~4 로 그린다 - 2, 4 로
             # 틀린 예측도 보이게.
             if not own:
@@ -957,7 +959,7 @@ def main():
             for tag, src in (("pred", results), ("GT", labels)):
                 hits = [(u, g) for u in common for g in conflicts(src[u])]
                 log("")
-                log(f"  [{tag}] 묶음 점수 <-> 카테고리 어긋남: {len(hits)}건"
+                log(f"  [{tag}] 묶음 점수 <-> 클래스 어긋남: {len(hits)}건"
                     + (" - " + ", ".join(f"{u[:8]}:{g}" for u, g in hits[:8])
                        + (" ..." if len(hits) > 8 else "") if hits else ""))
 

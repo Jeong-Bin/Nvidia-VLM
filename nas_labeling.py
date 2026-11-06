@@ -274,9 +274,9 @@ class Auth:
 class Schema:
     """test_label_333_diff3.json 의 클립 한 건 양식.
 
-    {"categories": {이름: 1~4}, "<묶음>": 0~4 ..., "rain_snow_fog": [...],
+    {"classes": {이름: 1~4}, "<묶음>": 0~4 ..., "rain_snow_fog": [...],
      "weather": {4축: 0~4}, "note": str}
-    묶음 점수는 보통 그 묶음 카테고리 점수의 최댓값이지만 기존 라벨에도
+    묶음 점수는 보통 그 묶음 클래스 점수의 최댓값이지만 기존 라벨에도
     다르게 매긴 건이 있어(333건 중 15건) 강제하지 않는다 - 화면이 최댓값을
     채워 주고, 사람이 바꿀 수 있다.
 
@@ -291,14 +291,14 @@ class Schema:
         self.file = taxonomy_path.name
         self.groups: dict[str, list[str]] = {}
         for scen in scene.get("special", {}).get("scenarios", []):
-            self.groups[scen["name"]] = [c["name"] for c in scen.get("categories", [])]
+            self.groups[scen["name"]] = [c["name"] for c in scen.get("classes", [])]
         self.cat_group = {c: g for g, cs in self.groups.items() for c in cs}
         self.group_values = {g: list(CT.group_values(g)) if g in CT.GROUP_RUBRICS
                              else [0, 1, 2, 3, 4] for g in self.groups}
-        # 카테고리는 붙어 있으면 1 이상이다. 눈금의 0 은 "없음" 칸이 대신한다.
+        # 클래스는 붙어 있으면 1 이상이다. 눈금의 0 은 "없음" 칸이 대신한다.
         self.cat_values = {
-            c: (sorted(v for v in CT.rubric_of(c if c in CT.CATEGORY_RUBRICS else g)[1] if v)
-                if c in CT.CATEGORY_RUBRICS or g in CT.GROUP_RUBRICS else [1, 2, 3, 4])
+            c: (sorted(v for v in CT.rubric_of(c if c in CT.CLASS_RUBRICS else g)[1] if v)
+                if c in CT.CLASS_RUBRICS or g in CT.GROUP_RUBRICS else [1, 2, 3, 4])
             for c, g in self.cat_group.items()}
 
     def normalize(self, raw: dict, prev: dict | None) -> dict:
@@ -323,22 +323,22 @@ class Schema:
                                  f"(가능: {', '.join(map(str, allowed))})")
             return x
 
-        cr = raw.get("categories") or {}
+        cr = raw.get("classes") or {}
         if not isinstance(cr, dict):
-            raise ValueError("categories 는 {이름: 점수} 여야 합니다")
-        # 분류 체계에서 빠진 옛 카테고리는 원래 붙어 있던 클립에서만 유지를 허용한다.
-        known = set(self.cat_group) | set((prev or {}).get("categories", {}))
+            raise ValueError("classes 는 {이름: 점수} 여야 합니다")
+        # 분류 체계에서 빠진 옛 클래스는 원래 붙어 있던 클립에서만 유지를 허용한다.
+        known = set(self.cat_group) | set((prev or {}).get("classes", {}))
         bad = [k for k in cr if k not in known]
         if bad:
-            raise ValueError("알 수 없는 카테고리: " + ", ".join(bad))
+            raise ValueError("알 수 없는 클래스: " + ", ".join(bad))
         order = [c for cs in self.groups.values() for c in cs]
         order += [c for c in cr if c not in order]
         was = prev or {}
         cats = {c: score(cr[c], 1, self.cat_values.get(c, (1, 2, 3, 4)),
-                         was.get("categories", {}).get(c), f"categories.{c}")
+                         was.get("classes", {}).get(c), f"classes.{c}")
                 for c in order if c in cr}
 
-        out = {"categories": cats}
+        out = {"classes": cats}
         for g in self.groups:
             out[g] = score(raw.get(g, 0), 0, self.group_values[g], was.get(g), g)
 
@@ -363,13 +363,13 @@ class Schema:
 
     @staticmethod
     def flat(lab: dict | None) -> dict:
-        """비교용 평탄화. 없는 카테고리는 키가 없다(= 해제)."""
+        """비교용 평탄화. 없는 클래스는 키가 없다(= 해제)."""
         if not lab:
             return {}
         f = {}
         for k, v in lab.items():
-            if k == "categories":
-                f.update({f"categories.{c}": s for c, s in v.items()})
+            if k == "classes":
+                f.update({f"classes.{c}": s for c, s in v.items()})
             elif k == "weather":
                 f.update({f"weather.{a}": s for a, s in v.items()})
             elif k == "rain_snow_fog":
@@ -533,7 +533,8 @@ class Dataset:
                     if not line:
                         continue
                     try:
-                        self._apply(json.loads(line))
+                        # 이름을 class 로 바꾸기 전에 쌓인 기록도 같은 키로 읽는다.
+                        self._apply(json.loads(line.replace('"categories', '"classes')))
                     except (json.JSONDecodeError, KeyError) as e:
                         # 마지막 줄이 쓰다 끊긴 경우 - 그 건은 저장되지 않은 것으로 본다.
                         print(f"[nas_label] {self.hist_path}:{n} 읽기 실패({e}) - 건너뜀",
@@ -767,7 +768,7 @@ class Dataset:
         if lab is not None:
             r.update(created_by=a.get("created_by"), created_at=a.get("created_at"),
                      updated_by=a.get("updated_by"), updated_at=a.get("updated_at"),
-                     users=a.get("users", []), categories=lab.get("categories", {}),
+                     users=a.get("users", []), classes=lab.get("classes", {}),
                      groups={g: lab.get(g) for g in self.schema.groups})
         return r
 
@@ -957,7 +958,7 @@ class LabelingService:
             WEATHER_SCALES, WEATHER_SCALES_KOR = {}, {}
         rub = {g: {"title": GR[0], "scale": GR[1]} for g, GR in CT.GROUP_RUBRICS.items()}
         cat_rub = {c: {"group": v[0], "title": v[1], "scale": v[2]}
-                   for c, v in CT.CATEGORY_RUBRICS.items()}
+                   for c, v in CT.CLASS_RUBRICS.items()}
         # [평가 기준] 블록. 영어 표는 모델 프롬프트에 들어가는 것과 같은 표이고,
         # 한국어 표는 사람이 읽을 번역이다.
         kor = {"Dynamic object": CT.DIFFICULTY_RUBRIC_FOR_DYNAMIC_OBJECT_KOR,
@@ -966,9 +967,9 @@ class LabelingService:
         rubrics = [{"name": n, "title": v["title"], "en": v["scale"], "ko": kor[n]}
                    for n, v in (*rub.items(), *cat_rub.items())]
         return {"taxonomy": self.schema.file, "groups": self.schema.groups,
-                "group_rubrics": rub, "category_rubrics": cat_rub, "rubrics": rubrics,
+                "group_rubrics": rub, "class_rubrics": cat_rub, "rubrics": rubrics,
                 "group_values": self.schema.group_values,
-                "category_values": self.schema.cat_values,
+                "class_values": self.schema.cat_values,
                 "weather_axes": list(WEATHER_AXES), "weather_scales": WEATHER_SCALES,
                 "weather_scales_ko": WEATHER_SCALES_KOR,
                 "rain_snow_fog": list(RSF), "tiers": CT.TIER_LABELS}
