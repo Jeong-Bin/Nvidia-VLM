@@ -154,3 +154,12 @@ GUI 서버는 **인증이 없고**, `POST /api/job` 이 서버에서 학습/추�
 
 `--host 0.0.0.0` 으로 직접 노출하면 포트에 닿는 누구나 GPU 작업을 띄우고
 라벨을 수정할 수 있으므로 쓰지 않는다.
+
+
+## 아이디 찾기, 비밀번호 재설정
+**아이디 찾기**
+cd /home/etri/Jeongbin/Nvidia-VLM
+/home/etri/miniconda3/bin/python3 nas_labeling.py users
+
+**비밀번호 재설정**
+/home/etri/miniconda3/bin/python3 nas_labeling.py passwd hjb

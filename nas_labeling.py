@@ -11,6 +11,8 @@ NAS 데이터셋의 클립을 하나씩 보며 사람이 직접 라벨을 매기
   <dataset_id>/history.jsonl  모든 생성/수정/삭제 기록 - 정본(append-only)
   <dataset_id>/labels.json    현재 라벨. test_label_333_diff3.json 과 같은
                               양식이라 evaluate_labels.py 에 그대로 넣을 수 있다.
+                              클립마다 마지막으로 저장한 사람을 "labeler":
+                              {"id", "name"} 로 붙인다(이름은 users.json 기준).
   <dataset_id>/assignments.jsonl  청크 분배 기록 - 정본(append-only)
   <dataset_id>/assignments.json   라벨러별 현재 할당 청크(보기용 결과물)
 
@@ -405,6 +407,7 @@ class Dataset:
         self.dir.mkdir(parents=True, exist_ok=True)
         self.hist_path = self.dir / "history.jsonl"
         self.labels_path = self.dir / "labels.json"
+        self.users_path = store / "users.json"
         # 청크 단위 분배. 이력과 같은 이유로 append-only 로그가 정본이고
         # assignments.json 은 사람이 보기 위한 결과물이다.
         self.assign_log_path = self.dir / "assignments.jsonl"
@@ -554,6 +557,24 @@ class Dataset:
             self._write_labels()
         self._stamp = self._hist_stamp()
 
+    def _labeled_clips(self) -> dict:
+        """labels.json 의 clips - 라벨 앞에 마지막으로 저장한 사람을 붙인다.
+
+        self.labels 에는 넣지 않는다 - 저장 때 비교(diff)와 화면에 보내는 라벨은
+        사람이 매긴 값만이어야 한다. 이름은 지금 users.json 의 표시 이름이고,
+        지워진 계정이면 id 를 그대로 쓴다.
+        """
+        try:
+            users = json.loads(self.users_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            users = {}
+        out = {}
+        for u, lab in self.labels.items():
+            uid = self.audit[u]["updated_by"]
+            name = (users.get(uid) or {}).get("name") or uid
+            out[u] = {"labeler": {"id": uid, "name": name}, **lab}
+        return out
+
     def _labels_doc(self) -> dict:
         who = sorted({a["updated_by"] for u, a in self.audit.items() if u in self.labels})
         last = max((a["updated_at"] for a in self.audit.values()), default="")
@@ -562,7 +583,7 @@ class Dataset:
                           "dataset": self.nas_path, "view": self.view,
                           "taxonomy": self.schema.file,
                           "generated_from": "history.jsonl (nas_labeling.py)"},
-                "clips": self.labels}
+                "clips": self._labeled_clips()}
 
     def _write_labels(self):
         _atomic_write(self.labels_path,

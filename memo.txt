@@ -1,4 +1,0 @@
-0a37154c-6b70-4082-b4ad-915d1389eebf 점수 조정?
-
-나중에 args.use_obstacle도 전부 args.use_3dbbox 로 변경
-

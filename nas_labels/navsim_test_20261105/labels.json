@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "labeled_by": "",
-    "date": "",
+    "labeled_by": "admin",
+    "date": "2026-11-09",
     "source_run": "",
     "guide": "",
     "dataset": "/volume1/OPEN_DATASET/NAVSIM/20261105",
@@ -9,5 +9,362 @@
     "taxonomy": "scene_category_3.2.json",
     "generated_from": "history.jsonl (nas_labeling.py)"
   },
-  "clips": {}
+  "clips": {
+    "041dce99556f5e3a": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "056de234befb58b0": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "07ef2e232c8450f9": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {
+        "Road Construction": 1
+      },
+      "Dynamic object": 0,
+      "Driving environment": 1,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "08defb7fe7245c72": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "0c59cc6853ad5c8b": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {
+        "Road Construction": 1
+      },
+      "Dynamic object": 0,
+      "Driving environment": 1,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "0ffdeabd39a457af": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "128456bdbcca5aab": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "1b16c017cd6b5b3c": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {
+        "Pedestrian on Road": 1
+      },
+      "Dynamic object": 1,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "1ca63db1256d5fba": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "1ee135b299e85b36": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "22634cd0f97b5d02": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {
+        "Road Construction": 1
+      },
+      "Dynamic object": 0,
+      "Driving environment": 1,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "2287736c9f195009": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {
+        "Road Construction": 1
+      },
+      "Dynamic object": 0,
+      "Driving environment": 1,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "2b89524393085a95": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "2b95d7c743de5084": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "2bdba5e20abb5efa": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "2c2a267fb2fc58c3": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "2d84e5a347c950b0": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "300345559ffe5192": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {
+        "Pedestrian on Road": 1
+      },
+      "Dynamic object": 1,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "30659b25ee3458a7": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {
+        "Pedestrian on Road": 1
+      },
+      "Dynamic object": 1,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "33e9cb12d44e544e": {
+      "labeler": {
+        "id": "admin",
+        "name": "admin-hjb"
+      },
+      "classes": {
+        "Pedestrian on Road": 1
+      },
+      "Dynamic object": 1,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    }
+  }
 }
