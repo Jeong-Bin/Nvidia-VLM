@@ -1,0 +1,9 @@
+재부팅 메뉴얼
+
+sudo -i                          # root 셸로 전환 (비밀번호 1회)
+sync
+echo s > /proc/sysrq-trigger
+sleep 5; dmesg | tail -2         # "Emergency Sync complete" 확인
+echo u > /proc/sysrq-trigger
+sleep 5; dmesg | tail -2         # "Emergency Remount complete" 확인
+echo b > /proc/sysrq-trigger     # 즉시 재부팅

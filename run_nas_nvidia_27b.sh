@@ -58,6 +58,8 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --data SRC               프레임 소스 local|nas|경로 (기본 nas)          [DATA]
   --limit-clips N          처리할 클립 수 제한 (기본: 데이터셋 전체)     [LIMIT_CLIPS]
   --only-uuids FILE        이 파일에 적힌 uuid 만 처리 (한 줄에 하나)    [ONLY_UUIDS]
+  --gt-labels FILE         시각화 패널에 함께 그릴 정답 라벨             [GT_LABELS]
+  --eval-labels FILE       끝나면 이 라벨로 채점한다 (evaluation.log)    [EVAL_LABELS]
   --scene-json PATH        클래스 정의 (기본: config.py 의 SCENE_JSON) [SCENE_JSON]
   --no-viz                 시각화 mp4 를 만들지 않는다                   [CLIP_VIZ=0]
   --viz-all                edge-case 가 아닌 클립까지 전부 시각화        [VIZ_ALL=1]
@@ -116,6 +118,10 @@ while [ $# -gt 0 ]; do
     --limit-clips)          shift; LIMIT_CLIPS="${1:-}" ;;
     --only-uuids=*)        ONLY_UUIDS="${1#*=}" ;;
     --only-uuids)          shift; ONLY_UUIDS="${1:-}" ;;
+    --gt-labels=*)       GT_LABELS="${1#*=}" ;;
+    --gt-labels)         shift; GT_LABELS="${1:-}" ;;
+    --eval-labels=*)     EVAL_LABELS="${1#*=}" ;;
+    --eval-labels)       shift; EVAL_LABELS="${1:-}" ;;
     --resume=*)            RESUME_DIR="${1#*=}" ;;
     --resume)              shift; RESUME_DIR="${1:-}" ;;
     --scene-json=*)         SCENE_JSON="${1#*=}" ;;
@@ -168,6 +174,16 @@ if [ -n "$SCENE_JSON" ] && [ ! -f "$SCENE_JSON" ]; then
 fi
 # 마이닝이 기본이다. 라벨 대조 평가는 run_labeled_27b.sh 가 맡는다.
 EVAL_MODE="${EVAL_MODE:-0}"
+if [ "$EVAL_MODE" = "1" ] && [ -n "${EVAL_LABELS:-}" ]; then
+  echo "[error] --eval 과 --eval-labels 는 함께 쓸 수 없습니다 (--eval 은 --labels 로 채점한다)" >&2
+  exit 2
+fi
+# --eval-labels: 추론이 끝나면 이 라벨로 채점한다(GUI [NAS 추론]의 추론 범위
+# "라벨링 완료"/"Special만"). 라벨은 시각화 패널의 GT 로도 쓴다.
+if [ -n "${EVAL_LABELS:-}" ]; then
+  [ -f "$EVAL_LABELS" ] || { echo "[error] --eval-labels: 파일이 없습니다: $EVAL_LABELS" >&2; exit 2; }
+  GT_LABELS="${GT_LABELS:-$EVAL_LABELS}"
+fi
 
 if [ ! -x "$PYBIN" ]; then
   echo "[error] qwen38 conda 환경이 없습니다: $PYBIN" >&2
@@ -210,12 +226,12 @@ if [ -n "${RESUME_DIR:-}" ]; then
   RESUME_FLAG="--resume"
 else
   RUN_TS="$(date +%Y%m%d_%H%M%S)"
-  if [ "${EVAL_MODE:-0}" = "1" ]; then
-    RUN_DIR="results/labeld/${RUN_TS}_video27b_eval$(memo_suffix "${MEMO:-}")"
+  # --eval 이면 채점하는 실행이다.
+  if [ "${EVAL_MODE:-0}" = "1" ] || [ -n "${EVAL_LABELS:-}" ]; then
+    new_run_dir labeled || { echo "[error] 결과 폴더를 만들지 못했습니다 (--data ${DATA:-})" >&2; exit 2; }
   else
-    RUN_DIR="results/unlabeled/${RUN_TS}_video27b$(memo_suffix "${MEMO:-}")"
+    new_run_dir unlabeled || { echo "[error] 결과 폴더를 만들지 못했습니다 (--data ${DATA:-})" >&2; exit 2; }
   fi
-  mkdir -p "$RUN_DIR"
 fi
 
 OPTS="--single-view --num-shards 1 --shard-id 0 --model $MODEL"
@@ -253,6 +269,9 @@ esac
 # 든 zip 만 찾아 열므로, NAS 에서도 몇 초~30초 안에 시작한다.
 # --eval 은 자기 UUID_FILE 을 따로 만들어 쓰므로 아래에서 충돌을 막는다.
 [ -n "${ONLY_UUIDS:-}" ]        && OPTS="$OPTS --only-uuids $ONLY_UUIDS"
+# 시각화 패널의 GT. GUI 는 그 데이터셋의 [NAS 라벨링] 라벨을 넘긴다 - 안 넘기면
+# edge_case_mining 기본값(config.LABELS_JSON, NVIDIA 라벨)이라 다른 데이터셋은 GT:- 다.
+[ -n "${GT_LABELS:-}" ]         && OPTS="$OPTS --gt-labels $GT_LABELS"
 
 # --eval: run_labeled_8b.sh 와 같은 방식 - 라벨된 uuid 만 --only-uuids 로 골라
 # 처리하고, 시각화가 켜져 있으면 GT 도 함께 넘겨 패널에 GT/Pred 를 나란히
@@ -329,6 +348,7 @@ fi
     "$PYBIN" -u evaluate_labels.py --run-dir "$RUN_DIR" --labels "$LABELS"
   else
     "$PYBIN" -u aggregate_clip.py --run-dir "$RUN_DIR" 2>&1
+    [ -n "${EVAL_LABELS:-}" ] && "$PYBIN" -u evaluate_labels.py --run-dir "$RUN_DIR" --labels "$EVAL_LABELS"
   fi
 
   echo "[info] results saved in: ${RUN_DIR}/"

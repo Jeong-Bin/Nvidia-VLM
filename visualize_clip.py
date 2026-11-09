@@ -207,8 +207,10 @@ def class_score_lines(result: dict, gt: dict | None) -> list[str]:
            : <Driving environment 근거> Unpaved road=3: <근거>
 
     상위 클래스 줄은 GT 나 Pred 어느 한쪽이라도 값이 있는 것만 낸다 -
-    상위 클래스 하나만 돌린 실행(--group)에 빈 줄이 붙지 않게. GT 가
-    없으면(라벨 없는 실행) GT 줄을 빼고 점수의 GT 자리는 "-" 다.
+    상위 클래스 하나만 돌린 실행(--group)에 빈 줄이 붙지 않게. 라벨이
+    있는 클립에서 점수가 비어 있으면 GT 는 0 이다([NAS 라벨링]의 "0" =
+    해당 없음과 같은 뜻). 라벨 자체가 없는 클립(GT 를 모름)은 GT 줄을
+    빼고 점수의 GT 자리를 "-" 로 둔다 - 0 이라고 쓰면 없는 정답을 지어낸다.
     클래스는 GT/Pred 모두 알파벳 오름차순(대소문자 무시)으로 적는다 -
     모델이 낸 순서대로 두면 같은 집합도 순서가 달라 눈으로 맞대기 어렵다.
     """
@@ -244,6 +246,8 @@ def class_score_lines(result: dict, gt: dict | None) -> list[str]:
             if g in reason:
                 rest.append(f"{g}: {reason[g]}")
             continue
+        if gv is None and gt is not None:
+            gv = 0
         lines.append(f"• {g} (GT:{_num(gv)}, Pred:{_num(pv)})")
         if reason.get(g):
             lines.append(f"   : {reason[g]}")

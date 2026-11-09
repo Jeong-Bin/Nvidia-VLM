@@ -41,8 +41,8 @@
 정수가 실수가 되어, 지우지 않은 행까지 내용이 바뀐다.
 
 Usage:
-  python resume_run.py --run-dir results/unlabeled/<run>            # 점검만
-  python resume_run.py --run-dir results/unlabeled/<run> --apply    # 정리
+  python resume_run.py --run-dir "results/<데이터셋>/<run>"            # 점검만
+  python resume_run.py --run-dir "results/<데이터셋>/<run>" --apply    # 정리
 """
 from __future__ import annotations
 

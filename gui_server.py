@@ -167,21 +167,33 @@ def taxonomy_classes(scene_path: Path) -> list[dict]:
     return out
 
 
-# 실행 결과는 성격에 따라 나눠 담는다.
-#   labeld/    - 라벨된 로컬 클립 추론 + 채점 (평가 결과가 있다)
-#   unlabeled/ - NAS 데이터 마이닝 (대조할 정답이 없어 채점 불가)
-# 평가/검색 탭은 채점된 실행만 골라야 하므로 이 구분이 필요하다.
-LABELED_DIR = "labeld"
-UNLABELED_DIR = "unlabeled"
+# 실행 결과는 데이터셋별 폴더에 담는다: results/<데이터셋>/<날짜_시간_메모>
+# (폴더 이름은 clip_source.results_group). 평가/검색 탭은 채점된 실행만,
+# NAS 집계/검색 탭은 채점 안 한 실행만 골라야 하므로 갈래 구분이 필요한데,
+# 이제 폴더 위치로는 알 수 없어 실행 폴더의 .run_kind 파일(스크립트가 실행을
+# 만들 때 쓴다)로 본다.
+#   labeled   - 라벨과 대조해 채점하는 실행 (평가 결과가 있다)
+#   unlabeled - 대조할 정답 없이 분포만 보는 마이닝
+# 옛 구조(results/labeld/, results/unlabeled/, 그 전의 평면 results/<실행>)도 읽는다.
+LEGACY_KIND_DIRS = {"labeld": "labeled", "unlabeled": "unlabeled"}
+RUN_NAME_RE = re.compile(r"^\d{8}")       # 실행 폴더는 날짜로 시작한다
 
 
-def run_kind(rel: str) -> str:
-    """실행 이름(RESULTS 기준 상대경로)이 어느 갈래인지. 옛 평면 구조는 이름으로 본다."""
-    head = rel.split("/")[0]
-    if head in (LABELED_DIR, UNLABELED_DIR):
-        return "labeled" if head == LABELED_DIR else "unlabeled"
-    # 분리 이전 실행: _eval 로 끝나면 채점된 것이다(run_labeled_*.sh 규칙).
-    return "labeled" if "_eval" in rel else "unlabeled"
+def run_kind(d: Path) -> str:
+    """실행 폴더가 어느 갈래인지 - .run_kind, 옛 갈래 폴더, 채점 흔적 순으로 본다."""
+    try:
+        k = (d / ".run_kind").read_text(encoding="utf-8").strip()
+        if k in ("labeled", "unlabeled"):
+            return k
+    except OSError:
+        pass
+    head = rel_run_name(d).split("/")[0]
+    if head in LEGACY_KIND_DIRS:
+        return LEGACY_KIND_DIRS[head]
+    if (d / "eval_uuids.txt").exists() or (d / "evaluation.log").exists():
+        return "labeled"
+    # 분리 이전 실행: _eval 로 끝나면 채점된 것이다(옛 run_labeled_*.sh 규칙).
+    return "labeled" if "_eval" in d.name else "unlabeled"
 
 
 # 난이도 4축 - aggregate_clip.log 의 WEATHER SUMMARY 와 같은 순서/이름.
@@ -327,7 +339,8 @@ def aggregate_run(run_dir: Path) -> dict:
 
 
 def run_dirs() -> list[Path]:
-    """실행 폴더들. labeld/ · unlabeled/ 아래 한 겹과, 분리 이전의 평면 폴더 모두.
+    """실행 폴더들. 데이터셋 폴더(옛 labeld/ · unlabeled/ 포함) 아래 한 겹과,
+    분리 이전의 평면 폴더(results/<날짜_...>) 모두.
 
     반환값을 RESULTS 기준 상대경로로 쓰는 곳이 많아(=드롭다운 값) 경로는
     그대로 두고, 이름만 rel_run_name() 으로 만든다.
@@ -338,18 +351,18 @@ def run_dirs() -> list[Path]:
     for d in RESULTS.iterdir():
         if not d.is_dir():
             continue
-        if d.name in (LABELED_DIR, UNLABELED_DIR):
-            out.extend(x for x in d.iterdir() if x.is_dir())
-        else:
+        if RUN_NAME_RE.match(d.name):
             out.append(d)
+        else:
+            out.extend(x for x in d.iterdir() if x.is_dir())
     # 폴더명이 아니라 실행 시각(폴더 이름 앞의 타임스탬프)으로 정렬한다.
-    # 상대경로로 정렬하면 labeld/* 와 unlabeled/* 가 갈래별로 뭉쳐서, 최근
+    # 상대경로로 정렬하면 데이터셋 폴더별로 뭉쳐서, 최근
     # 실행이 목록 위에 오지 않는다.
     return sorted(out, key=lambda p: (p.name, rel_run_name(p)), reverse=True)
 
 
 def rel_run_name(d: Path) -> str:
-    """RESULTS 기준 상대경로 - 'labeld/20260821_110448_eval' 처럼."""
+    """RESULTS 기준 상대경로 - 'Nvidia-PAV(local_pav_sample)/20261110_101500_메모' 처럼."""
     try:
         return d.relative_to(RESULTS).as_posix()
     except ValueError:
@@ -369,9 +382,23 @@ def run_config_of(d: Path) -> dict:
 def labels_path_for_run(d: Path) -> Path:
     """이 실행을 채점할 때 쓸 라벨 파일.
 
-    run_config.json 에 gt_labels 가 있으면 그걸, 없으면 config.py 기본값.
-    실행마다 라벨이 다를 수 있으므로 기본값으로 뭉뚱그리면 안 된다.
+    채점을 이미 했으면 evaluation.log 첫머리에 적힌 그 라벨, 아니면 run_config.json
+    의 gt_labels, 둘 다 없으면 config.py 기본값. 실행마다 라벨이 다를 수 있으므로
+    기본값으로 뭉뚱그리면 안 된다. evaluation.log 를 먼저 보는 이유: 실행이 끝난
+    뒤 따로 채점한 경우 run_config 의 gt_labels 는 실행 당시 값(시각화 GT)이다.
     """
+    try:
+        with open(d / "evaluation.log", encoding="utf-8") as f:
+            for line in f:
+                m = re.match(r"\[info\] labels\s*:\s*(.+?)\s+\(\d+ clips\)\s*$", line)
+                if m:
+                    p = Path(m.group(1))
+                    p = p if p.is_absolute() else ROOT / p
+                    if p.exists():
+                        return p
+                    break
+    except OSError:
+        pass
     key = run_config_of(d).get("key", {})
     for k in ("gt_labels", "labels"):
         v = key.get(k)
@@ -401,6 +428,14 @@ def find_viz(run_dir: Path, uuid: str) -> dict:
 # ---------------------------------------------------------------------------
 # 채점 - evaluate_labels.py 의 함수를 그대로 쓴다
 # ---------------------------------------------------------------------------
+def _rel_root(p: Path) -> str:
+    """ROOT 아래면 ROOT 기준 상대경로, 아니면 절대경로."""
+    try:
+        return Path(p).resolve().relative_to(ROOT.resolve()).as_posix()
+    except ValueError:
+        return str(Path(p).resolve())
+
+
 def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
     """한 실행의 성능 리포트 + 클래스별 TP/FP/FN uuid 목록."""
     labels_path = Path(labels_path) if labels_path else labels_path_for_run(run_dir)
@@ -520,7 +555,10 @@ def evaluate_run(run_dir: Path, labels_path: Path | None = None) -> dict:
     return {
         "run": run_dir.name,
         "labels": str(labels_path),
-        "labels_name": labels_path.name,
+        # 화면이 클립 상세(/api/clip)에 이 값을 그대로 돌려준다 - ROOT 기준 경로여야
+        # nas_labels/<데이터셋>/labels.json 이나 gui/scope/ 사본도 다시 찾는다
+        # (이름만 쓰면 ROOT/labels.json 을 찾아 실패한다).
+        "labels_name": _rel_root(labels_path),
         "n_labels": len(truth),
         "n_results": len(pred),
         "n_matched": n,
@@ -833,7 +871,7 @@ def _diff_ok(d: dict, q: dict) -> bool:
 
 
 def search_nas_clips(q: dict) -> dict:
-    """NAS 마이닝 실행(unlabeled/)의 예측 자체를 검색한다.
+    """NAS 마이닝 실행(kind=unlabeled)의 예측 자체를 검색한다.
 
     라벨 검색과 달리 대조할 정답이 없다. 그래서 모델이 낸 클래스·점수·
     난이도를 그대로 조건으로 쓴다.
@@ -1058,7 +1096,7 @@ def search_clips(q: dict) -> dict:
 # 모델마다 두 갈래 스크립트를 든다.
 #   labeled : 로컬 pav_sample 의 라벨된 클립 -> 추론 + 채점
 #   nas     : NAS 청크 zip 전체         -> 추론만 (대조할 정답이 없다)
-# GUI 의 "로컬 샘플 추론&평가" / "NAS 전체 추론" 탭이 각각을 고른다.
+# GUI 의 "로컬 샘플 추론&평가" / "NAS 추론" 탭이 각각을 고른다.
 # NAS 마운트 명령. 서버가 대신 실행하지는 않는다 - 그러려면 NAS 비밀번호를
 # 파일에 두거나 sudo 를 NOPASSWD 로 풀어야 하는데, 이 GUI 는 인증이 없어서
 # 포트에 닿는 누구나 그 권한을 쓰게 된다. 명령만 보여주고 실행은 사람이 한다.
@@ -1166,6 +1204,113 @@ def write_uuid_file(uuid: str, jid: str) -> Path:
     return p
 
 
+# [NAS 추론] 탭의 추론 범위. 라벨은 [NAS 라벨링] 탭의 저장소에서 읽는다.
+#   all     : 데이터셋 전체
+#   labeled : 라벨을 저장한 클립
+#   special : 그중 classes 가 하나라도 있는 클립
+SCOPES = ("all", "labeled", "special")
+SCOPE_DIR = GUI_DIR / "scope"
+
+
+def scope_dataset(data):
+    """--data 값에 해당하는 [NAS 라벨링] 데이터셋. 없으면 None.
+
+    "nas" 는 기본 NAS(NVIDIA) 데이터라 등록 목록에서 카메라 폴더가 같은 것을
+    찾는다. "local"(pav_sample)은 라벨 저장소가 따로 없어 범위를 쓰지 않는다.
+    """
+    if NL is None or not data or data == "local":
+        return None
+    if data in NL.datasets:
+        return NL.datasets[data]
+    if data == "nas":
+        from clip_source import NAS_CAMERA_DIR
+        for ds in NL.datasets.values():
+            if Path(ds.camera_dir) == Path(NAS_CAMERA_DIR):
+                return ds
+    return None
+
+
+def scope_lists(ds) -> dict:
+    """{"labeled": [...], "special": [...]} - 데이터셋 클립 순서."""
+    with ds.lock:
+        ds._sync()      # 다른 프로세스(import CLI)가 쓴 것까지 반영
+        labs = dict(ds.labels)
+    pos = getattr(ds, "pos", None) or {}
+    order = sorted(labs, key=lambda u: pos.get(u, len(pos)))
+    return {"labeled": order,
+            "special": [u for u in order if labs[u].get("classes")]}
+
+
+def scope_info(data) -> dict:
+    ds = scope_dataset(data)
+    if ds is None:
+        return {"supported": False,
+                "reason": ("NAS 라벨링이 꺼져 있습니다" if NL is None
+                           else "이 데이터에는 라벨 저장소가 없습니다")}
+    lists = scope_lists(ds)
+    return {"supported": True, "dataset": ds.id, "name": ds.name,
+            "labeled": len(lists["labeled"]), "special": len(lists["special"])}
+
+
+def write_scope_file(opts: dict, jid: str):
+    """추론 범위가 전체가 아니면 그 uuid 목록 파일을 만든다. 전체면 None.
+
+    작업을 시작하는 순간의 라벨로 고정한다 - 추론 도중에 라벨이 늘어도
+    대상이 바뀌지 않는다. 클립 수 제한은 목록 앞에서 자른다(스크립트의
+    --limit-clips 는 --only-uuids 와 함께 쓰면 무시되는 경로가 있다).
+    """
+    scope = opts.get("scope") or "all"
+    if scope not in SCOPES:
+        raise ValueError("모르는 추론 범위: " + scope)
+    if scope == "all":
+        return None
+    ds = scope_dataset(opts.get("data"))
+    if ds is None:
+        raise ValueError(scope_info(opts.get("data"))["reason"]
+                         + " - 추론 범위를 '전체'로 두세요")
+    uuids = scope_lists(ds)[scope]
+    if opts.get("limit_clips"):
+        uuids = uuids[:int(opts["limit_clips"])]
+    if not uuids:
+        what = "라벨링 완료" if scope == "labeled" else "Special 라벨"
+        raise ValueError(f"{ds.name} 에 {what} 클립이 없습니다")
+    SCOPE_DIR.mkdir(parents=True, exist_ok=True)
+    p = SCOPE_DIR / f"{jid}.{scope}.txt"
+    p.write_text("".join(u + "\n" for u in uuids), encoding="utf-8")
+    return p
+
+
+def write_gt_snapshot(opts: dict, jid: str, keep=None):
+    """NAS 추론의 GT - 그 데이터셋의 [NAS 라벨링] 라벨 사본. 없으면 None.
+
+    안 넘기면 edge_case_mining 기본값(config.LABELS_JSON, NVIDIA 라벨)이 GT 라
+    다른 데이터셋의 클립은 전부 GT:- 로 그려진다. 작업을 시작한 순간의 사본을
+    쓴다 - 추론 도중 라벨이 바뀌어도 한 실행 안의 GT 가 섞이지 않고, 나중에
+    rerender_clip_viz 로 다시 그리거나 다시 채점해도 같은 GT 가 나온다.
+
+    keep(uuid 목록)을 주면 그 클립만 남긴다. 추론 범위를 좁힌 실행은 이 사본으로
+    채점하는데(--eval-labels), 라벨 전체를 넘기면 evaluate_labels 가 추론하지
+    않은 클립을 "결과에 없음"으로 경고하고 matched 가 13/30 처럼 찍힌다.
+    """
+    ds = scope_dataset(opts.get("data"))
+    if ds is None or not ds.labels_path.exists():
+        return None
+    SCOPE_DIR.mkdir(parents=True, exist_ok=True)
+    p = SCOPE_DIR / f"{jid}.gt_labels.json"
+    with ds.lock:
+        ds._sync()
+        if keep is None:
+            shutil.copyfile(ds.labels_path, p)
+            return p
+        doc = json.loads(ds.labels_path.read_text(encoding="utf-8"))
+    want = set(keep)
+    doc["clips"] = {u: v for u, v in doc.get("clips", {}).items() if u in want}
+    doc.setdefault("_meta", {})["scope"] = (f"{opts.get('scope')} - 이 실행이 추론한 "
+                                           f"{len(doc['clips'])}클립만 남긴 사본")
+    p.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
+    return p
+
+
 def build_command(opts: dict, jid: str = "adhoc") -> list[str]:
     model = opts.get("model", "Qwen/Qwen3-VL-8B-Instruct")
     spec = MODELS.get(model)
@@ -1200,8 +1345,9 @@ def build_command(opts: dict, jid: str = "adhoc") -> list[str]:
     if not nas and opts.get("labels"):
         cmd += ["--labels", str(ROOT / opts["labels"])]
     # 반대로 --limit-clips 는 마이닝 전용 - 라벨 클립은 uuid 로 흩어져 있어
-    # 앞에서 N개를 자를 수 없다.
-    if nas and opts.get("limit_clips") and not single:
+    # 앞에서 N개를 자를 수 없다. 추론 범위를 좁혔으면 목록 파일에서 이미 잘랐다.
+    scope_file = write_scope_file(opts, jid) if nas and not single else None
+    if nas and opts.get("limit_clips") and not single and scope_file is None:
         cmd += ["--limit-clips", str(opts["limit_clips"])]
     if opts.get("scene_json"):
         cmd += ["--scene-json", str(ROOT / opts["scene_json"])]
@@ -1262,8 +1408,16 @@ def build_command(opts: dict, jid: str = "adhoc") -> list[str]:
     if opts.get("memo"):
         cmd += ["--memo", opts["memo"]]
     # 맨 뒤에 붙인다 - run.log 한 줄에서 "어느 클립이었나" 가 눈에 띄게.
+    # 추론 범위를 좁혔으면(라벨링 완료 / Special만) 끝나고 그 라벨로 채점한다.
+    # 채점 라벨은 시각화 GT 로도 쓰이므로 --gt-labels 는 따로 넘기지 않는다.
+    keep = scope_file.read_text(encoding="utf-8").split() if scope_file else None
+    gt_file = write_gt_snapshot(opts, jid, keep) if nas else None
+    if gt_file is not None:
+        cmd += ["--eval-labels" if keep else "--gt-labels", str(gt_file)]
     if single:
         cmd += ["--only-uuids", str(write_uuid_file(single, jid))]
+    elif scope_file is not None:
+        cmd += ["--only-uuids", str(scope_file)]
     return cmd
 
 
@@ -1311,8 +1465,8 @@ def job_view(j: dict) -> dict:
         # 이 작업이 만든 결과 폴더를 찾아 링크해준다
         mm = re.search(r"run dir\s*:\s*(\S+)", txt)
         if mm:
-            # 로그의 "results/labeld/<ts>_eval" 에서 RESULTS 아래 상대경로를
-            # 그대로 남긴다. .name 만 쓰면 labeld/ 가 떨어져 나가 프런트가
+            # 로그의 "results/<데이터셋>/<ts>" 에서 RESULTS 아래 상대경로를
+            # 그대로 남긴다. .name 만 쓰면 데이터셋 폴더가 떨어져 나가 프런트가
             # RESULTS/<이름> 으로 찾을 때 없는 경로가 된다.
             rd = Path(mm.group(1))
             try:
@@ -1454,15 +1608,25 @@ class Handler(BaseHTTPRequestHandler):
                 remaining -= len(chunk)
 
     # --- 접근 제한 ---
-    # 사내망(--host 0.0.0.0)으로 열면 라벨러가 브라우저로 직접 들어온다. 다른
-    # 탭은 GPU 작업 실행, 프로젝트 파일 열람(/media)까지 되고 인증이 없으므로,
-    # 이 서버 자신(127.0.0.1, ssh 터널 포함)이 아닌 접속자는 NAS 라벨링 탭만
-    # 쓰게 한다. 관리자 계정으로 로그인하면 전부 열린다.
+    # GUI 는 로그인해야 쓸 수 있다. 첫 화면이 로그인 / 계정 만들기이고(계정은
+    # [NAS 라벨링] 계정과 같다 - nas_labels/users.json), 로그인하지 않은 요청은
+    # 페이지 껍데기와 로그인 API 말고는 막는다. 로그인한 뒤:
+    #   이 서버 자신(127.0.0.1, ssh 터널 포함) -> 모든 탭
+    #   사내망(--host 0.0.0.0) 직접 접속        -> NAS 라벨링 탭만(관리자면 전부)
+    # 사내망 쪽을 막는 이유: 다른 탭은 GPU 작업 실행, 프로젝트 파일 열람(/media)
+    # 까지 된다. NAS 라벨링이 꺼져 있으면(NL 없음) 계정이 없으므로 예전처럼
+    # 로컬 접속만 전부 연다.
     def _is_local(self) -> bool:
         return self.client_address[0] in ("127.0.0.1", "::1", "::ffff:127.0.0.1")
 
+    def _me(self):
+        return NL.me_of(self) if NL is not None else None
+
     def _full_access(self) -> bool:
-        return self._is_local() or (NL is not None and NL.is_admin_request(self))
+        if NL is None:
+            return self._is_local()
+        me = self._me()
+        return bool(me) and (self._is_local() or bool(me.get("admin")))
 
     @staticmethod
     def _open_path(p: str) -> bool:
@@ -1470,6 +1634,8 @@ class Handler(BaseHTTPRequestHandler):
                 or p.startswith("/static/") or p.startswith("/api/nl/"))
 
     def _deny(self):
+        if NL is not None and self._me() is None:
+            return self._json({"error": "로그인이 필요합니다", "login": True}, 401)
         return self._json({"error": "이 기능은 서버 관리자만 쓸 수 있습니다 "
                                     "(NAS 라벨링 탭에서 관리자 계정으로 로그인)",
                            "restricted": True}, 403)
@@ -1481,8 +1647,8 @@ class Handler(BaseHTTPRequestHandler):
         q = {k: v[0] for k, v in urllib.parse.parse_qs(u.query).items()}
         try:
             if p == "/api/access":
-                full = self._full_access()
-                return self._json({"local": self._is_local(), "full": full})
+                return self._json({"local": self._is_local(), "full": self._full_access(),
+                                   "login": NL is not None, "me": self._me()})
             if not self._open_path(p) and not self._full_access():
                 return self._deny()
             return self._get(p, q)
@@ -1524,7 +1690,7 @@ class Handler(BaseHTTPRequestHandler):
                 "nas_clips": nas_clip_count(),
                 "runs": [{
                     "name": rel_run_name(d),
-                    "kind": run_kind(rel_run_name(d)),
+                    "kind": run_kind(d),
                     "mtime": d.stat().st_mtime,
                     "has_results": bool(glob.glob(str(d / "clip_results*.csv"))),
                     "memo": run_config_of(d).get("key", {}).get("memo", ""),
@@ -1572,6 +1738,9 @@ class Handler(BaseHTTPRequestHandler):
             name = q.get("scene") or Path(config.SCENE_JSON).name
             return self._json({"scene": name,
                                "classes": taxonomy_classes(ROOT / name)})
+
+        if p == "/api/nas_scope":
+            return self._json(scope_info(q.get("data") or "nas"))
 
         if p == "/api/labels":
             name = q.get("labels") or Path(config.LABELS_JSON).name

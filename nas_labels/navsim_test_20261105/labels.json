@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "labeled_by": "admin",
+    "labeled_by": "admin, hjb",
     "date": "2026-11-09",
     "source_run": "",
     "guide": "",
@@ -356,6 +356,187 @@
         "Pedestrian on Road": 1
       },
       "Dynamic object": 1,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "348cc3fee1f85de1": {
+      "labeler": {
+        "id": "hjb",
+        "name": "홍정빈"
+      },
+      "classes": {
+        "Pedestrian on Road": 1,
+        "Road Construction": 3
+      },
+      "Dynamic object": 1,
+      "Driving environment": 3,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "36b912a9d3805b84": {
+      "labeler": {
+        "id": "hjb",
+        "name": "홍정빈"
+      },
+      "classes": {
+        "Road Construction": 1
+      },
+      "Dynamic object": 0,
+      "Driving environment": 1,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "3b7f246d266b5d57": {
+      "labeler": {
+        "id": "hjb",
+        "name": "홍정빈"
+      },
+      "classes": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "3cd57e04392c5463": {
+      "labeler": {
+        "id": "hjb",
+        "name": "홍정빈"
+      },
+      "classes": {
+        "Road Construction": 1
+      },
+      "Dynamic object": 0,
+      "Driving environment": 1,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "46a2e9474a5a5eca": {
+      "labeler": {
+        "id": "hjb",
+        "name": "홍정빈"
+      },
+      "classes": {
+        "Road Construction": 1
+      },
+      "Dynamic object": 0,
+      "Driving environment": 1,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "477045d84aa75534": {
+      "labeler": {
+        "id": "hjb",
+        "name": "홍정빈"
+      },
+      "classes": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "4a3575d2e7cd510d": {
+      "labeler": {
+        "id": "hjb",
+        "name": "홍정빈"
+      },
+      "classes": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 1,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "4a362145fea85cce": {
+      "labeler": {
+        "id": "hjb",
+        "name": "홍정빈"
+      },
+      "classes": {},
+      "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "4c7a22bc1dcc5b23": {
+      "labeler": {
+        "id": "hjb",
+        "name": "홍정빈"
+      },
+      "classes": {
+        "Pedestrian on Road": 3
+      },
+      "Dynamic object": 3,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "4cde54b2e0445dc8": {
+      "labeler": {
+        "id": "hjb",
+        "name": "홍정빈"
+      },
+      "classes": {},
+      "Dynamic object": 0,
       "Driving environment": 0,
       "rain_snow_fog": [],
       "weather": {

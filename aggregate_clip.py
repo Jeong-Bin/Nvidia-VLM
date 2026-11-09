@@ -71,7 +71,7 @@ def scene_json_for_run(run_dir):
 
 def latest_run_dir():
     """results/ 아래에서 클립 모드 CSV 를 가진 가장 최근 폴더."""
-    # 실행 폴더는 results/labeld/<ts> 처럼 한 겹 아래에도 있다(라벨/비라벨 분리).
+    # 실행 폴더는 results/<데이터셋>/<ts> 처럼 한 겹 아래에도 있다.
     # 옛 실행은 results/<ts> 에 그대로 있으므로 두 깊이를 모두 본다.
     cands = []
     for pat in ("*", "*/*"):

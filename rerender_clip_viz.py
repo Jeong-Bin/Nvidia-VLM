@@ -21,9 +21,9 @@ CSV(1차 결과)와 <run>/attn/*.npz(--attn-timeline 기록)만으로 영상 + r
 내용이 아니기 때문이다. 시각화에서는 그 칸이 회색("no value")으로 나온다.
 
 Usage:
-  python rerender_clip_viz.py --run-dir results/labeld/<run>
-  python rerender_clip_viz.py --run-dir results/labeld/<run> --final --out-dir viz_final
-  python rerender_clip_viz.py --run-dir results/labeld/<run> --uuids <uuid> ... --video-name clip2.mp4
+  python rerender_clip_viz.py --run-dir "results/<데이터셋>/<run>"
+  python rerender_clip_viz.py --run-dir "results/<데이터셋>/<run>" --final --out-dir viz_final
+  python rerender_clip_viz.py --run-dir "results/<데이터셋>/<run>" --uuids <uuid> ... --video-name clip2.mp4
 """
 from __future__ import annotations
 
@@ -95,6 +95,14 @@ def main():
     ap.add_argument("--video-name", default="clip.mp4",
                     help="영상 파일 이름. clip.mp4 가 아니면 원래 영상과 "
                          "result.json 은 그대로 두고 영상만 이 이름으로 더한다")
+    ap.add_argument("--existing", action="store_true",
+                    help="이미 그려 둔 영상 폴더(out-dir 아래 <uuid>/clip.mp4)만 그 자리에서 "
+                         "다시 그린다. 고르는 규칙을 다시 적용하지 않으므로 --viz-normal/"
+                         "--viz-special 로 그린 viz/normal, viz/special 구조도 그대로 남는다")
+    ap.add_argument("--gt-labels", default=None,
+                    help="패널 GT 로 쓸 라벨 파일 (기본: 실행 때 쓴 것). 예전 NAS "
+                         "실행은 NVIDIA 라벨이 기본이라 다른 데이터셋은 GT:- 로 "
+                         "그려졌다 - nas_labels/<데이터셋>/labels.json 을 주면 고쳐 그린다")
     args = ap.parse_args()
 
     run = Path(args.run_dir)
@@ -117,7 +125,7 @@ def main():
     gk = {n: group_key(n) for n, g in score_fields(labels)
           if group == "all" or group_key(g) == group}
 
-    gt_path = argv.get("gt_labels")
+    gt_path = args.gt_labels or argv.get("gt_labels")
     if gt_path and not Path(gt_path).is_absolute():
         gt_path = ROOT / gt_path
     gt = E._load_gt_labels(gt_path) if gt_path else None
@@ -155,9 +163,17 @@ def main():
             continue
         res = row_to_result(r)
         cats = res["classes"]
-        if not cats:
+        if args.existing:
+            out_dirs = sorted(p.parent for p in out_root.glob(f"**/{u}/clip.mp4"))
+            if not out_dirs:
+                continue
+            # 클래스별 폴더면 그 클래스에 어텐션 초점을 맞춘다(실행 때와 같게).
+            by_dir = {V.safe_dirname(c): c for c in cats}
+            targets = ([by_dir.get(od.parent.name) for od in out_dirs]
+                       if per_cat else None)
+        elif not cats:
             continue
-        if per_cat:
+        elif per_cat:
             targets = [c for c in cats if counts[(sh, c)] < per_cat]
             if only:
                 # 고른 클립만 돌면 정원을 셀 앞 클립이 없어 원래 없던 장르
@@ -205,7 +221,7 @@ def main():
             n += 1
             print(f"[viz] {od.relative_to(run) / args.video_name}")
         if targets is not None:
-            counts.update((sh, c) for c in targets)
+            counts.update((sh, c) for c in targets if c)
     print(f"[done] {n} videos -> {out_root}")
 
 

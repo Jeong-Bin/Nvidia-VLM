@@ -165,8 +165,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/run_naming.sh"
 gpu_preflight "$GPUS" || exit 3
 
 RUN_TS="$(date +%Y%m%d_%H%M%S)"
-RUN_DIR="results/labeld/${RUN_TS}_labeled27b$(memo_suffix "${MEMO:-}")"
-mkdir -p "$RUN_DIR"
+new_run_dir labeled || { echo "[error] 결과 폴더를 만들지 못했습니다 (--data ${DATA:-})" >&2; exit 2; }
 
 OPTS="--single-view --num-shards 1 --shard-id 0 --model $MODEL"
 [ -n "${DATA:-}" ]              && OPTS="$OPTS --data $DATA"

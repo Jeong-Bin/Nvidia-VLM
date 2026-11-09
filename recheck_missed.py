@@ -25,9 +25,9 @@
 0 이었으므로(아무것도 못 찾음) 이 점수로 채운다.
 
 쓰는 법 (GPU 필요):
-  python recheck_missed.py --run-dir results/labeld/<실행>              # 후보 추론
-  python recheck_missed.py --run-dir results/labeld/<실행> --list-only  # 후보만 보기
-  python recheck_missed.py --run-dir results/labeld/<실행> --apply      # 결과 반영
+  python recheck_missed.py --run-dir "results/<데이터셋>/<실행>"              # 후보 추론
+  python recheck_missed.py --run-dir "results/<데이터셋>/<실행>" --list-only  # 후보만 보기
+  python recheck_missed.py --run-dir "results/<데이터셋>/<실행>" --apply      # 결과 반영
   샤드로 나눌 때: --num-shards N --shard-id k (샤드마다 GPU 하나), 끝나면 --apply
 
   --apply 는 clip_results_all.csv 를 고친다. 원본은 같은 폴더의

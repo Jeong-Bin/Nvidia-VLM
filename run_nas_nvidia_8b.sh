@@ -74,6 +74,8 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
                          nas = NAS 청크 zip 을 직접 읽는다(압축 해제 불필요)
   --limit-clips N        처리할 클립 수 제한 (기본: 데이터셋 전체)     [LIMIT_CLIPS]
   --only-uuids FILE      이 파일에 적힌 uuid 만 처리 (한 줄에 하나)    [ONLY_UUIDS]
+  --gt-labels FILE       시각화 패널에 함께 그릴 정답 라벨             [GT_LABELS]
+  --eval-labels FILE     끝나면 이 라벨로 채점한다 (evaluation.log)    [EVAL_LABELS]
   --num-shards N         GPU/shard 개수 (기본 8)                       [NSHARDS]
   --resume DIR           중단된 실행 폴더를 이어받는다              [RESUME_DIR]
                          끝난 클립(n_frames>0)은 건너뛰고, 영상을 못 읽어
@@ -137,6 +139,10 @@ while [ $# -gt 0 ]; do
     --limit-clips)       shift; LIMIT_CLIPS="${1:-}" ;;
     --only-uuids=*)      ONLY_UUIDS="${1#*=}" ;;
     --only-uuids)        shift; ONLY_UUIDS="${1:-}" ;;
+    --gt-labels=*)       GT_LABELS="${1#*=}" ;;
+    --gt-labels)         shift; GT_LABELS="${1:-}" ;;
+    --eval-labels=*)     EVAL_LABELS="${1#*=}" ;;
+    --eval-labels)       shift; EVAL_LABELS="${1:-}" ;;
     --model=*)           MODEL="${1#*=}" ;;
     --model)             shift; MODEL="${1:-}" ;;
     --num-shards=*)      NSHARDS="${1#*=}" ;;
@@ -190,6 +196,13 @@ while [ $# -gt 0 ]; do
   shift
 done
 
+# --eval-labels: 추론이 끝나면 이 라벨로 채점한다(GUI [NAS 추론]의 추론 범위
+# "라벨링 완료"/"Special만"). 라벨은 시각화 패널의 GT 로도 쓴다.
+if [ -n "${EVAL_LABELS:-}" ]; then
+  [ -f "$EVAL_LABELS" ] || { echo "[error] --eval-labels: 파일이 없습니다: $EVAL_LABELS" >&2; exit 2; }
+  GT_LABELS="${GT_LABELS:-$EVAL_LABELS}"
+fi
+
 if [ -n "$SCENE_JSON" ] && [ ! -f "$SCENE_JSON" ]; then
   echo "[error] scene json not found: $SCENE_JSON" >&2
   exit 2
@@ -200,6 +213,14 @@ fi
 # NAS 는 여기서 zip 인덱스를 만들며(첫 실행 ~80s) 그 캐시를 샤드 8개가
 # 나눠 쓴다 - 샤드들이 동시에 인덱싱을 시작하는 것을 피하는 효과도 있다.
 TOTAL_CLIPS="${LIMIT_CLIPS:-}"
+# --only-uuids 면 그 목록이 대상이다(GUI 의 추론 범위, 단일 클립 조회).
+# 데이터셋 전체 수를 분모로 쓰면 진행률이 3/1768 처럼 멈춘 듯 보인다.
+if [ -n "${ONLY_UUIDS:-}" ] && [ -f "$ONLY_UUIDS" ]; then
+  N_LIST="$(grep -c . "$ONLY_UUIDS" || true)"
+  if [ -z "$TOTAL_CLIPS" ] || [ "$N_LIST" -lt "$TOTAL_CLIPS" ]; then
+    TOTAL_CLIPS="$N_LIST"
+  fi
+fi
 if [ -z "$TOTAL_CLIPS" ]; then
   TOTAL_CLIPS="$("$PYBIN" - "$DATA" <<'PY'
 import sys
@@ -271,6 +292,9 @@ esac
 # 특정 uuid 만 돌린다(GUI 단일 클립 조회). 전체 인덱스를 안 만들고 그 클립이
 # 든 zip 만 찾아 열므로, NAS 에서도 몇 초~30초 안에 시작한다.
 [ -n "${ONLY_UUIDS:-}" ]        && OPTS="$OPTS --only-uuids $ONLY_UUIDS"
+# 시각화 패널의 GT. GUI 는 그 데이터셋의 [NAS 라벨링] 라벨을 넘긴다 - 안 넘기면
+# edge_case_mining 기본값(config.LABELS_JSON, NVIDIA 라벨)이라 다른 데이터셋은 GT:- 다.
+[ -n "${GT_LABELS:-}" ]         && OPTS="$OPTS --gt-labels $GT_LABELS"
 
 # GPU 점검 - 실행 폴더를 만들기 전에 한다. 한 장이라도 이상하면 여기서 멈춘다
 # (빈 결과 폴더가 남지 않게). 기준은 gpu_check.sh 한 곳에만 있다.
@@ -300,15 +324,22 @@ if [ -n "${RESUME_DIR:-}" ]; then
   RESUME_FLAG="--resume"
 else
   RUN_TS="$(date +%Y%m%d_%H%M%S)"
-  RUN_DIR="results/unlabeled/${RUN_TS}_video8b$(memo_suffix "${MEMO:-}")"
-  mkdir -p "$RUN_DIR"
+  if [ -n "${EVAL_LABELS:-}" ]; then
+    new_run_dir labeled || { echo "[error] 결과 폴더를 만들지 못했습니다 (--data ${DATA:-})" >&2; exit 2; }
+  else
+    new_run_dir unlabeled || { echo "[error] 결과 폴더를 만들지 못했습니다 (--data ${DATA:-})" >&2; exit 2; }
+  fi
 fi
 
 {
   echo
   echo "[info] run dir     : $RUN_DIR"
   [ -n "$RESUME_FLAG" ] && echo "[info] resume      : $(date '+%Y-%m-%d %H:%M:%S') 이어받기"
-  echo "[info] data        : $DATA  (no ground-truth labels - 분포만 집계한다)"
+  if [ -n "${EVAL_LABELS:-}" ]; then
+    echo "[info] data        : $DATA  (labels: $EVAL_LABELS - 끝나면 채점한다)"
+  else
+    echo "[info] data        : $DATA  (no ground-truth labels - 분포만 집계한다)"
+  fi
   echo "[info] clips       : $TOTAL_CLIPS  ($NSHARDS shards, GPU 0-$((NSHARDS-1)))"
   echo "[info] classes  : ${SCENE_JSON:-$("$PYBIN" -c 'import config; print(config.SCENE_JSON.name)') (config.py)}"
   echo "[info] python      : $PYBIN"
@@ -372,8 +403,11 @@ except Exception:
   #   - Normal / Special 개수와 비율
   #   - 클래스별 개수, 전체 대비 비율, special 대비 비율
   #   - safety/rarity 등급별 개수/비율과 평균/분산/중앙값
-  # 라벨이 없으니 evaluate_labels.py 는 돌리지 않는다 - 대조할 정답이 없다.
   "$PYBIN" -u aggregate_clip.py --run-dir "$RUN_DIR"
+  # 채점은 --eval-labels 가 있을 때만 - 없으면 대조할 정답이 없다.
+  if [ -n "${EVAL_LABELS:-}" ]; then
+    "$PYBIN" -u evaluate_labels.py --run-dir "$RUN_DIR" --labels "$EVAL_LABELS"
+  fi
 
   echo "[info] results saved in: ${RUN_DIR}/"
 } 2>&1 | tee -a "${RUN_DIR}/run.log"

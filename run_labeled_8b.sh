@@ -142,7 +142,7 @@ Examples:
   bash run_labeled_8b.sh --viz-normal --viz-special   # 둘 다 시각화
   bash run_labeled_8b.sh --viz-special                # special 만
   bash run_labeled_8b.sh --clip-fps 2.0 --clip-max-frames 40
-  bash run_labeled_8b.sh --resume results/labeld/<실행폴더> --use-egomotion --viz-normal --viz-special
+  bash run_labeled_8b.sh --resume "results/<데이터셋>/<실행폴더>" --use-egomotion --viz-normal --viz-special
 USAGE
 }
 
@@ -331,8 +331,7 @@ if [ -n "${RESUME_DIR:-}" ]; then
   fi
 else
   RUN_TS="$(date +%Y%m%d_%H%M%S)"
-  RUN_DIR="results/labeld/${RUN_TS}_eval$(memo_suffix "${MEMO:-}")"
-  mkdir -p "$RUN_DIR"
+  new_run_dir labeled || { echo "[error] 결과 폴더를 만들지 못했습니다 (--data ${DATA:-})" >&2; exit 2; }
 fi
 
 # 라벨된 uuid 만 뽑아 파일로 넘긴다 (한 줄에 하나)

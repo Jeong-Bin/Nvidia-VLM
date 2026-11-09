@@ -69,6 +69,7 @@ COOKIE = "nl_session"
 SESSION_DAYS = 14
 PBKDF2_ITER = 200_000
 USER_RE = re.compile(r"^[A-Za-z0-9_.-]{2,32}$")
+NAME_MAX = 32          # 표시 이름 길이 - 화면 머리줄과 labels.json 의 labeler.name
 
 # "작업 중" 표시 유지 시간. 브라우저가 30초마다 갱신하므로 창을 닫거나
 # 네트워크가 끊기면 이 시간 뒤에 저절로 풀린다.
@@ -1021,6 +1022,15 @@ class LabelingService:
             raise KeyError("데이터셋 없음: " + str(q.get("ds")))
         return ds
 
+    def me_of(self, h) -> dict | None:
+        """이 요청의 로그인 계정. 없으면 None."""
+        return self.auth.user_for(self._token(h))
+
+    @staticmethod
+    def _session_cookie(token: str) -> str:
+        return (f"{COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict; "
+                f"Max-Age={SESSION_DAYS * 86400}")
+
     def handle(self, h, method: str, p: str, q: dict, b: dict):
         ep = p[len("/api/nl/"):]
         if ep == "login" and method == "POST":
@@ -1028,9 +1038,25 @@ class LabelingService:
             if not token:
                 return h._err("아이디 또는 비밀번호가 맞지 않습니다", 401)
             me = self.auth.user_for(token)
-            ck = (f"{COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict; "
-                  f"Max-Age={SESSION_DAYS * 86400}")
-            return h._json({"me": me}, headers={"Set-Cookie": ck})
+            return h._json({"me": me}, headers={"Set-Cookie": self._session_cookie(token)})
+        if ep == "signup" and method == "POST":
+            # 라벨러가 GUI 첫 화면에서 직접 계정을 만든다. 일반 계정만 만들 수
+            # 있다 - 관리자 권한은 관리자가 [계정] 창이나 CLI 로 준다.
+            uid = (b.get("user") or "").strip()
+            name = (b.get("name") or "").strip()
+            pw = b.get("password") or ""
+            if not name:
+                return h._err("이름을 입력하세요", 400)
+            if len(name) > NAME_MAX:
+                return h._err(f"이름은 {NAME_MAX}자 이내로 입력하세요", 400)
+            try:
+                self.auth.set_user(uid, pw, name=name, admin=False, create=True)
+            except ValueError as e:
+                return h._err(str(e), 400)
+            token = self.auth.login(uid, pw)
+            print(f"[nas_label] 계정 생성(직접 가입): {uid} ({name})", flush=True)
+            return h._json({"me": self.auth.user_for(token)},
+                           headers={"Set-Cookie": self._session_cookie(token)})
         token = self._token(h)
         me = self.auth.user_for(token)
         if ep == "me":

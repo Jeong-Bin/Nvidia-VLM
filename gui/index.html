@@ -26,9 +26,13 @@ button.danger{border-color:var(--bad);color:var(--bad)}
 input[type=text],input[type=number],select,textarea{min-width:0}
 textarea{width:100%;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace}
 .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
-header{display:flex;align-items:center;gap:14px;padding:10px 16px;
+header{display:flex;align-items:center;gap:14px;padding:10px 16px;flex-wrap:wrap;row-gap:6px;
   background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
-nav{display:flex;gap:4px;align-items:center}
+/* 탭 이름과 머리줄 글자는 한 줄로 둔다 - 폭이 모자라면 글자 안에서 꺾지 않고
+   탭 묶음째 다음 줄로 넘긴다(로그인 사용자 표시가 생기며 폭이 빠듯해졌다). */
+header > h1, #hdr{white-space:nowrap}
+nav{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+nav button{white-space:nowrap}
 .navsep{color:var(--delimiter);user-select:none;padding:0 2px}
 nav button{background:none;border:1px solid transparent}
 nav button.on{background:var(--panel2);border-color:var(--line);color:var(--accent)}
@@ -214,6 +218,23 @@ video{width:100%;background:#000;border-radius:6px}
 /* --- NAS 라벨링 탭 ---
    목록 | 영상+이력 | 라벨 입력 3단. 영상이 가장 커야 하므로 가운데가 남는 폭을
    다 먹는다. 좁은 화면에서는 입력 칸이 영상 아래로 내려간다. */
+/* 첫 화면: 로그인 / 계정 만들기. 로그인 전에는 머리줄과 탭을 숨긴다. */
+body.gated > header, body.gated > main{display:none}
+.gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
+.gate-box{width:100%;max-width:400px;padding:22px 24px}
+.gate-box h1{font-size:18px;margin:0 0 4px}
+.gate-tabs{display:flex;gap:6px;margin:16px 0 4px}
+.gate-tabs button{flex:1}
+.gate-tabs button.on{border-color:var(--accent);color:var(--accent)}
+.gate form{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.gate label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.gate label small{font-size:11px;opacity:.8}
+.gate form button.primary{margin-top:4px}
+#gate-msg{min-height:1.2em;margin:12px 0 0}
+#gate-msg.err{color:#ff7b72}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.whoami{display:flex;align-items:center;gap:8px;font-size:12px;white-space:nowrap}
+.whoami button{padding:3px 8px;font-size:12px}
 .nl-login{max-width:420px;margin:40px auto}
 .nl-login form{display:flex;flex-direction:column;gap:8px;margin-top:10px}
 .nl-login label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted)}
@@ -313,6 +334,34 @@ button.primary kbd{color:#000}
 </style>
 </head>
 <body>
+<div id="gate" class="gate hide">
+  <div class="panel gate-box">
+    <h1>Edge-Case Mining Console</h1>
+    <p class="muted" style="margin:0">로그인해야 쓸 수 있습니다. 라벨을 저장하면 계정이
+      라벨러로 기록됩니다.</p>
+    <div class="gate-tabs">
+      <button type="button" data-g="login" class="on">로그인</button>
+      <button type="button" data-g="signup">계정 만들기</button>
+    </div>
+    <form id="gate-login">
+      <label>아이디<input type="text" id="g-user" autocomplete="username" required></label>
+      <label>비밀번호<input type="password" id="g-pw" autocomplete="current-password" required></label>
+      <button class="primary" type="submit">로그인</button>
+    </form>
+    <form id="gate-signup" class="hide">
+      <label>아이디 <small>영문·숫자·_ . - 로 2~32자</small>
+        <input type="text" id="g-nuser" autocomplete="username" required></label>
+      <label>이름 <small>라벨 파일에 라벨러 이름으로 남습니다</small>
+        <input type="text" id="g-name" maxlength="32" required></label>
+      <label>비밀번호 <small>4자 이상</small>
+        <input type="password" id="g-npw" autocomplete="new-password" required></label>
+      <label>비밀번호 확인
+        <input type="password" id="g-npw2" autocomplete="new-password" required></label>
+      <button class="primary" type="submit">계정 만들고 시작</button>
+    </form>
+    <p id="gate-msg" class="muted"></p>
+  </div>
+</div>
 <header>
   <h1>Edge-Case Mining Console</h1>
   <nav>
@@ -323,15 +372,19 @@ button.primary kbd{color:#000}
     <button data-tab="search">라벨 씬 검색</button>
     <button data-tab="label">라벨 편집</button>
     <span class="navsep">|</span>
-    <button data-tab="nas">NAS 전체 추론</button>
-    <button data-tab="agg">NAS 전체 추론 결과</button>
-    <button data-tab="nsearch">NAS 전체 씬 검색</button>
+    <button data-tab="nas">NAS 추론</button>
+    <button data-tab="agg">NAS 추론 결과</button>
+    <button data-tab="nsearch">NAS 씬 검색</button>
     <span class="navsep">|</span>
     <button data-tab="nlabel">NAS 라벨링</button>
     <span class="navsep">|</span>
     <button data-tab="single">단일 클립 추론</button>
   </nav>
-  <span id="hdr" class="muted" style="margin-left:auto"></span>
+  <div class="hdr-right">
+    <span id="hdr" class="muted"></span>
+    <span id="whoami" class="whoami hide"><span id="whoami-name"></span>
+      <button type="button" id="whoami-out">로그아웃</button></span>
+  </div>
 </header>
 <main>
 <div id="nasbar" class="hide">
@@ -592,10 +645,10 @@ button.primary kbd{color:#000}
   </div>
 </section>
 
-<!-- ============ 6. NAS 전체 추론 ============ -->
+<!-- ============ 6. NAS 추론 결과 ============ -->
 <section id="tab-agg" class="hide">
   <div class="panel">
-    <h2>NAS 전체 추론 결과</h2>
+    <h2>NAS 추론 결과</h2>
     <p class="muted" style="margin:0 0 10px">
       NAS 마이닝 실행의 집계입니다. 정답 라벨이 없으므로 P/R/F1 대신 모델이
       내놓은 분포를 봅니다. 수치는 <span class="mono">clip_results*.csv</span>
@@ -717,11 +770,22 @@ button.primary kbd{color:#000}
       NAS 청크 zip 을 압축 해제 없이 직접 읽어 훑습니다. 정답 라벨이 없으므로
       채점은 하지 않고 aggregate_clip.log 로 분포만 냅니다.</p>
     <div class="row">
-      <label>모델<select id="n-model" style="min-width:280px"></select></label>
-      <label>분류 체계<select id="n-scene"></select></label>
-      <label id="n-limitwrap" title="비워두면 데이터셋 전체를 훑습니다">
+      <label title="기본은 nas. local 을 고르면 pav_sample 을 본다">
+        데이터<select id="n-data">
+        <option value="nas">Nvidia-PAV(NAS chunk.zip)</option>
+        <option value="local">Nvidia-PAV(local pav_sample)</option></select></label>
+      <label id="n-scopewrap" title="전체: 데이터셋 전부. 라벨링 완료: [NAS 라벨링] 탭에서 라벨을 저장한 클립. Special만: 그중 classes 가 하나라도 있는 클립. 목록은 실행을 누른 순간의 라벨로 정해진다. 라벨링 완료 / Special만은 끝나면 그 라벨로 채점해 [라벨 평가 결과]에 나온다.">
+        추론 범위<select id="n-scope">
+        <option value="all">전체</option>
+        <option value="labeled">라벨링 완료</option>
+        <option value="special">Special만</option></select></label>
+      <label id="n-limitwrap" title="비워두면 추론 범위 전체를 훑습니다">
         클립 수 제한<input type="number" id="n-limit" min="1" size="6"
           placeholder="전체"></label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label>모델<select id="n-model" style="min-width:280px"></select></label>
+      <label>분류 체계<select id="n-scene"></select></label>
     </div>
     <div class="row" style="margin-top:10px">
       <label title="+설명 을 고르면 초록 선이 자차의 미래 5초 궤적이라는 문장을 프롬프트에 넣는다. 기본은 넣지 않는 것 - 실측 115클립에서 설명을 넣자 6개 축이 모두 나빠졌다(Verdict F1 90.5->83.0).">궤적 오버레이<select id="n-traj">
@@ -737,10 +801,6 @@ button.primary kbd{color:#000}
         <option value="cat">클래스별 N</option></select></label>
       <label id="n-vpcwrap" title="각 special 클래스마다 최초 N개 클립만 시각화한다">
         저장할 클립 개수(N)<input type="number" id="n-vpc" min="1" value="5" size="4" disabled></label>
-      <label title="기본은 nas. local 을 고르면 pav_sample 을 본다">
-        데이터<select id="n-data">
-        <option value="nas">nas (NAS 청크 zip)</option>
-        <option value="local">local (pav_sample)</option></select></label>
       <label class="chk" title="날씨 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
         <input type="checkbox" id="n-difficulty" checked> 날씨 4축 켜기</label>
       <label class="chk" title="날씨 4축만 추론한다. edge-case 탐지(VERDICT/CLASSES)와 클래스 점수를 전부 빼고, 프롬프트를 날씨 전용으로 바꾼다.">
@@ -770,7 +830,7 @@ button.primary kbd{color:#000}
   <div id="nl-login" class="panel nl-login hide">
     <h2>NAS 라벨링 로그인</h2>
     <p class="muted" style="margin:0">라벨을 저장·수정하면 계정과 시각이 이력에 남습니다.
-      계정은 관리자에게 요청하세요.</p>
+      계정이 없으면 GUI 첫 화면의 [계정 만들기]에서 만듭니다.</p>
     <form id="nl-login-form">
       <label>아이디<input type="text" id="nl-user" autocomplete="username"></label>
       <label>비밀번호<input type="password" id="nl-pw" autocomplete="current-password"></label>
@@ -850,6 +910,8 @@ const $$ = s => [...document.querySelectorAll(s)];
 const api = async (p, o) => {
   const r = await fetch(p, o);
   const j = await r.json();
+  // 세션이 끝났으면(다른 창에서 로그아웃, 14일 만료) 첫 화면으로 돌아간다.
+  if (r.status === 401 && j.login) { location.reload(); throw new Error(j.error); }
   if (j.error) throw new Error(j.error);
   return j;
 };
@@ -886,6 +948,7 @@ function showTab(name, opt) {
   $$('main > section').forEach(s =>
     s.classList.toggle('hide', s.id !== 'tab-' + name));
   if (name === 'run' || name === 'nas') refreshJobs();
+  if (name === 'nas' && typeof refreshNasScope === 'function') refreshNasScope();
   if (!opt || opt.remember !== false) {
     // 사생활 보호 모드처럼 저장이 막힌 브라우저에서도 탭 전환 자체는
     // 계속 되어야 하므로 실패를 삼킨다.
@@ -952,14 +1015,14 @@ $('#nasrecheck').onclick = async () => {
 /* ---------- 부팅 ---------- */
 async function boot() {
   BOOT = await api('/api/bootstrap');
-  // 평가 결과 / 씬 검색은 채점된 실행(labeld/)만 다룬다. NAS 마이닝
-  // (unlabeled/)은 대조할 정답이 없어 P/R/F1 이 나오지 않으므로, 목록에
+  // 평가 결과 / 씬 검색은 채점된 실행(kind=labeled)만 다룬다. NAS 마이닝
+  // (kind=unlabeled)은 대조할 정답이 없어 P/R/F1 이 나오지 않으므로, 목록에
   // 섞이면 고르는 즉시 빈 표가 뜬다.
   const runs = BOOT.runs.filter(r => r.has_results && r.kind === 'labeled')
     .map(r => [r.name, r.name + (r.memo ? '  — ' + r.memo : '')]);
   opts($('#ev-run'), runs);
   opts($('#s-run'), [['', '(선택 안 함)'], ...runs]);
-  // NAS 집계 / NAS 씬 검색은 반대로 unlabeled/ 실행만 다룬다.
+  // NAS 집계 / NAS 씬 검색은 반대로 kind=unlabeled 실행만 다룬다.
   const nasRuns = BOOT.runs.filter(r => r.kind === 'unlabeled')
     .map(r => [r.name, r.name + (r.memo ? '  — ' + r.memo : '')]);
   opts($('#ag-run'), nasRuns);
@@ -973,6 +1036,22 @@ async function boot() {
   opts($('#l-file'), BOOT.labels, BOOT.default_labels);
   for (const s of ['#ev-labels', '#s-labels', '#r-labels'])
     opts($(s), BOOT.eval_labels || BOOT.labels, BOOT.default_labels);
+  // 평가 결과는 "그 실행이 채점에 쓴 라벨"도 고를 수 있다(값 '' -> 서버가
+  // run_config 의 gt_labels 를 쓴다). 로컬 pav_sample 이 아닌 데이터셋의 실행을
+  // 고르면 이것으로 바꾼다 - 기본 라벨(NVIDIA)과는 uuid 가 하나도 안 겹친다.
+  $('#ev-labels').insertAdjacentHTML('afterbegin',
+    '<option value="">(이 실행이 채점에 쓴 라벨)</option>');
+  $('#ev-labels').value = BOOT.default_labels;
+  const evRunLabels = () => {
+    const name = $('#ev-run').value || '';
+    if (name.includes('/') && !name.startsWith('Nvidia-PAV(local_pav_sample)/')
+        && !/^(labeld|unlabeled)\//.test(name))
+      $('#ev-labels').value = '';
+    else if ($('#ev-labels').value === '')
+      $('#ev-labels').value = BOOT.default_labels;
+  };
+  $('#ev-run').addEventListener('change', evRunLabels);
+  evRunLabels();
   initDataSelects();
   for (const s of ['#c-file', '#r-scene', '#n-scene', '#sg-scene'])
     opts($(s), BOOT.scenes, BOOT.default_scene);
@@ -1514,7 +1593,7 @@ function previewCmd() {
 $('#r-model').addEventListener('change', onModelChange);
 $('#r-diffonly').addEventListener('change', () => { syncDiffOnly('r','only'); previewCmd(); });
 
-/* ---------- 6. NAS 전체 추론 ---------- */
+/* ---------- 6. NAS 추론 ---------- */
 /* 데이터 선택. nas_datasets.json 에 등록한 데이터셋을 목록에 더하고, 고른
    데이터셋에 없는 기능은 끈다. 서버(edge_case_mining)도 같은 조합을 거부한다.
    화면은 실행 전에 알려 주기 위한 것이다. */
@@ -1572,7 +1651,9 @@ function previewNasCmd() {
                      : ['bash run_nas_nvidia_8b.sh',
                         '--num-shards ' + $('#n-shards').value, '--model ' + m];
   parts.push('--scene-json ' + $('#n-scene').value);
-  if ($('#n-limit').value) parts.push('--limit-clips ' + $('#n-limit').value);
+  // 범위를 좁히면 서버가 uuid 목록을 만들고 클립 수 제한도 그 목록에서 자른다.
+  const sc = $('#n-scope').value;
+  if ($('#n-limit').value && sc === 'all') parts.push('--limit-clips ' + $('#n-limit').value);
   if ($('#n-ego').value === '1') parts.push('--use-egomotion');
   parts.push(...trajFlags($('#n-traj').value));
   // nas_* 는 시각화가 기본 on 이라, 끌 때 --no-viz 를 명시해야 한다.
@@ -1592,23 +1673,62 @@ function previewNasCmd() {
   if ($('#n-tspans').value && !$('#n-diffonly').checked) parts.push('--time-spans ' + $('#n-tspans').value);
   if ($('#n-attn').checked) parts.push('--attn-timeline');
   if ($('#n-memo').value) parts.push(`--memo "${$('#n-memo').value}"`);
+  // 시각화 GT 는 그 데이터셋의 [NAS 라벨링] 라벨 사본(서버가 실행 순간에 만든다).
+  // 범위를 좁히면 끝나고 그 라벨로 채점한다(--eval-labels, GT 로도 쓰인다).
+  if (NSCOPE && NSCOPE.supported)
+    parts.push((sc !== 'all' ? '--eval-labels' : '--gt-labels') + ' gui/scope/<작업ID>.gt_labels.json');
+  if (sc !== 'all') parts.push(`--only-uuids gui/scope/<작업ID>.${sc}.txt`
+                               + (scopeCount() != null ? ` (${scopeCount().toLocaleString()}개)` : ''));
   $('#n-cmd').textContent = '$ ' + parts.join(' ');
 }
-['#n-model', '#n-scene', '#n-limit', '#n-traj', '#n-ego', '#n-viz', '#n-data',
+/* 추론 범위. 개수는 [NAS 라벨링] 저장소에서 그때그때 받아 온다 - 라벨링이
+   진행되면 바뀌므로 탭을 열 때와 데이터를 바꿀 때 다시 묻는다. */
+const SCOPE_NAME = { all: '전체', labeled: '라벨링 완료', special: 'Special만' };
+let NSCOPE = null;
+function scopeCount() {
+  const sc = $('#n-scope').value;
+  if (sc === 'all' || !NSCOPE || !NSCOPE.supported) return null;
+  const n = NSCOPE[sc], lim = +$('#n-limit').value;
+  return lim ? Math.min(lim, n) : n;
+}
+async function refreshNasScope() {
+  const data = $('#n-data').value;
+  let s;
+  try { s = await api('/api/nas_scope?data=' + encodeURIComponent(data)); }
+  catch (e) { s = { supported: false, reason: e.message }; }
+  if ($('#n-data').value !== data) return;     // 기다리는 사이 데이터를 바꿈
+  NSCOPE = s;
+  const sel = $('#n-scope');
+  for (const o of sel.options) {
+    const n = o.value === 'all' ? null : s[o.value];
+    o.textContent = SCOPE_NAME[o.value] + (n != null ? ` (${n.toLocaleString()})` : '');
+    o.disabled = o.value !== 'all' && !s.supported;
+  }
+  if (!s.supported && sel.value !== 'all') sel.value = 'all';
+  $('#n-scopewrap').title = s.supported
+    ? `[NAS 라벨링] ${s.name} 의 라벨 기준. 라벨링 완료: 라벨을 저장한 클립. Special만: 그중 classes 가 하나라도 있는 클립. 목록은 실행을 누른 순간의 라벨로 정해진다. 라벨링 완료 / Special만은 끝나면 그 라벨로 채점해 [라벨 평가 결과]에 나온다.`
+    : `라벨 기준 범위를 쓸 수 없습니다: ${s.reason}`;
+  previewNasCmd();
+}
+$('#n-data').addEventListener('change', refreshNasScope);
+['#n-model', '#n-scene', '#n-limit', '#n-scope', '#n-traj', '#n-ego', '#n-viz', '#n-data',
  '#n-vpc', '#n-difficulty', '#n-diffonly', '#n-unknown', '#n-group', '#n-tspans', '#n-attn', '#n-gpus', '#n-shards', '#n-memo'].forEach(s => {
   $(s).addEventListener('input', previewNasCmd); $(s).addEventListener('change', previewNasCmd);
 });
 $('#n-model').addEventListener('change', onNasModelChange);
 $('#n-diffonly').addEventListener('change', () => { syncDiffOnly('n','only'); previewNasCmd(); });
 $('#n-go').onclick = async () => {
-  const n = $('#n-limit').value;
-  if (!confirm(n ? `${n}개 클립을 추론할까요?`
+  const n = $('#n-limit').value, sc = $('#n-scope').value;
+  const k = scopeCount();
+  if (!confirm(sc !== 'all'
+                 ? `${SCOPE_NAME[sc]} 클립${k != null ? ' ' + k.toLocaleString() + '개' : ''}를 추론할까요?`
+                 : n ? `${n}개 클립을 추론할까요?`
                  : `전체 데이터셋(${nasClipsText()})을 추론할까요? 매우 오래 걸립니다.`)) return;
   try {
     await api('/api/job', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        mode: 'nas',
+        mode: 'nas', scope: sc,
         model: $('#n-model').value, scene_json: $('#n-scene').value,
         limit_clips: $('#n-limit').value ? +$('#n-limit').value : null,
         traj: $('#n-traj').value,
@@ -1756,7 +1876,7 @@ function sgPreview() {
   $('#sg-cmd').textContent = '$ bash ' + parts.join(' ');
 }
 
-/* ---------- 7. NAS 전체 추론 결과 ----------
+/* ---------- 7. NAS 추론 결과 ----------
    aggregate_clip.log 와 같은 항목을 보여주되, 수치는 CSV 에서 다시 계산한
    /api/aggregate 를 쓴다. 고정폭 텍스트를 파싱하면 서식이 조금만 바뀌어도
    깨지기 때문이다. */
@@ -1984,7 +2104,7 @@ $('#ag-load').onclick = async () => {
   }
 };
 
-/* ---------- 8. NAS 전체 씬 검색 ----------
+/* ---------- 8. NAS 씬 검색 ----------
    라벨 검색과 구조는 같지만 대조할 정답이 없다. 모델이 낸 예측 자체를
    조건으로 걸고, 결과는 NAS 원본 영상을 /clip/<uuid> 로 바로 재생한다.
    (시각화 mp4 를 30만 클립에 대해 만들어 둘 수는 없다) */
@@ -2218,12 +2338,68 @@ function applyLabelerOnly() {
   showTab('nlabel', { remember: false });
   $('#hdr').textContent = 'NAS 라벨링';
 }
+/* 첫 화면(로그인 / 계정 만들기). 성공하면 페이지를 다시 읽어 평소 화면으로 간다 -
+   탭마다 부팅 순서가 얽혀 있어 그 자리에서 이어 붙이는 것보다 확실하다. */
+function showGate() {
+  document.body.classList.add('gated');
+  $('#gate').classList.remove('hide');
+  const pick = g => {
+    $$('.gate-tabs button').forEach(b => b.classList.toggle('on', b.dataset.g === g));
+    $('#gate-login').classList.toggle('hide', g !== 'login');
+    $('#gate-signup').classList.toggle('hide', g !== 'signup');
+    gateMsg('');
+    setTimeout(() => $(g === 'login' ? '#g-user' : '#g-nuser').focus(), 0);
+  };
+  $$('.gate-tabs button').forEach(b => b.onclick = () => pick(b.dataset.g));
+  pick('login');
+}
+function gateMsg(m) {
+  $('#gate-msg').textContent = m;
+  $('#gate-msg').classList.toggle('err', !!m);
+}
+async function gatePost(path, body) {
+  const r = await fetch('/api/nl/' + path, { method: 'POST',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  let j = {};
+  try { j = await r.json(); } catch (e) {}
+  if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`);
+  return j;
+}
+$('#gate-login').onsubmit = async ev => {
+  ev.preventDefault();
+  try {
+    await gatePost('login', { user: $('#g-user').value.trim(), password: $('#g-pw').value });
+    location.reload();
+  } catch (e) { gateMsg(e.message); $('#g-pw').select(); }
+};
+$('#gate-signup').onsubmit = async ev => {
+  ev.preventDefault();
+  if ($('#g-npw').value !== $('#g-npw2').value) return gateMsg('비밀번호가 서로 다릅니다');
+  try {
+    await gatePost('signup', { user: $('#g-nuser').value.trim(),
+      name: $('#g-name').value.trim(), password: $('#g-npw').value });
+    location.reload();
+  } catch (e) { gateMsg(e.message); }
+};
+$('#whoami-out').onclick = async () => {
+  // NAS 라벨링에서 고치던 라벨이 있으면 그쪽 확인을 먼저 거친다.
+  if (typeof confirmLeave === 'function' && !confirmLeave()) return;
+  if (typeof releaseClaim === 'function') releaseClaim();
+  try { await gatePost('logout', {}); } catch (e) {}
+  location.reload();
+};
 (async () => {
   try {
     const r = await fetch('/api/access');
     if (r.ok) ACCESS = await r.json();
   } catch (e) {}
   window.EDGE_ACCESS = ACCESS;
+  if (ACCESS.login && !ACCESS.me) return showGate();
+  if (ACCESS.me) {
+    $('#whoami-name').textContent =
+      `${ACCESS.me.name} (${ACCESS.me.user})${ACCESS.me.admin ? ' · 관리자' : ''}`;
+    $('#whoami').classList.remove('hide');
+  }
   if (!ACCESS.full) return applyLabelerOnly();
   // 탭 복원은 boot() 앞에 둔다. bootstrap 응답을 기다리면 그동안 엉뚱한 탭이
   // 보이고, 초기화가 실패하면 아예 복원되지 않는다.

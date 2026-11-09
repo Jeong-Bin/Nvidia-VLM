@@ -74,6 +74,39 @@ def dataset_profiles() -> dict:
     return out
 
 
+# 실행 결과(results/) 아래 데이터셋별 폴더 이름. GUI 의 데이터 선택 이름과
+# 맞추되 공백은 _ 로 바꾼다 - 실행 스크립트가 옵션을 문자열로 이어 붙이고
+# GUI 가 run.log 의 "run dir : <경로>" 를 공백에서 끊어 읽어서, 경로에 공백이
+# 있으면 실행이 깨진다.
+RESULTS_GROUPS = {"local": "Nvidia-PAV(local_pav_sample)",
+                  "nas": "Nvidia-PAV(NAS_chunk.zip)"}
+
+
+def safe_dirname(name: str) -> str:
+    """폴더 이름으로 쓸 수 있게: 공백·/·\\ -> _, 셸에서 문제 되는 글자는 뺀다."""
+    s = re.sub(r"[\s/\\]+", "_", str(name).strip())
+    s = re.sub(r"[:*?\"<>|'`$;]", "", s).strip("_")
+    return s or "other"
+
+
+def results_group(spec) -> str:
+    """--data 값 -> results/ 아래 데이터셋 폴더 이름.
+
+    local(기본)/nas 는 NVIDIA PAV 의 두 소스다. nas_datasets.json 에 등록한
+    데이터셋은 그 이름을 쓰는데, NVIDIA NAS 와 같은 카메라 폴더를 가리키면
+    nas 와 같은 폴더에 둔다(같은 데이터다). 임의 경로는 마지막 폴더 이름.
+    """
+    spec = spec or "local"
+    if spec in RESULTS_GROUPS:
+        return RESULTS_GROUPS[spec]
+    prof = dataset_profile(spec)
+    if prof:
+        if Path(prof["camera_dir"]) == Path(NAS_CAMERA_DIR):
+            return RESULTS_GROUPS["nas"]
+        return safe_dirname(prof.get("name") or spec)
+    return safe_dirname(Path(str(spec).rstrip("/")).name)
+
+
 def dataset_profile(spec) -> dict | None:
     """--data 값이 등록된 데이터셋 id 면 그 프로필, 아니면 None."""
     return dataset_profiles().get(spec) if spec else None

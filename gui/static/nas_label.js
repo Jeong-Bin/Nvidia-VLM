@@ -77,9 +77,8 @@ $('#nl-logout').onclick = async () => {
   releaseClaim();
   try { await nlapi('logout', {}); } catch (e) {}
   NL.cur = null; NL.dirty = false;
-  const A = window.EDGE_ACCESS;
-  if (A && !A.local && A.full) return location.reload();
-  showLogin('로그아웃했습니다');
+  // GUI 전체가 같은 계정으로 로그인돼 있으므로 첫 화면(로그인)으로 돌아간다.
+  location.reload();
 };
 
 async function boot() {
@@ -398,7 +397,7 @@ function catRubric(c, g) {
 }
 function seg(key, vals, title) {
   return `<span class="seg" data-k="${esc(key)}">${vals.map(v =>
-    `<button type="button" data-v="${v}" title="${esc(title ? title(v) : '')}">${v === null ? '−' : v}</button>`).join('')}</span>`;
+    `<button type="button" data-v="${v}" title="${esc(title ? title(v) : '')}">${v === null ? '0' : v}</button>`).join('')}</span>`;
 }
 
 /* 고를 수 있는 점수는 기준표 눈금을 따른다(서버가 constrained_tier 에서 읽어 준다). */
@@ -416,7 +415,7 @@ function buildForm() {
       ${cats.map(c => {
         const rb = catRubric(c, g);
         return `<div class="nl-line" data-cat="${esc(c)}"><span class="nm" title="${esc(c)}">${esc(c)}</span>
-          ${seg('c:' + c, [null, ...catVals(c)], v => v === null ? '없음' : (rb[v] ? `${v}: ${rb[v]}` : `${v}`))}</div>`;
+          ${seg('c:' + c, [null, ...catVals(c)], v => v === null ? '0: 없음' : (rb[v] ? `${v}: ${rb[v]}` : `${v}`))}</div>`;
       }).join('')}
     </div>`;
   }).join('');
@@ -428,7 +427,7 @@ function buildForm() {
       <div class="nl-rub wx" id="nl-wrub-${a}"></div>`;
   }).join('');
   $('#nl-form').innerHTML = `
-    <div class="nl-sub2">클래스는 나온 것만 1~4로 고릅니다(−는 없음). 묶음 점수는 클래스 최댓값이
+    <div class="nl-sub2">클래스는 나온 것만 1~4로 고릅니다(0은 없음). 묶음 점수는 클래스 최댓값이
       자동으로 들어가며, 직접 바꿀 수 있습니다. 버튼에 마우스를 올리면 기준표가 보입니다.</div>
     ${groups}
     <div class="nl-sec">비 / 눈 / 안개</div>

@@ -42,3 +42,6 @@ gui/single/
 nas_labels/users.json
 nas_labels/sessions.json
 nas_labels/**/*.tmp
+
+# [NAS 추론] 탭의 추론 범위(라벨링 완료 / Special만)가 만드는 uuid 목록
+gui/scope/
