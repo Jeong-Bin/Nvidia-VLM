@@ -1,7 +1,7 @@
 {
   "_meta": {
     "labeled_by": "admin, hjb",
-    "date": "2026-11-09",
+    "date": "2026-11-10",
     "source_run": "",
     "guide": "",
     "dataset": "/volume1/OPEN_DATASET/NAVSIM/20261105",
@@ -537,6 +537,25 @@
       },
       "classes": {},
       "Dynamic object": 0,
+      "Driving environment": 0,
+      "rain_snow_fog": [],
+      "weather": {
+        "illumination": 0,
+        "precipitation": 0,
+        "road_surface": 0,
+        "atmospheric_obscurants": 0
+      },
+      "note": ""
+    },
+    "4e7d3e942d785dc5": {
+      "labeler": {
+        "id": "hjb",
+        "name": "홍정빈"
+      },
+      "classes": {
+        "Pedestrian on Road": 1
+      },
+      "Dynamic object": 1,
       "Driving environment": 0,
       "rain_snow_fog": [],
       "weather": {

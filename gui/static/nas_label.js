@@ -3,7 +3,7 @@
  * 서버: nas_labeling.py (/api/nl/*). index.html 의 $, $$, esc, toast,
  * opts, showModal, closeModal 을 그대로 쓴다.
  *
- * 실시간 표시: 3초마다 poll 로 (1) 그 사이 저장된 클립, (2) 누가 어느 클립을
+ * 실시간 표시: 1초마다 poll 로 (1) 그 사이 저장된 클립, (2) 누가 어느 클립을
  * 작업 중인지를 받아 목록/개수를 고친다. 작업 중 표시는 클립을 연 동안
  * 30초마다 갱신하고, 끊기면 서버에서 90초 뒤 저절로 풀린다.
  */
@@ -670,7 +670,7 @@ async function poll() {
   } catch (e) { /* 일시적인 네트워크 오류는 다음 주기에 */ }
   finally { polling = false; }
 }
-setInterval(poll, 3000);
+setInterval(poll, 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
 
 /* ---------- 분배 ----------
@@ -895,6 +895,91 @@ document.addEventListener('keydown', ev => {
   else if (ev.key === 'ArrowLeft') { ev.preventDefault(); v.currentTime = Math.max(0, v.currentTime - 2); }
   else if (ev.key === 'ArrowRight') { ev.preventDefault(); v.currentTime = v.currentTime + 2; }
 });
+
+/* ---------- 블록 폭 끌기 (VS Code 의 칸 경계처럼) ----------
+   칸 경계마다 보이지 않는 막대를 깔고, 끌면 그 옆 블록의 폭을 바꾼다. 영상 칸은
+   남는 폭을 차지하므로 영상 왼쪽 경계는 왼쪽 블록을, 오른쪽 경계들은 경계 오른쪽
+   블록을 바꿔야 막대가 마우스를 따라간다. 폭은 사람마다 다르므로 이 브라우저에만
+   기억하고, 막대를 두 번 누르면 기본 폭으로 돌아간다. 화면이 좁아 칸 수가 바뀌어도
+   (평가 기준 On/Off, 2칸/1칸 배치) 같은 이름의 폭을 그대로 쓴다. */
+const LS_W = 'edgegui.nl.w.', W_MIN = 200, VIDEO_MIN = 360;
+function initSashes() {
+  const grid = $('.nl-grid');
+  const setW = (name, px) => grid.style.setProperty(`--nl-w-${name}`,
+    px == null ? null : `minmax(${Math.min(160, px)}px, ${px}px)`);
+  ['list', 'rub', 'form'].forEach(n => {
+    const v = parseFloat(lsGet(LS_W + n));
+    if (v > 0) setW(n, v);
+  });
+  const cols = () => {
+    const t = getComputedStyle(grid).gridTemplateColumns;
+    return t === 'none' ? [] : t.split(' ').map(parseFloat).filter(x => !isNaN(x));
+  };
+  // 칸 수 -> 각 칸의 폭 이름. 영상(1번 칸)은 이름이 없다.
+  const NAMES = { 2: ['list', null], 3: ['list', null, 'form'], 4: ['list', null, 'rub', 'form'] };
+  let sashes = [], drag = null;
+  function layout() {
+    if (drag) return;
+    const w = cols(), names = NAMES[w.length], gap = parseFloat(getComputedStyle(grid).columnGap) || 0;
+    const want = names && grid.offsetWidth ? w.length - 1 : 0;
+    while (sashes.length > want) sashes.pop().remove();
+    while (sashes.length < want) {
+      const el = document.createElement('div');
+      el.className = 'nl-sash';
+      el.title = '끌어서 폭 조절 · 두 번 누르면 기본 폭';
+      el.addEventListener('pointerdown', down);
+      el.addEventListener('dblclick', reset);
+      grid.appendChild(el);
+      sashes.push(el);
+    }
+    let x = 0;
+    sashes.forEach((el, i) => {
+      x += w[i] + (i ? gap : 0);
+      el.style.left = `${x + gap / 2}px`;
+      el.dataset.i = i;
+      el.dataset.name = names[i === 0 ? 0 : i + 1];
+    });
+  }
+  function down(ev) {
+    if (ev.button !== 0) return;
+    ev.preventDefault();
+    const el = ev.currentTarget, i = +el.dataset.i, w = cols();
+    const col = i === 0 ? 0 : i + 1;
+    drag = { el, name: el.dataset.name, x0: ev.clientX, w0: w[col], dir: i === 0 ? 1 : -1,
+      max: w[col] + Math.max(0, w[1] - VIDEO_MIN) };
+    el.setPointerCapture(ev.pointerId);
+    el.classList.add('drag');
+    document.body.classList.add('nl-resizing');
+    el.onpointermove = e => {
+      const px = Math.round(Math.max(Math.min(W_MIN, drag.w0),
+        Math.min(drag.max, drag.w0 + drag.dir * (e.clientX - drag.x0))));
+      drag.px = px;
+      setW(drag.name, px);
+      // 끄는 동안에도 막대가 칸 경계를 따라가게 한다.
+      const d = drag; drag = null; layout(); drag = d;
+    };
+    el.onpointerup = el.onpointercancel = () => {
+      el.onpointermove = el.onpointerup = el.onpointercancel = null;
+      el.classList.remove('drag');
+      document.body.classList.remove('nl-resizing');
+      if (drag.px) lsSet(LS_W + drag.name, String(drag.px));
+      drag = null;
+      layout();
+    };
+  }
+  function reset(ev) {
+    const name = ev.currentTarget.dataset.name;
+    setW(name, null);
+    try { localStorage.removeItem(LS_W + name); } catch (e) {}
+    layout();
+  }
+  // 창 크기, 평가 기준 On/Off, 탭 전환 모두 칸 폭을 바꾸므로 블록들의 크기를 본다.
+  const ro = new ResizeObserver(() => layout());
+  ro.observe(grid);
+  [...grid.children].forEach(c => { if (!c.classList.contains('nl-sash')) ro.observe(c); });
+  layout();
+}
+initSashes();
 
 /* 탭이 처음 보일 때 시작한다(새로고침으로 이 탭이 복원된 경우 포함). */
 $$('nav button').find(b => b.dataset.tab === 'nlabel')

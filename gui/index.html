@@ -247,23 +247,34 @@ body.gated > header, body.gated > main{display:none}
 .nl-counts b{display:block;font-size:16px;font-variant-numeric:tabular-nums}
 .nl-counts span{color:var(--muted);font-size:11px}
 .nl-me{margin-left:auto;display:flex;gap:6px;align-items:center}
-.nl-grid{display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr) minmax(340px,420px);
+.nl-grid{display:grid;grid-template-columns:var(--nl-w-list,minmax(300px,380px)) minmax(0,1fr) var(--nl-w-form,minmax(340px,420px));
   gap:12px;align-items:start}
 .nl-grid>*{min-width:0}
 @media(max-width:1500px){
-  .nl-grid{grid-template-columns:minmax(280px,340px) minmax(0,1fr)}
+  .nl-grid{grid-template-columns:var(--nl-w-list,minmax(280px,340px)) minmax(0,1fr)}
   .nl-formp{grid-column:2}
 }
 @media(max-width:900px){.nl-grid{grid-template-columns:1fr}.nl-formp{grid-column:auto}}
+/* 블록 경계 끌기(nas_label.js 의 initSashes). 끌어 정한 폭은 --nl-w-* 로 들어가고,
+   없으면 아래 기본 폭을 쓴다. 영상 칸만 남는 폭을 차지한다. */
+.nl-grid{position:relative}
+.nl-sash{position:absolute;top:0;bottom:0;width:10px;margin-left:-5px;cursor:col-resize;
+  z-index:5;touch-action:none}
+.nl-sash::after{content:"";position:absolute;top:0;bottom:0;left:4px;width:2px;
+  border-radius:1px;background:transparent;transition:background .12s .1s}
+.nl-sash:hover::after,.nl-sash.drag::after{background:var(--accent)}
+body.nl-resizing{cursor:col-resize;user-select:none}
+body.nl-resizing video{pointer-events:none}
 /* [평가 기준] 블록. 큰 화면은 라벨 블록 왼쪽에 칸을 하나 더 내고 그만큼 영상
    칸이 줄어든다. 그보다 좁으면 영상이 너무 작아지므로, 라벨 블록이 영상 아래로
    내려가는 배치를 써서 그 왼쪽(목록 아래) 빈 자리에 넣는다. */
 .nl-rubp{position:sticky;top:64px;max-height:calc(100vh - 76px);overflow:auto}
 @media(min-width:1701px){
-  .nl-grid.rub{grid-template-columns:minmax(280px,340px) minmax(0,1fr) minmax(320px,400px) minmax(340px,420px)}
+  .nl-grid.rub{grid-template-columns:var(--nl-w-list,minmax(280px,340px)) minmax(0,1fr)
+    var(--nl-w-rub,minmax(320px,400px)) var(--nl-w-form,minmax(340px,420px))}
 }
 @media(min-width:1501px) and (max-width:1700px){
-  .nl-grid.rub{grid-template-columns:minmax(280px,340px) minmax(0,1fr)}
+  .nl-grid.rub{grid-template-columns:var(--nl-w-list,minmax(280px,340px)) minmax(0,1fr)}
   .nl-grid.rub .nl-formp{grid-column:2}
 }
 @media(min-width:901px) and (max-width:1700px){.nl-rubp{grid-column:1}}

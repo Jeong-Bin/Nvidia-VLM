@@ -92,6 +92,11 @@ if "%GUISTATUS%"=="STATUS=FAIL" (
 )
 
 echo [2/3] 터널 여는 중  ^(로컬 %LPORT% -^> 서버 %RPORT%^)...
+rem  SSH 키가 없으면(비밀번호 접속) 아래의 숨은 창 터널은 비밀번호를 물을 곳이
+rem  없어 영원히 멈춘다. 키로 붙는지 먼저 보고, 안 되면 터널을 이 창에서 직접
+rem  열어 비밀번호를 받는다. 브라우저는 별도 감시자가 포트가 열리면 연다.
+ssh -p %SSH_PORT% -o BatchMode=yes -o ConnectTimeout=10 %USER%@%SERVER% exit >nul 2>nul
+if errorlevel 1 goto pwtunnel
 rem  터널은 창 없이 띄운다. 예전처럼 start 로 띄우면 창이 하나 더 생기고,
 rem  그 창이 이 배치가 끝난 뒤에도 남아 따로 닫아야 했다.
 set "PIDFILE=%TEMP%\edge_gui_tunnel_%LPORT%.pid"
@@ -136,6 +141,24 @@ pause >nul
 
 call :killold
 echo [gui] 터널을 닫았습니다.
+endlocal
+exit /b 0
+
+:pwtunnel
+rem  비밀번호 접속: ssh 를 이 창의 앞에서 돌린다. 창을 닫거나 Ctrl+C 하면 터널도
+rem  같이 끝나므로 감시자가 필요 없다. 브라우저는 숨은 PowerShell 이 로컬 포트가
+rem  열릴 때까지(최대 3분, 비밀번호 입력 시간 포함) 기다렸다가 연다.
+echo.
+echo   SSH 키가 등록돼 있지 않아 비밀번호를 한 번 더 묻습니다.
+echo   비밀번호를 넣으면 브라우저가 열립니다. ^(키 등록 방법: README.md^)
+echo   이 창을 닫거나 Ctrl+C 를 누르면 터널이 끊깁니다.
+echo.
+start "" /min powershell -NoProfile -NonInteractive -WindowStyle Hidden -Command "for($i=0;$i -lt 180;$i++){Start-Sleep 1; try{$c=New-Object Net.Sockets.TcpClient('127.0.0.1',%LPORT%); $c.Close(); Start-Process 'http://127.0.0.1:%LPORT%'; break}catch{}}"
+ssh -p %SSH_PORT% -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 ^
+  -L %LPORT%:127.0.0.1:%RPORT% %USER%@%SERVER%
+echo.
+echo [gui] 터널이 끊겼습니다.
+pause
 endlocal
 exit /b 0
 

@@ -38,9 +38,6 @@ ssh-copy-id -p 1024 etri@10.254.92.108     # 비밀번호 1회 입력
 ```
 
 ### Windows — PowerShell
-
-`ssh-copy-id` 는 Windows OpenSSH 에 **없다.** 아래를 쓴다.
-
 ```powershell
 ssh-keygen -t ed25519                      # 질문 3개 전부 엔터
 
@@ -48,10 +45,11 @@ ssh-keygen -t ed25519                      # 질문 3개 전부 엔터
 Get-Content "$env:USERPROFILE\.ssh\id_ed25519.pub" | ssh -p 1024 etri@10.254.92.108 "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
 ```
 
-> PowerShell 이 아니라 **명령 프롬프트(cmd)** 라면:
-> ```
-> type %USERPROFILE%\.ssh\id_ed25519.pub | ssh -p 1024 etri@10.254.92.108 "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
-> ```
+### Windows — 명령 프롬프트(cmd)
+```cmd
+ssh-keygen -t ed25519
+type %USERPROFILE%\.ssh\id_ed25519.pub | ssh -p 1024 etri@10.254.92.108 "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+```
 
 ### 확인
 
@@ -94,7 +92,7 @@ ssh -p 1024 etri@10.254.92.108 "echo key-ok"
 | 항목 | 기본값 |
 |---|---|
 | 서버 | `etri@10.254.92.108` |
-| SSH 포트 | `1024` (이 서버는 22 가 아니다) |
+| SSH 포트 | `1024` (이 서버는 22 가 아님) |
 | GUI 포트 | `8000` |
 | 영상 소스 | `local` (`nas` 로 바꾸면 NAS 청크 zip) |
 
@@ -109,6 +107,12 @@ RPORT=8001 ./gui-connect.sh               # 서버 포트만 바꾸기
 ```
 
 ## 문제 해결
+
+**`[2/3] 터널 여는 중` 에서 멈추거나 "터널 확인 실패" 가 뜬다 (Windows)**
+→ SSH 키 없이 비밀번호로 접속하는 PC 에서 예전 `GUI-접속.bat` 을 쓰면 생긴다.
+터널이 숨은 창에서 떠서 비밀번호를 넣을 곳이 없었다. 새 `GUI-접속.bat` 으로
+바꾸면 이 창에서 비밀번호를 한 번 더 묻는다. 가장 좋은 해결은 위
+"SSH 키 등록" 을 한 번 해 두는 것이다.
 
 **`Connection refused`**
 → SSH 포트 확인. 이 서버의 sshd 는 **1024** 를 쓴다 (22 아님).
