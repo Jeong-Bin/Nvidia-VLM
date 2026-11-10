@@ -273,7 +273,7 @@ function renderPlayer() {
       <label class="muted"><input type="checkbox" id="nl-loop" checked> 반복</label>
       <a class="pill" href="${src}" download="${esc(u)}.mp4">다운로드</a>
     </div>
-    <div class="nl-sub2"><kbd>Space</kbd> 재생/정지 · <kbd>←</kbd><kbd>→</kbd> 2초 이동 ·
+    <div class="nl-sub2"><kbd>Space</kbd> 재생/정지 · <kbd>←</kbd><kbd>→</kbd> 1프레임 이동(재생 중이면 멈춤) ·
       <kbd>Ctrl+S</kbd> 저장 · <kbd>Ctrl+Enter</kbd> 저장 후 다음 미라벨</div>`;
   const v = $('#nl-video');
   v.playbackRate = +rate; v.loop = true;
@@ -892,9 +892,34 @@ document.addEventListener('keydown', ev => {
   const v = $('#nl-video');
   if (!v) return;
   if (ev.key === ' ') { ev.preventDefault(); v.paused ? v.play() : v.pause(); }
-  else if (ev.key === 'ArrowLeft') { ev.preventDefault(); v.currentTime = Math.max(0, v.currentTime - 2); }
-  else if (ev.key === 'ArrowRight') { ev.preventDefault(); v.currentTime = v.currentTime + 2; }
 });
+
+/* ←/→ 한 프레임 이동. 재생 중이면 멈추고 옮긴다 - 재생을 이어 가면 한 프레임
+   (30fps 면 33ms)은 눈에 보이지 않는다. 영상을 눌러 포커스가 <video> 에 있으면
+   브라우저 기본 동작(5초 이동)이 먼저 먹으므로 캡처 단계에서 가로챈다.
+   프레임 경계에 정확히 맞추면 반올림 때문에 앞 프레임이 보일 수 있어 프레임
+   한가운데((i+0.5)/fps)로 옮긴다. 키를 누르고 있으면 아직 이동 중인 목표
+   프레임에서 이어 센다. */
+function stepFrame(v, dir) {
+  const d = NL.datasets.find(x => x.id === NL.ds) || {};
+  const fps = d.fps > 0 ? d.fps : 30;
+  if (!v.paused) v.pause();
+  const last = Math.max(0, Math.ceil((v.duration || 0) * fps) - 1);
+  const cur = v.seeking && v._fi != null ? v._fi : Math.floor(v.currentTime * fps + 1e-6);
+  const i = Math.min(last, Math.max(0, cur + dir));
+  v._fi = i;
+  v.currentTime = (i + 0.5) / fps;
+}
+document.addEventListener('keydown', ev => {
+  if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return;
+  if (!tabOn() || !NL.cur || $('#modal').innerHTML) return;
+  if (ev.ctrlKey || ev.metaKey || ev.altKey || ev.shiftKey) return;
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(ev.target.tagName)) return;
+  const v = $('#nl-video');
+  if (!v || !v.duration) return;
+  ev.preventDefault(); ev.stopPropagation();
+  stepFrame(v, ev.key === 'ArrowLeft' ? -1 : 1);
+}, true);
 
 /* ---------- 블록 폭 끌기 (VS Code 의 칸 경계처럼) ----------
    칸 경계마다 보이지 않는 막대를 깔고, 끌면 그 옆 블록의 폭을 바꾼다. 영상 칸은

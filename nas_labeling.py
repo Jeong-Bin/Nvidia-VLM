@@ -401,6 +401,8 @@ class Dataset:
         self.name = cfg.get("name", self.id)
         self.nas_path = cfg["nas_path"]
         self.view = cfg.get("view", "camera_front_wide_120fov")
+        # mp4 프레임 속도. [NAS 라벨링]의 ←/→ 한 프레임 이동이 쓴다.
+        self.fps = float(cfg.get("source_fps") or 30.0)
         self.local = self._resolve(self.nas_path, mounts)
         self.camera_dir = self.local / "camera"
         self.schema = schema
@@ -945,7 +947,7 @@ class Dataset:
 
     def info(self) -> dict:
         return {"id": self.id, "name": self.name, "nas_path": self.nas_path,
-                "local_path": str(self.local), "view": self.view,
+                "local_path": str(self.local), "view": self.view, "fps": self.fps,
                 "labels_file": (str(self.labels_path.relative_to(ROOT))
                                 if self.labels_path.is_relative_to(ROOT)
                                 else str(self.labels_path)),
