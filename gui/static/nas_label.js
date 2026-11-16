@@ -72,13 +72,13 @@ $('#nl-login-form').onsubmit = async ev => {
     await boot();
   } catch (e) { $('#nl-login-msg').textContent = e.message; }
 };
-$('#nl-logout').onclick = async () => {
-  if (!confirmLeave()) return;
+/* 로그아웃은 머리줄의 [로그아웃] 하나로 한다(index.html). 그 전에 저장하지 않은
+   라벨이 있으면 묻고, 작업 중 표시를 푼다. */
+window.nlBeforeLogout = () => {
+  if (!confirmLeave()) return false;
   releaseClaim();
-  try { await nlapi('logout', {}); } catch (e) {}
   NL.cur = null; NL.dirty = false;
-  // GUI 전체가 같은 계정으로 로그인돼 있으므로 첫 화면(로그인)으로 돌아간다.
-  location.reload();
+  return true;
 };
 
 async function boot() {
@@ -370,7 +370,23 @@ function renderRubric() {
   $('#nl-rubbody').innerHTML = !R ? '<p class="muted">서버를 재시작하면 표시됩니다.</p>'
     : R.map(r => `<div class="nl-rb"><h3>${esc(r.name)}</h3>
         ${lang === 'en' ? `<p>${esc(r.title)}</p>` : ''}
-        <dl>${Object.entries(r[lang]).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div>`).join('');
+        <dl>${Object.entries(r[lang]).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div>`).join('')
+      + rubricWeather(lang);
+}
+/* 날씨 4축 기준(prompts.WEATHER_SCALES / _KOR). 영어 쪽이 모델 프롬프트에 들어가는
+   표 그대로다. 라벨 블록의 버튼 툴팁과 같은 원문을 쓴다. */
+function rubricWeather(lang) {
+  const S = NL.schema, src = lang === 'en' ? S.weather_scales : S.weather_scales_ko;
+  if (!src || !(S.weather_axes || []).length) return '';
+  return `<div class="nl-rb nl-rbwx"><h3>${lang === 'en' ? 'Weather / driving conditions (0-4)' : '날씨 (0~4)'}</h3>
+    <p>${lang === 'en' ? 'Rate each factor on its own, judging only what that factor names.'
+      : '네 요인을 따로 매깁니다. 각 요인은 그 이름이 가리키는 것만 봅니다.'}</p></div>`
+    + S.weather_axes.map(a => {
+      const sm = scaleMap(src[a]);
+      const name = lang === 'en' ? a : `${AXIS_KO[a] || a} <span class="mono" style="font-size:11px;opacity:.7">${esc(a)}</span>`;
+      return `<div class="nl-rb"><h3>${lang === 'en' ? esc(a) : name}</h3>
+        <dl>${Object.entries(sm).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div>`;
+    }).join('');
 }
 $('#nl-rubtoggle').onclick = () => {
   lsSet(LS_RUB, lsGet(LS_RUB) === '0' ? '1' : '0');
@@ -833,10 +849,14 @@ $('#nl-assignbtn').onclick = async () => {
   renderAssignModal();
 };
 
-/* ---------- 계정 ---------- */
+/* ---------- 계정 ----------
+   버튼은 머리줄(이름 옆)에 있어 다른 탭에서도 누를 수 있다. 이 탭이 아직 부팅
+   전이면 NL.me 가 없으므로 첫 화면이 받아 둔 로그인 정보를 쓴다. */
 $('#nl-acct').onclick = async () => {
+  const me = NL.me || (window.EDGE_ACCESS || {}).me;
+  if (!me) return;
   let users = '';
-  if (NL.me.admin) {
+  if (me.admin) {
     try {
       const j = await nlapi('users');
       users = `<h3 style="margin-top:16px">계정 목록</h3>
@@ -854,7 +874,7 @@ $('#nl-acct').onclick = async () => {
         </div>`;
     } catch (e) { users = `<p class="muted">${esc(e.message)}</p>`; }
   }
-  showModal(`<h2>계정 - ${esc(NL.me.name)} (${esc(NL.me.user)})</h2>
+  showModal(`<h2>계정 - ${esc(me.name)} (${esc(me.user)})</h2>
     <h3>비밀번호 변경</h3>
     <div class="row">
       <label>현재 비밀번호<input type="password" id="nl-p-old"></label>

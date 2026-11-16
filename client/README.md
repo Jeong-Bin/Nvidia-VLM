@@ -25,7 +25,7 @@ SSH 터널을 쓰므로 서버 포트를 사내망에 노출하지 않는다.
 
 3. **사내망 / VPN** 연결 상태여야 한다.
 
-## SSH 키 등록 (최초 1회, 선택)
+## [필수!] SSH 키 등록 (최초 1회, 선택)
 
 키를 등록하면 실행할 때마다 비밀번호를 넣지 않아도 된다.
 **등록할 때 1번은 비밀번호를 입력해야 한다** (그게 본인 확인 수단이므로).
@@ -48,6 +48,7 @@ Get-Content "$env:USERPROFILE\.ssh\id_ed25519.pub" | ssh -p 1024 etri@10.254.92.
 ### Windows — 명령 프롬프트(cmd)
 ```cmd
 ssh-keygen -t ed25519
+
 type %USERPROFILE%\.ssh\id_ed25519.pub | ssh -p 1024 etri@10.254.92.108 "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
 ```
 
@@ -76,7 +77,7 @@ ssh -p 1024 etri@10.254.92.108 "echo key-ok"
 알 수 없던 예전 동작을 없앴다. 생사 판정에 프로세스 유무(`pgrep`)를 쓰지
 않는 이유는 `gui-doctor.sh` 주석에 적어 두었다.
 
-창은 **하나만** 뜬다. 아무 키를 누르든 X 로 닫든, 터널도 함께 끊긴다
+창은 하나만 뜬다. 아무 키를 누르든 X 로 닫든, 터널도 함께 끊긴다
 (숨은 감시 프로세스가 창의 수명을 지켜본다). 서버의 GUI 프로세스는 계속
 살아 있어서, 여러 사람이 각자 터널로 **같은 화면을 동시에** 볼 수 있다.
 
@@ -149,6 +150,17 @@ RPORT=8001 ./gui-connect.sh
 ssh -p 1024 etri@10.254.92.108 "pkill -f gui_server.py"
 ```
 그다음 실행파일을 다시 돌리면 새로 뜬다.
+
+**서버 재부팅 후에는 항상 NAS 마운트 새로 실행하기**
+```powershell
+# 1. NAS 마운트
+sudo mount -t cifs //10.254.92.171/OPEN_DATASET /mnt/nas -o username=E2E_DATA,vers=3.0,uid=$(id -u),gid=$(id -g),cache=loose,nounix,serverino,iocharset=utf8
+
+# 2. GUI 서버 실행
+cd /home/etri/Jeongbin/Nvidia-VLM
+
+setsid nohup python3 gui_server.py --port 8000 --data nas >> gui.log 2>&1 &
+```
 
 ## 보안 메모
 

@@ -280,6 +280,7 @@ body.nl-resizing video{pointer-events:none}
 @media(min-width:901px) and (max-width:1700px){.nl-rubp{grid-column:1}}
 .seg.nl-lang button{width:auto;padding:2px 8px;white-space:nowrap}
 .nl-rb{margin-top:12px}
+.nl-rbwx{border-top:1px solid var(--line);margin-top:18px;padding-top:12px}
 .nl-rb h3{margin:0 0 2px;color:var(--accent);font-size:13px}
 .nl-rb p{margin:0 0 6px;color:var(--muted);font-size:11px}
 .nl-rb dl{display:grid;grid-template-columns:18px minmax(0,1fr);gap:7px 6px;margin:6px 0 0;
@@ -394,6 +395,7 @@ button.primary kbd{color:#000}
   <div class="hdr-right">
     <span id="hdr" class="muted"></span>
     <span id="whoami" class="whoami hide"><span id="whoami-name"></span>
+      <button type="button" id="nl-acct">계정</button>
       <button type="button" id="whoami-out">로그아웃</button></span>
   </div>
 </header>
@@ -856,7 +858,7 @@ button.primary kbd{color:#000}
       <div class="nl-counts" id="nl-counts"></div>
       <div class="nl-me"><span id="nl-me" class="muted"></span>
         <button id="nl-assignbtn">클립 분배</button>
-        <button id="nl-acct">계정</button><button id="nl-logout">로그아웃</button></div>
+      </div>
     </div>
     <div class="nl-grid">
       <div class="panel nl-listp">
@@ -2393,9 +2395,8 @@ $('#gate-signup').onsubmit = async ev => {
   } catch (e) { gateMsg(e.message); }
 };
 $('#whoami-out').onclick = async () => {
-  // NAS 라벨링에서 고치던 라벨이 있으면 그쪽 확인을 먼저 거친다.
-  if (typeof confirmLeave === 'function' && !confirmLeave()) return;
-  if (typeof releaseClaim === 'function') releaseClaim();
+  // NAS 라벨링에서 고치던 라벨이 있으면 그쪽 확인을 먼저 거친다(nas_label.js).
+  if (window.nlBeforeLogout && !window.nlBeforeLogout()) return;
   try { await gatePost('logout', {}); } catch (e) {}
   location.reload();
 };
