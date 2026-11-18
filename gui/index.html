@@ -628,6 +628,10 @@ button.primary kbd{color:#000}
         <option value="cat">클래스별 N</option></select></label>
       <label id="r-vpcwrap" title="각 special 클래스마다 최초 N개 클립만 시각화한다">
         저장할 클립 개수(N)<input type="number" id="r-vpc" min="1" value="5" size="4" disabled></label>
+      <label title="시각화 영상에서 추론 결과 패널의 위치. 세로: 영상 아래(지금까지 방식), 가로: 영상 오른쪽">
+        시각화 배치<select id="r-vlayout">
+        <option value="vertical">세로 (영상 아래)</option>
+        <option value="horizontal">가로 (영상 오른쪽)</option></select></label>
       <label title="프레임을 어디서 읽을지. nas 는 NAS 청크 zip 을 압축 해제 없이 직접 읽는다">
         데이터<select id="r-data">
         <option value="local">local (pav_sample)</option>
@@ -741,11 +745,20 @@ button.primary kbd{color:#000}
         </select></label>
     </div>
     <div class="row" style="margin-top:10px">
+      <label title="채점과 시각화 GT 에 쓸 라벨. 고른 파일에서 이 클립 하나만 뽑아 채점한다(evaluation.log). ✓ 는 이 클립이 들어 있는 파일. (자동)은 데이터에 맞는 [NAS 라벨링] 결과 > 기본 라벨 > 가장 최근 파일 순으로 이 클립이 든 것을 고른다.">
+        정답 라벨(평가 대상)<select id="sg-labels" style="min-width:280px"></select></label>
+      <span id="sg-labhint" class="muted" style="align-self:flex-end;padding-bottom:6px"></span>
+    </div>
+    <div class="row" style="margin-top:10px">
       <label>궤적 오버레이<select id="sg-traj">
         <option value="">사용 안 함</option><option value="center">center</option>
         <option value="width">width</option></select></label>
       <label>egomotion<select id="sg-ego">
         <option value="1">사용</option><option value="0">사용 안 함</option></select></label>
+      <label title="시각화 영상에서 추론 결과 패널의 위치. 세로: 영상 아래(지금까지 방식), 가로: 영상 오른쪽">
+        시각화 배치<select id="sg-vlayout">
+        <option value="vertical">세로 (영상 아래)</option>
+        <option value="horizontal">가로 (영상 오른쪽)</option></select></label>
       <label class="chk" title="날씨 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
         <input type="checkbox" id="sg-difficulty" checked> 날씨 4축 켜기</label>
       <label class="chk" title="날씨 4축만 추론한다. edge-case 탐지(VERDICT/CLASSES)와 클래스 점수를 전부 빼고, 프롬프트를 날씨 전용으로 바꾼다.">
@@ -814,6 +827,10 @@ button.primary kbd{color:#000}
         <option value="cat">클래스별 N</option></select></label>
       <label id="n-vpcwrap" title="각 special 클래스마다 최초 N개 클립만 시각화한다">
         저장할 클립 개수(N)<input type="number" id="n-vpc" min="1" value="5" size="4" disabled></label>
+      <label title="시각화 영상에서 추론 결과 패널의 위치. 세로: 영상 아래(지금까지 방식), 가로: 영상 오른쪽">
+        시각화 배치<select id="n-vlayout">
+        <option value="vertical">세로 (영상 아래)</option>
+        <option value="horizontal">가로 (영상 오른쪽)</option></select></label>
       <label class="chk" title="날씨 4축(조도/강수/노면/대기가림)을 0~4 로 함께 매긴다">
         <input type="checkbox" id="n-difficulty" checked> 날씨 4축 켜기</label>
       <label class="chk" title="날씨 4축만 추론한다. edge-case 탐지(VERDICT/CLASSES)와 클래스 점수를 전부 빼고, 프롬프트를 날씨 전용으로 바꾼다.">
@@ -1049,6 +1066,8 @@ async function boot() {
   opts($('#l-file'), BOOT.labels, BOOT.default_labels);
   for (const s of ['#ev-labels', '#s-labels', '#r-labels'])
     opts($(s), BOOT.eval_labels || BOOT.labels, BOOT.default_labels);
+  opts($('#sg-labels'), [['', '(자동)'], ...(BOOT.eval_labels || BOOT.labels)], '');
+  sgLabelHits();
   // 평가 결과는 "그 실행이 채점에 쓴 라벨"도 고를 수 있다(값 '' -> 서버가
   // run_config 의 gt_labels 를 쓴다). 로컬 pav_sample 이 아닌 데이터셋의 실행을
   // 고르면 이것으로 바꾼다 - 기본 라벨(NVIDIA)과는 uuid 가 하나도 안 겹친다.
@@ -1586,6 +1605,7 @@ function previewCmd() {
   const rv = $('#r-viz').value;
   if (rv === '1') parts.push('--viz-normal --viz-special');
   else if (rv === 'cat') parts.push('--viz-per-class ' + ($('#r-vpc').value || 5));
+  if (rv !== '0' && $('#r-vlayout').value === 'horizontal') parts.push('--viz-layout horizontal');
   if ($('#r-data').value !== 'local') parts.push('--data ' + $('#r-data').value);
   if ($('#r-diffonly').checked) {
     parts.push('--weather-only');      // 점수/날씨 플래그를 함의한다
@@ -1599,7 +1619,7 @@ function previewCmd() {
   if ($('#r-memo').value) parts.push(`--memo "${$('#r-memo').value}"`);
   $('#r-cmd').textContent = '$ ' + parts.join(' ');
 }
-['#r-model', '#r-labels', '#r-scene', '#r-traj', '#r-ego', '#r-viz', '#r-data',
+['#r-model', '#r-labels', '#r-scene', '#r-traj', '#r-ego', '#r-viz', '#r-vlayout', '#r-data',
  '#r-vpc', '#r-difficulty', '#r-diffonly', '#r-unknown', '#r-group', '#r-tspans', '#r-attn', '#r-gpus', '#r-shards', '#r-memo'].forEach(s => {
   $(s).addEventListener('input', previewCmd); $(s).addEventListener('change', previewCmd);
 });
@@ -1623,9 +1643,10 @@ function applyDataProfile(prefix) {
   };
   set($(`#${prefix}-ego`), !!p && !p.egomotion, '0');
   set($(`#${prefix}-traj`), !!p && !p.trajectory, '');
-  // 라벨 샘플 추론은 그 데이터셋의 [NAS 라벨링] 결과로 채점한다.
+  // 라벨 샘플 추론은 그 데이터셋의 [NAS 라벨링] 결과로 채점한다. 단일 클립은
+  // (자동)이 클립이 든 라벨을 직접 찾으므로 사람이 고른 값을 건드리지 않는다.
   const lab = $(`#${prefix}-labels`);
-  if (p && lab) {
+  if (p && lab && prefix !== 'sg') {
     const want = `nas_labels/${p.id}/labels.json`;
     if ([...lab.options].some(o => o.value === want)) {
       lab.value = want;
@@ -1674,6 +1695,7 @@ function previewNasCmd() {
   if (nv === '1') parts.push('--viz-normal --viz-special');
   else if (nv === 'cat') parts.push('--viz-per-class ' + ($('#n-vpc').value || 5));
   else parts.push('--no-viz');
+  if (nv !== '0' && $('#n-vlayout').value === 'horizontal') parts.push('--viz-layout horizontal');
   // 이 스크립트들의 기본이 nas 다 - 다를 때만 적는다.
   if ($('#n-data').value !== 'nas') parts.push('--data ' + $('#n-data').value);
   if ($('#n-diffonly').checked) {
@@ -1724,7 +1746,7 @@ async function refreshNasScope() {
   previewNasCmd();
 }
 $('#n-data').addEventListener('change', refreshNasScope);
-['#n-model', '#n-scene', '#n-limit', '#n-scope', '#n-traj', '#n-ego', '#n-viz', '#n-data',
+['#n-model', '#n-scene', '#n-limit', '#n-scope', '#n-traj', '#n-ego', '#n-viz', '#n-vlayout', '#n-data',
  '#n-vpc', '#n-difficulty', '#n-diffonly', '#n-unknown', '#n-group', '#n-tspans', '#n-attn', '#n-gpus', '#n-shards', '#n-memo'].forEach(s => {
   $(s).addEventListener('input', previewNasCmd); $(s).addEventListener('change', previewNasCmd);
 });
@@ -1747,6 +1769,7 @@ $('#n-go').onclick = async () => {
         traj: $('#n-traj').value,
         use_egomotion: $('#n-ego').value === '1', viz: $('#n-viz').value === '1',
         viz_per_class: $('#n-viz').value === 'cat' ? (+$('#n-vpc').value || 5) : null,
+        viz_layout: $('#n-vlayout').value,
         data: $('#n-data').value,
         difficulty: $('#n-difficulty').checked,
         difficulty_only: $('#n-diffonly').checked,
@@ -1771,6 +1794,7 @@ $('#r-go').onclick = async () => {
         scene_json: $('#r-scene').value, traj: $('#r-traj').value,
         use_egomotion: $('#r-ego').value === '1', viz: $('#r-viz').value === '1',
         viz_per_class: $('#r-viz').value === 'cat' ? (+$('#r-vpc').value || 5) : null,
+        viz_layout: $('#r-vlayout').value,
         data: $('#r-data').value,
         difficulty: $('#r-difficulty').checked,
         difficulty_only: $('#r-diffonly').checked,
@@ -1785,6 +1809,26 @@ $('#r-go').onclick = async () => {
     toast('시작했습니다'); refreshJobs();
   } catch (e) { toast(e.message); }
 };
+/* 시각화 배치(세로/가로). 세 탭이 같은 값을 쓰고 이 브라우저에 기억한다.
+   시각화를 만들지 않으면 고를 의미가 없으므로 잠근다. */
+(() => {
+  const KEY = 'edgegui.viz.layout', sels = ['r', 'n', 'sg'].map(p => $(`#${p}-vlayout`));
+  let saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  sels.forEach(s => {
+    if (saved === 'vertical' || saved === 'horizontal') s.value = saved;
+    s.addEventListener('change', () => {
+      try { localStorage.setItem(KEY, s.value); } catch (e) {}
+      sels.forEach(o => { if (o !== s && o.value !== s.value) { o.value = s.value; o.dispatchEvent(new Event('change')); } });
+    });
+  });
+  for (const p of ['r', 'n']) {
+    const sync = () => { $(`#${p}-vlayout`).disabled = $(`#${p}-viz`).value === '0'; };
+    $(`#${p}-viz`).addEventListener('change', sync);
+    sync();
+  }
+})();
+
 /* ---------- 6. 단일 클립 추론 ----------
    uuid 하나만 돌려 시각화를 본다. 백엔드가 --only-uuids 로 넘기고,
    샤드는 1개로 못박는다(8개면 7개가 놀면서 GPU 만 문다).
@@ -1798,6 +1842,7 @@ function sgOpts() {
   return {
     mode: $('#sg-data').value === 'local' ? 'labeled' : 'nas',
     single_uuid: $('#sg-uuid').value.trim(),
+    labels: $('#sg-labels').value,
     model: $('#sg-model').value, scene_json: $('#sg-scene').value,
     data: $('#sg-data').value, traj: $('#sg-traj').value,
     use_egomotion: $('#sg-ego').value === '1',
@@ -1807,6 +1852,7 @@ function sgOpts() {
     group: $('#sg-group').value,
     time_spans: $('#sg-tspans').value,
     attn_timeline: $('#sg-attn').checked,
+    viz_layout: $('#sg-vlayout').value,
   };
 }
 
@@ -1864,11 +1910,50 @@ async function sgShow(uuid, runDir) {
   $('#sg-open').click();   // 끝나면 바로 띄운다
 }
 
-['#sg-uuid', '#sg-model', '#sg-scene', '#sg-data', '#sg-traj', '#sg-ego',
+['#sg-uuid', '#sg-labels', '#sg-vlayout', '#sg-model', '#sg-scene', '#sg-data', '#sg-traj', '#sg-ego',
  '#sg-difficulty', '#sg-diffonly', '#sg-unknown', '#sg-group', '#sg-tspans', '#sg-attn'].forEach(sel => {
   const el = $(sel); if (!el) return;
   el.addEventListener('input', sgPreview); el.addEventListener('change', sgPreview);
 });
+/* 정답 라벨 선택. uuid 나 데이터가 바뀌면 이 클립이 든 라벨 파일을 서버에 물어
+   목록에 ✓ 를 달고, (자동)이 무엇을 고를지 옆에 적는다. */
+let SG_HITS = null, SG_HITS_T = null;
+function sgLabelHits() {
+  clearTimeout(SG_HITS_T);
+  SG_HITS_T = setTimeout(async () => {
+    const u = $('#sg-uuid').value.trim(), data = $('#sg-data').value;
+    if (!u) SG_HITS = null;
+    else {
+      try {
+        SG_HITS = await api(`/api/label_hits?uuid=${encodeURIComponent(u)}&data=${encodeURIComponent(data)}`);
+      } catch (e) { SG_HITS = null; }
+      if ($('#sg-uuid').value.trim() !== u) return;   // 그사이 바뀌었다
+    }
+    const hits = new Set(SG_HITS ? SG_HITS.files : []);
+    [...$('#sg-labels').options].forEach(o => {
+      if (!o.value) o.textContent = '(자동)';
+      else o.textContent = (hits.has(o.value) ? '✓ ' : '\u2003') + o.value;
+    });
+    sgLabelHint();
+    sgPreview();
+  }, 250);
+}
+function sgLabelHint() {
+  const el = $('#sg-labhint'), v = $('#sg-labels').value;
+  el.style.color = '';
+  if (!SG_HITS) { el.textContent = ''; return; }
+  if (!v) {
+    el.textContent = SG_HITS.auto ? `→ ${SG_HITS.auto} 로 채점`
+      : '이 클립이 든 라벨이 없어 채점하지 않습니다';
+  } else if (!SG_HITS.files.includes(v)) {
+    el.textContent = '이 라벨 파일에는 이 클립이 없습니다';
+    el.style.color = 'var(--bad)';
+  } else el.textContent = '';
+}
+$('#sg-uuid').addEventListener('input', sgLabelHits);
+$('#sg-data').addEventListener('change', sgLabelHits);
+$('#sg-labels').addEventListener('change', sgLabelHint);
+
 function sgPreview() {
   const o = sgOpts();
   if (!o.single_uuid) { $('#sg-cmd').textContent = ''; return; }
@@ -1877,6 +1962,7 @@ function sgPreview() {
   const parts = [nas ? 'run_nas_nvidia_8b.sh' : 'run_labeled_8b.sh',
                  nas ? '--num-shards 1' : '--num-shards 1',
                  '--model ' + o.model, '--viz-normal --viz-special'];
+  if (o.viz_layout === 'horizontal') parts.push('--viz-layout horizontal');
   if (o.scene_json) parts.push('--scene-json ' + o.scene_json);
   parts.push(...trajFlags(o.traj));
   if (o.use_egomotion) parts.push('--use-egomotion');
@@ -1885,6 +1971,9 @@ function sgPreview() {
   if (o.group !== 'all' && !o.difficulty_only) parts.push('--group ' + o.group);
   if (o.time_spans && !o.difficulty_only) parts.push('--time-spans ' + o.time_spans);
   if (o.attn_timeline) parts.push('--attn-timeline');
+  const lab = o.labels || (SG_HITS && SG_HITS.uuid === o.single_uuid ? SG_HITS.auto : null);
+  if (lab) parts.push((nas ? '--eval-labels' : '--labels')
+    + ` gui/single/<작업ID>.json(${lab} 에서 이 클립만)`);
   parts.push('--only-uuids <' + o.single_uuid + '>');
   $('#sg-cmd').textContent = '$ bash ' + parts.join(' ');
 }

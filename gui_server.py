@@ -1311,6 +1311,107 @@ def write_gt_snapshot(opts: dict, jid: str, keep=None):
     return p
 
 
+# [단일 클립 추론]의 정답 라벨(평가 대상). 고른 라벨 파일에서 그 클립 하나만
+# 남긴 사본으로 채점한다 - 라벨 전체를 넘기면 evaluate_labels 가 나머지를
+# "결과에 없음"으로 경고하고 matched 가 1/333 처럼 찍힌다.
+_LABEL_UUIDS: dict[str, tuple[float, frozenset]] = {}
+
+
+def _nl_dataset_of(path: Path):
+    """라벨 파일이 [NAS 라벨링] 결과(nas_labels/<id>/labels.json)면 그 데이터셋."""
+    if NL is None:
+        return None
+    for ds in NL.datasets.values():
+        if ds.labels_path.resolve() == path.resolve():
+            return ds
+    return None
+
+
+def read_label_doc(name: str) -> dict:
+    """라벨 파일 내용. [NAS 라벨링] 결과면 이력에서 최신으로 맞춘 뒤 읽는다."""
+    p = ROOT / name
+    ds = _nl_dataset_of(p)
+    if ds is not None:
+        with ds.lock:
+            ds._sync()
+            return json.loads(ds.labels_path.read_text(encoding="utf-8"))
+    return json.loads(p.read_text(encoding="utf-8"))
+
+
+def label_uuids(name: str) -> frozenset:
+    p = ROOT / name
+    ds = _nl_dataset_of(p)
+    if ds is not None:
+        with ds.lock:
+            ds._sync()
+            return frozenset(ds.labels)
+    try:
+        m = p.stat().st_mtime
+    except OSError:
+        return frozenset()
+    hit = _LABEL_UUIDS.get(name)
+    if hit and hit[0] == m:
+        return hit[1]
+    doc = json.loads(p.read_text(encoding="utf-8"))
+    uu = frozenset(doc.get("clips", doc))
+    _LABEL_UUIDS[name] = (m, uu)
+    return uu
+
+
+def labels_with_uuid(uuid: str) -> list[str]:
+    """이 클립이 들어 있는 채점용 라벨 파일들."""
+    out = []
+    for name in list_eval_label_files():
+        try:
+            if uuid in label_uuids(name):
+                out.append(name)
+        except (OSError, ValueError):
+            pass
+    return out
+
+
+def single_auto_labels(opts: dict, hits: list[str]):
+    """자동 선택: 데이터에 맞는 [NAS 라벨링] 결과 > 기본 라벨 > 가장 최근 파일."""
+    if not hits:
+        return None
+    pref = []
+    ds = scope_dataset(opts.get("data")) if opts.get("mode") == "nas" else None
+    if ds is not None and ds.labels_path.is_relative_to(ROOT):
+        pref.append(str(ds.labels_path.relative_to(ROOT)))
+    pref.append(newest_of(list_label_files(), Path(config.LABELS_JSON).name))
+    for name in pref:
+        if name in hits:
+            return name
+    return newest_of(hits, hits[0])
+
+
+def write_single_labels(opts: dict, uuid: str, jid: str):
+    """단일 클립 채점용 라벨 사본(그 클립 하나). 쓸 라벨이 없으면 None."""
+    choice = (opts.get("labels") or "").strip()
+    if choice:
+        if choice not in list_eval_label_files():
+            raise ValueError("모르는 라벨 파일: " + choice)
+        if uuid not in label_uuids(choice):
+            raise ValueError(f"정답 라벨 {choice} 에 이 클립이 없습니다 - "
+                             "'(자동)' 이나 이 클립이 든 라벨을 고르세요")
+        src = choice
+    else:
+        src = single_auto_labels(opts, labels_with_uuid(uuid))
+        if src is None:
+            return None
+    doc = read_label_doc(src)
+    clips = doc.get("clips", doc)
+    out = {"_meta": dict(doc.get("_meta", {}), source=src,
+                         scope=f"단일 클립 추론 - {src} 에서 이 클립만 남긴 사본"),
+           "clips": {uuid: clips[uuid]}}
+    # 파일 이름에 원본을 남긴다 - evaluation.log 의 labels 줄만 봐도 알 수 있게.
+    stem = Path(src).parent.name if Path(src).name == "labels.json" else Path(src).stem
+    SINGLE_DIR.mkdir(parents=True, exist_ok=True)
+    p = SINGLE_DIR / f"{jid}.{stem}.json"
+    p.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+    return p
+
+
 def build_command(opts: dict, jid: str = "adhoc") -> list[str]:
     model = opts.get("model", "Qwen/Qwen3-VL-8B-Instruct")
     spec = MODELS.get(model)
@@ -1342,7 +1443,7 @@ def build_command(opts: dict, jid: str = "adhoc") -> list[str]:
     cmd += ["--model", model]
 
     # 라벨은 채점용이라 NAS 마이닝에는 없다(대조할 정답이 없다).
-    if not nas and opts.get("labels"):
+    if not nas and opts.get("labels") and not single:
         cmd += ["--labels", str(ROOT / opts["labels"])]
     # 반대로 --limit-clips 는 마이닝 전용 - 라벨 클립은 uuid 로 흩어져 있어
     # 앞에서 N개를 자를 수 없다. 추론 범위를 좁혔으면 목록 파일에서 이미 잘랐다.
@@ -1374,6 +1475,12 @@ def build_command(opts: dict, jid: str = "adhoc") -> list[str]:
         cmd += ["--viz-normal", "--viz-special"]
     elif nas:
         cmd += ["--no-viz"]
+    # 시각화 배치. 기본(세로)이면 생략한다 - run.log 의 명령이 짧을수록 낫다.
+    viz_on = single or opts.get("viz_per_class") or opts.get("viz")
+    if viz_on and opts.get("viz_layout") == "horizontal":
+        cmd += ["--viz-layout", "horizontal"]
+    elif opts.get("viz_layout") not in (None, "", "vertical", "horizontal"):
+        raise ValueError("모르는 시각화 배치: " + str(opts["viz_layout"]))
     # --weather-only 는 날씨 4축만 남기고 탐지/점수를 전부 끈다. 그 함의는
     # 스크립트(edge_case_mining.py)가 처리하므로 여기서 --weather 나
     # --no-*-tier 를 같이 붙이지 않는다 - run.log 에 남는 명령이 짧을수록
@@ -1411,10 +1518,15 @@ def build_command(opts: dict, jid: str = "adhoc") -> list[str]:
     # 추론 범위를 좁혔으면(라벨링 완료 / Special만) 끝나고 그 라벨로 채점한다.
     # 채점 라벨은 시각화 GT 로도 쓰이므로 --gt-labels 는 따로 넘기지 않는다.
     keep = scope_file.read_text(encoding="utf-8").split() if scope_file else None
-    gt_file = write_gt_snapshot(opts, jid, keep) if nas else None
+    gt_file = write_gt_snapshot(opts, jid, keep) if nas and not single else None
     if gt_file is not None:
         cmd += ["--eval-labels" if keep else "--gt-labels", str(gt_file)]
     if single:
+        # 고른 정답 라벨에서 이 클립만 뽑아 채점한다. 시각화 GT 도 이 라벨이다
+        # (labeled 스크립트는 --labels 를, nas 스크립트는 --eval-labels 를 GT 로도 쓴다).
+        sl = write_single_labels(opts, single, jid)
+        if sl is not None:
+            cmd += ["--eval-labels" if nas else "--labels", str(sl)]
         cmd += ["--only-uuids", str(write_uuid_file(single, jid))]
     elif scope_file is not None:
         cmd += ["--only-uuids", str(scope_file)]
@@ -1741,6 +1853,13 @@ class Handler(BaseHTTPRequestHandler):
 
         if p == "/api/nas_scope":
             return self._json(scope_info(q.get("data") or "nas"))
+
+        if p == "/api/label_hits":
+            u = (q.get("uuid") or "").strip()
+            hits = labels_with_uuid(u) if u else []
+            mode = "nas" if (q.get("data") or "nas") != "local" else "labeled"
+            return self._json({"uuid": u, "files": hits,
+                               "auto": single_auto_labels({"mode": mode, "data": q.get("data")}, hits)})
 
         if p == "/api/labels":
             name = q.get("labels") or Path(config.LABELS_JSON).name

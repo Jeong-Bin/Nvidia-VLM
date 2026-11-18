@@ -1739,6 +1739,10 @@ if __name__ == "__main__":
                          "결과는 <viz-dir>/special/score_<N>/ 아래.")
     ap.add_argument("--clip-viz-width", type=int, default=None,
                     help="시각화 영상 폭 (기본 1280). 0 을 주면 원본 해상도.")
+    ap.add_argument("--viz-layout", choices=["vertical", "horizontal"],
+                    default="vertical",
+                    help="시각화 배치. vertical: 영상 아래에 추론 결과(기본), "
+                         "horizontal: 영상 오른쪽에 추론 결과.")
     ap.add_argument("--not-save-low", type=lambda s: s not in ("0", "false", "False"),
                     default=True,
                     help="묶음 점수가 전부 0/1 인 Special 클립은 시각화에서 "
@@ -2086,6 +2090,7 @@ if __name__ == "__main__":
                                     if (args.viz_normal or args.viz_special)
                                     else None),
                        video_input=args.clip_video_input,
+                       viz_layout=args.viz_layout,
                        resume=args.resume,
                        **({"viz_width": (args.clip_viz_width or None)}
                           if args.clip_viz_width is not None else {}))

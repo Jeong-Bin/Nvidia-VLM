@@ -94,6 +94,8 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
   --traj center|width    자차 미래 궤적을 프레임에 그린다 (기본 off)   [TRAJ]
   --memo "TEXT"          이 실행이 무엇을 시험하는지 한 줄 메모           [MEMO]
   --use-egomotion        egomotion 사실(자차 행동 요약)을 주입 (기본 off)  [USE_EGOMOTION=1]
+  --viz-layout L          시각화 배치: vertical(영상 아래에 결과, 기본)
+                          | horizontal(영상 오른쪽에 결과)   [VIZ_LAYOUT]
   --attn-timeline         1차 생성 중 모델이 영상의 어디를 봤는지 어텐션을
                           기록해 시각화에 히트맵으로 그린다
                           (프롬프트/출력 그대로, 기본 off)   [ATTN_TIMELINE=1]
@@ -171,6 +173,8 @@ while [ $# -gt 0 ]; do
     --explain-traj)      EXPLAIN_TRAJ=1 ;;
     --unknown-classes) UNKNOWN_CATS=1 ;;
     --attn-timeline)      ATTN_TIMELINE=1 ;;
+    --viz-layout=*)       VIZ_LAYOUT="${1#*=}" ;;
+    --viz-layout)         shift; VIZ_LAYOUT="${1:-}" ;;
     --attn-timeline)      ATTN_TIMELINE=1 ;;
     --time-spans=*)       TIME_SPANS="${1#*=}" ;;
     --time-spans)         case "${2:-}" in inline|followup) shift; TIME_SPANS="$1" ;; *) TIME_SPANS=inline ;; esac ;;
@@ -267,6 +271,7 @@ OPTS="--single-view --data $DATA"
 [ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
 [ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-classes"
 [ "${ATTN_TIMELINE:-0}" = "1" ] && OPTS="$OPTS --attn-timeline"
+[ -n "${VIZ_LAYOUT:-}" ]        && OPTS="$OPTS --viz-layout $VIZ_LAYOUT"
 [ "${ATTN_TIMELINE:-0}" = "1" ] && OPTS="$OPTS --attn-timeline"
 case "${TIME_SPANS:-0}" in
   0|"") ;;

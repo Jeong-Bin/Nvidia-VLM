@@ -444,6 +444,7 @@ def run_clip_inference(uuids, labels, class_menu,
                        max_long_side=CLIP_MAX_LONG_SIDE,
                        viz_dir=None, viz_only_edge=True, not_save_low=True,
                        viz_width=VIZ_WIDTH, video_input=True,
+                       viz_layout="vertical",
                        viz_normal=None, viz_special=None,
                        gt_labels=None, timeline=False,
                        want_margin=False, score_classes=True,
@@ -526,7 +527,7 @@ def run_clip_inference(uuids, labels, class_menu,
                                      ("special", viz_special)) if on]
             print(f"[clip] viz -> {viz_path}/{{{','.join(which) or 'none'}}}"
                   f"/score_<N>/<uuid>/{{clip.mp4,result.json}}"
-                  f"  width {viz_width or 'original'}")
+                  f"  width {viz_width or 'original'}  layout {viz_layout}")
         else:
             print(f"[clip] viz -> {viz_path}/score_<N>/<uuid>/{{clip.mp4,result.json}}"
                   + ("  (clips with >=1 class only)" if viz_only_edge
@@ -758,7 +759,7 @@ def run_clip_inference(uuids, labels, class_menu,
                 for i, out_dir in enumerate(out_dirs):
                     render_clip_result(
                         uuid, clip_path(views[0], uuid), result,
-                        out_dir, max_width=viz_width,
+                        out_dir, max_width=viz_width, layout=viz_layout,
                         # 장르 폴더면 그 장르의 어텐션 히트맵을 그린다.
                         attn_focus=(targets[i] if targets is not None else None),
                         gt=(gt_labels or {}).get(uuid),

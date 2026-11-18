@@ -97,6 +97,8 @@ Options (환경변수로도 지정 가능 - 명령행이 우선):
                           inline(기본값): 1차 답변 JSON 에 칸 추가(원본 프롬프트 변경)
                           followup: 1차 답변 뒤 같은 대화에 이어 묻기
                           (1차 프롬프트 그대로)        [TIME_SPANS=inline|followup]
+  --viz-layout L          시각화 배치: vertical(영상 아래에 결과, 기본)
+                          | horizontal(영상 오른쪽에 결과)   [VIZ_LAYOUT]
   --attn-timeline         1차 생성 중 출력 토큰이 영상의 어느 시점을 봤는지
                           어텐션을 기록해 재생 바에 히트맵으로 그린다
                           (프롬프트/출력 그대로, 기본 off)   [ATTN_TIMELINE=1]
@@ -179,6 +181,8 @@ while [ $# -gt 0 ]; do
     --explain-traj)      EXPLAIN_TRAJ=1 ;;
     --unknown-classes) UNKNOWN_CATS=1 ;;
     --attn-timeline)      ATTN_TIMELINE=1 ;;
+    --viz-layout=*)       VIZ_LAYOUT="${1#*=}" ;;
+    --viz-layout)         shift; VIZ_LAYOUT="${1:-}" ;;
     --time-spans=*)       TIME_SPANS="${1#*=}" ;;
     --time-spans)         case "${2:-}" in inline|followup) shift; TIME_SPANS="$1" ;; *) TIME_SPANS=inline ;; esac ;;
     --group=*)           TARGET_GROUP="${1#*=}" ;;
@@ -391,6 +395,7 @@ esac
 [ "${EXPLAIN_TRAJ:-0}" = "1" ] && OPTS="$OPTS --explain-traj"
 [ "${UNKNOWN_CATS:-0}" = "1" ] && OPTS="$OPTS --unknown-classes"
 [ "${ATTN_TIMELINE:-0}" = "1" ] && OPTS="$OPTS --attn-timeline"
+[ -n "${VIZ_LAYOUT:-}" ]        && OPTS="$OPTS --viz-layout $VIZ_LAYOUT"
 case "${TIME_SPANS:-0}" in
   0|"") ;;
   1|inline) OPTS="$OPTS --time-spans inline" ;;

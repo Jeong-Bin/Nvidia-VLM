@@ -813,16 +813,16 @@ def main():
 
     log("")
     log("=" * 68)
-    log("2) CLASSES  (multi-label)")
+    log("2) CLASSES  (multi-label, P/R/F1 in %)")
     log("=" * 68)
-    log(f"  per-clip F1, all {len(common)} clips  : {sum(per_clip)/len(per_clip):.3f}")
+    log(f"  per-clip F1, all {len(common)} clips  : {100*sum(per_clip)/len(per_clip):.1f}")
     if per_clip_sp:
         log(f"  per-clip F1, {len(sp)} special only : "
-            f"{sum(per_clip_sp)/len(per_clip_sp):.3f}")
-    log(f"  micro F1  : {prf(*micro)[2]:.3f}")
+            f"{100*sum(per_clip_sp)/len(per_clip_sp):.1f}")
+    log(f"  micro F1  : {100*prf(*micro)[2]:.1f}")
     scored = [r for r in rows if r[1] >= args.min_support]
     if scored:
-        log(f"  macro F1  : {sum(r[4] for r in scored)/len(scored):.3f}"
+        log(f"  macro F1  : {100*sum(r[4] for r in scored)/len(scored):.1f}"
             f"   (over {len(scored)} classes with >={args.min_support} labels)")
     log("")
     # 묶음 열: 묶음 이름의 머리글자(Dynamic object -> DO). 묶음은 scene 의
@@ -844,8 +844,8 @@ def main():
     # 쓰는지 알 수 없다. 목록 파일(classes/)은 지우기 전 기준으로 쓴다.
     # 표에서는 제 묶음의 맨 끝에 둔다.
     cset = set(common)
-    lines = [(grp(c)[1], 0, -t, f"  {grp(c)[0]:<7}{c:<{w}}{t:>4}{p:>8.2f}{r:>8.2f}"
-              f"{f:>8.2f}{ctp:>5}{cfp:>5}{cfn:>5}")
+    lines = [(grp(c)[1], 0, -t, f"  {grp(c)[0]:<7}{c:<{w}}{t:>4}{100*p:>8.1f}{100*r:>8.1f}"
+              f"{100*f:>8.1f}{ctp:>5}{cfp:>5}{cfn:>5}")
              for c, t, p, r, f, ctp, cfp, cfn in rows]
     for c, v in unknown.items():
         g, pr = v["gt"] & cset, v["pred"] & cset

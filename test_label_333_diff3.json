@@ -2708,6 +2708,7 @@
     "0f2ebc67-bd15-4b3a-ad6a-40846ad480bc": {
       "classes": {
         "Animal": 2,
+        "Pedestrian on Road": 1,
         "Cyclist on Road": 2
       },
       "Dynamic object": 2,
@@ -2892,10 +2893,10 @@
     },
     "36bfc24c-c42c-4f6b-a501-a908bc290aab": {
       "classes": {
-        "Pedestrian on Road": 3,
+        "Pedestrian on Road": 2,
         "Road Construction": 3
       },
-      "Dynamic object": 3,
+      "Dynamic object": 2,
       "Driving environment": 3,
       "rain_snow_fog": [],
       "weather": {
@@ -4197,13 +4198,13 @@
       "Dynamic object": 0,
       "Driving environment": 0,
       "rain_snow_fog": [
-        "rain"
+        "snow"
       ],
       "weather": {
         "illumination": 3,
         "precipitation": 3,
         "road_surface": 2,
-        "atmospheric_obscurants": 0
+        "atmospheric_obscurants": 1
       },
       "note": ""
     },

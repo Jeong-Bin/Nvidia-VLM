@@ -24,6 +24,7 @@ Usage:
   python rerender_clip_viz.py --run-dir "results/<데이터셋>/<run>"
   python rerender_clip_viz.py --run-dir "results/<데이터셋>/<run>" --final --out-dir viz_final
   python rerender_clip_viz.py --run-dir "results/<데이터셋>/<run>" --uuids <uuid> ... --video-name clip2.mp4
+  python rerender_clip_viz.py --run-dir "results/<데이터셋>/<run>" --existing --layout horizontal
 """
 from __future__ import annotations
 
@@ -103,11 +104,15 @@ def main():
                     help="패널 GT 로 쓸 라벨 파일 (기본: 실행 때 쓴 것). 예전 NAS "
                          "실행은 NVIDIA 라벨이 기본이라 다른 데이터셋은 GT:- 로 "
                          "그려졌다 - nas_labels/<데이터셋>/labels.json 을 주면 고쳐 그린다")
+    ap.add_argument("--layout", choices=["vertical", "horizontal"], default=None,
+                    help="시각화 배치. vertical: 영상 아래에 추론 결과, horizontal: 영상 "
+                         "오른쪽에 추론 결과 (기본: 실행 때 쓴 것, 기록이 없으면 vertical)")
     args = ap.parse_args()
 
     run = Path(args.run_dir)
     cfg = config.read_run_config(run / "run_config.json")
     argv = cfg.get("argv", {})
+    layout = args.layout or argv.get("viz_layout") or "vertical"
     key = cfg.get("key", {})
 
     csv_path = run / "before_recheck_clip_results_all.csv"
@@ -217,7 +222,8 @@ def main():
                                  attn_focus=(targets[i] if targets else None),
                                  gt=(gt or {}).get(r["uuid"]), extra=extra,
                                  video_name=args.video_name,
-                                 write_json=args.video_name == "clip.mp4")
+                                 write_json=args.video_name == "clip.mp4",
+                                 layout=layout)
             n += 1
             print(f"[viz] {od.relative_to(run) / args.video_name}")
         if targets is not None:

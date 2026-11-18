@@ -668,6 +668,7 @@ def render_clip_video(src_mp4, result: dict, out_path,
                       traj: str | None = None, traj_uuid: str | None = None,
                       traj_view: str = "camera_front_wide_120fov",
                       attn_focus: str | None = None,
+                      layout: str = "vertical",
                       ) -> Path | None:
     """원본 mp4 위에 추론 텍스트 패널을 붙여 새 mp4 로 저장.
 
@@ -682,6 +683,8 @@ def render_clip_video(src_mp4, result: dict, out_path,
     traj       : "center"|"width" 를 주면 원본 프레임마다 자차 미래 궤적을
                  그린다. 추론 입력(2fps 40장)과 달리 여기는 원본 605프레임을
                  모두 쓰므로, 프레임 번호를 그대로 궤적 계산에 넘긴다.
+    layout     : "vertical"(기본) 은 영상 아래에 텍스트 패널을, "horizontal" 은
+                 영상 오른쪽에 붙인다. 구간 띠는 어느 쪽이든 영상 바로 아래다.
 
     반환: 저장 경로. 원본을 못 열면 None.
     """
@@ -738,25 +741,53 @@ def render_clip_video(src_mp4, result: dict, out_path,
     else:
         vid_w, vid_h = out_w, out_h
 
-    panel = build_text_panel(result, out_w, scale=out_w / 1280.0)
-    panel_bgr = cv2.cvtColor(panel, cv2.COLOR_RGB2BGR)
-    # --time-spans 구간 띠는 영상 바로 아래, 텍스트 패널 위에 둔다.
+    if layout not in ("vertical", "horizontal"):
+        raise ValueError(f"layout 은 vertical/horizontal 중 하나: {layout!r}")
+    sc = out_w / 1280.0
+    # --time-spans 구간 띠는 영상 바로 아래에 둔다(세로면 텍스트 패널 위).
     strip = build_timeline_strip(result, n_total / fps if n_total else 0.0,
-                                 out_w, scale=out_w / 1280.0)
+                                 out_w, scale=sc)
     strip_bgr, geom = ((cv2.cvtColor(strip[0], cv2.COLOR_RGB2BGR), strip[1])
                        if strip else (None, None))
     sh = strip_bgr.shape[0] if strip_bgr is not None else 0
     out_h = vid_h               # 이 아래 배치는 영상 줄의 높이만 본다
-    total_h = out_h + sh + panel.shape[0]
+
+    if layout == "horizontal":
+        # 글자 크기는 세로와 같게 두고 패널 폭만 고른다. 좁을수록 줄이 늘어
+        # 패널이 길어지므로, 영상 + 띠 높이에 들어가는 가장 좁은 폭을 쓴다
+        # (영상 폭의 절반부터). 어느 폭도 안 들어가면 영상 폭과 같게 둔다 -
+        # 그보다 넓혀도 줄어드는 높이는 얼마 안 되고 화면만 길어진다.
+        left_h = out_h + sh
+        widths = list(range(max(320, out_w // 2), out_w, 64)) + [out_w]
+        for pw in widths:
+            pw -= pw % 2
+            panel = build_text_panel(result, pw, scale=sc)
+            if panel.shape[0] <= left_h:
+                break
+        total_w = out_w + panel.shape[1]
+        total_h = max(left_h, panel.shape[0])
+        px, py = out_w, 0
+    else:
+        panel = build_text_panel(result, out_w, scale=sc)
+        total_w = out_w
+        total_h = out_h + sh + panel.shape[0]
+        px, py = 0, out_h + sh
+    panel_bgr = cv2.cvtColor(panel, cv2.COLOR_RGB2BGR)
     total_h -= total_h % 2
+    total_w -= total_w % 2
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    canvas = np.full((total_h, out_w, 3), 255, dtype=np.uint8)
+    # 가로 배치는 영상 아래나 패널 아래에 빈 칸이 생긴다 - 패널 바탕색으로 채워
+    # 한 장처럼 보이게 한다.
+    canvas = np.full((total_h, total_w, 3), 255, dtype=np.uint8)
+    if layout == "horizontal":
+        canvas[:] = BG[::-1]
     # 패널은 클립 내내 같으므로 한 번만 붙이고, 매 프레임 영상 영역만 갈아끼운다
-    ph = min(panel_bgr.shape[0], total_h - out_h - sh)
-    canvas[out_h + sh:out_h + sh + ph] = panel_bgr[:ph]
+    ph = min(panel_bgr.shape[0], total_h - py)
+    pw = min(panel_bgr.shape[1], total_w - px)
+    canvas[py:py + ph, px:px + pw] = panel_bgr[:ph, :pw]
 
     def frames_iter():
         """원본에서 프레임을 읽어 패널 위에 얹은 canvas(BGR)를 흘려준다."""
@@ -790,10 +821,10 @@ def render_clip_video(src_mp4, result: dict, out_path,
                 heat[:legend.shape[0]] = legend
                 canvas[:vid_h, vid_w:2 * vid_w] = heat
             else:
-                canvas[:out_h] = frame
+                canvas[:out_h, :out_w] = frame
             if strip_bgr is not None:
                 # 띠를 다시 깔고 재생 위치에 세로선을 긋는다.
-                canvas[out_h:out_h + sh] = strip_bgr
+                canvas[out_h:out_h + sh, :out_w] = strip_bgr
                 t = n / fps
                 x = int(round(geom["x0"] + min(t / geom["duration"], 1.0)
                               * (geom["x1"] - geom["x0"])))
@@ -811,9 +842,9 @@ def render_clip_video(src_mp4, result: dict, out_path,
 
     try:
         if HAVE_PYAV:
-            n = _write_h264(out_path, frames_iter(), out_w, total_h, fps)
+            n = _write_h264(out_path, frames_iter(), total_w, total_h, fps)
         else:
-            n = _write_cv2(out_path, frames_iter(), out_w, total_h, fps, fourcc)
+            n = _write_cv2(out_path, frames_iter(), total_w, total_h, fps, fourcc)
     finally:
         cap.release()
         _cleanup_temp(tmp_path)
@@ -918,6 +949,7 @@ def render_clip_result(uuid: str, src_mp4, result: dict, out_dir,
                        attn_focus: str | None = None,
                        video_name: str = "clip.mp4",
                        write_json: bool = True,
+                       layout: str = "vertical",
                        ):
     """클립 하나의 영상 + json 을 같은 폴더에 저장하고 (video, json) 을 반환.
 
@@ -934,7 +966,7 @@ def render_clip_result(uuid: str, src_mp4, result: dict, out_dir,
     video = render_clip_video(src_mp4, r, out_dir / video_name,
                               max_width=max_width, max_frames=max_frames,
                               traj=traj, traj_uuid=uuid, traj_view=traj_view,
-                              attn_focus=attn_focus)
+                              attn_focus=attn_focus, layout=layout)
     js = (save_clip_json(r, out_dir / "result.json", extra=extra)
           if write_json else None)
     return video, js
